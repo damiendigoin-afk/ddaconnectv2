@@ -44,8 +44,15 @@ function SharePage() {
           <p className="text-sm text-muted-foreground">Chargement…</p>
         ) : report.data ? (
           <>
-            <Summary d={report.data} />
-            <ReportBody d={report.data} detailed={false} clientView />
+            <Summary d={report.data} clientView />
+            {report.data.observations.length === 0 &&
+            report.data.points.every((p) => p.status !== "watch" && p.status !== "defect") ? (
+              <section className="card-surface p-4 text-sm">
+                Aucun point à surveiller ni défaut n'a été relevé lors de ce contrôle.
+              </section>
+            ) : (
+              <ReportBody d={report.data} detailed={false} clientView />
+            )}
             <p className="pt-4 text-center text-xs text-muted-foreground">
               Document d'information établi lors du contrôle atelier. Pour toute question, contactez
               votre conseiller.
