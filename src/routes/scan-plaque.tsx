@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { Camera, Images, Loader2, Search } from "lucide-react";
+import { Camera, Car, Images, Loader2, Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { formatPlate, normalizePlate } from "@/lib/plate";
 import { compressImage, blobToDataUrl } from "@/lib/photo";
 import { ocrPlate } from "@/lib/ocr.functions";
 import { OR_SELECT } from "@/lib/queries";
+import { customerName, findRefVehicleByPlate, vehicleLabel, type RefCustomer, type RefVehicle } from "@/lib/refbase";
 
 export const Route = createFileRoute("/scan-plaque")({
   head: () => ({
@@ -32,6 +33,7 @@ function ScanPlate() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [results, setResults] = useState<OrRow[] | null>(null);
+  const [refVehicle, setRefVehicle] = useState<(RefVehicle & { customer: RefCustomer | null }) | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -59,6 +61,7 @@ function ScanPlate() {
   async function search(value: string) {
     const norm = normalizePlate(value);
     if (!norm) return;
+    setRefVehicle(await findRefVehicleByPlate(norm));
     const { data } = await supabase
       .from("repair_orders")
       .select(OR_SELECT)
