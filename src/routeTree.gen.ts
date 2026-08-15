@@ -29,6 +29,7 @@ import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvel
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
@@ -137,6 +138,11 @@ const PartageTokenRoute = PartageTokenRouteImport.update({
   path: '/partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
+  id: '/vehicule/$vehId',
+  path: '/vehicule/$vehId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BaseHistoriqueIndexRoute = BaseHistoriqueIndexRouteImport.update({
   id: '/base/historique/',
   path: '/base/historique/',
@@ -193,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/vehicule/$vehId'
     | '/base/'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/vehicule/$vehId'
     | '/base'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/vehicule/$vehId'
     | '/base/'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -371,6 +383,7 @@ export interface RootRouteChildren {
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
@@ -523,6 +536,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vehicule/$vehId': {
+      id: '/vehicule/$vehId'
+      path: '/vehicule/$vehId'
+      fullPath: '/vehicule/$vehId'
+      preLoaderRoute: typeof VehiculeVehIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/base/historique/': {
       id: '/base/historique/'
       path: '/base/historique'
@@ -595,6 +615,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
+  VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
