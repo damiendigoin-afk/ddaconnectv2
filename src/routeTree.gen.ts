@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
+import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
+  id: '/scan-plaque',
+  path: '/scan-plaque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrNouveauRoute = OrNouveauRouteImport.update({
+  id: '/or/nouveau',
+  path: '/or/nouveau',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/nouveau': typeof OrNouveauRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/nouveau': typeof OrNouveauRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/nouveau': typeof OrNouveauRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/scan-plaque' | '/or/nouveau'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/scan-plaque' | '/or/nouveau'
+  id: '__root__' | '/' | '/scan-plaque' | '/or/nouveau'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ScanPlaqueRoute: typeof ScanPlaqueRoute
+  OrNouveauRoute: typeof OrNouveauRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scan-plaque': {
+      id: '/scan-plaque'
+      path: '/scan-plaque'
+      fullPath: '/scan-plaque'
+      preLoaderRoute: typeof ScanPlaqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/or/nouveau': {
+      id: '/or/nouveau'
+      path: '/or/nouveau'
+      fullPath: '/or/nouveau'
+      preLoaderRoute: typeof OrNouveauRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ScanPlaqueRoute: ScanPlaqueRoute,
+  OrNouveauRoute: OrNouveauRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
