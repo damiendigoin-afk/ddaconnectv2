@@ -22,6 +22,7 @@ import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvel
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
@@ -91,6 +92,11 @@ const PartageTokenRoute = PartageTokenRouteImport.update({
   path: '/partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpertiseExIdIndexRoute = ExpertiseExIdIndexRouteImport.update({
+  id: '/expertise/$exId/',
+  path: '/expertise/$exId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
   id: '/tour/$tourId/',
   path: '/tour/$tourId/',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/partage/$token': typeof PartageTokenRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/partage/$token': typeof PartageTokenRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesById {
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/partage/$token': typeof PartageTokenRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/expertise/$exId'
     | '/tour/$tourId'
   id:
     | '__root__'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesById: FileRoutesById
 }
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   PartageTokenRoute: typeof PartageTokenRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
+  ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
 }
 
@@ -331,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expertise/$exId/': {
+      id: '/expertise/$exId/'
+      path: '/expertise/$exId'
+      fullPath: '/expertise/$exId/'
+      preLoaderRoute: typeof ExpertiseExIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tour/$tourId/': {
       id: '/tour/$tourId/'
       path: '/tour/$tourId'
@@ -371,6 +391,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartageTokenRoute: PartageTokenRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
+  ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
 }
 export const routeTree = rootRouteImport

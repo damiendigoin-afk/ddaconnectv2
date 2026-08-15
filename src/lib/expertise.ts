@@ -191,6 +191,7 @@ export type ExpertiseDamage = {
   estimated_cost: number | null;
   cost_pending: boolean;
   annotation_data: unknown;
+  created_by: string | null;
   created_at: string;
 };
 
