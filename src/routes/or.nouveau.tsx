@@ -411,16 +411,17 @@ function Field({
   const cls = `w-full rounded-lg border-2 bg-card px-3 py-3 outline-none focus:border-brand ${
     warn ? "border-status-watch" : "border-border"
   } ${big ? "plate-badge text-xl uppercase" : "text-base"}`;
+  const id = `f-${label.replace(/\W+/g, "-").toLowerCase()}`;
   return (
     <div>
-      <label className="mb-1 block text-xs font-semibold text-muted-foreground">
+      <label htmlFor={id} className="mb-1 block text-xs font-semibold text-muted-foreground">
         {label}
         {warn ? <span className="ml-2 text-status-watch">à vérifier</span> : null}
       </label>
       {textarea ? (
-        <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={3} className={cls} />
+        <textarea id={id} value={value} onChange={(e) => onChange(e.target.value)} rows={3} className={cls} />
       ) : (
-        <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
+        <input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
       )}
     </div>
   );
