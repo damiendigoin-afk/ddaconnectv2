@@ -16,10 +16,10 @@ Extrais uniquement ce que tu lis réellement. Réponds STRICTEMENT en JSON avec 
 "uncertain":["liste des chemins de champs peu lisibles, ex: vehicle.vin"]}
 Dates au format ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm). mileage = entier sans espace. Mets null si absent.`;
     const result = await askVision(prompt, data.dataUrl, data.filename);
-    if (!result.ok) return { ok: false as const, error: result.error };
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
-    if (!parsed) return { ok: false as const, error: "Document illisible." };
-    return { ok: true as const, data: parsed };
+    if (!parsed) return { ok: false as const, error: "Document illisible.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
   });
 
 export const ocrPlate = createServerFn({ method: "POST" })
@@ -29,10 +29,11 @@ export const ocrPlate = createServerFn({ method: "POST" })
 Réponds STRICTEMENT en JSON : {"plate":"AB-123-CD","confidence":0.0}
 Si aucune plaque lisible : {"plate":null,"confidence":0}`;
     const result = await askVision(prompt, data.dataUrl, data.filename);
-    if (!result.ok) return { ok: false as const, error: result.error };
+    if (!result.ok) return { ok: false as const, error: result.error, plate: "" };
     const parsed = parseJsonBlock(result.content);
-    if (!parsed) return { ok: false as const, error: "Plaque non détectée." };
-    return { ok: true as const, plate: (parsed["plate"] as string | null) ?? null };
+    const plate = typeof parsed?.["plate"] === "string" ? (parsed["plate"] as string) : "";
+    if (!plate) return { ok: false as const, error: "Plaque non détectée.", plate: "" };
+    return { ok: true as const, error: "", plate };
   });
 
 export const ocrOdometer = createServerFn({ method: "POST" })
@@ -42,10 +43,10 @@ export const ocrOdometer = createServerFn({ method: "POST" })
 Réponds STRICTEMENT en JSON : {"mileage":78452,"unit":"km"}
 Si illisible : {"mileage":null,"unit":null}`;
     const result = await askVision(prompt, data.dataUrl, data.filename);
-    if (!result.ok) return { ok: false as const, error: result.error };
+    if (!result.ok) return { ok: false as const, error: result.error, mileage: 0 };
     const parsed = parseJsonBlock(result.content);
     const raw = parsed?.["mileage"];
-    const mileage = typeof raw === "number" ? Math.round(raw) : null;
-    if (mileage === null) return { ok: false as const, error: "Kilométrage non détecté." };
-    return { ok: true as const, mileage };
+    const mileage = typeof raw === "number" ? Math.round(raw) : 0;
+    if (!mileage) return { ok: false as const, error: "Kilométrage non détecté.", mileage: 0 };
+    return { ok: true as const, error: "", mileage };
   });
