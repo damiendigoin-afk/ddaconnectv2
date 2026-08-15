@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { formatPlate } from "@/lib/plate";
 
@@ -29,11 +28,34 @@ function Lines({ text }: { text: string }) {
   );
 }
 
-export function OrCard({ o }: { o: Order }) {
+/** Bloc texte toujours visible, tronqué au-delà de 4 lignes avec « Voir plus ». */
+function Block({ title, text }: { title: string; text: string }) {
   const [open, setOpen] = useState(false);
+  const long = text.length > 180 || text.split(/\r?\n/).length > 4;
+  return (
+    <div>
+      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        {title}
+      </div>
+      <div className={!open && long ? "line-clamp-4 overflow-hidden" : ""}>
+        <Lines text={text} />
+      </div>
+      {long ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="mt-1 text-xs font-bold uppercase tracking-widest text-brand"
+        >
+          {open ? "Voir moins" : "Voir plus"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+export function OrCard({ o }: { o: Order }) {
   const v = o.vehicle as { plate?: string; brand?: string; model?: string } | null;
   const c = o.client as { first_name?: string; last_name?: string } | null;
-  const hasDetails = Boolean(o.client_remarks || o.requested_work);
 
   return (
     <div className="card-surface overflow-hidden">
@@ -50,43 +72,17 @@ export function OrCard({ o }: { o: Order }) {
             <div>{o.or_date ? new Date(o.or_date).toLocaleDateString("fr-FR") : "—"}</div>
           </div>
         </div>
-        <div className="mt-1 text-xs text-muted-foreground">
+        <div className="mt-1 text-sm font-semibold text-foreground">
           {[c?.first_name, c?.last_name].filter(Boolean).join(" ") || "Client —"}
         </div>
-      </Link>
 
-      {hasDetails ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setOpen((v2) => !v2)}
-            className="flex w-full items-center justify-between border-t border-border px-4 py-3 text-xs font-bold uppercase tracking-widest text-muted-foreground"
-          >
-            {open ? "Masquer le détail" : "Voir la demande client"}
-            {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-          {open ? (
-            <div className="space-y-3 border-t border-border px-4 py-3">
-              {o.client_remarks ? (
-                <div>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    Remarques client
-                  </div>
-                  <Lines text={o.client_remarks} />
-                </div>
-              ) : null}
-              {o.requested_work ? (
-                <div>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    Travaux à prévoir
-                  </div>
-                  <Lines text={o.requested_work} />
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </>
-      ) : null}
+        {o.client_remarks || o.requested_work ? (
+          <div className="mt-3 space-y-3 border-t border-border pt-3">
+            {o.client_remarks ? <Block title="Demande client" text={o.client_remarks} /> : null}
+            {o.requested_work ? <Block title="Travaux prévus" text={o.requested_work} /> : null}
+          </div>
+        ) : null}
+      </Link>
     </div>
   );
 }
