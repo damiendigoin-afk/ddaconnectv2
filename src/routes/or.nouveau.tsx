@@ -397,6 +397,22 @@ function NewOrder() {
   return (
     <AppShell title="Vérifier les informations" subtitle="Tous les champs sont modifiables" back={{ to: "/tour-vehicule" }}>
       <div className="space-y-4 pb-4">
+        {refHit ? (
+          <div className="flex items-start gap-2 rounded-xl border-2 border-status-ok bg-card p-3 text-sm">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-ok" />
+            <div className="min-w-0 flex-1">
+              <p className="font-bold uppercase">Véhicule trouvé dans la base</p>
+              <p className="truncate text-muted-foreground">{refHit.label}</p>
+              <Link
+                to="/vehicule/$vehId"
+                params={{ vehId: refHit.vehicleId }}
+                className="text-xs font-bold uppercase underline"
+              >
+                Ouvrir la fiche véhicule
+              </Link>
+            </div>
+          </div>
+        ) : null}
         <Section title="Véhicule">
           <Field label="Immatriculation" value={form.plate} onChange={(v) => set("plate", v.toUpperCase())} warn={flagged("vehicle.plate")} big />
           <Field label="VIN" value={form.vin} onChange={(v) => set("vin", v)} warn={flagged("vehicle.vin")} />
