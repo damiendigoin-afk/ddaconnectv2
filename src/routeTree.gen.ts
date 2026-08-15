@@ -26,6 +26,8 @@ import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvel
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
+import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
 import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
@@ -117,6 +119,16 @@ const PartageTokenRoute = PartageTokenRouteImport.update({
   path: '/partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BaseHistoriqueIndexRoute = BaseHistoriqueIndexRouteImport.update({
+  id: '/base/historique/',
+  path: '/base/historique/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseHistoriqueImportIdRoute = BaseHistoriqueImportIdRouteImport.update({
+  id: '/base/historique/$importId',
+  path: '/base/historique/$importId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpertiseExIdIndexRoute = ExpertiseExIdIndexRouteImport.update({
   id: '/expertise/$exId/',
   path: '/expertise/$exId/',
@@ -161,9 +173,11 @@ export interface FileRoutesByFullPath {
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
   '/base/': typeof BaseIndexRoute
+  '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
@@ -185,9 +199,11 @@ export interface FileRoutesByTo {
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
   '/base': typeof BaseIndexRoute
+  '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/base/historique': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
 }
@@ -210,9 +226,11 @@ export interface FileRoutesById {
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
   '/base/': typeof BaseIndexRoute
+  '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
@@ -236,9 +254,11 @@ export interface FileRouteTypes {
     | '/or/nouveau'
     | '/partage/$token'
     | '/base/'
+    | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/base/historique/'
     | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesByTo: FileRoutesByTo
@@ -260,9 +280,11 @@ export interface FileRouteTypes {
     | '/or/nouveau'
     | '/partage/$token'
     | '/base'
+    | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/base/historique'
     | '/expertise/$exId'
     | '/tour/$tourId'
   id:
@@ -284,9 +306,11 @@ export interface FileRouteTypes {
     | '/or/nouveau'
     | '/partage/$token'
     | '/base/'
+    | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/base/historique/'
     | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesById: FileRoutesById
@@ -309,9 +333,11 @@ export interface RootRouteChildren {
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
   BaseIndexRoute: typeof BaseIndexRoute
+  BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
+  BaseHistoriqueIndexRoute: typeof BaseHistoriqueIndexRoute
   ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
 }
@@ -437,6 +463,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/base/historique/': {
+      id: '/base/historique/'
+      path: '/base/historique'
+      fullPath: '/base/historique/'
+      preLoaderRoute: typeof BaseHistoriqueIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/historique/$importId': {
+      id: '/base/historique/$importId'
+      path: '/base/historique/$importId'
+      fullPath: '/base/historique/$importId'
+      preLoaderRoute: typeof BaseHistoriqueImportIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expertise/$exId/': {
       id: '/expertise/$exId/'
       path: '/expertise/$exId'
@@ -493,9 +533,11 @@ const rootRouteChildren: RootRouteChildren = {
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
   BaseIndexRoute: BaseIndexRoute,
+  BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
+  BaseHistoriqueIndexRoute: BaseHistoriqueIndexRoute,
   ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
 }
