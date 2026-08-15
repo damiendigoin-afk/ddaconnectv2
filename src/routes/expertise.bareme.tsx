@@ -33,7 +33,10 @@ function PriceRulesPage() {
   const q = useQuery({ queryKey: ["price-rules"], queryFn: fetchPriceRules });
 
   async function save(id: string, patch: Record<string, unknown>) {
-    const { error } = await supabase.from("repair_price_rules").update(patch).eq("id", id);
+    const { error } = await supabase
+      .from("repair_price_rules")
+      .update(patch as never)
+      .eq("id", id);
     if (error) {
       toast.error("Modification refusée.");
       return;
