@@ -76,7 +76,7 @@ export function InfoEditForm({
       for (const [k] of CLIENT_FIELDS) clientPayload[k] = form[`c_${k}`]?.trim() || null;
       let clientId = s(client?.["id"]) || null;
       if (clientId) {
-        const { error } = await supabase.from("clients").update(clientPayload).eq("id", clientId);
+        const { error } = await supabase.from("clients").update(clientPayload as never).eq("id", clientId);
         if (error) throw error;
         await logChanges({
           entity: "client",
@@ -86,7 +86,7 @@ export function InfoEditForm({
           ...author,
         });
       } else if (clientPayload["last_name"] || clientPayload["first_name"]) {
-        const { data, error } = await supabase.from("clients").insert(clientPayload).select("id").single();
+        const { data, error } = await supabase.from("clients").insert(clientPayload as never).select("id").single();
         if (error) throw error;
         clientId = data.id;
       }
@@ -115,7 +115,7 @@ export function InfoEditForm({
             source: "correction",
           });
         }
-        const { error } = await supabase.from("vehicles").update(vehiclePayload).eq("id", vehicleId);
+        const { error } = await supabase.from("vehicles").update(vehiclePayload as never).eq("id", vehicleId);
         if (error) throw error;
         await logChanges({
           entity: "vehicle",
@@ -135,7 +135,7 @@ export function InfoEditForm({
         ...(clientId ? { client_id: clientId } : {}),
       };
       const orderId = s(order["id"]);
-      const { error: oErr } = await supabase.from("repair_orders").update(orderPayload).eq("id", orderId);
+      const { error: oErr } = await supabase.from("repair_orders").update(orderPayload as never).eq("id", orderId);
       if (oErr) throw oErr;
       await logChanges({
         entity: "repair_order",
