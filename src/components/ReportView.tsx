@@ -3,7 +3,7 @@ import { StatusBadge } from "@/components/StatusPicker";
 import { formatPlate } from "@/lib/plate";
 import type { ReportData } from "@/lib/report";
 
-export function Summary({ d }: { d: ReportData }) {
+export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean }) {
   const date = new Date(d.inspection.completed_at ?? d.inspection.started_at);
   const counts = {
     ok: d.points.filter((p) => p.status === "ok").length,
@@ -26,7 +26,12 @@ export function Summary({ d }: { d: ReportData }) {
         <div className="font-semibold">{d.inspection.mileage.toLocaleString("fr-FR")} km</div>
       ) : null}
       <div className="pt-2 text-sm">
-        {d.inspection.inspection_type === "guide" ? (
+        {clientView ? (
+          <span>
+            {counts.watch} point(s) à surveiller · {counts.defect + d.observations.length} défaut(s)
+            constaté(s)
+          </span>
+        ) : d.inspection.inspection_type === "guide" ? (
           <span>
             {counts.ok} OK · {counts.watch} à surveiller · {counts.defect} défaut(s) ·{" "}
             {counts.unset} non renseigné(s) · {d.media.length} photo(s)
@@ -37,7 +42,7 @@ export function Summary({ d }: { d: ReportData }) {
           </span>
         )}
       </div>
-      {d.inspection.inspection_type === "libre" ? (
+      {d.inspection.inspection_type === "libre" && !clientView ? (
         <p className="pt-1 text-xs text-muted-foreground">
           Tour libre : seuls les éléments signalés ci-dessous ont fait l'objet d'une observation.
         </p>
