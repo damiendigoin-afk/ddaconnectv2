@@ -19,7 +19,9 @@ import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
 import { Route as BaseIndexRouteImport } from './routes/base.index'
+import { Route as BaseClientsRouteImport } from './routes/base.clients'
 import { Route as BaseImportRouteImport } from './routes/base.import'
+import { Route as BaseVehiculesRouteImport } from './routes/base.vehicules'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
@@ -84,9 +86,19 @@ const BaseIndexRoute = BaseIndexRouteImport.update({
   path: '/base/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BaseClientsRoute = BaseClientsRouteImport.update({
+  id: '/base/clients',
+  path: '/base/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BaseImportRoute = BaseImportRouteImport.update({
   id: '/base/import',
   path: '/base/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseVehiculesRoute = BaseVehiculesRouteImport.update({
+  id: '/base/vehicules',
+  path: '/base/vehicules',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
@@ -165,7 +177,9 @@ export interface FileRoutesByFullPath {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
+  '/base/vehicules': typeof BaseVehiculesRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -191,7 +205,9 @@ export interface FileRoutesByTo {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
+  '/base/vehicules': typeof BaseVehiculesRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -218,7 +234,9 @@ export interface FileRoutesById {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
+  '/base/vehicules': typeof BaseVehiculesRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -246,7 +264,9 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/base/clients'
     | '/base/import'
+    | '/base/vehicules'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -272,7 +292,9 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/base/clients'
     | '/base/import'
+    | '/base/vehicules'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -298,7 +320,9 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/base/clients'
     | '/base/import'
+    | '/base/vehicules'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -325,7 +349,9 @@ export interface RootRouteChildren {
   ToursRoute: typeof ToursRoute
   UtilisateursRoute: typeof UtilisateursRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
+  BaseClientsRoute: typeof BaseClientsRoute
   BaseImportRoute: typeof BaseImportRoute
+  BaseVehiculesRoute: typeof BaseVehiculesRoute
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
@@ -414,11 +440,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BaseIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/base/clients': {
+      id: '/base/clients'
+      path: '/base/clients'
+      fullPath: '/base/clients'
+      preLoaderRoute: typeof BaseClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/base/import': {
       id: '/base/import'
       path: '/base/import'
       fullPath: '/base/import'
       preLoaderRoute: typeof BaseImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/vehicules': {
+      id: '/base/vehicules'
+      path: '/base/vehicules'
+      fullPath: '/base/vehicules'
+      preLoaderRoute: typeof BaseVehiculesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expertise-partage/$token': {
@@ -525,7 +565,9 @@ const rootRouteChildren: RootRouteChildren = {
   ToursRoute: ToursRoute,
   UtilisateursRoute: UtilisateursRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
+  BaseClientsRoute: BaseClientsRoute,
   BaseImportRoute: BaseImportRoute,
+  BaseVehiculesRoute: BaseVehiculesRoute,
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
