@@ -11,15 +11,21 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ExpertisesRouteImport } from './routes/expertises'
 import { Route as OrdresRouteImport } from './routes/ordres'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
 import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
+import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
+import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
+import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
@@ -32,6 +38,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpertisesRoute = ExpertisesRouteImport.update({
+  id: '/expertises',
+  path: '/expertises',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrdresRoute = OrdresRouteImport.update({
@@ -64,6 +75,21 @@ const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   path: '/api/test-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
+  id: '/expertise-partage/$token',
+  path: '/expertise-partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpertiseBaremeRoute = ExpertiseBaremeRouteImport.update({
+  id: '/expertise/bareme',
+  path: '/expertise/bareme',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpertiseNouvelleRoute = ExpertiseNouvelleRouteImport.update({
+  id: '/expertise/nouvelle',
+  path: '/expertise/nouvelle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrOrIdRoute = OrOrIdRouteImport.update({
   id: '/or/$orId',
   path: '/or/$orId',
@@ -77,6 +103,16 @@ const OrNouveauRoute = OrNouveauRouteImport.update({
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpertiseExIdIndexRoute = ExpertiseExIdIndexRouteImport.update({
+  id: '/expertise/$exId/',
+  path: '/expertise/$exId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpertiseExIdRapportRoute = ExpertiseExIdRapportRouteImport.update({
+  id: '/expertise/$exId/rapport',
+  path: '/expertise/$exId/rapport',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
@@ -98,50 +134,68 @@ const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
+  '/expertise/bareme': typeof ExpertiseBaremeRoute
+  '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
+  '/expertise/bareme': typeof ExpertiseBaremeRoute
+  '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
+  '/expertise/bareme': typeof ExpertiseBaremeRoute
+  '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -149,66 +203,90 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/expertises'
     | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise-partage/$token'
+    | '/expertise/bareme'
+    | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/expertises'
     | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise-partage/$token'
+    | '/expertise/bareme'
+    | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/expertise/$exId'
     | '/tour/$tourId'
   id:
     | '__root__'
     | '/'
     | '/auth'
+    | '/expertises'
     | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise-partage/$token'
+    | '/expertise/bareme'
+    | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  ExpertisesRoute: typeof ExpertisesRoute
   OrdresRoute: typeof OrdresRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
   TourVehiculeRoute: typeof TourVehiculeRoute
   ToursRoute: typeof ToursRoute
   UtilisateursRoute: typeof UtilisateursRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
+  ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
+  ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
+  ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
+  ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
 }
 
@@ -226,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expertises': {
+      id: '/expertises'
+      path: '/expertises'
+      fullPath: '/expertises'
+      preLoaderRoute: typeof ExpertisesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ordres': {
@@ -270,6 +355,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTestEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expertise-partage/$token': {
+      id: '/expertise-partage/$token'
+      path: '/expertise-partage/$token'
+      fullPath: '/expertise-partage/$token'
+      preLoaderRoute: typeof ExpertisePartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expertise/bareme': {
+      id: '/expertise/bareme'
+      path: '/expertise/bareme'
+      fullPath: '/expertise/bareme'
+      preLoaderRoute: typeof ExpertiseBaremeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expertise/nouvelle': {
+      id: '/expertise/nouvelle'
+      path: '/expertise/nouvelle'
+      fullPath: '/expertise/nouvelle'
+      preLoaderRoute: typeof ExpertiseNouvelleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/or/$orId': {
       id: '/or/$orId'
       path: '/or/$orId'
@@ -289,6 +395,20 @@ declare module '@tanstack/react-router' {
       path: '/partage/$token'
       fullPath: '/partage/$token'
       preLoaderRoute: typeof PartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expertise/$exId/': {
+      id: '/expertise/$exId/'
+      path: '/expertise/$exId'
+      fullPath: '/expertise/$exId/'
+      preLoaderRoute: typeof ExpertiseExIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expertise/$exId/rapport': {
+      id: '/expertise/$exId/rapport'
+      path: '/expertise/$exId/rapport'
+      fullPath: '/expertise/$exId/rapport'
+      preLoaderRoute: typeof ExpertiseExIdRapportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tour/$tourId/': {
@@ -318,17 +438,23 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  ExpertisesRoute: ExpertisesRoute,
   OrdresRoute: OrdresRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,
   TourVehiculeRoute: TourVehiculeRoute,
   ToursRoute: ToursRoute,
   UtilisateursRoute: UtilisateursRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
+  ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
+  ExpertiseBaremeRoute: ExpertiseBaremeRoute,
+  ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
+  ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
+  ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
 }
 export const routeTree = rootRouteImport
