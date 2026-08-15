@@ -22,7 +22,7 @@ export const Route = createFileRoute("/expertise-partage/$token")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: SharedExpertise;
+  component: SharedExpertise,
 });
 
 function SharedExpertise() {

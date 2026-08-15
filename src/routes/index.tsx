@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Car, LogOut, Users } from "lucide-react";
+import { ChevronRight, Car, ClipboardCheck, LogOut, Users } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
 
@@ -60,6 +60,20 @@ function Hub() {
             <div className="text-lg font-extrabold uppercase tracking-wide">Tour Véhicule</div>
             <div className="text-xs font-medium opacity-80">
               OR, contrôle guidé ou libre, rapport et envoi client
+            </div>
+          </div>
+          <ChevronRight className="h-6 w-6 shrink-0" />
+        </Link>
+
+        <Link
+          to="/expertises"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
+        >
+          <ClipboardCheck className="h-8 w-8 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-lg font-extrabold uppercase tracking-wide">Expertise Véhicule</div>
+            <div className="text-xs text-muted-foreground">
+              État des lieux photo, dommages chiffrés et rapport client
             </div>
           </div>
           <ChevronRight className="h-6 w-6 shrink-0" />
