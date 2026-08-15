@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, LogOut, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +43,11 @@ function TourPage() {
   const vehicle = tour.data?.vehicle as { id: string; plate: string; last_mileage: number | null } | null;
   const order = tour.data?.repair_order as { id: string } | null;
 
+  const completed = tour.data?.status === "completed";
+  useEffect(() => {
+    if (completed) navigate({ to: "/tour/$tourId/rapport", params: { tourId } });
+  }, [completed, navigate, tourId]);
+
   if (tour.isLoading || !tour.data || !vehicle || !order) {
     return (
       <AppShell title="Tour véhicule">
@@ -51,10 +56,7 @@ function TourPage() {
     );
   }
 
-  if (tour.data.status === "completed") {
-    navigate({ to: "/tour/$tourId/rapport", params: { tourId } });
-    return null;
-  }
+  if (completed) return null;
 
   const quit = () => {
     toast.success("Tour sauvegardé en brouillon.");
