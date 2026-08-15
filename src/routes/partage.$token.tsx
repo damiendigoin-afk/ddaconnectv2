@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
-import { ReportBody, Summary } from "@/routes/tour.$tourId.rapport";
+import { ReportBody, Summary } from "@/components/ReportView";
 import { fetchReport } from "@/lib/report";
 
 export const Route = createFileRoute("/partage/$token")({
