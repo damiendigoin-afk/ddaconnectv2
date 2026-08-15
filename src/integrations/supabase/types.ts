@@ -14,7 +14,483 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          account_number: string | null
+          address: string | null
+          address_extra: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          mobile: string | null
+          phone: string | null
+          postal_code: string | null
+        }
+        Insert: {
+          account_number?: string | null
+          address?: string | null
+          address_extra?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          mobile?: string | null
+          phone?: string | null
+          postal_code?: string | null
+        }
+        Update: {
+          account_number?: string | null
+          address?: string | null
+          address_extra?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          mobile?: string | null
+          phone?: string | null
+          postal_code?: string | null
+        }
+        Relationships: []
+      }
+      dms_update_proposals: {
+        Row: {
+          created_at: string
+          field: string
+          id: string
+          inspection_id: string | null
+          new_value: string | null
+          old_value: string | null
+          status: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          field: string
+          id?: string
+          inspection_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          status?: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          field?: string
+          id?: string
+          inspection_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          status?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dms_update_proposals_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dms_update_proposals_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_points: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          inspection_id: string
+          measure_unit: string | null
+          measure_value: string | null
+          point_key: string
+          point_label: string
+          status: string
+          updated_at: string
+          zone_index: number
+          zone_key: string
+          zone_label: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          inspection_id: string
+          measure_unit?: string | null
+          measure_value?: string | null
+          point_key: string
+          point_label: string
+          status?: string
+          updated_at?: string
+          zone_index: number
+          zone_key: string
+          zone_label: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          inspection_id?: string
+          measure_unit?: string | null
+          measure_value?: string | null
+          point_key?: string
+          point_label?: string
+          status?: string
+          updated_at?: string
+          zone_index?: number
+          zone_key?: string
+          zone_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_points_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media: {
+        Row: {
+          created_at: string
+          id: string
+          inspection_id: string | null
+          inspection_point_id: string | null
+          label: string | null
+          media_type: string
+          observation_id: string | null
+          repair_order_id: string | null
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inspection_id?: string | null
+          inspection_point_id?: string | null
+          label?: string | null
+          media_type?: string
+          observation_id?: string | null
+          repair_order_id?: string | null
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inspection_id?: string | null
+          inspection_point_id?: string | null
+          label?: string | null
+          media_type?: string
+          observation_id?: string | null
+          repair_order_id?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_inspection_point_id_fkey"
+            columns: ["inspection_point_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_observation_id_fkey"
+            columns: ["observation_id"]
+            isOneToOne: false
+            referencedRelation: "observations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mileage_history: {
+        Row: {
+          created_at: string
+          id: string
+          inspection_id: string | null
+          media_id: string | null
+          mileage: number
+          source: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inspection_id?: string | null
+          media_id?: string | null
+          mileage: number
+          source?: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inspection_id?: string | null
+          media_id?: string | null
+          mileage?: number
+          source?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mileage_history_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mileage_history_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mileage_history_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observations: {
+        Row: {
+          category: string
+          comment: string | null
+          created_at: string
+          element: string
+          id: string
+          inspection_id: string
+          measure_unit: string | null
+          measure_value: string | null
+          status: string
+        }
+        Insert: {
+          category: string
+          comment?: string | null
+          created_at?: string
+          element: string
+          id?: string
+          inspection_id: string
+          measure_unit?: string | null
+          measure_value?: string | null
+          status?: string
+        }
+        Update: {
+          category?: string
+          comment?: string | null
+          created_at?: string
+          element?: string
+          id?: string
+          inspection_id?: string
+          measure_unit?: string | null
+          measure_value?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observations_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_orders: {
+        Row: {
+          client_id: string | null
+          client_remarks: string | null
+          created_at: string
+          delivery_at: string | null
+          entry_at: string | null
+          id: string
+          mileage_in: number | null
+          or_date: string | null
+          or_number: string | null
+          requested_work: string | null
+          status: string
+          vehicle_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_remarks?: string | null
+          created_at?: string
+          delivery_at?: string | null
+          entry_at?: string | null
+          id?: string
+          mileage_in?: number | null
+          or_date?: string | null
+          or_number?: string | null
+          requested_work?: string | null
+          status?: string
+          vehicle_id: string
+        }
+        Update: {
+          client_id?: string | null
+          client_remarks?: string | null
+          created_at?: string
+          delivery_at?: string | null
+          entry_at?: string | null
+          id?: string
+          mileage_in?: number | null
+          or_date?: string | null
+          or_number?: string | null
+          requested_work?: string | null
+          status?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_inspections: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_zone_index: number
+          id: string
+          inspection_type: string
+          mileage: number | null
+          repair_order_id: string
+          share_token: string
+          started_at: string
+          status: string
+          vehicle_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_zone_index?: number
+          id?: string
+          inspection_type: string
+          mileage?: number | null
+          repair_order_id: string
+          share_token?: string
+          started_at?: string
+          status?: string
+          vehicle_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_zone_index?: number
+          id?: string
+          inspection_type?: string
+          mileage?: number | null
+          repair_order_id?: string
+          share_token?: string
+          started_at?: string
+          status?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_inspections_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          brand: string | null
+          client_id: string | null
+          created_at: string
+          first_registration: string | null
+          id: string
+          last_mileage: number | null
+          last_mileage_at: string | null
+          model: string | null
+          plate: string
+          plate_normalized: string
+          vin: string | null
+        }
+        Insert: {
+          brand?: string | null
+          client_id?: string | null
+          created_at?: string
+          first_registration?: string | null
+          id?: string
+          last_mileage?: number | null
+          last_mileage_at?: string | null
+          model?: string | null
+          plate: string
+          plate_normalized: string
+          vin?: string | null
+        }
+        Update: {
+          brand?: string | null
+          client_id?: string | null
+          created_at?: string
+          first_registration?: string | null
+          id?: string
+          last_mileage?: number | null
+          last_mileage_at?: string | null
+          model?: string | null
+          plate?: string
+          plate_normalized?: string
+          vin?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
