@@ -5,10 +5,18 @@ export async function createInspection(
   orderId: string,
   vehicleId: string,
   type: "libre" | "guide",
+  author?: { userId?: string | null; userName?: string | null; siteId?: string | null },
 ) {
   const { data, error } = await supabase
     .from("vehicle_inspections")
-    .insert({ repair_order_id: orderId, vehicle_id: vehicleId, inspection_type: type })
+    .insert({
+      repair_order_id: orderId,
+      vehicle_id: vehicleId,
+      inspection_type: type,
+      created_by: author?.userId ?? null,
+      created_by_name: author?.userName ?? null,
+      site_id: author?.siteId ?? null,
+    })
     .select()
     .single();
   if (error) throw error;
