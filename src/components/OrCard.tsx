@@ -43,7 +43,11 @@ function Block({ title, text }: { title: string; text: string }) {
       {long ? (
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
           className="mt-1 text-xs font-bold uppercase tracking-widest text-brand"
         >
           {open ? "Voir moins" : "Voir plus"}
