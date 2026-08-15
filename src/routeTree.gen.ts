@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ExpertisesRouteImport } from './routes/expertises'
 import { Route as OrdresRouteImport } from './routes/ordres'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
 import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
@@ -32,6 +33,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpertisesRoute = ExpertisesRouteImport.update({
+  id: '/expertises',
+  path: '/expertises',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrdresRoute = OrdresRouteImport.update({
@@ -98,6 +104,7 @@ const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/expertises'
     | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/expertises'
     | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/expertises'
     | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
@@ -198,6 +210,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  ExpertisesRoute: typeof ExpertisesRoute
   OrdresRoute: typeof OrdresRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
   TourVehiculeRoute: typeof TourVehiculeRoute
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expertises': {
+      id: '/expertises'
+      path: '/expertises'
+      fullPath: '/expertises'
+      preLoaderRoute: typeof ExpertisesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ordres': {
@@ -318,6 +338,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  ExpertisesRoute: ExpertisesRoute,
   OrdresRoute: OrdresRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,
   TourVehiculeRoute: TourVehiculeRoute,
