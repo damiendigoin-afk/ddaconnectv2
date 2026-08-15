@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
+import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
   path: '/scan-plaque',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrOrIdRoute = OrOrIdRouteImport.update({
+  id: '/or/$orId',
+  path: '/or/$orId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrNouveauRoute = OrNouveauRouteImport.update({
   id: '/or/nouveau',
   path: '/or/nouveau',
@@ -32,30 +38,34 @@ const OrNouveauRoute = OrNouveauRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/scan-plaque' | '/or/nouveau'
+  fullPaths: '/' | '/scan-plaque' | '/or/$orId' | '/or/nouveau'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/scan-plaque' | '/or/nouveau'
-  id: '__root__' | '/' | '/scan-plaque' | '/or/nouveau'
+  to: '/' | '/scan-plaque' | '/or/$orId' | '/or/nouveau'
+  id: '__root__' | '/' | '/scan-plaque' | '/or/$orId' | '/or/nouveau'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
+  OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScanPlaqueRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/or/$orId': {
+      id: '/or/$orId'
+      path: '/or/$orId'
+      fullPath: '/or/$orId'
+      preLoaderRoute: typeof OrOrIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/or/nouveau': {
       id: '/or/nouveau'
       path: '/or/nouveau'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,
+  OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
 }
 export const routeTree = rootRouteImport
