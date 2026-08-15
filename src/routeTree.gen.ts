@@ -23,6 +23,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
+import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
@@ -97,6 +98,11 @@ const ExpertiseExIdIndexRoute = ExpertiseExIdIndexRouteImport.update({
   path: '/expertise/$exId/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpertiseExIdRapportRoute = ExpertiseExIdRapportRouteImport.update({
+  id: '/expertise/$exId/rapport',
+  path: '/expertise/$exId/rapport',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
   id: '/tour/$tourId/',
   path: '/tour/$tourId/',
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/expertise/$exId/'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/expertise/$exId'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/expertise/$exId/'
@@ -245,6 +257,7 @@ export interface RootRouteChildren {
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
   ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpertiseExIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expertise/$exId/rapport': {
+      id: '/expertise/$exId/rapport'
+      path: '/expertise/$exId/rapport'
+      fullPath: '/expertise/$exId/rapport'
+      preLoaderRoute: typeof ExpertiseExIdRapportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tour/$tourId/': {
       id: '/tour/$tourId/'
       path: '/tour/$tourId'
@@ -389,6 +409,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
+  ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
   ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
