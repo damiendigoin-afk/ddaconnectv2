@@ -93,9 +93,34 @@ function NewOrder() {
   const [docFile, setDocFile] = useState<File | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [refHit, setRefHit] = useState<RefPrefill | null>(null);
 
   const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const flagged = (path: string) => uncertain.includes(path);
+
+  /** Recherche le véhicule dans le référentiel et complète les champs vides. */
+  async function applyRef(plate: string) {
+    if (!normalizePlate(plate)) return;
+    try {
+      const hit = await refPrefill(plate);
+      if (!hit) return;
+      setRefHit(hit);
+      setForm((f) => {
+        const next = { ...f };
+        for (const [k, v] of Object.entries(hit.fields)) {
+          if (v && !next[k as keyof Form]) next[k as keyof Form] = v;
+        }
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  useEffect(() => {
+    if (initialPlate) void applyRef(initialPlate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPlate]);
 
   async function analyse(file: File) {
     setBusy(true);
@@ -143,6 +168,7 @@ function NewOrder() {
       setUncertain(Array.isArray(parsed.uncertain) ? parsed.uncertain : []);
       setMode("form");
       toast.success("Vérifiez les informations détectées");
+      await applyRef(str(v["plate"]));
     } catch (e) {
       console.error(e);
       toast.error("Analyse impossible. Complétez manuellement.");
