@@ -18,6 +18,7 @@ import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as BaseIndexRouteImport } from './routes/base.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
@@ -73,6 +74,11 @@ const UtilisateursRoute = UtilisateursRouteImport.update({
 const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   id: '/api/test-email',
   path: '/api/test-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseIndexRoute = BaseIndexRouteImport.update({
+  id: '/base/',
+  path: '/base/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/base/': typeof BaseIndexRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/base': typeof BaseIndexRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/base/': typeof BaseIndexRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/base/'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/base'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/base/'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
@@ -283,6 +295,7 @@ export interface RootRouteChildren {
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  BaseIndexRoute: typeof BaseIndexRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       path: '/api/test-email'
       fullPath: '/api/test-email'
       preLoaderRoute: typeof ApiTestEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/': {
+      id: '/base/'
+      path: '/base'
+      fullPath: '/base/'
+      preLoaderRoute: typeof BaseIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expertise-partage/$token': {
@@ -451,6 +471,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
+  BaseIndexRoute: BaseIndexRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
