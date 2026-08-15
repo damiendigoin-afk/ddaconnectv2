@@ -25,9 +25,14 @@ export function TourRow({ t }: { t: RecentTour }) {
           <div className="text-sm font-medium">
             {[t.brand, t.model].filter(Boolean).join(" ") || "Véhicule"}
           </div>
+          <div className="text-xs text-muted-foreground">{t.client_name || "Client —"}</div>
         </div>
         <div className="text-right text-xs text-muted-foreground">
-          <div>{date.toLocaleDateString("fr-FR")}</div>
+          <div className="font-bold uppercase text-foreground">OR {t.or_number || "—"}</div>
+          <div>
+            {date.toLocaleDateString("fr-FR")} à{" "}
+            {date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </div>
           <div>{t.inspection_type === "guide" ? "Tour guidé" : "Tour libre"}</div>
           {t.status !== "completed" ? (
             <div className="font-bold uppercase text-status-watch">En cours</div>
