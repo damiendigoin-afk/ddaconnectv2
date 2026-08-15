@@ -18,6 +18,7 @@ import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
@@ -72,6 +73,11 @@ const UtilisateursRoute = UtilisateursRouteImport.update({
 const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   id: '/api/test-email',
   path: '/api/test-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
+  id: '/expertise-partage/$token',
+  path: '/expertise-partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertiseBaremeRoute = ExpertiseBaremeRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
     | '/or/$orId'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
     | '/or/$orId'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
     | '/or/$orId'
@@ -265,6 +277,7 @@ export interface RootRouteChildren {
   ToursRoute: typeof ToursRoute
   UtilisateursRoute: typeof UtilisateursRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
+  ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
   OrOrIdRoute: typeof OrOrIdRoute
@@ -340,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/api/test-email'
       fullPath: '/api/test-email'
       preLoaderRoute: typeof ApiTestEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expertise-partage/$token': {
+      id: '/expertise-partage/$token'
+      path: '/expertise-partage/$token'
+      fullPath: '/expertise-partage/$token'
+      preLoaderRoute: typeof ExpertisePartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expertise/bareme': {
@@ -425,6 +445,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToursRoute: ToursRoute,
   UtilisateursRoute: UtilisateursRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
+  ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
   OrOrIdRoute: OrOrIdRoute,
