@@ -59,6 +59,325 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_addresses: {
+        Row: {
+          active: boolean
+          address_line_1: string | null
+          address_line_2: string | null
+          address_line_3: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          postal_code: string | null
+          source: string
+          source_import_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          address_line_1?: string | null
+          address_line_2?: string | null
+          address_line_3?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          postal_code?: string | null
+          source?: string
+          source_import_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          address_line_1?: string | null
+          address_line_2?: string | null
+          address_line_3?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          postal_code?: string | null
+          source?: string
+          source_import_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_addresses_source_import_id_fkey"
+            columns: ["source_import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_consents: {
+        Row: {
+          allowed: boolean | null
+          channel: string
+          created_at: string
+          customer_id: string
+          id: string
+          raw_value: string | null
+          source: string
+          source_import_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          allowed?: boolean | null
+          channel: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          raw_value?: string | null
+          source?: string
+          source_import_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allowed?: boolean | null
+          channel?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          raw_value?: string | null
+          source?: string
+          source_import_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_consents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_consents_source_import_id_fkey"
+            columns: ["source_import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_contacts: {
+        Row: {
+          active: boolean
+          created_at: string
+          customer_id: string
+          id: string
+          is_primary: boolean
+          normalized_value: string | null
+          source: string
+          source_import_id: string | null
+          type: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_primary?: boolean
+          normalized_value?: string | null
+          source?: string
+          source_import_id?: string | null
+          type: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_primary?: boolean
+          normalized_value?: string | null
+          source?: string
+          source_import_id?: string | null
+          type?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_contacts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_contacts_source_import_id_fkey"
+            columns: ["source_import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_vehicle_relations: {
+        Row: {
+          active: boolean
+          created_at: string
+          customer_id: string
+          end_date: string | null
+          id: string
+          import_id: string | null
+          relationship_type: string
+          source: string
+          start_date: string | null
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          customer_id: string
+          end_date?: string | null
+          id?: string
+          import_id?: string | null
+          relationship_type?: string
+          source?: string
+          start_date?: string | null
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          customer_id?: string
+          end_date?: string | null
+          id?: string
+          import_id?: string | null
+          relationship_type?: string
+          source?: string
+          start_date?: string | null
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_vehicle_relations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_vehicle_relations_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_vehicle_relations_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "ref_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          civility: string | null
+          company_name: string | null
+          company_normalized: string | null
+          created_at: string
+          customer_type: string
+          first_name: string | null
+          first_name_normalized: string | null
+          id: string
+          import_id: string | null
+          last_name: string | null
+          last_name_normalized: string | null
+          notes: string | null
+          siren: string | null
+          siret: string | null
+          site_id: string | null
+          source_customer_id: string | null
+          source_system: string
+          updated_at: string
+          vat_number: string | null
+        }
+        Insert: {
+          civility?: string | null
+          company_name?: string | null
+          company_normalized?: string | null
+          created_at?: string
+          customer_type?: string
+          first_name?: string | null
+          first_name_normalized?: string | null
+          id?: string
+          import_id?: string | null
+          last_name?: string | null
+          last_name_normalized?: string | null
+          notes?: string | null
+          siren?: string | null
+          siret?: string | null
+          site_id?: string | null
+          source_customer_id?: string | null
+          source_system?: string
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Update: {
+          civility?: string | null
+          company_name?: string | null
+          company_normalized?: string | null
+          created_at?: string
+          customer_type?: string
+          first_name?: string | null
+          first_name_normalized?: string | null
+          id?: string
+          import_id?: string | null
+          last_name?: string | null
+          last_name_normalized?: string | null
+          notes?: string | null
+          siren?: string | null
+          siret?: string | null
+          site_id?: string | null
+          source_customer_id?: string | null
+          source_system?: string
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dms_update_proposals: {
         Row: {
           created_at: string
@@ -302,6 +621,192 @@ export type Database = {
           old_value?: string | null
         }
         Relationships: []
+      }
+      field_provenance: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id: string
+          import_id: string | null
+          source: string
+          source_date: string | null
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id?: string
+          import_id?: string | null
+          source: string
+          source_date?: string | null
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          field?: string
+          id?: string
+          import_id?: string | null
+          source?: string
+          source_date?: string | null
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_provenance_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_rows: {
+        Row: {
+          created_at: string
+          id: string
+          import_id: string
+          processing_errors: string[] | null
+          processing_status: string
+          raw_data: Json
+          row_number: number
+          source_customer_id: string | null
+          source_vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          import_id: string
+          processing_errors?: string[] | null
+          processing_status?: string
+          raw_data: Json
+          row_number: number
+          source_customer_id?: string | null
+          source_vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          import_id?: string
+          processing_errors?: string[] | null
+          processing_status?: string
+          raw_data?: Json
+          row_number?: number
+          source_customer_id?: string | null
+          source_vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imports: {
+        Row: {
+          addresses_imported: number
+          analysis: Json | null
+          anomalies: number
+          completed_at: string | null
+          contacts_imported: number
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          customers_created: number
+          customers_updated: number
+          duplicates_avoided: number
+          file_name: string
+          file_size: number | null
+          id: string
+          mileages_imported: number
+          processed_rows: number
+          relations_created: number
+          site_id: string | null
+          source_system: string
+          status: string
+          total_columns: number
+          total_rows: number
+          updated_at: string
+          vehicles_created: number
+          vehicles_updated: number
+        }
+        Insert: {
+          addresses_imported?: number
+          analysis?: Json | null
+          anomalies?: number
+          completed_at?: string | null
+          contacts_imported?: number
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customers_created?: number
+          customers_updated?: number
+          duplicates_avoided?: number
+          file_name: string
+          file_size?: number | null
+          id?: string
+          mileages_imported?: number
+          processed_rows?: number
+          relations_created?: number
+          site_id?: string | null
+          source_system?: string
+          status?: string
+          total_columns?: number
+          total_rows?: number
+          updated_at?: string
+          vehicles_created?: number
+          vehicles_updated?: number
+        }
+        Update: {
+          addresses_imported?: number
+          analysis?: Json | null
+          anomalies?: number
+          completed_at?: string | null
+          contacts_imported?: number
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customers_created?: number
+          customers_updated?: number
+          duplicates_avoided?: number
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          mileages_imported?: number
+          processed_rows?: number
+          relations_created?: number
+          site_id?: string | null
+          source_system?: string
+          status?: string
+          total_columns?: number
+          total_rows?: number
+          updated_at?: string
+          vehicles_created?: number
+          vehicles_updated?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imports_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inspection_points: {
         Row: {
@@ -570,6 +1075,172 @@ export type Database = {
           },
         ]
       }
+      ref_vehicles: {
+        Row: {
+          body_type: string | null
+          brand: string | null
+          cnit: string | null
+          color: string | null
+          created_at: string
+          d2_code: string | null
+          delivery_date: string | null
+          doors: number | null
+          energy: string | null
+          engine_code: string | null
+          engine_size: string | null
+          first_registration_date: string | null
+          gearbox: string | null
+          gearbox_code: string | null
+          id: string
+          import_id: string | null
+          last_ct_date: string | null
+          last_mileage: number | null
+          last_mileage_at: string | null
+          last_visit_at: string | null
+          legacy_vehicle_id: string | null
+          model: string | null
+          next_ct_date: string | null
+          next_service_at: string | null
+          power_hp: string | null
+          power_kw: string | null
+          previous_registration: string | null
+          purchase_date: string | null
+          range_name: string | null
+          registration_display: string | null
+          registration_normalized: string | null
+          sale_date: string | null
+          seats: number | null
+          site_id: string | null
+          source_system: string
+          source_vehicle_id: string | null
+          trim_level: string | null
+          tvv: string | null
+          type_mine: string | null
+          updated_at: string
+          variant: string | null
+          vehicle_type: string | null
+          version: string | null
+          vin: string | null
+          vin_normalized: string | null
+        }
+        Insert: {
+          body_type?: string | null
+          brand?: string | null
+          cnit?: string | null
+          color?: string | null
+          created_at?: string
+          d2_code?: string | null
+          delivery_date?: string | null
+          doors?: number | null
+          energy?: string | null
+          engine_code?: string | null
+          engine_size?: string | null
+          first_registration_date?: string | null
+          gearbox?: string | null
+          gearbox_code?: string | null
+          id?: string
+          import_id?: string | null
+          last_ct_date?: string | null
+          last_mileage?: number | null
+          last_mileage_at?: string | null
+          last_visit_at?: string | null
+          legacy_vehicle_id?: string | null
+          model?: string | null
+          next_ct_date?: string | null
+          next_service_at?: string | null
+          power_hp?: string | null
+          power_kw?: string | null
+          previous_registration?: string | null
+          purchase_date?: string | null
+          range_name?: string | null
+          registration_display?: string | null
+          registration_normalized?: string | null
+          sale_date?: string | null
+          seats?: number | null
+          site_id?: string | null
+          source_system?: string
+          source_vehicle_id?: string | null
+          trim_level?: string | null
+          tvv?: string | null
+          type_mine?: string | null
+          updated_at?: string
+          variant?: string | null
+          vehicle_type?: string | null
+          version?: string | null
+          vin?: string | null
+          vin_normalized?: string | null
+        }
+        Update: {
+          body_type?: string | null
+          brand?: string | null
+          cnit?: string | null
+          color?: string | null
+          created_at?: string
+          d2_code?: string | null
+          delivery_date?: string | null
+          doors?: number | null
+          energy?: string | null
+          engine_code?: string | null
+          engine_size?: string | null
+          first_registration_date?: string | null
+          gearbox?: string | null
+          gearbox_code?: string | null
+          id?: string
+          import_id?: string | null
+          last_ct_date?: string | null
+          last_mileage?: number | null
+          last_mileage_at?: string | null
+          last_visit_at?: string | null
+          legacy_vehicle_id?: string | null
+          model?: string | null
+          next_ct_date?: string | null
+          next_service_at?: string | null
+          power_hp?: string | null
+          power_kw?: string | null
+          previous_registration?: string | null
+          purchase_date?: string | null
+          range_name?: string | null
+          registration_display?: string | null
+          registration_normalized?: string | null
+          sale_date?: string | null
+          seats?: number | null
+          site_id?: string | null
+          source_system?: string
+          source_vehicle_id?: string | null
+          trim_level?: string | null
+          tvv?: string | null
+          type_mine?: string | null
+          updated_at?: string
+          variant?: string | null
+          vehicle_type?: string | null
+          version?: string | null
+          vin?: string | null
+          vin_normalized?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ref_vehicles_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ref_vehicles_legacy_vehicle_id_fkey"
+            columns: ["legacy_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ref_vehicles_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_orders: {
         Row: {
           client_id: string | null
@@ -695,30 +1366,51 @@ export type Database = {
       }
       sites: {
         Row: {
+          active: boolean
+          address: string | null
+          city: string | null
           created_at: string
           email_from_address: string
           email_from_name: string
           id: string
           is_default: boolean
+          legal_name: string | null
+          logo_url: string | null
           name: string
+          phone: string | null
+          postal_code: string | null
           updated_at: string
         }
         Insert: {
+          active?: boolean
+          address?: string | null
+          city?: string | null
           created_at?: string
           email_from_address?: string
           email_from_name?: string
           id?: string
           is_default?: boolean
+          legal_name?: string | null
+          logo_url?: string | null
           name: string
+          phone?: string | null
+          postal_code?: string | null
           updated_at?: string
         }
         Update: {
+          active?: boolean
+          address?: string | null
+          city?: string | null
           created_at?: string
           email_from_address?: string
           email_from_name?: string
           id?: string
           is_default?: boolean
+          legal_name?: string | null
+          logo_url?: string | null
           name?: string
+          phone?: string | null
+          postal_code?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -963,6 +1655,84 @@ export type Database = {
           },
         ]
       }
+      vehicle_mileage_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expertise_id: string | null
+          id: string
+          import_id: string | null
+          inspection_id: string | null
+          measured_at: string | null
+          media_id: string | null
+          mileage: number
+          source: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expertise_id?: string | null
+          id?: string
+          import_id?: string | null
+          inspection_id?: string | null
+          measured_at?: string | null
+          media_id?: string | null
+          mileage: number
+          source?: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expertise_id?: string | null
+          id?: string
+          import_id?: string | null
+          inspection_id?: string | null
+          measured_at?: string | null
+          media_id?: string | null
+          mileage?: number
+          source?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_mileage_history_expertise_id_fkey"
+            columns: ["expertise_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_expertises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_history_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_history_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_history_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_mileage_history_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "ref_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           brand: string | null
@@ -1026,6 +1796,10 @@ export type Database = {
         Returns: boolean
       }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
+      norm_text: { Args: { _v: string }; Returns: string }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       app_role: "manager" | "salarie" | "client"
