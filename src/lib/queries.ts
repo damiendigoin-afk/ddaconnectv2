@@ -79,3 +79,108 @@ export async function fetchInspections(orderId: string): Promise<InspectionSumma
     };
   });
 }
+/* ------------------------- Tours véhicule récents ------------------------- */
+
+export type CommStatus = "not_sent" | "sent" | "modified";
+
+export function commStatus(i: {
+  last_sent_at: string | null;
+  client_content_updated_at: string | null;
+}): CommStatus {
+  if (!i.last_sent_at) return "not_sent";
+  if (i.client_content_updated_at && i.client_content_updated_at > i.last_sent_at) return "modified";
+  return "sent";
+}
+
+export const COMM_LABELS: Record<CommStatus, string> = {
+  not_sent: "Non envoyé",
+  sent: "Envoyé au client",
+  modified: "Modifié depuis le dernier envoi",
+};
+
+export type RecentTour = {
+  id: string;
+  inspection_type: string;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  mileage: number | null;
+  last_sent_at: string | null;
+  last_sent_to: string | null;
+  client_content_updated_at: string | null;
+  comm: CommStatus;
+  defects: number;
+  watches: number;
+  plate: string;
+  brand: string | null;
+  model: string | null;
+  or_id: string | null;
+  or_number: string | null;
+  client_name: string;
+};
+
+export async function fetchRecentTours(limit = 10): Promise<RecentTour[]> {
+  const { data, error } = await supabase
+    .from("vehicle_inspections")
+    .select(
+      "id, inspection_type, status, started_at, completed_at, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, brand, model), repair_order:repair_orders(id, or_number, client:clients(first_name, last_name))",
+    )
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((i) => {
+    const pts = (i.inspection_points ?? []) as { status: string }[];
+    const obs = (i.observations ?? []) as { status: string }[];
+    const v = (i.vehicle ?? null) as { plate?: string; brand?: string; model?: string } | null;
+    const o = (i.repair_order ?? null) as {
+      id?: string;
+      or_number?: string;
+      client?: { first_name?: string; last_name?: string } | null;
+    } | null;
+    return {
+      id: i.id,
+      inspection_type: i.inspection_type,
+      status: i.status,
+      started_at: i.started_at,
+      completed_at: i.completed_at,
+      mileage: i.mileage,
+      last_sent_at: i.last_sent_at,
+      last_sent_to: i.last_sent_to,
+      client_content_updated_at: i.client_content_updated_at,
+      comm: commStatus(i),
+      defects:
+        pts.filter((p) => p.status === "defect").length +
+        obs.filter((p) => p.status === "defect").length,
+      watches:
+        pts.filter((p) => p.status === "watch").length +
+        obs.filter((p) => p.status === "watch").length,
+      plate: v?.plate ?? "",
+      brand: v?.brand ?? null,
+      model: v?.model ?? null,
+      or_id: o?.id ?? null,
+      or_number: o?.or_number ?? null,
+      client_name: [o?.client?.first_name, o?.client?.last_name].filter(Boolean).join(" "),
+    };
+  });
+}
+
+/** Recherche un OR existant par n° OR + immatriculation normalisée (anti-doublon). */
+export async function findDuplicateOrder(orNumber: string, plate: string) {
+  const num = orNumber.trim();
+  const norm = normalizePlate(plate);
+  if (!num) return { exact: null, sameNumber: [] as { id: string; plate: string }[] };
+  const { data } = await supabase.from("repair_orders").select(OR_SELECT).eq("or_number", num);
+  const rows = data ?? [];
+  const exact = rows.find(
+    (o) => (o.vehicle as { plate_normalized?: string } | null)?.plate_normalized === norm,
+  );
+  return {
+    exact: exact ?? null,
+    sameNumber: rows
+      .filter((o) => o !== exact)
+      .map((o) => ({
+        id: o.id,
+        plate: (o.vehicle as { plate?: string } | null)?.plate ?? "",
+      })),
+  };
+}

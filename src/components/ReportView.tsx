@@ -90,7 +90,23 @@ export function ReportBody({
                   Mesure : {o.measure_value} {o.measure_unit}
                 </div>
               ) : null}
-              {o.comment ? <p className="text-sm">{o.comment}</p> : null}
+              {clientView ? (
+                o.client_comment || o.comment ? (
+                  <p className="text-sm">{o.client_comment || o.comment}</p>
+                ) : null
+              ) : (
+                <>
+                  {o.comment ? <p className="text-sm">{o.comment}</p> : null}
+                  {o.client_comment ? (
+                    <p className="rounded-lg bg-secondary px-2 py-1 text-sm">
+                      <span className="text-xs font-bold uppercase text-muted-foreground">
+                        Version client :{" "}
+                      </span>
+                      {o.client_comment}
+                    </p>
+                  ) : null}
+                </>
+              )}
               <PhotoRow media={mediaFor("observation_id", o.id)} />
             </div>
           ))}
@@ -116,7 +132,23 @@ export function ReportBody({
                     Mesure : {p.measure_value} {p.measure_unit}
                   </div>
                 ) : null}
-                {p.comment ? <p className="text-sm">{p.comment}</p> : null}
+                {clientView ? (
+                  p.client_comment || p.comment ? (
+                    <p className="text-sm">{p.client_comment || p.comment}</p>
+                  ) : null
+                ) : (
+                  <>
+                    {p.comment ? <p className="text-sm">{p.comment}</p> : null}
+                    {p.client_comment ? (
+                      <p className="rounded-lg bg-secondary px-2 py-1 text-sm">
+                        <span className="text-xs font-bold uppercase text-muted-foreground">
+                          Version client :{" "}
+                        </span>
+                        {p.client_comment}
+                      </p>
+                    ) : null}
+                  </>
+                )}
                 {clientView && p.status !== "watch" && p.status !== "defect" ? null : (
                   <PhotoRow media={mediaFor("inspection_point_id", p.id)} />
                 )}

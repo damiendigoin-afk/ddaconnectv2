@@ -5,6 +5,7 @@ import { ChevronDown, ClipboardList, ListChecks, Loader2, Route as RouteIcon } f
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { MileageCard } from "@/components/MileageCard";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
 import { formatPlate } from "@/lib/plate";
 import { createInspection } from "@/lib/tour";
@@ -31,6 +32,7 @@ function OrderPage() {
   const qc = useQueryClient();
   const [details, setDetails] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [editMileage, setEditMileage] = useState(false);
 
   const order = useQuery({ queryKey: ["order", orId], queryFn: () => fetchOrder(orId) });
   const tours = useQuery({ queryKey: ["inspections", orId], queryFn: () => fetchInspections(orId) });
@@ -62,7 +64,7 @@ function OrderPage() {
   }
 
   return (
-    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={`OR ${order.data?.or_number ?? "—"}`} back={{ to: "/" }}>
+    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={`OR ${order.data?.or_number ?? "—"}`} back={{ to: "/tour-vehicule" }}>
       {order.isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement…</p>
       ) : (
@@ -120,6 +122,42 @@ function OrderPage() {
               ) : null}
             </section>
           ) : null}
+
+          <section className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Kilométrage
+            </h2>
+            {editMileage && v?.id ? (
+              <MileageCard
+                title="Mettre à jour le kilométrage"
+                vehicleId={v.id}
+                previous={v.last_mileage ?? null}
+                current={v.last_mileage ?? null}
+                onSaved={() => {
+                  setEditMileage(false);
+                  void qc.invalidateQueries({ queryKey: ["order", orId] });
+                  toast.success("Kilométrage véhicule mis à jour");
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => setEditMileage(true)}
+                className="flex w-full items-center justify-between rounded-xl border-2 border-border bg-card px-4 py-4 text-left"
+              >
+                <span>
+                  <span className="block text-xs uppercase tracking-widest text-muted-foreground">
+                    Kilométrage connu
+                  </span>
+                  <span className="block text-lg font-extrabold">
+                    {v?.last_mileage ? `${v.last_mileage.toLocaleString("fr-FR")} km` : "—"}
+                  </span>
+                </span>
+                <span className="rounded-lg bg-secondary px-3 py-2 text-xs font-bold uppercase">
+                  Mettre à jour
+                </span>
+              </button>
+            )}
+          </section>
 
           <section className="space-y-2">
             <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">

@@ -107,8 +107,53 @@ export type Database = {
           },
         ]
       }
+      email_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          inspection_id: string | null
+          kind: string
+          provider_id: string | null
+          recipient: string
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          inspection_id?: string | null
+          kind?: string
+          provider_id?: string | null
+          recipient: string
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          inspection_id?: string | null
+          kind?: string
+          provider_id?: string | null
+          recipient?: string
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_points: {
         Row: {
+          client_comment: string | null
           comment: string | null
           created_at: string
           id: string
@@ -124,6 +169,7 @@ export type Database = {
           zone_label: string
         }
         Insert: {
+          client_comment?: string | null
           comment?: string | null
           created_at?: string
           id?: string
@@ -139,6 +185,7 @@ export type Database = {
           zone_label: string
         }
         Update: {
+          client_comment?: string | null
           comment?: string | null
           created_at?: string
           id?: string
@@ -283,6 +330,7 @@ export type Database = {
       observations: {
         Row: {
           category: string
+          client_comment: string | null
           comment: string | null
           created_at: string
           element: string
@@ -294,6 +342,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          client_comment?: string | null
           comment?: string | null
           created_at?: string
           element: string
@@ -305,6 +354,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          client_comment?: string | null
           comment?: string | null
           created_at?: string
           element?: string
@@ -386,11 +436,14 @@ export type Database = {
       }
       vehicle_inspections: {
         Row: {
+          client_content_updated_at: string | null
           completed_at: string | null
           created_at: string
           current_zone_index: number
           id: string
           inspection_type: string
+          last_sent_at: string | null
+          last_sent_to: string | null
           mileage: number | null
           repair_order_id: string
           share_token: string
@@ -399,11 +452,14 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          client_content_updated_at?: string | null
           completed_at?: string | null
           created_at?: string
           current_zone_index?: number
           id?: string
           inspection_type: string
+          last_sent_at?: string | null
+          last_sent_to?: string | null
           mileage?: number | null
           repair_order_id: string
           share_token?: string
@@ -412,11 +468,14 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          client_content_updated_at?: string | null
           completed_at?: string | null
           created_at?: string
           current_zone_index?: number
           id?: string
           inspection_type?: string
+          last_sent_at?: string | null
+          last_sent_to?: string | null
           mileage?: number | null
           repair_order_id?: string
           share_token?: string
