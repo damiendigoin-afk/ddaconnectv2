@@ -11,7 +11,7 @@ import { createHmac } from "crypto";
  * server route handlers. Never import it from client code.
  */
 
-export const FROM_DEFAULT = "Garage Castillon <contact@garagecastillon.fr>";
+export const FROM_DEFAULT = "Damien Digoin Automobile <contact@garagecastillon.fr>";
 
 export interface SendEmailInput {
   to: string;
@@ -84,7 +84,7 @@ export function brandedEmail(innerHtml: string, opts?: { preview?: string }): st
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Garage Castillon</title>
+    <title>Damien Digoin Automobile</title>
     ${preview ? `<style>@media (max-width: 600px){.preview{display:none!important}}</style>` : ""}
   </head>
   <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1a1a1a;">
@@ -106,7 +106,7 @@ export function brandedEmail(innerHtml: string, opts?: { preview?: string }): st
           </table>
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
             <tr><td align="center" style="padding:20px 16px 8px 16px;font-size:12px;color:#71717a;line-height:1.5;">
-              Garage Castillon &middot; Atelier automobile<br />
+              Damien Digoin Automobile &middot; Atelier automobile<br />
               Cet email est envoyé automatiquement, merci de ne pas y répondre.
             </td></tr>
           </table>
