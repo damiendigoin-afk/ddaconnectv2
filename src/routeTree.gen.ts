@@ -22,6 +22,7 @@ import { Route as BaseIndexRouteImport } from './routes/base.index'
 import { Route as BaseClientsRouteImport } from './routes/base.clients'
 import { Route as BaseImportRouteImport } from './routes/base.import'
 import { Route as BaseVehiculesRouteImport } from './routes/base.vehicules'
+import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
@@ -99,6 +100,11 @@ const BaseImportRoute = BaseImportRouteImport.update({
 const BaseVehiculesRoute = BaseVehiculesRouteImport.update({
   id: '/base/vehicules',
   path: '/base/vehicules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientClientIdRoute = ClientClientIdRouteImport.update({
+  id: '/client/$clientId',
+  path: '/client/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
+  '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
+  '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -237,6 +245,7 @@ export interface FileRoutesById {
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
+  '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/base/clients'
     | '/base/import'
     | '/base/vehicules'
+    | '/client/$clientId'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/base/clients'
     | '/base/import'
     | '/base/vehicules'
+    | '/client/$clientId'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/base/clients'
     | '/base/import'
     | '/base/vehicules'
+    | '/client/$clientId'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -352,6 +364,7 @@ export interface RootRouteChildren {
   BaseClientsRoute: typeof BaseClientsRoute
   BaseImportRoute: typeof BaseImportRoute
   BaseVehiculesRoute: typeof BaseVehiculesRoute
+  ClientClientIdRoute: typeof ClientClientIdRoute
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BaseVehiculesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/client/$clientId': {
+      id: '/client/$clientId'
+      path: '/client/$clientId'
+      fullPath: '/client/$clientId'
+      preLoaderRoute: typeof ClientClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expertise-partage/$token': {
       id: '/expertise-partage/$token'
       path: '/expertise-partage/$token'
@@ -568,6 +588,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseClientsRoute: BaseClientsRoute,
   BaseImportRoute: BaseImportRoute,
   BaseVehiculesRoute: BaseVehiculesRoute,
+  ClientClientIdRoute: ClientClientIdRoute,
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
