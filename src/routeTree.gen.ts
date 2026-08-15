@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
+import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
   id: '/scan-plaque',
   path: '/scan-plaque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
+  id: '/api/test-email',
+  path: '/api/test-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrOrIdRoute = OrOrIdRouteImport.update({
@@ -56,6 +62,7 @@ const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/scan-plaque'
+    | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/scan-plaque'
+    | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/scan-plaque'
+    | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
+  ApiTestEmailRoute: typeof ApiTestEmailRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/scan-plaque'
       fullPath: '/scan-plaque'
       preLoaderRoute: typeof ScanPlaqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/test-email': {
+      id: '/api/test-email'
+      path: '/api/test-email'
+      fullPath: '/api/test-email'
+      preLoaderRoute: typeof ApiTestEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/or/$orId': {
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,
+  ApiTestEmailRoute: ApiTestEmailRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
