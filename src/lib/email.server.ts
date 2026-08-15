@@ -25,9 +25,9 @@ export interface SendEmailInput {
 
 export interface SendEmailResult {
   ok: boolean;
-  id?: string;
+  id?: string | undefined;
   status: number;
-  error?: string;
+  error?: string | undefined;
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
