@@ -1,0 +1,609 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, LogOut, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { AppShell } from "@/components/AppShell";
+import { MileageCard } from "@/components/MileageCard";
+import { PhotoManager } from "@/components/PhotoManager";
+import { PointCard, type PointRow } from "@/components/PointCard";
+import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
+import { supabase } from "@/integrations/supabase/client";
+import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
+
+export const Route = createFileRoute("/tour/$tourId/")({
+  head: () => ({
+    meta: [
+      { title: "Tour véhicule — DDA Connect" },
+      { name: "description", content: "Contrôles, mesures, commentaires et photos du tour véhicule." },
+      { property: "og:title", content: "Tour véhicule — DDA Connect" },
+      { property: "og:description", content: "Réalisez le tour véhicule atelier depuis le smartphone." },
+    ],
+  }),
+  component: TourPage,
+});
+
+async function loadTour(id: string) {
+  const { data, error } = await supabase
+    .from("vehicle_inspections")
+    .select("*, repair_order:repair_orders(id, or_number), vehicle:vehicles(id, plate, brand, model, last_mileage)")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+function TourPage() {
+  const { tourId } = Route.useParams();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const tour = useQuery({ queryKey: ["tour", tourId], queryFn: () => loadTour(tourId) });
+
+  const vehicle = tour.data?.vehicle as { id: string; plate: string; last_mileage: number | null } | null;
+  const order = tour.data?.repair_order as { id: string } | null;
+
+  if (tour.isLoading || !tour.data || !vehicle || !order) {
+    return (
+      <AppShell title="Tour véhicule">
+        <p className="text-sm text-muted-foreground">Chargement…</p>
+      </AppShell>
+    );
+  }
+
+  if (tour.data.status === "completed") {
+    navigate({ to: "/tour/$tourId/rapport", params: { tourId } });
+    return null;
+  }
+
+  const quit = () => {
+    toast.success("Tour sauvegardé en brouillon.");
+    navigate({ to: "/or/$orId", params: { orId: order.id } });
+  };
+
+  const deleteDraft = async () => {
+    if (!window.confirm("Supprimer définitivement ce brouillon ?")) return;
+    await supabase.from("vehicle_inspections").delete().eq("id", tourId);
+    await qc.invalidateQueries({ queryKey: ["inspections", order.id] });
+    toast.success("Brouillon supprimé");
+    navigate({ to: "/or/$orId", params: { orId: order.id } });
+  };
+
+  const shared = {
+    tourId,
+    orderId: order.id,
+    vehicleId: vehicle.id,
+    plate: vehicle.plate,
+    lastMileage: vehicle.last_mileage,
+    mileage: tour.data.mileage as number | null,
+    zoneIndex: tour.data.current_zone_index as number,
+    quit,
+    deleteDraft,
+  };
+
+  return tour.data.inspection_type === "guide" ? <Guided {...shared} /> : <Free {...shared} />;
+}
+
+type SharedProps = {
+  tourId: string;
+  orderId: string;
+  vehicleId: string;
+  plate: string;
+  lastMileage: number | null;
+  mileage: number | null;
+  zoneIndex: number;
+  quit: () => void;
+  deleteDraft: () => void;
+};
+
+function TourNav({ quit, deleteDraft }: { quit: () => void; deleteDraft: () => void }) {
+  return (
+    <div className="mb-3 flex gap-2">
+      <button
+        onClick={quit}
+        className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-2 text-sm font-semibold"
+      >
+        <LogOut className="h-4 w-4" /> Quitter le tour
+      </button>
+      <button
+        onClick={deleteDraft}
+        className="flex items-center justify-center gap-2 rounded-lg border-2 border-destructive px-3 py-2 text-sm font-semibold text-destructive"
+      >
+        <Trash2 className="h-4 w-4" /> Supprimer
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------- TOUR GUIDÉ ------------------------------- */
+
+function Guided(props: SharedProps) {
+  const navigate = useNavigate();
+  const [zone, setZone] = useState(Math.min(props.zoneIndex, GUIDED_ZONES.length));
+  const [mileage, setMileage] = useState(props.mileage);
+  const [showSummary, setShowSummary] = useState(false);
+
+  const points = useQuery({
+    queryKey: ["points", props.tourId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inspection_points")
+        .select("*")
+        .eq("inspection_id", props.tourId)
+        .order("zone_index");
+      if (error) throw error;
+      return data as (PointRow & { zone_index: number; zone_label: string })[];
+    },
+  });
+
+  const zoneDef = GUIDED_ZONES[zone - 1]!;
+  const zonePoints = (points.data ?? []).filter((p) => p.zone_index === zone);
+
+  const counts = useMemo(() => {
+    const all = points.data ?? [];
+    return {
+      total: all.length,
+      ok: all.filter((p) => p.status === "ok").length,
+      watch: all.filter((p) => p.status === "watch").length,
+      defect: all.filter((p) => p.status === "defect").length,
+      unset: all.filter((p) => p.status === "unset").length,
+    };
+  }, [points.data]);
+
+  async function goto(next: number) {
+    setZone(next);
+    window.scrollTo({ top: 0 });
+    await supabase
+      .from("vehicle_inspections")
+      .update({ current_zone_index: next })
+      .eq("id", props.tourId);
+  }
+
+  async function finish() {
+    await supabase
+      .from("vehicle_inspections")
+      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .eq("id", props.tourId);
+    toast.success("Tour véhicule terminé");
+    navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+  }
+
+  if (showSummary) {
+    return (
+      <AppShell title="Tour véhicule terminé" subtitle={props.plate}>
+        <div className="space-y-4">
+          <section className="card-surface space-y-1 p-4 text-sm">
+            <Row label="Points contrôlés" value={`${counts.total - counts.unset} / ${counts.total}`} />
+            <Row label="OK" value={String(counts.ok)} />
+            <Row label="À surveiller" value={String(counts.watch)} />
+            <Row label="Défauts" value={String(counts.defect)} />
+            <Row label="Non renseignés" value={String(counts.unset)} />
+            <Row label="Kilométrage" value={mileage ? `${mileage.toLocaleString("fr-FR")} km` : "—"} />
+          </section>
+          <section className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Anomalies relevées
+            </h2>
+            {(points.data ?? [])
+              .filter((p) => p.status === "watch" || p.status === "defect")
+              .map((p) => (
+                <div key={p.id} className="card-surface flex items-center justify-between gap-2 p-3">
+                  <div>
+                    <div className="text-sm font-semibold">{p.point_label}</div>
+                    <div className="text-xs text-muted-foreground">{p.zone_label}</div>
+                  </div>
+                  <StatusBadge status={p.status} />
+                </div>
+              ))}
+            {counts.watch + counts.defect === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune anomalie relevée.</p>
+            ) : null}
+          </section>
+          <div className="grid gap-2">
+            <button
+              onClick={() => setShowSummary(false)}
+              className="rounded-xl border-2 border-border bg-card px-4 py-4 font-bold uppercase"
+            >
+              Modifier
+            </button>
+            <button
+              onClick={() => void finish()}
+              className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground"
+            >
+              Valider et terminer le tour
+            </button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell
+      title={`Zone ${zone} / ${GUIDED_ZONES.length}`}
+      subtitle={zoneDef.label.toUpperCase()}
+      back={{ to: "/or/$orId", params: { orId: props.orderId } }}
+    >
+      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} />
+      <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
+        <div
+          className="h-full bg-brand transition-all"
+          style={{ width: `${(zone / GUIDED_ZONES.length) * 100}%` }}
+        />
+      </div>
+      <p className="mb-3 text-sm text-muted-foreground">{zoneDef.hint}</p>
+
+      <div className="space-y-3">
+        {zonePoints.map((p) => {
+          const def = zoneDef.points.find((d) => d.key === p.point_key);
+          if (def?.special === "mileage") {
+            return (
+              <MileageCard
+                key={p.id}
+                inspectionId={props.tourId}
+                pointId={p.id}
+                vehicleId={props.vehicleId}
+                previous={props.lastMileage}
+                current={mileage}
+                onSaved={(v) => {
+                  setMileage(v);
+                  void supabase.from("inspection_points").update({ status: "ok", measure_value: String(v), measure_unit: "km" }).eq("id", p.id);
+                }}
+              />
+            );
+          }
+          return <PointCard key={p.id} point={p} def={def} inspectionId={props.tourId} />;
+        })}
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {zone < GUIDED_ZONES.length ? (
+          <div className="card-surface p-4 text-center">
+            <p className="text-sm font-bold uppercase">{zoneDef.label} terminé</p>
+            <p className="text-sm text-muted-foreground">{GUIDED_ZONES[zone]!.hint}</p>
+          </div>
+        ) : null}
+        <div className="flex gap-2">
+          <button
+            disabled={zone === 1}
+            onClick={() => void goto(zone - 1)}
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl border-2 border-border bg-card px-3 py-4 font-bold uppercase disabled:opacity-40"
+          >
+            <ChevronLeft className="h-5 w-5" /> Précédente
+          </button>
+          {zone < GUIDED_ZONES.length ? (
+            <button
+              onClick={() => void goto(zone + 1)}
+              className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-brand px-3 py-4 font-bold uppercase text-brand-foreground"
+            >
+              Continuer <ChevronRight className="h-5 w-5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowSummary(true)}
+              className="flex-1 rounded-xl bg-brand px-3 py-4 font-bold uppercase text-brand-foreground"
+            >
+              Terminer le tour
+            </button>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between border-b border-border py-1.5 last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-bold">{value}</span>
+    </div>
+  );
+}
+
+/* -------------------------------- TOUR LIBRE ------------------------------- */
+
+type ObsRow = {
+  id: string;
+  category: string;
+  element: string;
+  status: string;
+  measure_value: string | null;
+  measure_unit: string | null;
+  comment: string | null;
+};
+
+function Free(props: SharedProps) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<ObsRow | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const obs = useQuery({
+    queryKey: ["observations", props.tourId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("observations")
+        .select("*")
+        .eq("inspection_id", props.tourId)
+        .order("created_at");
+      if (error) throw error;
+      return data as ObsRow[];
+    },
+  });
+
+  const photos = useQuery({
+    queryKey: ["tour-photos", props.tourId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("media")
+        .select("id", { count: "exact", head: true })
+        .eq("inspection_id", props.tourId);
+      return count ?? 0;
+    },
+  });
+
+  async function finish() {
+    await supabase
+      .from("vehicle_inspections")
+      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .eq("id", props.tourId);
+    toast.success("Tour libre terminé");
+    navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+  }
+
+  if (creating || editing) {
+    return (
+      <ObservationForm
+        tourId={props.tourId}
+        existing={editing}
+        onClose={async () => {
+          setCreating(false);
+          setEditing(null);
+          await qc.invalidateQueries({ queryKey: ["observations", props.tourId] });
+          await qc.invalidateQueries({ queryKey: ["tour-photos", props.tourId] });
+        }}
+      />
+    );
+  }
+
+  return (
+    <AppShell
+      title="Tour libre"
+      subtitle={props.plate}
+      back={{ to: "/or/$orId", params: { orId: props.orderId } }}
+    >
+      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} />
+      <button
+        onClick={() => setCreating(true)}
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground"
+      >
+        <Plus className="h-6 w-6" /> Signaler un défaut
+      </button>
+
+      <div className="space-y-2">
+        {(obs.data ?? []).map((o) => (
+          <button
+            key={o.id}
+            onClick={() => setEditing(o)}
+            className="card-surface flex w-full items-start justify-between gap-2 p-4 text-left"
+          >
+            <div>
+              <div className="font-bold">{o.element}</div>
+              <div className="text-xs text-muted-foreground">{o.category}</div>
+              {o.measure_value ? (
+                <div className="text-xs">
+                  Mesure : {o.measure_value} {o.measure_unit}
+                </div>
+              ) : null}
+              {o.comment ? <div className="mt-1 text-sm">{o.comment}</div> : null}
+            </div>
+            <StatusBadge status={o.status} />
+          </button>
+        ))}
+        {obs.data?.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Aucun défaut signalé pour l'instant.
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-6 space-y-2">
+        <p className="text-center text-sm text-muted-foreground">
+          {obs.data?.length ?? 0} défaut(s) signalé(s) · {photos.data ?? 0} photo(s)
+        </p>
+        <button
+          onClick={() => void finish()}
+          className="w-full rounded-xl bg-primary px-4 py-5 text-lg font-extrabold uppercase text-primary-foreground"
+        >
+          Terminer le tour
+        </button>
+      </div>
+    </AppShell>
+  );
+}
+
+function ObservationForm({
+  tourId,
+  existing,
+  onClose,
+}: {
+  tourId: string;
+  existing: ObsRow | null;
+  onClose: () => void;
+}) {
+  const [category, setCategory] = useState(existing?.category ?? "");
+  const [element, setElement] = useState(existing?.element ?? "");
+  const [status, setStatus] = useState<PointStatus>((existing?.status as PointStatus) ?? "defect");
+  const [measure, setMeasure] = useState(existing?.measure_value ?? "");
+  const [unit, setUnit] = useState(existing?.measure_unit ?? "mm");
+  const [comment, setComment] = useState(existing?.comment ?? "");
+  const [saved, setSaved] = useState<ObsRow | null>(existing);
+
+  async function save() {
+    if (!category || !element) {
+      toast.error("Choisissez une catégorie et un élément");
+      return;
+    }
+    const payload = {
+      inspection_id: tourId,
+      category,
+      element,
+      status: status === "unset" ? "watch" : status,
+      measure_value: measure || null,
+      measure_unit: measure ? unit : null,
+      comment: comment || null,
+    };
+    if (saved) {
+      await supabase.from("observations").update(payload).eq("id", saved.id);
+      toast.success("Observation mise à jour");
+      onClose();
+      return;
+    }
+    const { data, error } = await supabase.from("observations").insert(payload).select().single();
+    if (error) {
+      toast.error("Enregistrement impossible");
+      return;
+    }
+    setSaved(data as ObsRow);
+    toast.success("Défaut enregistré — ajoutez des photos si besoin");
+  }
+
+  async function remove() {
+    if (!saved) return onClose();
+    if (!window.confirm("Supprimer cette observation ?")) return;
+    await supabase.from("observations").delete().eq("id", saved.id);
+    onClose();
+  }
+
+  return (
+    <AppShell title={existing ? "Modifier le défaut" : "Signaler un défaut"}>
+      <div className="space-y-4">
+        <div className="card-surface space-y-3 p-4">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Catégorie
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.keys(FREE_CATEGORIES).map((c) => (
+              <button
+                key={c}
+                onClick={() => {
+                  setCategory(c);
+                  setElement("");
+                }}
+                className={`rounded-lg border-2 px-2 py-3 text-sm font-semibold ${
+                  category === c ? "border-brand bg-brand/20" : "border-border bg-card"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {category ? (
+          <div className="card-surface space-y-3 p-4">
+            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Élément
+            </label>
+            <div className="grid gap-2">
+              {(FREE_CATEGORIES[category] ?? []).map((el) => (
+                <button
+                  key={el}
+                  onClick={() => setElement(el)}
+                  className={`rounded-lg border-2 px-3 py-3 text-left text-sm font-semibold ${
+                    element === el ? "border-brand bg-brand/20" : "border-border bg-card"
+                  }`}
+                >
+                  {el}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="card-surface space-y-3 p-4">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Statut
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setStatus("watch")}
+              className={`rounded-lg border-2 px-2 py-3 font-semibold ${
+                status === "watch" ? "border-status-watch bg-status-watch text-primary" : "border-border bg-card"
+              }`}
+            >
+              À surveiller
+            </button>
+            <button
+              onClick={() => setStatus("defect")}
+              className={`rounded-lg border-2 px-2 py-3 font-semibold ${
+                status === "defect" ? "border-status-defect bg-status-defect text-white" : "border-border bg-card"
+              }`}
+            >
+              Défaut / à remplacer
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              inputMode="decimal"
+              value={measure}
+              onChange={(e) => setMeasure(e.target.value)}
+              placeholder="Mesure (facultatif)"
+              className="flex-1 rounded-lg border-2 border-border px-3 py-3 outline-none focus:border-brand"
+            />
+            <select
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              className="rounded-lg border-2 border-border px-2 py-3"
+            >
+              {["mm", "cm", "%", "V", "bar", "L", "km"].map((u) => (
+                <option key={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="Commentaire (facultatif)"
+            className="w-full rounded-lg border-2 border-border px-3 py-2 outline-none focus:border-brand"
+          />
+        </div>
+
+        {saved ? (
+          <div className="card-surface space-y-2 p-4">
+            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Photos
+            </label>
+            <PhotoManager
+              folder={`inspections/${tourId}`}
+              links={{ inspection_id: tourId, observation_id: saved.id }}
+            />
+          </div>
+        ) : (
+          <p className="text-center text-xs text-muted-foreground">
+            Enregistrez le défaut pour pouvoir y ajouter des photos.
+          </p>
+        )}
+
+        <div className="grid gap-2">
+          <button
+            onClick={() => void save()}
+            className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground"
+          >
+            Enregistrer
+          </button>
+          <button onClick={onClose} className="rounded-xl border-2 border-border bg-card px-4 py-3 font-bold uppercase">
+            Retour à la liste
+          </button>
+          {saved ? (
+            <button onClick={() => void remove()} className="py-2 text-sm font-semibold text-destructive">
+              Supprimer cette observation
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
