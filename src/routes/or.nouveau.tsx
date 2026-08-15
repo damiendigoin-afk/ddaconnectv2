@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
-import { Camera, FileText, Images, Loader2, PencilLine } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Camera, CheckCircle2, FileText, Images, Loader2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
+import { refPrefill, type RefPrefill } from "@/lib/refbase";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
 
