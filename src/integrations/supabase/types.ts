@@ -151,6 +151,42 @@ export type Database = {
           },
         ]
       }
+      field_changes: {
+        Row: {
+          changed_by: string | null
+          changed_by_name: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Relationships: []
+      }
       inspection_points: {
         Row: {
           client_comment: string | null
@@ -374,11 +410,57 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          site_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_orders: {
         Row: {
           client_id: string | null
           client_remarks: string | null
           created_at: string
+          created_by: string | null
+          created_by_name: string | null
           delivery_at: string | null
           entry_at: string | null
           id: string
@@ -386,6 +468,7 @@ export type Database = {
           or_date: string | null
           or_number: string | null
           requested_work: string | null
+          site_id: string | null
           status: string
           vehicle_id: string
         }
@@ -393,6 +476,8 @@ export type Database = {
           client_id?: string | null
           client_remarks?: string | null
           created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
           delivery_at?: string | null
           entry_at?: string | null
           id?: string
@@ -400,6 +485,7 @@ export type Database = {
           or_date?: string | null
           or_number?: string | null
           requested_work?: string | null
+          site_id?: string | null
           status?: string
           vehicle_id: string
         }
@@ -407,6 +493,8 @@ export type Database = {
           client_id?: string | null
           client_remarks?: string | null
           created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
           delivery_at?: string | null
           entry_at?: string | null
           id?: string
@@ -414,6 +502,7 @@ export type Database = {
           or_date?: string | null
           or_number?: string | null
           requested_work?: string | null
+          site_id?: string | null
           status?: string
           vehicle_id?: string
         }
@@ -426,6 +515,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "repair_orders_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "repair_orders_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
@@ -434,19 +530,75 @@ export type Database = {
           },
         ]
       }
+      sites: {
+        Row: {
+          created_at: string
+          email_from_address: string
+          email_from_name: string
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email_from_address?: string
+          email_from_name?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email_from_address?: string
+          email_from_name?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       vehicle_inspections: {
         Row: {
           client_content_updated_at: string | null
           completed_at: string | null
           created_at: string
+          created_by: string | null
+          created_by_name: string | null
           current_zone_index: number
           id: string
           inspection_type: string
           last_sent_at: string | null
+          last_sent_by: string | null
+          last_sent_by_name: string | null
           last_sent_to: string | null
           mileage: number | null
           repair_order_id: string
           share_token: string
+          site_id: string | null
           started_at: string
           status: string
           vehicle_id: string
@@ -455,14 +607,19 @@ export type Database = {
           client_content_updated_at?: string | null
           completed_at?: string | null
           created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
           current_zone_index?: number
           id?: string
           inspection_type: string
           last_sent_at?: string | null
+          last_sent_by?: string | null
+          last_sent_by_name?: string | null
           last_sent_to?: string | null
           mileage?: number | null
           repair_order_id: string
           share_token?: string
+          site_id?: string | null
           started_at?: string
           status?: string
           vehicle_id: string
@@ -471,14 +628,19 @@ export type Database = {
           client_content_updated_at?: string | null
           completed_at?: string | null
           created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
           current_zone_index?: number
           id?: string
           inspection_type?: string
           last_sent_at?: string | null
+          last_sent_by?: string | null
+          last_sent_by_name?: string | null
           last_sent_to?: string | null
           mileage?: number | null
           repair_order_id?: string
           share_token?: string
+          site_id?: string | null
           started_at?: string
           status?: string
           vehicle_id?: string
@@ -489,6 +651,13 @@ export type Database = {
             columns: ["repair_order_id"]
             isOneToOne: false
             referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_inspections_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
           {
@@ -555,10 +724,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_active_user: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "manager" | "salarie" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -685,6 +861,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["manager", "salarie", "client"],
+    },
   },
 } as const
