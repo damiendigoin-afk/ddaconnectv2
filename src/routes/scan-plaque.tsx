@@ -142,6 +142,25 @@ function ScanPlate() {
           </button>
         </div>
 
+        {refVehicle ? (
+          <Link
+            to="/vehicule/$vehId"
+            params={{ vehId: refVehicle.id }}
+            className="flex items-center gap-3 rounded-xl border-2 border-status-ok bg-card p-4"
+          >
+            <Car className="h-6 w-6 shrink-0 text-status-ok" />
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold uppercase text-status-ok">Véhicule trouvé</div>
+              <div className="plate-badge text-xl">{refVehicle.registration_display ?? ""}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {vehicleLabel(refVehicle)}
+                {refVehicle.customer ? ` · ${customerName(refVehicle.customer)}` : ""}
+                {refVehicle.last_mileage ? ` · ${refVehicle.last_mileage.toLocaleString("fr-FR")} km` : ""}
+              </div>
+            </div>
+          </Link>
+        ) : null}
+
         {results !== null ? (
           results.length > 0 ? (
             <div className="space-y-2">
