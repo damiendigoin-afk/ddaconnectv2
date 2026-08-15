@@ -28,10 +28,13 @@ export const Route = createFileRoute("/tour-vehicule")({
   component: ModuleHome,
 });
 
+const MAX = 5;
+
 function ModuleHome() {
   const [term, setTerm] = useState("");
-  const recent = useQuery({ queryKey: ["recent-orders"], queryFn: fetchRecentOrders });
-  const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(8) });
+  const [tab, setTab] = useState<"tours" | "ors">("tours");
+  const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
+  const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(MAX) });
   const results = useQuery({
     queryKey: ["search-orders", term],
     queryFn: () => searchOrders(term),
@@ -39,26 +42,73 @@ function ModuleHome() {
   });
 
   const searching = term.trim().length >= 2;
-  const list = searching ? (results.data ?? []) : (recent.data ?? []);
+  const orders = (recent.data ?? []).slice(0, MAX);
+  const tourList = (tours.data ?? []).slice(0, MAX);
+
+  const toursCol = (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Tours Véhicule récents
+        </h2>
+        <Link to="/tours" className="text-xs font-bold uppercase tracking-widest text-brand">
+          Voir tous les Tours
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {tourList.map((t) => (
+          <TourRow key={t.id} t={t} />
+        ))}
+        {tourList.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Aucun tour véhicule pour le moment.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+
+  const ordersCol = (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          OR récents
+        </h2>
+        <Link to="/ordres" className="text-xs font-bold uppercase tracking-widest text-brand">
+          Voir tous les OR
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {orders.map((o) => (
+          <OrCard key={o.id} o={o as never} />
+        ))}
+        {orders.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Aucun OR pour le moment.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
 
   return (
     <div className="min-h-screen bg-background pb-16">
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-4">
-          <Link to="/" className="rounded-lg p-2 -ml-2" aria-label="Retour aux modules">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4">
+          <Link to="/" className="-ml-2 rounded-lg p-2" aria-label="Retour aux modules">
             <ChevronLeft className="h-6 w-6" />
           </Link>
           <div>
             <h1 className="text-xl font-extrabold uppercase tracking-tight">Tour Véhicule</h1>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs font-medium tracking-widest text-muted-foreground">
               DDA Connect
             </p>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-5 px-4 py-5">
-        <div className="grid gap-3">
+      <main className="mx-auto max-w-5xl space-y-5 px-4 py-5">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Link
             to="/or/nouveau"
             search={{ plate: "" }}
@@ -84,34 +134,50 @@ function ModuleHome() {
           />
         </div>
 
-        {!searching && (tours.data ?? []).length > 0 ? (
+        {searching ? (
           <section>
             <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Tours véhicule récents
+              Résultats
             </h2>
             <div className="space-y-2">
-              {(tours.data ?? []).map((t) => (
-                <TourRow key={t.id} t={t} />
+              {(results.data ?? []).map((o) => (
+                <OrCard key={o.id} o={o as never} />
               ))}
+              {(results.data ?? []).length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  Aucun résultat.
+                </p>
+              ) : null}
             </div>
           </section>
-        ) : null}
+        ) : (
+          <>
+            {/* Mobile : sélecteur simple entre les deux listes */}
+            <div className="lg:hidden">
+              <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
+                <button
+                  onClick={() => setTab("tours")}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "tours" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+                >
+                  Tours récents
+                </button>
+                <button
+                  onClick={() => setTab("ors")}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "ors" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+                >
+                  OR récents
+                </button>
+              </div>
+              {tab === "tours" ? toursCol : ordersCol}
+            </div>
 
-        <section>
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {searching ? "Résultats" : "OR récents"}
-          </h2>
-          <div className="space-y-2">
-            {list.map((o) => (
-              <OrCard key={o.id} o={o as never} />
-            ))}
-            {list.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                {searching ? "Aucun résultat." : "Aucun OR pour le moment."}
-              </p>
-            ) : null}
-          </div>
-        </section>
+            {/* Desktop / tablette large : deux colonnes */}
+            <div className="hidden gap-6 lg:grid lg:grid-cols-2 lg:items-start">
+              {toursCol}
+              {ordersCol}
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

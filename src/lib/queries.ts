@@ -4,12 +4,12 @@ import { normalizePlate } from "./plate";
 export const OR_SELECT =
   "id, or_number, or_date, client_remarks, requested_work, entry_at, delivery_at, mileage_in, created_at, vehicle:vehicles(*), client:clients(*)";
 
-export async function fetchRecentOrders() {
+export async function fetchRecentOrders(limit = 20) {
   const { data, error } = await supabase
     .from("repair_orders")
     .select(OR_SELECT)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(limit);
   if (error) throw error;
   return data ?? [];
 }

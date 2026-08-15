@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronDown, ClipboardList, ListChecks, Loader2, Route as RouteIcon } from "lucide-react";
+import { ChevronDown, ClipboardList, ListChecks, Loader2, Pencil, Route as RouteIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { MileageCard } from "@/components/MileageCard";
+import { InfoEditForm } from "@/components/InfoEditForm";
+import { useAuth } from "@/lib/auth";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
 import { formatPlate } from "@/lib/plate";
 import { createInspection } from "@/lib/tour";
@@ -33,6 +35,8 @@ function OrderPage() {
   const [details, setDetails] = useState(false);
   const [starting, setStarting] = useState(false);
   const [editMileage, setEditMileage] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const { user, displayName, profile } = useAuth();
 
   const order = useQuery({ queryKey: ["order", orId], queryFn: () => fetchOrder(orId) });
   const tours = useQuery({ queryKey: ["inspections", orId], queryFn: () => fetchInspections(orId) });
@@ -52,7 +56,11 @@ function OrderPage() {
     if (!order.data || !v?.id) return;
     setStarting(true);
     try {
-      const insp = await createInspection(orId, v.id, type);
+      const insp = await createInspection(orId, v.id, type, {
+        userId: user?.id ?? null,
+        userName: displayName || null,
+        siteId: (profile?.site_id as string | null) ?? null,
+      });
       await qc.invalidateQueries({ queryKey: ["inspections", orId] });
       navigate({ to: "/tour/$tourId", params: { tourId: insp.id } });
     } catch (e) {
@@ -67,6 +75,16 @@ function OrderPage() {
     <AppShell title={formatPlate(v?.plate ?? "")} subtitle={`OR ${order.data?.or_number ?? "—"}`} back={{ to: "/tour-vehicule" }}>
       {order.isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement…</p>
+      ) : editing && order.data ? (
+        <InfoEditForm
+          order={order.data as unknown as Record<string, unknown>}
+          onCancel={() => setEditing(false)}
+          onDone={() => {
+            setEditing(false);
+            void qc.invalidateQueries({ queryKey: ["order", orId] });
+            void qc.invalidateQueries({ queryKey: ["recent-orders"] });
+          }}
+        />
       ) : (
         <div className="space-y-4">
           <section className="card-surface p-4">
@@ -101,6 +119,13 @@ function OrderPage() {
               </div>
             ) : null}
           </section>
+
+          <button
+            onClick={() => setEditing(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-4 text-sm font-bold uppercase tracking-wide"
+          >
+            <Pencil className="h-4 w-4" /> Modifier les informations
+          </button>
 
           {order.data?.requested_work || order.data?.client_remarks ? (
             <section className="card-surface space-y-3 p-4">

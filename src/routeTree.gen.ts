@@ -10,8 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as OrdresRouteImport } from './routes/ordres'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
 import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
+import { Route as ToursRouteImport } from './routes/tours'
+import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
@@ -25,6 +29,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdresRoute = OrdresRouteImport.update({
+  id: '/ordres',
+  path: '/ordres',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
   id: '/scan-plaque',
   path: '/scan-plaque',
@@ -33,6 +47,16 @@ const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
 const TourVehiculeRoute = TourVehiculeRouteImport.update({
   id: '/tour-vehicule',
   path: '/tour-vehicule',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToursRoute = ToursRouteImport.update({
+  id: '/tours',
+  path: '/tours',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UtilisateursRoute = UtilisateursRouteImport.update({
+  id: '/utilisateurs',
+  path: '/utilisateurs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
@@ -73,8 +97,12 @@ const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
+  '/tours': typeof ToursRoute
+  '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
@@ -85,8 +113,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
+  '/tours': typeof ToursRoute
+  '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
@@ -98,8 +130,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
+  '/tours': typeof ToursRoute
+  '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
@@ -112,8 +148,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
+    | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
+    | '/tours'
+    | '/utilisateurs'
     | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
@@ -124,8 +164,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
+    | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
+    | '/tours'
+    | '/utilisateurs'
     | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
@@ -136,8 +180,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
+    | '/ordres'
     | '/scan-plaque'
     | '/tour-vehicule'
+    | '/tours'
+    | '/utilisateurs'
     | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
@@ -149,8 +197,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  OrdresRoute: typeof OrdresRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
   TourVehiculeRoute: typeof TourVehiculeRoute
+  ToursRoute: typeof ToursRoute
+  UtilisateursRoute: typeof UtilisateursRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
@@ -169,6 +221,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ordres': {
+      id: '/ordres'
+      path: '/ordres'
+      fullPath: '/ordres'
+      preLoaderRoute: typeof OrdresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/scan-plaque': {
       id: '/scan-plaque'
       path: '/scan-plaque'
@@ -181,6 +247,20 @@ declare module '@tanstack/react-router' {
       path: '/tour-vehicule'
       fullPath: '/tour-vehicule'
       preLoaderRoute: typeof TourVehiculeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tours': {
+      id: '/tours'
+      path: '/tours'
+      fullPath: '/tours'
+      preLoaderRoute: typeof ToursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/utilisateurs': {
+      id: '/utilisateurs'
+      path: '/utilisateurs'
+      fullPath: '/utilisateurs'
+      preLoaderRoute: typeof UtilisateursRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/test-email': {
@@ -237,8 +317,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  OrdresRoute: OrdresRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,
   TourVehiculeRoute: TourVehiculeRoute,
+  ToursRoute: ToursRoute,
+  UtilisateursRoute: UtilisateursRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,

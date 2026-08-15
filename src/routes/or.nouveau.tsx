@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
+import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
@@ -154,6 +155,20 @@ function NewOrder() {
     if (!form.plate.trim()) {
       toast.error("L'immatriculation est obligatoire");
       return;
+    }
+    if (!form.or_number.trim()) {
+      toast.error("Le n° d'OR est obligatoire");
+      return;
+    }
+    if (!form.last_name.trim()) {
+      toast.error("Le nom du client est obligatoire");
+      return;
+    }
+    if (form.email.trim() && !isValidEmail(form.email)) {
+      const ok = window.confirm(
+        `L'adresse email « ${form.email} » semble incorrecte. Créer l'OR quand même ?`,
+      );
+      if (!ok) return;
     }
     setSaving(true);
     try {
