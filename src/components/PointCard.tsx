@@ -22,9 +22,9 @@ export function PointCard({
   onChanged,
 }: {
   point: PointRow;
-  def?: PointDef;
+  def?: PointDef | undefined;
   inspectionId: string;
-  onChanged?: (status: PointStatus) => void;
+  onChanged?: ((status: PointStatus) => void) | undefined;
 }) {
   const [status, setStatus] = useState<PointStatus>(point.status as PointStatus);
   const [measure, setMeasure] = useState(point.measure_value ?? "");
