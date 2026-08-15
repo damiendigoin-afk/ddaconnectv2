@@ -151,6 +151,122 @@ export type Database = {
           },
         ]
       }
+      expertise_damages: {
+        Row: {
+          ai_suggestion: Json | null
+          annotation_data: Json | null
+          comment: string | null
+          cost_pending: boolean
+          created_at: string
+          created_by: string | null
+          damage_number: number
+          damage_type: string | null
+          estimated_cost: number | null
+          expertise_id: string
+          id: string
+          photo_id: string | null
+          recommended_action: string | null
+          updated_at: string
+          vehicle_zone: string | null
+        }
+        Insert: {
+          ai_suggestion?: Json | null
+          annotation_data?: Json | null
+          comment?: string | null
+          cost_pending?: boolean
+          created_at?: string
+          created_by?: string | null
+          damage_number?: number
+          damage_type?: string | null
+          estimated_cost?: number | null
+          expertise_id: string
+          id?: string
+          photo_id?: string | null
+          recommended_action?: string | null
+          updated_at?: string
+          vehicle_zone?: string | null
+        }
+        Update: {
+          ai_suggestion?: Json | null
+          annotation_data?: Json | null
+          comment?: string | null
+          cost_pending?: boolean
+          created_at?: string
+          created_by?: string | null
+          damage_number?: number
+          damage_type?: string | null
+          estimated_cost?: number | null
+          expertise_id?: string
+          id?: string
+          photo_id?: string | null
+          recommended_action?: string | null
+          updated_at?: string
+          vehicle_zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expertise_damages_expertise_id_fkey"
+            columns: ["expertise_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_expertises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expertise_damages_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "expertise_photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expertise_photos: {
+        Row: {
+          category: string
+          created_at: string
+          expertise_id: string
+          id: string
+          label: string | null
+          photo_type: string
+          report_path: string | null
+          required: boolean
+          sequence: number
+          storage_path: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          expertise_id: string
+          id?: string
+          label?: string | null
+          photo_type: string
+          report_path?: string | null
+          required?: boolean
+          sequence?: number
+          storage_path: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          expertise_id?: string
+          id?: string
+          label?: string | null
+          photo_type?: string
+          report_path?: string | null
+          required?: boolean
+          sequence?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expertise_photos_expertise_id_fkey"
+            columns: ["expertise_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_expertises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       field_changes: {
         Row: {
           changed_by: string | null
@@ -530,6 +646,53 @@ export type Database = {
           },
         ]
       }
+      repair_price_rules: {
+        Row: {
+          action: string
+          active: boolean
+          amount: number | null
+          created_at: string
+          damage_type: string | null
+          id: string
+          label: string
+          manual_only: boolean
+          site_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          active?: boolean
+          amount?: number | null
+          created_at?: string
+          damage_type?: string | null
+          id?: string
+          label: string
+          manual_only?: boolean
+          site_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          active?: boolean
+          amount?: number | null
+          created_at?: string
+          damage_type?: string | null
+          id?: string
+          label?: string
+          manual_only?: boolean
+          site_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_price_rules_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           created_at: string
@@ -580,6 +743,137 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vehicle_expertises: {
+        Row: {
+          brand: string | null
+          client_id: string | null
+          color: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          energy: string | null
+          expertise_type: string
+          exterior_condition: string | null
+          first_registration: string | null
+          general_comment: string | null
+          id: string
+          interior_condition: string | null
+          keys_count: string | null
+          last_sent_at: string | null
+          last_sent_to: string | null
+          mileage: number | null
+          model: string | null
+          owner_name: string | null
+          plate: string | null
+          registration_doc: string
+          repair_order_id: string | null
+          share_token: string
+          site_id: string | null
+          status: string
+          step: string
+          updated_at: string
+          vehicle_id: string | null
+          version: string | null
+          vin: string | null
+        }
+        Insert: {
+          brand?: string | null
+          client_id?: string | null
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          energy?: string | null
+          expertise_type?: string
+          exterior_condition?: string | null
+          first_registration?: string | null
+          general_comment?: string | null
+          id?: string
+          interior_condition?: string | null
+          keys_count?: string | null
+          last_sent_at?: string | null
+          last_sent_to?: string | null
+          mileage?: number | null
+          model?: string | null
+          owner_name?: string | null
+          plate?: string | null
+          registration_doc?: string
+          repair_order_id?: string | null
+          share_token?: string
+          site_id?: string | null
+          status?: string
+          step?: string
+          updated_at?: string
+          vehicle_id?: string | null
+          version?: string | null
+          vin?: string | null
+        }
+        Update: {
+          brand?: string | null
+          client_id?: string | null
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          energy?: string | null
+          expertise_type?: string
+          exterior_condition?: string | null
+          first_registration?: string | null
+          general_comment?: string | null
+          id?: string
+          interior_condition?: string | null
+          keys_count?: string | null
+          last_sent_at?: string | null
+          last_sent_to?: string | null
+          mileage?: number | null
+          model?: string | null
+          owner_name?: string | null
+          plate?: string | null
+          registration_doc?: string
+          repair_order_id?: string | null
+          share_token?: string
+          site_id?: string | null
+          status?: string
+          step?: string
+          updated_at?: string
+          vehicle_id?: string | null
+          version?: string | null
+          vin?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_expertises_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expertises_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expertises_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expertises_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vehicle_inspections: {
         Row: {
