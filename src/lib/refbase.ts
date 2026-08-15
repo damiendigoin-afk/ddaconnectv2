@@ -316,3 +316,53 @@ export async function countRef() {
   ]);
   return { customers: c.count ?? 0, vehicles: v.count ?? 0 };
 }
+
+export type RefPrefill = {
+  vehicleId: string;
+  customerId: string | null;
+  label: string;
+  fields: Record<string, string>;
+};
+
+/** Pré-remplissage OR / expertise à partir du référentiel importé (OCR OR, scan plaque). */
+export async function refPrefill(plate: string): Promise<RefPrefill | null> {
+  const found = await findRefVehicleByPlate(plate);
+  if (!found) return null;
+  const fields: Record<string, string> = {
+    plate: found.registration_display ?? plate.toUpperCase(),
+    vin: found.vin ?? "",
+    brand: found.brand ?? "",
+    model: found.model ?? found.range_name ?? "",
+    first_registration: found.first_registration_date ?? "",
+    mileage: found.last_mileage ? String(found.last_mileage) : "",
+  };
+  if (found.customer) {
+    fields["last_name"] = found.customer.last_name ?? found.customer.company_name ?? "";
+    fields["first_name"] = found.customer.first_name ?? "";
+    fields["account_number"] = found.customer.source_customer_id ?? "";
+    const [{ data: contacts }, { data: addresses }] = await Promise.all([
+      supabase.from("customer_contacts").select("type, value").eq("customer_id", found.customer.id).eq("active", true),
+      supabase.from("customer_addresses").select("*").eq("customer_id", found.customer.id).eq("active", true).limit(1),
+    ]);
+    for (const c of (contacts ?? []) as { type: string; value: string }[]) {
+      if (c.type === "EMAIL" && !fields["email"]) fields["email"] = c.value;
+      if (c.type === "MOBILE" && !fields["mobile"]) fields["mobile"] = c.value;
+      if ((c.type === "PHONE" || c.type === "WORK_PHONE") && !fields["phone"]) fields["phone"] = c.value;
+    }
+    const a = (addresses ?? [])[0] as
+      | { address_line_1: string | null; address_line_2: string | null; postal_code: string | null; city: string | null }
+      | undefined;
+    if (a) {
+      fields["address"] = a.address_line_1 ?? "";
+      fields["address_extra"] = a.address_line_2 ?? "";
+      fields["postal_code"] = a.postal_code ?? "";
+      fields["city"] = a.city ?? "";
+    }
+  }
+  return {
+    vehicleId: found.id,
+    customerId: found.customer?.id ?? null,
+    label: `${found.registration_display ?? plate} — ${vehicleLabel(found)}${found.customer ? ` · ${customerName(found.customer)}` : ""}`,
+    fields,
+  };
+}
