@@ -32,29 +32,32 @@ export async function createInspection(
 
 export async function saveMileage(opts: {
   vehicleId: string;
-  inspectionId: string;
+  /** Optionnel : une mise à jour kilométrage peut être faite hors tour véhicule. */
+  inspectionId?: string | null;
   mileage: number;
   mediaId?: string | null;
   previous?: number | null;
 }) {
   await supabase.from("mileage_history").insert({
     vehicle_id: opts.vehicleId,
-    inspection_id: opts.inspectionId,
+    inspection_id: opts.inspectionId ?? null,
     mileage: opts.mileage,
-    source: "tour_vehicule",
+    source: opts.inspectionId ? "tour_vehicule" : "mise_a_jour",
     media_id: opts.mediaId ?? null,
   });
-  await supabase
-    .from("vehicle_inspections")
-    .update({ mileage: opts.mileage })
-    .eq("id", opts.inspectionId);
+  if (opts.inspectionId) {
+    await supabase
+      .from("vehicle_inspections")
+      .update({ mileage: opts.mileage })
+      .eq("id", opts.inspectionId);
+  }
   await supabase
     .from("vehicles")
     .update({ last_mileage: opts.mileage, last_mileage_at: new Date().toISOString() })
     .eq("id", opts.vehicleId);
   await supabase.from("dms_update_proposals").insert({
     vehicle_id: opts.vehicleId,
-    inspection_id: opts.inspectionId,
+    inspection_id: opts.inspectionId ?? null,
     field: "kilometrage",
     old_value: opts.previous != null ? String(opts.previous) : null,
     new_value: String(opts.mileage),

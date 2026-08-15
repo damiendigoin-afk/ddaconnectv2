@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizePlate } from "@/lib/plate";
+import { findDuplicateOrder } from "@/lib/queries";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
 
@@ -156,6 +157,21 @@ function NewOrder() {
     }
     setSaving(true);
     try {
+      // Anti-doublon : un même n° OR sur la même immatriculation existe déjà.
+      const dup = await findDuplicateOrder(form.or_number, form.plate);
+      if (dup.exact) {
+        toast.error("Cet OR existe déjà pour ce véhicule — ouverture de la fiche existante.");
+        navigate({ to: "/or/$orId", params: { orId: dup.exact.id } });
+        return;
+      }
+      if (dup.sameNumber.length > 0) {
+        const ok = window.confirm(
+          `Le n° OR ${form.or_number} est déjà utilisé pour ${dup.sameNumber
+            .map((o) => o.plate)
+            .join(", ")}. Créer quand même un nouvel OR pour ${form.plate.toUpperCase()} ?`,
+        );
+        if (!ok) return;
+      }
       let clientId: string | null = null;
       if (form.last_name || form.first_name || form.account_number) {
         const { data, error } = await supabase
@@ -265,7 +281,7 @@ function NewOrder() {
 
   if (mode === "choice") {
     return (
-      <AppShell title="Nouvel OR" back={{ to: "/" }}>
+      <AppShell title="Nouvel OR" back={{ to: "/tour-vehicule" }}>
         <div className="space-y-3">
           <button
             onClick={() => cameraRef.current?.click()}
@@ -337,7 +353,7 @@ function NewOrder() {
   }
 
   return (
-    <AppShell title="Vérifier les informations" subtitle="Tous les champs sont modifiables" back={{ to: "/" }}>
+    <AppShell title="Vérifier les informations" subtitle="Tous les champs sont modifiables" back={{ to: "/tour-vehicule" }}>
       <div className="space-y-4 pb-4">
         <Section title="Véhicule">
           <Field label="Immatriculation" value={form.plate} onChange={(v) => set("plate", v.toUpperCase())} warn={flagged("vehicle.plate")} big />

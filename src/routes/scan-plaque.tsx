@@ -73,7 +73,7 @@ function ScanPlate() {
   }
 
   return (
-    <AppShell title="Scanner une plaque" back={{ to: "/" }}>
+    <AppShell title="Scanner une plaque" back={{ to: "/tour-vehicule" }}>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <button

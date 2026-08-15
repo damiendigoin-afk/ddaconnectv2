@@ -29,6 +29,21 @@ const wheel = (side: string, code: string): PointDef[] => [
 
 export const GUIDED_ZONES: ZoneDef[] = [
   {
+    key: "habitacle",
+    label: "Habitacle",
+    hint: "Installez-vous au poste de conduite.",
+    points: [
+      { key: "kilometrage", label: "Kilométrage compteur", special: "mileage" },
+      { key: "voyants", label: "Voyants au tableau de bord" },
+      { key: "frein_parking", label: "Frein de parking" },
+      { key: "climatisation", label: "Climatisation / chauffage" },
+      { key: "filtre_habitacle", label: "Filtre habitacle" },
+      { key: "ceintures", label: "Ceintures de sécurité" },
+      { key: "avertisseur", label: "Avertisseur sonore" },
+      { key: "proprete_int", label: "Propreté intérieure" },
+    ],
+  },
+  {
     key: "depart",
     label: "Départ côté conducteur",
     hint: "Placez-vous côté conducteur, portière fermée.",
@@ -111,21 +126,6 @@ export const GUIDED_ZONES: ZoneDef[] = [
       { key: "vitrage_g", label: "Vitrage côté gauche" },
       { key: "bas_caisse_g", label: "Bas de caisse gauche" },
       { key: "trappe_carburant", label: "Trappe à carburant" },
-    ],
-  },
-  {
-    key: "habitacle",
-    label: "Habitacle",
-    hint: "Installez-vous au poste de conduite.",
-    points: [
-      { key: "kilometrage", label: "Kilométrage compteur", special: "mileage" },
-      { key: "voyants", label: "Voyants au tableau de bord" },
-      { key: "frein_parking", label: "Frein de parking" },
-      { key: "climatisation", label: "Climatisation / chauffage" },
-      { key: "filtre_habitacle", label: "Filtre habitacle" },
-      { key: "ceintures", label: "Ceintures de sécurité" },
-      { key: "avertisseur", label: "Avertisseur sonore" },
-      { key: "proprete_int", label: "Propreté intérieure" },
     ],
   },
   {

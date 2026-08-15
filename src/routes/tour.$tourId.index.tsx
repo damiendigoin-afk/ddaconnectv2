@@ -138,8 +138,31 @@ function Guided(props: SharedProps) {
     },
   });
 
-  const zoneDef = GUIDED_ZONES[zone - 1]!;
-  const zonePoints = (points.data ?? []).filter((p) => p.zone_index === zone);
+  // Les zones sont dérivées des points enregistrés : un tour déjà commencé
+  // conserve son ordre d'origine même si la liste de référence évolue.
+  const zones = useMemo(() => {
+    const map = new Map<number, { index: number; label: string; key: string }>();
+    for (const p of points.data ?? []) {
+      if (!map.has(p.zone_index)) {
+        map.set(p.zone_index, {
+          index: p.zone_index,
+          label: p.zone_label,
+          key: (p as unknown as { zone_key: string }).zone_key,
+        });
+      }
+    }
+    if (map.size === 0) {
+      return GUIDED_ZONES.map((z, i) => ({ index: i + 1, label: z.label, key: z.key }));
+    }
+    return [...map.values()].sort((a, b) => a.index - b.index);
+  }, [points.data]);
+
+  const zoneCount = zones.length;
+  const position = Math.max(1, zones.findIndex((z) => z.index === zone) + 1);
+  const current = zones[position - 1] ?? zones[0]!;
+  const zoneDef =
+    GUIDED_ZONES.find((z) => z.key === current.key) ?? GUIDED_ZONES[current.index - 1] ?? GUIDED_ZONES[0]!;
+  const zonePoints = (points.data ?? []).filter((p) => p.zone_index === current.index);
 
   const counts = useMemo(() => {
     const all = points.data ?? [];
@@ -152,12 +175,14 @@ function Guided(props: SharedProps) {
     };
   }, [points.data]);
 
-  async function goto(next: number) {
-    setZone(next);
+  async function goto(nextPosition: number) {
+    const target = zones[nextPosition - 1];
+    if (!target) return;
+    setZone(target.index);
     window.scrollTo({ top: 0 });
     await supabase
       .from("vehicle_inspections")
-      .update({ current_zone_index: next })
+      .update({ current_zone_index: target.index })
       .eq("id", props.tourId);
   }
 
@@ -222,16 +247,51 @@ function Guided(props: SharedProps) {
 
   return (
     <AppShell
-      title={`Zone ${zone} / ${GUIDED_ZONES.length}`}
-      subtitle={zoneDef.label.toUpperCase()}
+      title={`Zone ${position} / ${zoneCount}`}
+      subtitle={current.label.toUpperCase()}
       back={{ to: "/or/$orId", params: { orId: props.orderId } }}
     >
       <TourNav quit={props.quit} deleteDraft={props.deleteDraft} />
       <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
         <div
           className="h-full bg-brand transition-all"
-          style={{ width: `${(zone / GUIDED_ZONES.length) * 100}%` }}
+          style={{ width: `${(position / zoneCount) * 100}%` }}
         />
+      </div>
+
+      <div className="-mx-4 mb-3 overflow-x-auto px-4">
+        <div className="flex w-max gap-2 pb-1">
+          {zones.map((z, i) => {
+            const pts = (points.data ?? []).filter((p) => p.zone_index === z.index);
+            const done = pts.length > 0 && pts.every((p) => p.status !== "unset");
+            const issues = pts.filter((p) => p.status === "watch" || p.status === "defect").length;
+            const active = z.index === current.index;
+            return (
+              <button
+                key={z.index}
+                type="button"
+                onClick={() => void goto(i + 1)}
+                aria-current={active ? "step" : undefined}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-2 text-xs font-bold uppercase ${
+                  active
+                    ? "border-brand bg-brand text-brand-foreground"
+                    : done
+                      ? "border-status-ok bg-status-ok-soft text-status-ok"
+                      : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                <span>
+                  {i + 1}. {z.label}
+                </span>
+                {issues > 0 ? (
+                  <span className="rounded-full bg-status-defect px-1.5 text-[10px] text-white">
+                    {issues}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
       <p className="mb-3 text-sm text-muted-foreground">{zoneDef.hint}</p>
 
@@ -259,23 +319,23 @@ function Guided(props: SharedProps) {
       </div>
 
       <div className="mt-5 space-y-2">
-        {zone < GUIDED_ZONES.length ? (
+        {position < zoneCount ? (
           <div className="card-surface p-4 text-center">
-            <p className="text-sm font-bold uppercase">{zoneDef.label} terminé</p>
-            <p className="text-sm text-muted-foreground">{GUIDED_ZONES[zone]!.hint}</p>
+            <p className="text-sm font-bold uppercase">{current.label} terminé</p>
+            <p className="text-sm text-muted-foreground">Zone suivante : {zones[position]!.label}</p>
           </div>
         ) : null}
         <div className="flex gap-2">
           <button
-            disabled={zone === 1}
-            onClick={() => void goto(zone - 1)}
+            disabled={position === 1}
+            onClick={() => void goto(position - 1)}
             className="flex flex-1 items-center justify-center gap-1 rounded-xl border-2 border-border bg-card px-3 py-4 font-bold uppercase disabled:opacity-40"
           >
             <ChevronLeft className="h-5 w-5" /> Précédente
           </button>
-          {zone < GUIDED_ZONES.length ? (
+          {position < zoneCount ? (
             <button
-              onClick={() => void goto(zone + 1)}
+              onClick={() => void goto(position + 1)}
               className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-brand px-3 py-4 font-bold uppercase text-brand-foreground"
             >
               Continuer <ChevronRight className="h-5 w-5" />
@@ -289,6 +349,14 @@ function Guided(props: SharedProps) {
             </button>
           )}
         </div>
+        {position < zoneCount ? (
+          <button
+            onClick={() => setShowSummary(true)}
+            className="w-full rounded-xl border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase text-muted-foreground"
+          >
+            Terminer le tour maintenant
+          </button>
+        ) : null}
       </div>
     </AppShell>
   );

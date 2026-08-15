@@ -14,7 +14,11 @@ Extrais uniquement ce que tu lis réellement. Réponds STRICTEMENT en JSON avec 
 "vehicle":{"plate":null,"vin":null,"brand":null,"model":null,"mileage":null,"first_registration":null},
 "order":{"or_number":null,"or_date":null,"client_remarks":null,"requested_work":null,"entry_at":null,"delivery_at":null},
 "uncertain":["liste des chemins de champs peu lisibles, ex: vehicle.vin"]}
-Dates au format ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm). mileage = entier sans espace. Mets null si absent.`;
+Dates au format ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm). mileage = entier sans espace. Mets null si absent.
+IMPORTANT pour "client_remarks" et "requested_work" : ces zones contiennent souvent PLUSIEURS lignes
+ou plusieurs demandes distinctes (listes, tirets, numérotation, phrases successives, texte manuscrit).
+Restitue l'INTÉGRALITÉ du texte lu, sans résumer ni fusionner, une demande par ligne, séparées par des
+retours à la ligne "\\n". Conserve l'ordre du document. N'invente rien.`;
     const result = await askVision(prompt, data.dataUrl, data.filename);
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);

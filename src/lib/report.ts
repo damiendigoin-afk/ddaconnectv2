@@ -11,9 +11,21 @@ export type ReportData = {
     started_at: string;
     completed_at: string | null;
     share_token: string;
+    last_sent_at: string | null;
+    last_sent_to: string | null;
+    client_content_updated_at: string | null;
   };
   vehicle: { id: string; plate: string; brand: string | null; model: string | null } | null;
-  order: { id: string; or_number: string | null; or_date: string | null } | null;
+  order: {
+    id: string;
+    or_number: string | null;
+    or_date: string | null;
+    client: {
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+    } | null;
+  } | null;
   points: {
     id: string;
     zone_index: number;
@@ -23,6 +35,7 @@ export type ReportData = {
     measure_value: string | null;
     measure_unit: string | null;
     comment: string | null;
+    client_comment: string | null;
   }[];
   observations: {
     id: string;
@@ -32,6 +45,7 @@ export type ReportData = {
     measure_value: string | null;
     measure_unit: string | null;
     comment: string | null;
+    client_comment: string | null;
   }[];
   media: ReportMedia[];
 };
@@ -40,7 +54,7 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
   let query = supabase
     .from("vehicle_inspections")
     .select(
-      "id, inspection_type, status, mileage, started_at, completed_at, share_token, vehicle:vehicles(id, plate, brand, model), repair_order:repair_orders(id, or_number, or_date)",
+      "id, inspection_type, status, mileage, started_at, completed_at, share_token, last_sent_at, last_sent_to, client_content_updated_at, vehicle:vehicles(id, plate, brand, model), repair_order:repair_orders(id, or_number, or_date, client:clients(first_name, last_name, email))",
     );
   query = by.id ? query.eq("id", by.id) : query.eq("share_token", by.token!);
   const { data: insp, error } = await query.single();
@@ -49,12 +63,14 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
   const [points, observations, media] = await Promise.all([
     supabase
       .from("inspection_points")
-      .select("id, zone_index, zone_label, point_label, status, measure_value, measure_unit, comment")
+      .select(
+        "id, zone_index, zone_label, point_label, status, measure_value, measure_unit, comment, client_comment",
+      )
       .eq("inspection_id", insp.id)
       .order("zone_index"),
     supabase
       .from("observations")
-      .select("id, category, element, status, measure_value, measure_unit, comment")
+      .select("id, category, element, status, measure_value, measure_unit, comment, client_comment")
       .eq("inspection_id", insp.id)
       .order("created_at"),
     supabase

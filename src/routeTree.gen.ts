@@ -11,11 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
+import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
+import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
 
 const IndexRoute = IndexRouteImport.update({
@@ -26,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
   id: '/scan-plaque',
   path: '/scan-plaque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TourVehiculeRoute = TourVehiculeRouteImport.update({
+  id: '/tour-vehicule',
+  path: '/tour-vehicule',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
@@ -53,6 +60,11 @@ const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
   path: '/tour/$tourId/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TourTourIdPresentationRoute = TourTourIdPresentationRouteImport.update({
+  id: '/tour/$tourId/presentation',
+  path: '/tour/$tourId/presentation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
   id: '/tour/$tourId/rapport',
   path: '/tour/$tourId/rapport',
@@ -62,20 +74,24 @@ const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/tour-vehicule': typeof TourVehiculeRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/tour-vehicule': typeof TourVehiculeRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
 }
@@ -83,10 +99,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/scan-plaque': typeof ScanPlaqueRoute
+  '/tour-vehicule': typeof TourVehiculeRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
@@ -95,30 +113,36 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/scan-plaque'
+    | '/tour-vehicule'
     | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/tour/$tourId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/scan-plaque'
+    | '/tour-vehicule'
     | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/tour/$tourId'
   id:
     | '__root__'
     | '/'
     | '/scan-plaque'
+    | '/tour-vehicule'
     | '/api/test-email'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/tour/$tourId/'
   fileRoutesById: FileRoutesById
@@ -126,10 +150,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
+  TourVehiculeRoute: typeof TourVehiculeRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
 }
@@ -148,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/scan-plaque'
       fullPath: '/scan-plaque'
       preLoaderRoute: typeof ScanPlaqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tour-vehicule': {
+      id: '/tour-vehicule'
+      path: '/tour-vehicule'
+      fullPath: '/tour-vehicule'
+      preLoaderRoute: typeof TourVehiculeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/test-email': {
@@ -185,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TourTourIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tour/$tourId/presentation': {
+      id: '/tour/$tourId/presentation'
+      path: '/tour/$tourId/presentation'
+      fullPath: '/tour/$tourId/presentation'
+      preLoaderRoute: typeof TourTourIdPresentationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tour/$tourId/rapport': {
       id: '/tour/$tourId/rapport'
       path: '/tour/$tourId/rapport'
@@ -198,10 +238,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,
+  TourVehiculeRoute: TourVehiculeRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
+  TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
 }

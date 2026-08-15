@@ -14,10 +14,12 @@ export function MileageCard({
   previous,
   current,
   onSaved,
+  title,
 }: {
-  inspectionId: string;
-  pointId: string;
+  inspectionId?: string | undefined;
+  pointId?: string | undefined;
   vehicleId: string;
+  title?: string;
   previous: number | null;
   current: number | null;
   onSaved: (value: number) => void;
@@ -32,12 +34,18 @@ export function MileageCard({
     setBusy(true);
     try {
       const blob = await compressImage(file, 1500, 0.85);
-      const media = await uploadPhoto(new File([blob], "compteur.jpg", { type: "image/jpeg" }), `inspections/${inspectionId}`, {
-        inspection_id: inspectionId,
-        inspection_point_id: pointId,
-        label: "Compteur",
-      });
-      setLastMediaId(media.id);
+      if (inspectionId) {
+        const media = await uploadPhoto(
+          new File([blob], "compteur.jpg", { type: "image/jpeg" }),
+          `inspections/${inspectionId}`,
+          {
+            inspection_id: inspectionId,
+            ...(pointId ? { inspection_point_id: pointId } : {}),
+            label: "Compteur",
+          },
+        );
+        setLastMediaId(media.id);
+      }
       const dataUrl = await blobToDataUrl(blob);
       const res = await ocrOdometer({ data: { dataUrl } });
       if (res.ok) {
@@ -68,7 +76,7 @@ export function MileageCard({
     }
     await saveMileage({
       vehicleId,
-      inspectionId,
+      inspectionId: inspectionId ?? null,
       mileage: km,
       mediaId: lastMediaId,
       previous,
@@ -79,7 +87,7 @@ export function MileageCard({
 
   return (
     <div className="card-surface space-y-3 border-2 border-brand p-4">
-      <h3 className="font-bold uppercase">Kilométrage compteur</h3>
+      <h3 className="font-bold uppercase">{title ?? "Kilométrage compteur"}</h3>
       <p className="text-xs text-muted-foreground">
         Dernier kilométrage connu : {previous ? `${previous.toLocaleString("fr-FR")} km` : "—"}
       </p>
@@ -125,11 +133,13 @@ export function MileageCard({
       >
         Confirmer le kilométrage
       </button>
-      <PhotoManager
-        compact
-        folder={`inspections/${inspectionId}`}
-        links={{ inspection_id: inspectionId, inspection_point_id: pointId }}
-      />
+      {inspectionId ? (
+        <PhotoManager
+          compact
+          folder={`inspections/${inspectionId}`}
+          links={{ inspection_id: inspectionId, ...(pointId ? { inspection_point_id: pointId } : {}) }}
+        />
+      ) : null}
     </div>
   );
 }
