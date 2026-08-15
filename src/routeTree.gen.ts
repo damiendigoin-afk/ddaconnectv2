@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
 import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
@@ -23,6 +24,11 @@ import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rap
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
@@ -73,6 +79,7 @@ const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
   '/api/test-email': typeof ApiTestEmailRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
   '/api/test-email': typeof ApiTestEmailRoute
@@ -98,6 +106,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/scan-plaque': typeof ScanPlaqueRoute
   '/tour-vehicule': typeof TourVehiculeRoute
   '/api/test-email': typeof ApiTestEmailRoute
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/scan-plaque'
     | '/tour-vehicule'
     | '/api/test-email'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/scan-plaque'
     | '/tour-vehicule'
     | '/api/test-email'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/scan-plaque'
     | '/tour-vehicule'
     | '/api/test-email'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
   TourVehiculeRoute: typeof TourVehiculeRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/scan-plaque': {
@@ -237,6 +257,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,
   TourVehiculeRoute: TourVehiculeRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
