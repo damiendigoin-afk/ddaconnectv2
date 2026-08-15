@@ -33,6 +33,7 @@ import {
   type ExpertiseDamage,
   type ExpertisePhoto,
   type PhotoStep,
+  type PriceRule,
 } from "@/lib/expertise";
 import { ocrOdometer } from "@/lib/ocr.functions";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
@@ -543,7 +544,7 @@ function DamagesStep({
   damages: ExpertiseDamage[];
   photos: ExpertisePhoto[];
   userId: string | null;
-  rules: ReturnType<typeof Array<never>> extends never ? never : Parameters<typeof suggestCost>[0];
+  rules: PriceRule[];
   onChange: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -657,7 +658,7 @@ function DamageCard({
 }: {
   damage: ExpertiseDamage;
   photo: ExpertisePhoto | null;
-  rules: Parameters<typeof suggestCost>[0];
+  rules: PriceRule[];
   onChange: () => void;
 }) {
   async function patch(p: Partial<ExpertiseDamage>) {
