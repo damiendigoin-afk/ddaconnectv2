@@ -155,6 +155,20 @@ function NewOrder() {
       toast.error("L'immatriculation est obligatoire");
       return;
     }
+    if (!form.or_number.trim()) {
+      toast.error("Le n° d'OR est obligatoire");
+      return;
+    }
+    if (!form.last_name.trim()) {
+      toast.error("Le nom du client est obligatoire");
+      return;
+    }
+    if (form.email.trim() && !isValidEmail(form.email)) {
+      const ok = window.confirm(
+        `L'adresse email « ${form.email} » semble incorrecte. Créer l'OR quand même ?`,
+      );
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       // Anti-doublon : un même n° OR sur la même immatriculation existe déjà.
