@@ -18,6 +18,7 @@ import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
@@ -70,6 +71,11 @@ const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   path: '/api/test-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExpertiseNouvelleRoute = ExpertiseNouvelleRouteImport.update({
+  id: '/expertise/nouvelle',
+  path: '/expertise/nouvelle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrOrIdRoute = OrOrIdRouteImport.update({
   id: '/or/$orId',
   path: '/or/$orId',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
@@ -217,6 +229,7 @@ export interface RootRouteChildren {
   ToursRoute: typeof ToursRoute
   UtilisateursRoute: typeof UtilisateursRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
+  ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTestEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/expertise/nouvelle': {
+      id: '/expertise/nouvelle'
+      path: '/expertise/nouvelle'
+      fullPath: '/expertise/nouvelle'
+      preLoaderRoute: typeof ExpertiseNouvelleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/or/$orId': {
       id: '/or/$orId'
       path: '/or/$orId'
@@ -345,6 +365,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToursRoute: ToursRoute,
   UtilisateursRoute: UtilisateursRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
+  ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
