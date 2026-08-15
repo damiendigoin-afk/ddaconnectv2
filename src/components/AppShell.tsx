@@ -10,7 +10,7 @@ export function AppShell({
   children,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: string | undefined;
   back?: { to: string; params?: Record<string, string> };
   right?: ReactNode;
   children: ReactNode;
