@@ -10,33 +10,115 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
+import { Route as OrOrIdRouteImport } from './routes/or.$orId'
+import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
+import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
+import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScanPlaqueRoute = ScanPlaqueRouteImport.update({
+  id: '/scan-plaque',
+  path: '/scan-plaque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrOrIdRoute = OrOrIdRouteImport.update({
+  id: '/or/$orId',
+  path: '/or/$orId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrNouveauRoute = OrNouveauRouteImport.update({
+  id: '/or/nouveau',
+  path: '/or/nouveau',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartageTokenRoute = PartageTokenRouteImport.update({
+  id: '/partage/$token',
+  path: '/partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
+  id: '/tour/$tourId/',
+  path: '/tour/$tourId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
+  id: '/tour/$tourId/rapport',
+  path: '/tour/$tourId/rapport',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/$orId': typeof OrOrIdRoute
+  '/or/nouveau': typeof OrNouveauRoute
+  '/partage/$token': typeof PartageTokenRoute
+  '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/$orId': typeof OrOrIdRoute
+  '/or/nouveau': typeof OrNouveauRoute
+  '/partage/$token': typeof PartageTokenRoute
+  '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/tour/$tourId': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/scan-plaque': typeof ScanPlaqueRoute
+  '/or/$orId': typeof OrOrIdRoute
+  '/or/nouveau': typeof OrNouveauRoute
+  '/partage/$token': typeof PartageTokenRoute
+  '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/scan-plaque'
+    | '/or/$orId'
+    | '/or/nouveau'
+    | '/partage/$token'
+    | '/tour/$tourId/rapport'
+    | '/tour/$tourId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/scan-plaque'
+    | '/or/$orId'
+    | '/or/nouveau'
+    | '/partage/$token'
+    | '/tour/$tourId/rapport'
+    | '/tour/$tourId'
+  id:
+    | '__root__'
+    | '/'
+    | '/scan-plaque'
+    | '/or/$orId'
+    | '/or/nouveau'
+    | '/partage/$token'
+    | '/tour/$tourId/rapport'
+    | '/tour/$tourId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ScanPlaqueRoute: typeof ScanPlaqueRoute
+  OrOrIdRoute: typeof OrOrIdRoute
+  OrNouveauRoute: typeof OrNouveauRoute
+  PartageTokenRoute: typeof PartageTokenRoute
+  TourTourIdRapportRoute: typeof TourTourIdRapportRoute
+  TourTourIdIndexRoute: typeof TourTourIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +130,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scan-plaque': {
+      id: '/scan-plaque'
+      path: '/scan-plaque'
+      fullPath: '/scan-plaque'
+      preLoaderRoute: typeof ScanPlaqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/or/$orId': {
+      id: '/or/$orId'
+      path: '/or/$orId'
+      fullPath: '/or/$orId'
+      preLoaderRoute: typeof OrOrIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/or/nouveau': {
+      id: '/or/nouveau'
+      path: '/or/nouveau'
+      fullPath: '/or/nouveau'
+      preLoaderRoute: typeof OrNouveauRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partage/$token': {
+      id: '/partage/$token'
+      path: '/partage/$token'
+      fullPath: '/partage/$token'
+      preLoaderRoute: typeof PartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tour/$tourId/': {
+      id: '/tour/$tourId/'
+      path: '/tour/$tourId'
+      fullPath: '/tour/$tourId/'
+      preLoaderRoute: typeof TourTourIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tour/$tourId/rapport': {
+      id: '/tour/$tourId/rapport'
+      path: '/tour/$tourId/rapport'
+      fullPath: '/tour/$tourId/rapport'
+      preLoaderRoute: typeof TourTourIdRapportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ScanPlaqueRoute: ScanPlaqueRoute,
+  OrOrIdRoute: OrOrIdRoute,
+  OrNouveauRoute: OrNouveauRoute,
+  PartageTokenRoute: PartageTokenRoute,
+  TourTourIdRapportRoute: TourTourIdRapportRoute,
+  TourTourIdIndexRoute: TourTourIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

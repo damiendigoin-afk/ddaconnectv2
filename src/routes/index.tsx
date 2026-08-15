@@ -54,6 +54,7 @@ function Index() {
         <div className="grid gap-3">
           <Link
             to="/or/nouveau"
+            search={{ plate: "" }}
             className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase tracking-wide text-brand-foreground shadow-sm active:scale-[0.99]"
           >
             <Plus className="h-6 w-6" /> Nouvel OR
