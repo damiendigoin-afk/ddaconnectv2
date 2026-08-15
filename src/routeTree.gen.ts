@@ -18,12 +18,20 @@ import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as BaseIndexRouteImport } from './routes/base.index'
+import { Route as BaseClientsRouteImport } from './routes/base.clients'
+import { Route as BaseImportRouteImport } from './routes/base.import'
+import { Route as BaseVehiculesRouteImport } from './routes/base.vehicules'
+import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
+import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
+import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
 import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
@@ -75,6 +83,31 @@ const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   path: '/api/test-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BaseIndexRoute = BaseIndexRouteImport.update({
+  id: '/base/',
+  path: '/base/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseClientsRoute = BaseClientsRouteImport.update({
+  id: '/base/clients',
+  path: '/base/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseImportRoute = BaseImportRouteImport.update({
+  id: '/base/import',
+  path: '/base/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseVehiculesRoute = BaseVehiculesRouteImport.update({
+  id: '/base/vehicules',
+  path: '/base/vehicules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientClientIdRoute = ClientClientIdRouteImport.update({
+  id: '/client/$clientId',
+  path: '/client/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
   id: '/expertise-partage/$token',
   path: '/expertise-partage/$token',
@@ -103,6 +136,21 @@ const OrNouveauRoute = OrNouveauRouteImport.update({
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
+  id: '/vehicule/$vehId',
+  path: '/vehicule/$vehId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseHistoriqueIndexRoute = BaseHistoriqueIndexRouteImport.update({
+  id: '/base/historique/',
+  path: '/base/historique/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaseHistoriqueImportIdRoute = BaseHistoriqueImportIdRouteImport.update({
+  id: '/base/historique/$importId',
+  path: '/base/historique/$importId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertiseExIdIndexRoute = ExpertiseExIdIndexRouteImport.update({
@@ -141,15 +189,23 @@ export interface FileRoutesByFullPath {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/base/clients': typeof BaseClientsRoute
+  '/base/import': typeof BaseImportRoute
+  '/base/vehicules': typeof BaseVehiculesRoute
+  '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/base/': typeof BaseIndexRoute
+  '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
@@ -163,15 +219,23 @@ export interface FileRoutesByTo {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/base/clients': typeof BaseClientsRoute
+  '/base/import': typeof BaseImportRoute
+  '/base/vehicules': typeof BaseVehiculesRoute
+  '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/base': typeof BaseIndexRoute
+  '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/base/historique': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
 }
@@ -186,15 +250,23 @@ export interface FileRoutesById {
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
   '/api/test-email': typeof ApiTestEmailRoute
+  '/base/clients': typeof BaseClientsRoute
+  '/base/import': typeof BaseImportRoute
+  '/base/vehicules': typeof BaseVehiculesRoute
+  '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/base/': typeof BaseIndexRoute
+  '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
+  '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
@@ -210,15 +282,23 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/base/clients'
+    | '/base/import'
+    | '/base/vehicules'
+    | '/client/$clientId'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/vehicule/$vehId'
+    | '/base/'
+    | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/base/historique/'
     | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesByTo: FileRoutesByTo
@@ -232,15 +312,23 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/base/clients'
+    | '/base/import'
+    | '/base/vehicules'
+    | '/client/$clientId'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/vehicule/$vehId'
+    | '/base'
+    | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/base/historique'
     | '/expertise/$exId'
     | '/tour/$tourId'
   id:
@@ -254,15 +342,23 @@ export interface FileRouteTypes {
     | '/tours'
     | '/utilisateurs'
     | '/api/test-email'
+    | '/base/clients'
+    | '/base/import'
+    | '/base/vehicules'
+    | '/client/$clientId'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/vehicule/$vehId'
+    | '/base/'
+    | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
+    | '/base/historique/'
     | '/expertise/$exId/'
     | '/tour/$tourId/'
   fileRoutesById: FileRoutesById
@@ -277,15 +373,23 @@ export interface RootRouteChildren {
   ToursRoute: typeof ToursRoute
   UtilisateursRoute: typeof UtilisateursRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
+  BaseClientsRoute: typeof BaseClientsRoute
+  BaseImportRoute: typeof BaseImportRoute
+  BaseVehiculesRoute: typeof BaseVehiculesRoute
+  ClientClientIdRoute: typeof ClientClientIdRoute
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  VehiculeVehIdRoute: typeof VehiculeVehIdRoute
+  BaseIndexRoute: typeof BaseIndexRoute
+  BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
+  BaseHistoriqueIndexRoute: typeof BaseHistoriqueIndexRoute
   ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
 }
@@ -355,6 +459,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTestEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/base/': {
+      id: '/base/'
+      path: '/base'
+      fullPath: '/base/'
+      preLoaderRoute: typeof BaseIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/clients': {
+      id: '/base/clients'
+      path: '/base/clients'
+      fullPath: '/base/clients'
+      preLoaderRoute: typeof BaseClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/import': {
+      id: '/base/import'
+      path: '/base/import'
+      fullPath: '/base/import'
+      preLoaderRoute: typeof BaseImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/vehicules': {
+      id: '/base/vehicules'
+      path: '/base/vehicules'
+      fullPath: '/base/vehicules'
+      preLoaderRoute: typeof BaseVehiculesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/$clientId': {
+      id: '/client/$clientId'
+      path: '/client/$clientId'
+      fullPath: '/client/$clientId'
+      preLoaderRoute: typeof ClientClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expertise-partage/$token': {
       id: '/expertise-partage/$token'
       path: '/expertise-partage/$token'
@@ -395,6 +534,27 @@ declare module '@tanstack/react-router' {
       path: '/partage/$token'
       fullPath: '/partage/$token'
       preLoaderRoute: typeof PartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vehicule/$vehId': {
+      id: '/vehicule/$vehId'
+      path: '/vehicule/$vehId'
+      fullPath: '/vehicule/$vehId'
+      preLoaderRoute: typeof VehiculeVehIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/historique/': {
+      id: '/base/historique/'
+      path: '/base/historique'
+      fullPath: '/base/historique/'
+      preLoaderRoute: typeof BaseHistoriqueIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/base/historique/$importId': {
+      id: '/base/historique/$importId'
+      path: '/base/historique/$importId'
+      fullPath: '/base/historique/$importId'
+      preLoaderRoute: typeof BaseHistoriqueImportIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expertise/$exId/': {
@@ -445,15 +605,23 @@ const rootRouteChildren: RootRouteChildren = {
   ToursRoute: ToursRoute,
   UtilisateursRoute: UtilisateursRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
+  BaseClientsRoute: BaseClientsRoute,
+  BaseImportRoute: BaseImportRoute,
+  BaseVehiculesRoute: BaseVehiculesRoute,
+  ClientClientIdRoute: ClientClientIdRoute,
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
+  VehiculeVehIdRoute: VehiculeVehIdRoute,
+  BaseIndexRoute: BaseIndexRoute,
+  BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
+  BaseHistoriqueIndexRoute: BaseHistoriqueIndexRoute,
   ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
 }

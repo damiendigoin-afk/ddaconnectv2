@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
-import { Camera, FileText, Images, Loader2, PencilLine } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Camera, CheckCircle2, FileText, Images, Loader2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
+import { refPrefill, type RefPrefill } from "@/lib/refbase";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
 
@@ -92,9 +93,34 @@ function NewOrder() {
   const [docFile, setDocFile] = useState<File | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [refHit, setRefHit] = useState<RefPrefill | null>(null);
 
   const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const flagged = (path: string) => uncertain.includes(path);
+
+  /** Recherche le véhicule dans le référentiel et complète les champs vides. */
+  async function applyRef(plate: string) {
+    if (!normalizePlate(plate)) return;
+    try {
+      const hit = await refPrefill(plate);
+      if (!hit) return;
+      setRefHit(hit);
+      setForm((f) => {
+        const next = { ...f };
+        for (const [k, v] of Object.entries(hit.fields)) {
+          if (v && !next[k as keyof Form]) next[k as keyof Form] = v;
+        }
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  useEffect(() => {
+    if (initialPlate) void applyRef(initialPlate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPlate]);
 
   async function analyse(file: File) {
     setBusy(true);
@@ -142,6 +168,7 @@ function NewOrder() {
       setUncertain(Array.isArray(parsed.uncertain) ? parsed.uncertain : []);
       setMode("form");
       toast.success("Vérifiez les informations détectées");
+      await applyRef(str(v["plate"]));
     } catch (e) {
       console.error(e);
       toast.error("Analyse impossible. Complétez manuellement.");
@@ -370,6 +397,22 @@ function NewOrder() {
   return (
     <AppShell title="Vérifier les informations" subtitle="Tous les champs sont modifiables" back={{ to: "/tour-vehicule" }}>
       <div className="space-y-4 pb-4">
+        {refHit ? (
+          <div className="flex items-start gap-2 rounded-xl border-2 border-status-ok bg-card p-3 text-sm">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-ok" />
+            <div className="min-w-0 flex-1">
+              <p className="font-bold uppercase">Véhicule trouvé dans la base</p>
+              <p className="truncate text-muted-foreground">{refHit.label}</p>
+              <Link
+                to="/vehicule/$vehId"
+                params={{ vehId: refHit.vehicleId }}
+                className="text-xs font-bold uppercase underline"
+              >
+                Ouvrir la fiche véhicule
+              </Link>
+            </div>
+          </div>
+        ) : null}
         <Section title="Véhicule">
           <Field label="Immatriculation" value={form.plate} onChange={(v) => set("plate", v.toUpperCase())} warn={flagged("vehicle.plate")} big />
           <Field label="VIN" value={form.vin} onChange={(v) => set("vin", v)} warn={flagged("vehicle.vin")} />
