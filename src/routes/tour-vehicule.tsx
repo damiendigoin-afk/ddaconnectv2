@@ -33,7 +33,7 @@ const MAX = 5;
 function ModuleHome() {
   const [term, setTerm] = useState("");
   const [tab, setTab] = useState<"tours" | "ors">("tours");
-  const recent = useQuery({ queryKey: ["recent-orders"], queryFn: fetchRecentOrders });
+  const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
   const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(MAX) });
   const results = useQuery({
     queryKey: ["search-orders", term],
