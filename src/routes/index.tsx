@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Car, ClipboardCheck, LogOut, Users } from "lucide-react";
+import { ChevronRight, Car, ClipboardCheck, Database, LogOut, Users } from "lucide-react";
 
+import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
@@ -51,6 +52,8 @@ function Hub() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 py-5">
+        <UniversalSearch />
+
         <Link
           to="/tour-vehicule"
           className="flex items-center gap-4 rounded-xl bg-brand px-4 py-5 text-brand-foreground shadow-sm active:scale-[0.99]"
@@ -78,6 +81,22 @@ function Hub() {
           </div>
           <ChevronRight className="h-6 w-6 shrink-0" />
         </Link>
+
+        {isManager ? (
+          <Link
+            to="/base"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <Database className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Base de données</div>
+              <div className="text-xs text-muted-foreground">
+                Import Winmotor, clients, véhicules et historique des imports
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
         {isManager ? (
           <Link
