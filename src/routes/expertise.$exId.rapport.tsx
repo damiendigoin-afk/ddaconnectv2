@@ -36,6 +36,9 @@ function ExpertiseReportPage() {
   const { exId } = Route.useParams();
   const { user } = useAuth();
   const q = useQuery({ queryKey: ["expertise", exId], queryFn: () => fetchExpertise({ id: exId }) });
+  useEffect(() => {
+    if (user?.email) setMyEmail((v) => v || (user.email as string));
+  }, [user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);

@@ -122,7 +122,7 @@ function ImportPage() {
             addresses_imported: c.addressesImported,
             mileages_imported: c.mileagesImported,
             duplicates_avoided: c.duplicatesAvoided,
-            anomalies: c.anomalies,
+            anomalies: c.errors,
           } as never)
           .eq("id", imp.id);
       }
@@ -268,8 +268,13 @@ function ImportPage() {
               <div className="flex items-center gap-2 text-base font-extrabold uppercase">
                 <CheckCircle2 className="h-5 w-5 text-status-ok" /> Import terminé
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <BigStat label="Importées" value={counters.imported} tone="ok" />
+                <BigStat label="À corriger" value={counters.errors} tone="error" />
+                <BigStat label="Doublons" value={counters.duplicates} tone="neutral" />
+                <BigStat label="Ignorées" value={counters.skipped} tone="neutral" />
+              </div>
               <dl className="grid grid-cols-2 gap-2 text-sm">
-                <Stat label="Lignes traitées" value={counters.processed} />
                 <Stat label="Clients créés" value={counters.customersCreated} />
                 <Stat label="Clients mis à jour" value={counters.customersUpdated} />
                 <Stat label="Véhicules créés" value={counters.vehiclesCreated} />
@@ -279,16 +284,24 @@ function ImportPage() {
                 <Stat label="Adresses importées" value={counters.addressesImported} />
                 <Stat label="Kilométrages importés" value={counters.mileagesImported} />
                 <Stat label="Doublons évités" value={counters.duplicatesAvoided} />
-                <Stat label="Anomalies" value={counters.anomalies} />
               </dl>
             </div>
+            {importId && counters.errors > 0 ? (
+              <Link
+                to="/base/corrections/$importId"
+                params={{ importId }}
+                className="block w-full rounded-xl bg-status-defect px-4 py-4 text-center text-base font-extrabold uppercase text-white"
+              >
+                Corriger les {counters.errors.toLocaleString("fr-FR")} lignes en erreur
+              </Link>
+            ) : null}
             {importId ? (
               <Link
                 to="/base/historique/$importId"
                 params={{ importId }}
                 className="block w-full rounded-xl bg-brand px-4 py-4 text-center text-base font-extrabold uppercase text-brand-foreground"
               >
-                Voir les anomalies
+                Voir le rapport d'import
               </Link>
             ) : null}
             <button
@@ -309,6 +322,17 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="rounded-lg bg-secondary px-3 py-2">
       <dt className="text-[11px] uppercase text-muted-foreground">{label}</dt>
       <dd className="text-lg font-extrabold">{value.toLocaleString("fr-FR")}</dd>
+    </div>
+  );
+}
+
+function BigStat({ label, value, tone }: { label: string; value: number; tone: "ok" | "error" | "neutral" }) {
+  const toneClass =
+    tone === "ok" ? "text-status-ok" : tone === "error" ? "text-status-defect" : "text-foreground";
+  return (
+    <div className="rounded-xl border-2 border-border bg-card px-3 py-3 text-center">
+      <dd className={`text-3xl font-extrabold ${toneClass}`}>{value.toLocaleString("fr-FR")}</dd>
+      <dt className="mt-1 text-[11px] font-bold uppercase text-muted-foreground">{label}</dt>
     </div>
   );
 }

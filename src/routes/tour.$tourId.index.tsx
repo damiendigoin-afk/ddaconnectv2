@@ -1,15 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, LogOut, Plus, Trash2 } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, LogOut, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { MileageCard } from "@/components/MileageCard";
 import { PhotoManager } from "@/components/PhotoManager";
 import { PointCard, type PointRow } from "@/components/PointCard";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadPhoto } from "@/lib/photo";
 import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/tour/$tourId/")({
@@ -509,34 +511,60 @@ function ObservationForm({
   const [unit, setUnit] = useState(existing?.measure_unit ?? "mm");
   const [comment, setComment] = useState(existing?.comment ?? "");
   const [saved, setSaved] = useState<ObsRow | null>(existing);
+  const [pendingShots, setPendingShots] = useState<BurstShot[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function save() {
     if (!category || !element) {
       toast.error("Choisissez une catégorie et un élément");
       return;
     }
-    const payload = {
-      inspection_id: tourId,
-      category,
-      element,
-      status: status === "unset" ? "watch" : status,
-      measure_value: measure || null,
-      measure_unit: measure ? unit : null,
-      comment: comment || null,
-    };
-    if (saved) {
-      await supabase.from("observations").update(payload).eq("id", saved.id);
-      toast.success("Observation mise à jour");
+    setSaving(true);
+    try {
+      const payload = {
+        inspection_id: tourId,
+        category,
+        element,
+        status: status === "unset" ? "watch" : status,
+        measure_value: measure || null,
+        measure_unit: measure ? unit : null,
+        comment: comment || null,
+      };
+      let row = saved;
+      if (row) {
+        await supabase.from("observations").update(payload).eq("id", row.id);
+      } else {
+        const { data, error } = await supabase.from("observations").insert(payload).select().single();
+        if (error) {
+          toast.error("Enregistrement impossible");
+          return;
+        }
+        row = data as ObsRow;
+        setSaved(row);
+      }
+
+      if (pendingShots.length) {
+        try {
+          for (const shot of pendingShots) {
+            await uploadPhoto(shot.blob, `inspections/${tourId}`, {
+              inspection_id: tourId,
+              observation_id: row.id,
+            });
+          }
+          setPendingShots([]);
+        } catch (e) {
+          console.error(e);
+          toast.error("Défaut enregistré, mais l'envoi de certaines photos a échoué");
+          return;
+        }
+      }
+
+      toast.success(existing ? "Observation mise à jour" : "Défaut enregistré");
       onClose();
-      return;
+    } finally {
+      setSaving(false);
     }
-    const { data, error } = await supabase.from("observations").insert(payload).select().single();
-    if (error) {
-      toast.error("Enregistrement impossible");
-      return;
-    }
-    setSaved(data as ObsRow);
-    toast.success("Défaut enregistré — ajoutez des photos si besoin");
   }
 
   async function remove() {
@@ -549,6 +577,49 @@ function ObservationForm({
   return (
     <AppShell title={existing ? "Modifier le défaut" : "Signaler un défaut"}>
       <div className="space-y-4">
+        <div className="card-surface space-y-3 p-4">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Photo(s) du défaut
+          </label>
+          <button
+            type="button"
+            onClick={() => setCameraOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-status-defect px-4 py-5 text-lg font-extrabold uppercase text-white"
+          >
+            <Camera className="h-6 w-6" /> Photo(s)
+          </button>
+          <p className="text-center text-xs text-muted-foreground">
+            Prenez les photos avant ou après avoir renseigné le défaut, comme vous voulez.
+          </p>
+          {pendingShots.length ? (
+            <div className="flex flex-wrap gap-2">
+              {pendingShots.map((shot, i) => (
+                <div key={`${shot.key}-${i}`} className="relative">
+                  <img
+                    src={shot.dataUrl}
+                    alt={shot.label}
+                    className="h-20 w-20 rounded-lg object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPendingShots((s) => s.filter((_, idx) => idx !== i))}
+                    aria-label="Retirer la photo"
+                    className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-1 text-destructive-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {saved ? (
+            <PhotoManager
+              folder={`inspections/${tourId}`}
+              links={{ inspection_id: tourId, observation_id: saved.id }}
+            />
+          ) : null}
+        </div>
+
         <div className="card-surface space-y-3 p-4">
           <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             Catégorie
@@ -641,28 +712,13 @@ function ObservationForm({
           />
         </div>
 
-        {saved ? (
-          <div className="card-surface space-y-2 p-4">
-            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Photos
-            </label>
-            <PhotoManager
-              folder={`inspections/${tourId}`}
-              links={{ inspection_id: tourId, observation_id: saved.id }}
-            />
-          </div>
-        ) : (
-          <p className="text-center text-xs text-muted-foreground">
-            Enregistrez le défaut pour pouvoir y ajouter des photos.
-          </p>
-        )}
-
         <div className="grid gap-2">
           <button
             onClick={() => void save()}
-            className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground"
+            disabled={saving}
+            className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground disabled:opacity-60"
           >
-            Enregistrer
+            {saving ? "Enregistrement…" : "Enregistrer"}
           </button>
           <button onClick={onClose} className="rounded-xl border-2 border-border bg-card px-4 py-3 font-bold uppercase">
             Retour à la liste
@@ -674,6 +730,19 @@ function ObservationForm({
           ) : null}
         </div>
       </div>
+
+      {cameraOpen ? (
+        <BurstCamera
+          steps={[]}
+          allowFree={false}
+          title="Photo du défaut"
+          onFinish={(shots) => {
+            setPendingShots((s) => [...s, ...shots]);
+            setCameraOpen(false);
+          }}
+          onCancel={() => setCameraOpen(false)}
+        />
+      ) : null}
     </AppShell>
   );
 }

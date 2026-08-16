@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { MediaThumb } from "@/components/PhotoManager";
 import { PhotoAnnotator } from "@/components/PhotoAnnotator";
+import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { useAuth } from "@/lib/auth";
 import {
   CONDITIONS,
@@ -15,6 +16,7 @@ import {
   EXTERIOR_STEPS,
   INTERVENTIONS,
   KEYS_OPTIONS,
+  MILEAGE_STEP,
   REG_DOC_OPTIONS,
   STEPS,
   VEHICLE_ZONES,
@@ -24,6 +26,7 @@ import {
   euro,
   fetchExpertise,
   fetchPriceRules,
+  guidedPhotoSteps,
   interiorSteps,
   suggestCost,
   totals,
@@ -123,6 +126,9 @@ function ExpertiseRunner() {
   const rules = useQuery({ queryKey: ["price-rules"], queryFn: fetchPriceRules });
   const [stepIdx, setStepIdx] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [burstOpen, setBurstOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
 
   const e = q.data?.expertise;
   const photos = q.data?.photos ?? [];
@@ -156,6 +162,67 @@ function ExpertiseRunner() {
 
   const step = STEPS[stepIdx]!;
   const interior = interiorSteps(null);
+  const guidedDefs = new Map<string, PhotoStep & { sequence: number }>();
+  guidedDefs.set(MILEAGE_STEP.key, { ...MILEAGE_STEP, sequence: 0 });
+  EXTERIOR_STEPS.forEach((s2, i) => guidedDefs.set(s2.key, { ...s2, sequence: i + 1 }));
+  interior.forEach((s2, i) => guidedDefs.set(s2.key, { ...s2, sequence: i + 1 }));
+
+  async function handleGuidedFinish(shots: BurstShot[]) {
+    setBurstOpen(false);
+    setUploading(true);
+    setUploadProgress({ done: 0, total: shots.length });
+    try {
+      let detectedMileage: number | null = null;
+      for (let i = 0; i < shots.length; i++) {
+        const shot = shots[i]!;
+        const def = guidedDefs.get(shot.key);
+        const compressed = await compressImage(
+          new File([shot.blob], "p.jpg", { type: "image/jpeg" }),
+          1800,
+          0.85,
+        );
+        await uploadExpertisePhoto({
+          expertiseId: e!.id,
+          file: compressed,
+          photoType: shot.key,
+          category: def?.category ?? "complementaire",
+          label: def?.label ?? shot.label,
+          sequence: def?.sequence ?? 300 + i,
+          required: def?.required ?? false,
+        });
+        if (shot.key === "compteur") {
+          try {
+            const res = await ocrOdometer({ data: { dataUrl: shot.dataUrl, filename: "compteur.jpg" } });
+            if (res.ok) detectedMileage = res.mileage;
+          } catch (err) {
+            console.error(err);
+          }
+        }
+        setUploadProgress({ done: i + 1, total: shots.length });
+      }
+      if (detectedMileage != null) await patch({ mileage: detectedMileage });
+      await q.refetch();
+      toast.success("Reportage photo enregistré.");
+      const etatIdx = STEPS.findIndex((s2) => s2.key === "etat");
+      if (etatIdx >= 0) await goTo(etatIdx);
+    } catch (err) {
+      console.error(err);
+      toast.error("Échec de l'envoi du reportage.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  if (burstOpen) {
+    return (
+      <BurstCamera
+        title="Reportage photo expertise"
+        steps={[...guidedDefs.values()].map((d) => ({ key: d.key, label: d.label, mask: d.mask }))}
+        onFinish={(shots) => void handleGuidedFinish(shots)}
+        onCancel={() => setBurstOpen(false)}
+      />
+    );
+  }
 
   return (
     <AppShell
@@ -222,14 +289,33 @@ function ExpertiseRunner() {
         </section>
       ) : null}
 
+      {uploading ? (
+        <div className="card-surface mb-3 flex items-center gap-3 p-4">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <p className="text-sm font-bold">
+            Envoi des photos… {uploadProgress.done}/{uploadProgress.total}
+          </p>
+        </div>
+      ) : null}
+
       {step.key === "compteur" ? (
-        <MileageStep
-          expertiseId={e.id}
-          mileage={e.mileage}
-          photo={photos.find((p) => p.photo_type === "compteur") ?? null}
-          onChange={() => void q.refetch()}
-          onMileage={(m) => void patch({ mileage: m })}
-        />
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setBurstOpen(true)}
+            disabled={uploading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-60"
+          >
+            <Camera className="h-4 w-4" /> Lancer le reportage photo complet
+          </button>
+          <MileageStep
+            expertiseId={e.id}
+            mileage={e.mileage}
+            photo={photos.find((p) => p.photo_type === "compteur") ?? null}
+            onChange={() => void q.refetch()}
+            onMileage={(m) => void patch({ mileage: m })}
+          />
+        </div>
       ) : null}
 
       {step.key === "exterieur" || step.key === "interieur" ? (

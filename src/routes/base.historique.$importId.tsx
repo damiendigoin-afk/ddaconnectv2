@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
+import { Link } from "@tanstack/react-router";
+
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -20,17 +22,30 @@ export const Route = createFileRoute("/base/historique/$importId")({
 });
 
 async function fetchDetail(id: string) {
-  const [{ data: imp }, { data: rows, count }] = await Promise.all([
-    supabase.from("imports").select("*").eq("id", id).maybeSingle(),
-    supabase
-      .from("import_rows")
-      .select("row_number, source_vehicle_id, source_customer_id, processing_errors", { count: "exact" })
-      .eq("import_id", id)
-      .eq("processing_status", "anomaly")
-      .order("row_number")
-      .limit(200),
-  ]);
-  return { imp, rows: rows ?? [], anomalyCount: count ?? 0 };
+  const [{ data: imp }, { data: rows, count }, { count: errorCount }, { count: duplicateCount }, { count: skippedCount }, { count: importedCount }] =
+    await Promise.all([
+      supabase.from("imports").select("*").eq("id", id).maybeSingle(),
+      supabase
+        .from("import_rows")
+        .select("row_number, source_vehicle_id, source_customer_id, processing_errors", { count: "exact" })
+        .eq("import_id", id)
+        .eq("processing_status", "error")
+        .order("row_number")
+        .limit(200),
+      supabase.from("import_rows").select("id", { count: "exact", head: true }).eq("import_id", id).eq("processing_status", "error"),
+      supabase.from("import_rows").select("id", { count: "exact", head: true }).eq("import_id", id).eq("processing_status", "duplicate"),
+      supabase.from("import_rows").select("id", { count: "exact", head: true }).eq("import_id", id).eq("processing_status", "skipped"),
+      supabase.from("import_rows").select("id", { count: "exact", head: true }).eq("import_id", id).in("processing_status", ["imported", "fixed"]),
+    ]);
+  return {
+    imp,
+    rows: rows ?? [],
+    anomalyCount: count ?? 0,
+    errorCount: errorCount ?? 0,
+    duplicateCount: duplicateCount ?? 0,
+    skippedCount: skippedCount ?? 0,
+    importedCount: importedCount ?? 0,
+  };
 }
 
 function ImportDetail() {
@@ -51,6 +66,23 @@ function ImportDetail() {
   return (
     <AppShell title="Détail de l'import" subtitle={i?.file_name} back={{ to: "/base/historique" }}>
       <div className="space-y-4">
+        {data ? (
+          <div className="grid grid-cols-2 gap-2">
+            <BigStat label="Importées" value={data.importedCount} tone="ok" />
+            <BigStat label="À corriger" value={data.errorCount} tone="error" />
+            <BigStat label="Doublons" value={data.duplicateCount} tone="neutral" />
+            <BigStat label="Ignorées" value={data.skippedCount} tone="neutral" />
+          </div>
+        ) : null}
+        {data && data.errorCount > 0 ? (
+          <Link
+            to="/base/corrections/$importId"
+            params={{ importId }}
+            className="block w-full rounded-xl bg-status-defect px-4 py-4 text-center text-base font-extrabold uppercase text-white"
+          >
+            Corriger les lignes en erreur
+          </Link>
+        ) : null}
         {i ? (
           <dl className="grid grid-cols-2 gap-2 text-sm">
             <S label="Lignes" v={i.total_rows} />
@@ -70,7 +102,7 @@ function ImportDetail() {
 
         <section className="space-y-2">
           <h2 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Anomalies ({data?.anomalyCount ?? 0})
+            Lignes en erreur ({data?.anomalyCount ?? 0})
           </h2>
           {!data?.rows.length ? (
             <p className="card-surface p-4 text-sm text-muted-foreground">Aucune anomalie détectée.</p>
@@ -99,6 +131,17 @@ function S({ label, v }: { label: string; v: number }) {
     <div className="rounded-lg bg-secondary px-3 py-2">
       <dt className="text-[11px] uppercase text-muted-foreground">{label}</dt>
       <dd className="text-lg font-extrabold">{v.toLocaleString("fr-FR")}</dd>
+    </div>
+  );
+}
+
+function BigStat({ label, value, tone }: { label: string; value: number; tone: "ok" | "error" | "neutral" }) {
+  const toneClass =
+    tone === "ok" ? "text-status-ok" : tone === "error" ? "text-status-defect" : "text-foreground";
+  return (
+    <div className="rounded-xl border-2 border-border bg-card px-3 py-3 text-center">
+      <dd className={`text-3xl font-extrabold ${toneClass}`}>{value.toLocaleString("fr-FR")}</dd>
+      <dt className="mt-1 text-[11px] font-bold uppercase text-muted-foreground">{label}</dt>
     </div>
   );
 }
