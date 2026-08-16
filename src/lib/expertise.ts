@@ -3,12 +3,17 @@ import { BUCKET, compressImage } from "./photo";
 
 /* ----------------------------- Référentiels ----------------------------- */
 
-export const EXPERTISE_TYPES = [
-  { key: "reprise", label: "Reprise / Achat" },
-  { key: "vo", label: "Véhicule Occasion / Vente" },
-  { key: "carrosserie", label: "Carrosserie" },
-  { key: "etat_des_lieux", label: "État des lieux" },
-  { key: "autre", label: "Autre" },
+/** Interventions retenues pour le chiffrage (barème matriciel). */
+export const INTERVENTIONS = [
+  { key: "peindre", label: "À peindre" },
+  { key: "reparer_peindre", label: "À réparer & peindre" },
+  { key: "remplacer", label: "À remplacer" },
+] as const;
+
+export const ELEMENT_SIZES = [
+  { key: "petit", label: "Petit élément" },
+  { key: "moyen", label: "Élément moyen" },
+  { key: "grand", label: "Grand élément" },
 ] as const;
 
 export const KEYS_OPTIONS = ["0", "1", "2", "3+"] as const;
@@ -100,16 +105,6 @@ export const VEHICLE_ZONES = [
   "Autre",
 ] as const;
 
-export const ACTIONS = [
-  { key: "aucune", label: "Aucune intervention" },
-  { key: "polissage", label: "Polissage / rénovation" },
-  { key: "debosselage", label: "Débosselage sans peinture" },
-  { key: "peinture", label: "Peinture" },
-  { key: "reparation_peinture", label: "Réparation + peinture" },
-  { key: "remplacement", label: "Remplacement" },
-  { key: "a_expertiser", label: "À expertiser" },
-] as const;
-
 export const STATUS_LABELS: Record<string, string> = {
   draft: "Brouillon",
   completed: "Terminée",
@@ -123,6 +118,7 @@ export const STEPS = [
   { key: "interieur", label: "Intérieur" },
   { key: "etat", label: "État général" },
   { key: "dommages", label: "Dommages" },
+  { key: "valorisation", label: "Valorisation" },
 ] as const;
 
 /* -------------------------------- Types -------------------------------- */
