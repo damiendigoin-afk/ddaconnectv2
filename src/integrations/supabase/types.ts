@@ -1604,34 +1604,43 @@ export type Database = {
       }
       import_rows: {
         Row: {
+          corrected_data: Json | null
           created_at: string
           id: string
           import_id: string
           processing_errors: string[] | null
           processing_status: string
           raw_data: Json
+          resolved_at: string | null
+          resolved_by: string | null
           row_number: number
           source_customer_id: string | null
           source_vehicle_id: string | null
         }
         Insert: {
+          corrected_data?: Json | null
           created_at?: string
           id?: string
           import_id: string
           processing_errors?: string[] | null
           processing_status?: string
           raw_data: Json
+          resolved_at?: string | null
+          resolved_by?: string | null
           row_number: number
           source_customer_id?: string | null
           source_vehicle_id?: string | null
         }
         Update: {
+          corrected_data?: Json | null
           created_at?: string
           id?: string
           import_id?: string
           processing_errors?: string[] | null
           processing_status?: string
           raw_data?: Json
+          resolved_at?: string | null
+          resolved_by?: string | null
           row_number?: number
           source_customer_id?: string | null
           source_vehicle_id?: string | null
@@ -2068,6 +2077,7 @@ export type Database = {
       }
       part_returns: {
         Row: {
+          analysis: Json | null
           carrier: string | null
           case_id: string | null
           comments: string | null
@@ -2080,6 +2090,7 @@ export type Database = {
           id: string
           notice_sent_at: string | null
           or_number: string | null
+          photos: string[]
           plate: string | null
           ref_vehicle_id: string | null
           reference: string
@@ -2095,6 +2106,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          analysis?: Json | null
           carrier?: string | null
           case_id?: string | null
           comments?: string | null
@@ -2107,6 +2119,7 @@ export type Database = {
           id?: string
           notice_sent_at?: string | null
           or_number?: string | null
+          photos?: string[]
           plate?: string | null
           ref_vehicle_id?: string | null
           reference?: string
@@ -2122,6 +2135,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          analysis?: Json | null
           carrier?: string | null
           case_id?: string | null
           comments?: string | null
@@ -2134,6 +2148,7 @@ export type Database = {
           id?: string
           notice_sent_at?: string | null
           or_number?: string | null
+          photos?: string[]
           plate?: string | null
           ref_vehicle_id?: string | null
           reference?: string
