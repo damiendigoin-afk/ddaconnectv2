@@ -337,7 +337,7 @@ async function processMapped(opts: {
  *  ligne pour isoler les échecs (réseau/contraintes) sans perdre les autres. */
 async function writeWithFallback<T>(
   rows: T[],
-  op: (part: T[]) => Promise<{ error: { message: string } | null }>,
+  op: (part: T[]) => PromiseLike<{ error: { message: string } | null }>,
 ): Promise<number> {
   let ok = 0;
   for (const part of chunk(rows, 200)) {
