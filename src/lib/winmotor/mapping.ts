@@ -115,6 +115,15 @@ export function parseInt0(v: string): number | null {
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
 }
 
+export type FieldError = {
+  /** Nom du champ concerné (clé technique, ex. "vin", "registration"). */
+  field: string;
+  /** Message en français, précis, mentionnant le champ et la valeur d'origine. */
+  message: string;
+  /** Erreur bloquante (empêche l'import de la ligne) ou simple alerte. */
+  blocking: boolean;
+};
+
 export type MappedRow = {
   sourceVehicleId: string;
   sourceCustomerId: string;
@@ -124,8 +133,18 @@ export type MappedRow = {
   address: Record<string, unknown> | null;
   consents: { channel: string; allowed: boolean | null; raw_value: string }[];
   mileage: { mileage: number; measured_at: string | null } | null;
-  errors: string[];
+  errors: FieldError[];
 };
+
+/** Erreurs bloquantes uniquement (empêchent l'import de la ligne). */
+export function blockingErrors(errors: FieldError[]): FieldError[] {
+  return errors.filter((e) => e.blocking);
+}
+
+/** Messages simples (rétro-compatibilité affichage). */
+export function errorMessages(errors: FieldError[]): string[] {
+  return errors.map((e) => e.message);
+}
 
 const YES = /^(1|O|OUI|Y|YES|TRUE|VRAI|X)$/i;
 const NO = /^(0|N|NON|NO|FALSE|FAUX)$/i;
@@ -139,7 +158,7 @@ function consent(v: string): boolean | null {
 
 export function mapRow(row: RawRow, index: Record<string, string>): MappedRow {
   const p = (aliases: string[]) => pick(row, index, aliases);
-  const errors: string[] = [];
+  const errors: FieldError[] = [];
 
   const sourceVehicleId = p(["Numero du vehicule", "Numero vehicule", "No vehicule", "Cle vehicule", "Id vehicule"]);
   const sourceCustomerId = p(["Numero du client", "Numero client", "Compte client", "No client", "Code client", "Cle client"]);
@@ -149,8 +168,22 @@ export function mapRow(row: RawRow, index: Record<string, string>): MappedRow {
   const vinRaw = p(["Numero de serie", "VIN", "Numero serie", "No de serie", "Chassis"]);
   const vin_normalized = normalizeVin(vinRaw);
 
-  if (!registration_normalized && !vin_normalized && !sourceVehicleId) errors.push("Aucun identifiant véhicule");
-  if (vinRaw && !vin_normalized) errors.push("VIN illisible");
+  if (!registration_normalized && !vin_normalized && !sourceVehicleId) {
+    errors.push({
+      field: "registration",
+      message: "Aucun identifiant véhicule (immatriculation, VIN ou numéro de véhicule)",
+      blocking: true,
+    });
+  }
+  if (vinRaw && !vin_normalized) {
+    errors.push({ field: "vin", message: `VIN illisible : « ${vinRaw} »`, blocking: false });
+  } else if (vinRaw && vin_normalized && !isValidVin(vin_normalized)) {
+    errors.push({
+      field: "vin",
+      message: `VIN invalide (17 caractères attendus) : ${vin_normalized}`,
+      blocking: false,
+    });
+  }
 
   const lastMileage = parseInt0(p(["Dernier kilometrage", "Kilometrage", "Km", "Kilometrage actuel", "Dernier km"]));
   const lastMileageAt = parseDate(p(["Date dernier kilometrage", "Date kilometrage", "Date du kilometrage"]));
