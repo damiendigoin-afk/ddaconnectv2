@@ -14,6 +14,734 @@ export type Database = {
   }
   public: {
     Tables: {
+      agreements: {
+        Row: {
+          active: boolean
+          commission_rate: number | null
+          created_at: string
+          discount_rate: number | null
+          erd: string | null
+          glue_kit: string | null
+          id: string
+          igp_n: number | null
+          igp_o: number | null
+          igp_v: number | null
+          insurer_id: string | null
+          name: string
+          network: string | null
+          notes: string | null
+          paint_rate: number | null
+          replacement_vehicle: string | null
+          site_id: string | null
+          special_rules: string | null
+          t1: number | null
+          t2: number | null
+          t3: number | null
+          tx_peint: number | null
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          active?: boolean
+          commission_rate?: number | null
+          created_at?: string
+          discount_rate?: number | null
+          erd?: string | null
+          glue_kit?: string | null
+          id?: string
+          igp_n?: number | null
+          igp_o?: number | null
+          igp_v?: number | null
+          insurer_id?: string | null
+          name: string
+          network?: string | null
+          notes?: string | null
+          paint_rate?: number | null
+          replacement_vehicle?: string | null
+          site_id?: string | null
+          special_rules?: string | null
+          t1?: number | null
+          t2?: number | null
+          t3?: number | null
+          tx_peint?: number | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          active?: boolean
+          commission_rate?: number | null
+          created_at?: string
+          discount_rate?: number | null
+          erd?: string | null
+          glue_kit?: string | null
+          id?: string
+          igp_n?: number | null
+          igp_o?: number | null
+          igp_v?: number | null
+          insurer_id?: string | null
+          name?: string
+          network?: string | null
+          notes?: string | null
+          paint_rate?: number | null
+          replacement_vehicle?: string | null
+          site_id?: string | null
+          special_rules?: string | null
+          t1?: number | null
+          t2?: number | null
+          t3?: number | null
+          tx_peint?: number | null
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreements_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agreements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_cases: {
+        Row: {
+          agreement_id: string | null
+          amount_depreciation_expected: number | null
+          amount_depreciation_received: number | null
+          amount_franchise_expected: number | null
+          amount_franchise_received: number | null
+          amount_insurer_expected: number | null
+          amount_insurer_received: number | null
+          amount_other_expected: number | null
+          amount_other_received: number | null
+          amount_total_ht: number | null
+          amount_total_ttc: number | null
+          amount_vat_expected: number | null
+          amount_vat_received: number | null
+          appointment_at: string | null
+          blocker: string | null
+          case_state: string
+          claim_number: string | null
+          client_id: string | null
+          closed_at: string | null
+          comments: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          depreciation: number | null
+          entry_at: string | null
+          expected_return_at: string | null
+          expert_firm_id: string | null
+          expert_id: string | null
+          franchise: number | null
+          id: string
+          insurer_id: string | null
+          is_hail: boolean
+          is_vge: boolean
+          mission_date: string
+          mission_number: string | null
+          mission_origin: string
+          next_action: string | null
+          or_number: string | null
+          payer: string | null
+          physical_state: string
+          plate: string | null
+          ref_vehicle_id: string | null
+          repair_order_id: string | null
+          site_id: string | null
+          subcontract_expected_at: string | null
+          subcontract_notes: string | null
+          subcontract_returned_at: string | null
+          subcontract_sent_at: string | null
+          subcontractor: string | null
+          updated_at: string
+          vat_rate: number | null
+          vehicle_id: string | null
+          vehicle_label: string | null
+          vin: string | null
+          work_location: string
+        }
+        Insert: {
+          agreement_id?: string | null
+          amount_depreciation_expected?: number | null
+          amount_depreciation_received?: number | null
+          amount_franchise_expected?: number | null
+          amount_franchise_received?: number | null
+          amount_insurer_expected?: number | null
+          amount_insurer_received?: number | null
+          amount_other_expected?: number | null
+          amount_other_received?: number | null
+          amount_total_ht?: number | null
+          amount_total_ttc?: number | null
+          amount_vat_expected?: number | null
+          amount_vat_received?: number | null
+          appointment_at?: string | null
+          blocker?: string | null
+          case_state?: string
+          claim_number?: string | null
+          client_id?: string | null
+          closed_at?: string | null
+          comments?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          depreciation?: number | null
+          entry_at?: string | null
+          expected_return_at?: string | null
+          expert_firm_id?: string | null
+          expert_id?: string | null
+          franchise?: number | null
+          id?: string
+          insurer_id?: string | null
+          is_hail?: boolean
+          is_vge?: boolean
+          mission_date?: string
+          mission_number?: string | null
+          mission_origin?: string
+          next_action?: string | null
+          or_number?: string | null
+          payer?: string | null
+          physical_state?: string
+          plate?: string | null
+          ref_vehicle_id?: string | null
+          repair_order_id?: string | null
+          site_id?: string | null
+          subcontract_expected_at?: string | null
+          subcontract_notes?: string | null
+          subcontract_returned_at?: string | null
+          subcontract_sent_at?: string | null
+          subcontractor?: string | null
+          updated_at?: string
+          vat_rate?: number | null
+          vehicle_id?: string | null
+          vehicle_label?: string | null
+          vin?: string | null
+          work_location?: string
+        }
+        Update: {
+          agreement_id?: string | null
+          amount_depreciation_expected?: number | null
+          amount_depreciation_received?: number | null
+          amount_franchise_expected?: number | null
+          amount_franchise_received?: number | null
+          amount_insurer_expected?: number | null
+          amount_insurer_received?: number | null
+          amount_other_expected?: number | null
+          amount_other_received?: number | null
+          amount_total_ht?: number | null
+          amount_total_ttc?: number | null
+          amount_vat_expected?: number | null
+          amount_vat_received?: number | null
+          appointment_at?: string | null
+          blocker?: string | null
+          case_state?: string
+          claim_number?: string | null
+          client_id?: string | null
+          closed_at?: string | null
+          comments?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          depreciation?: number | null
+          entry_at?: string | null
+          expected_return_at?: string | null
+          expert_firm_id?: string | null
+          expert_id?: string | null
+          franchise?: number | null
+          id?: string
+          insurer_id?: string | null
+          is_hail?: boolean
+          is_vge?: boolean
+          mission_date?: string
+          mission_number?: string | null
+          mission_origin?: string
+          next_action?: string | null
+          or_number?: string | null
+          payer?: string | null
+          physical_state?: string
+          plate?: string | null
+          ref_vehicle_id?: string | null
+          repair_order_id?: string | null
+          site_id?: string | null
+          subcontract_expected_at?: string | null
+          subcontract_notes?: string | null
+          subcontract_returned_at?: string | null
+          subcontract_sent_at?: string | null
+          subcontractor?: string | null
+          updated_at?: string
+          vat_rate?: number | null
+          vehicle_id?: string | null
+          vehicle_label?: string | null
+          vin?: string | null
+          work_location?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_cases_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_expert_firm_id_fkey"
+            columns: ["expert_firm_id"]
+            isOneToOne: false
+            referencedRelation: "expert_firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_ref_vehicle_id_fkey"
+            columns: ["ref_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "ref_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_cases_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_communications: {
+        Row: {
+          body: string | null
+          case_id: string
+          channel: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          error_message: string | null
+          id: string
+          recipient: string | null
+          sent_at: string | null
+          status: string
+          subject: string | null
+          template_key: string | null
+        }
+        Insert: {
+          body?: string | null
+          case_id: string
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          error_message?: string | null
+          id?: string
+          recipient?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          template_key?: string | null
+        }
+        Update: {
+          body?: string | null
+          case_id?: string
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          error_message?: string | null
+          id?: string
+          recipient?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          template_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_communications_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_documents: {
+        Row: {
+          analysis: Json | null
+          analysis_status: string
+          case_id: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          doc_type: string
+          file_size: number | null
+          id: string
+          label: string | null
+          mime_type: string | null
+          storage_path: string
+        }
+        Insert: {
+          analysis?: Json | null
+          analysis_status?: string
+          case_id: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          doc_type?: string
+          file_size?: number | null
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          storage_path: string
+        }
+        Update: {
+          analysis?: Json | null
+          analysis_status?: string
+          case_id?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          doc_type?: string
+          file_size?: number | null
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_events: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          detail: string | null
+          id: string
+          kind: string
+          label: string
+          occurred_at: string
+          source: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          detail?: string | null
+          id?: string
+          kind: string
+          label: string
+          occurred_at?: string
+          source?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          detail?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          occurred_at?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_parts: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          is_deposit: boolean
+          label: string
+          notes: string | null
+          ordered_at: string | null
+          quantity: number
+          received_at: string | null
+          reference: string | null
+          status: string
+          supplier_id: string | null
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          is_deposit?: boolean
+          label: string
+          notes?: string | null
+          ordered_at?: string | null
+          quantity?: number
+          received_at?: string | null
+          reference?: string | null
+          status?: string
+          supplier_id?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          is_deposit?: boolean
+          label?: string
+          notes?: string | null
+          ordered_at?: string | null
+          quantity?: number
+          received_at?: string | null
+          reference?: string | null
+          status?: string
+          supplier_id?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_parts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodyshop_parts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_payments: {
+        Row: {
+          amount: number
+          case_id: string
+          created_at: string
+          id: string
+          kind: string
+          notes: string | null
+          received_at: string | null
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          case_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          notes?: string | null
+          received_at?: string | null
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          case_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          notes?: string | null
+          received_at?: string | null
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_payments_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_supplements: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          delay_impact_days: number | null
+          description: string | null
+          id: string
+          photos: string[]
+          responded_at: string | null
+          response: string | null
+          sent_at: string | null
+          sent_to: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          delay_impact_days?: number | null
+          description?: string | null
+          id?: string
+          photos?: string[]
+          responded_at?: string | null
+          response?: string | null
+          sent_at?: string | null
+          sent_to?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          delay_impact_days?: number | null
+          description?: string | null
+          id?: string
+          photos?: string[]
+          responded_at?: string | null
+          response?: string | null
+          sent_at?: string | null
+          sent_to?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_supplements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodyshop_tasks: {
+        Row: {
+          case_id: string
+          created_at: string
+          detail: string | null
+          done: boolean
+          done_at: string | null
+          done_by: string | null
+          due_date: string | null
+          id: string
+          label: string
+          origin: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          detail?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          due_date?: string | null
+          id?: string
+          label: string
+          origin?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          detail?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          due_date?: string | null
+          id?: string
+          label?: string
+          origin?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodyshop_tasks_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           account_number: string | null
@@ -58,6 +786,107 @@ export type Database = {
           postal_code?: string | null
         }
         Relationships: []
+      }
+      credit_note_lines: {
+        Row: {
+          amount: number | null
+          created_at: string
+          credit_note_id: string
+          id: string
+          label: string | null
+          matched: boolean
+          quantity: number | null
+          reference: string | null
+          return_line_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          credit_note_id: string
+          id?: string
+          label?: string | null
+          matched?: boolean
+          quantity?: number | null
+          reference?: string | null
+          return_line_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          credit_note_id?: string
+          id?: string
+          label?: string | null
+          matched?: boolean
+          quantity?: number | null
+          reference?: string | null
+          return_line_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_note_lines_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_note_lines_return_line_id_fkey"
+            columns: ["return_line_id"]
+            isOneToOne: false
+            referencedRelation: "part_return_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_notes: {
+        Row: {
+          analysis: Json | null
+          created_at: string
+          created_by: string | null
+          credit_date: string | null
+          id: string
+          number: string | null
+          status: string
+          storage_path: string | null
+          supplier_id: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          analysis?: Json | null
+          created_at?: string
+          created_by?: string | null
+          credit_date?: string | null
+          id?: string
+          number?: string | null
+          status?: string
+          storage_path?: string | null
+          supplier_id?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          analysis?: Json | null
+          created_at?: string
+          created_by?: string | null
+          credit_date?: string | null
+          id?: string
+          number?: string | null
+          status?: string
+          storage_path?: string | null
+          supplier_id?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_addresses: {
         Row: {
@@ -470,6 +1299,45 @@ export type Database = {
           },
         ]
       }
+      expert_firms: {
+        Row: {
+          active: boolean
+          address: string | null
+          created_at: string
+          ead_email: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          created_at?: string
+          ead_email?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          created_at?: string
+          ead_email?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expertise_damages: {
         Row: {
           ai_suggestion: Json | null
@@ -588,6 +1456,62 @@ export type Database = {
             columns: ["expertise_id"]
             isOneToOne: false
             referencedRelation: "vehicle_expertises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experts: {
+        Row: {
+          active: boolean
+          created_at: string
+          ead_email: string | null
+          email: string | null
+          firm_id: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          mobile: string | null
+          notes: string | null
+          phone: string | null
+          supplement_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          ead_email?: string | null
+          email?: string | null
+          firm_id?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          mobile?: string | null
+          notes?: string | null
+          phone?: string | null
+          supplement_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          ead_email?: string | null
+          email?: string | null
+          firm_id?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          mobile?: string | null
+          notes?: string | null
+          phone?: string | null
+          supplement_email?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experts_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "expert_firms"
             referencedColumns: ["id"]
           },
         ]
@@ -873,6 +1797,42 @@ export type Database = {
           },
         ]
       }
+      insurers: {
+        Row: {
+          active: boolean
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       media: {
         Row: {
           created_at: string
@@ -1033,6 +1993,195 @@ export type Database = {
             columns: ["inspection_id"]
             isOneToOne: false
             referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      part_return_lines: {
+        Row: {
+          bodyshop_part_id: string | null
+          created_at: string
+          credited_amount: number | null
+          credited_quantity: number
+          id: string
+          item_type: string
+          label: string | null
+          notes: string | null
+          photo_path: string | null
+          quantity: number
+          reference: string | null
+          return_id: string
+          status: string
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          bodyshop_part_id?: string | null
+          created_at?: string
+          credited_amount?: number | null
+          credited_quantity?: number
+          id?: string
+          item_type?: string
+          label?: string | null
+          notes?: string | null
+          photo_path?: string | null
+          quantity?: number
+          reference?: string | null
+          return_id: string
+          status?: string
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bodyshop_part_id?: string | null
+          created_at?: string
+          credited_amount?: number | null
+          credited_quantity?: number
+          id?: string
+          item_type?: string
+          label?: string | null
+          notes?: string | null
+          photo_path?: string | null
+          quantity?: number
+          reference?: string | null
+          return_id?: string
+          status?: string
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_return_lines_bodyshop_part_id_fkey"
+            columns: ["bodyshop_part_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "part_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      part_returns: {
+        Row: {
+          carrier: string | null
+          case_id: string | null
+          comments: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          credited_amount: number | null
+          deadline_date: string | null
+          expected_amount: number | null
+          id: string
+          notice_sent_at: string | null
+          or_number: string | null
+          plate: string | null
+          ref_vehicle_id: string | null
+          reference: string
+          repair_order_id: string | null
+          shipment_note: string | null
+          shipment_photo: string | null
+          shipped_at: string | null
+          shipped_by: string | null
+          site_id: string | null
+          status: string
+          supplier_id: string | null
+          tracking_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          carrier?: string | null
+          case_id?: string | null
+          comments?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          credited_amount?: number | null
+          deadline_date?: string | null
+          expected_amount?: number | null
+          id?: string
+          notice_sent_at?: string | null
+          or_number?: string | null
+          plate?: string | null
+          ref_vehicle_id?: string | null
+          reference?: string
+          repair_order_id?: string | null
+          shipment_note?: string | null
+          shipment_photo?: string | null
+          shipped_at?: string | null
+          shipped_by?: string | null
+          site_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          carrier?: string | null
+          case_id?: string | null
+          comments?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          credited_amount?: number | null
+          deadline_date?: string | null
+          expected_amount?: number | null
+          id?: string
+          notice_sent_at?: string | null
+          or_number?: string | null
+          plate?: string | null
+          ref_vehicle_id?: string | null
+          reference?: string
+          repair_order_id?: string | null
+          shipment_note?: string | null
+          shipment_photo?: string | null
+          shipped_at?: string | null
+          shipped_by?: string | null
+          site_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_returns_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_returns_ref_vehicle_id_fkey"
+            columns: ["ref_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "ref_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_returns_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_returns_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_returns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -1373,6 +2522,59 @@ export type Database = {
           },
         ]
       }
+      return_reminders: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          level: number
+          recipient: string | null
+          return_ids: string[]
+          sent_at: string
+          status: string
+          subject: string | null
+          supplier_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          level?: number
+          recipient?: string | null
+          return_ids?: string[]
+          sent_at?: string
+          status?: string
+          subject?: string | null
+          supplier_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          level?: number
+          recipient?: string | null
+          return_ids?: string[]
+          sent_at?: string
+          status?: string
+          subject?: string | null
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_reminders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           active: boolean
@@ -1420,6 +2622,75 @@ export type Database = {
           name?: string
           phone?: string | null
           postal_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          active: boolean
+          address: string | null
+          avg_credit_days: number | null
+          brands: string | null
+          category: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          max_return_days: number | null
+          name: string
+          notes: string | null
+          parts_contact: string | null
+          phone: string | null
+          postal_code: string | null
+          returns_contact: string | null
+          returns_email: string | null
+          sales_contact: string | null
+          site_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          avg_credit_days?: number | null
+          brands?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          max_return_days?: number | null
+          name: string
+          notes?: string | null
+          parts_contact?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          returns_contact?: string | null
+          returns_email?: string | null
+          sales_contact?: string | null
+          site_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          avg_credit_days?: number | null
+          brands?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          max_return_days?: number | null
+          name?: string
+          notes?: string | null
+          parts_contact?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          returns_contact?: string | null
+          returns_email?: string | null
+          sales_contact?: string | null
+          site_ids?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -1814,6 +3085,7 @@ export type Database = {
         Returns: boolean
       }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
+      next_part_return_ref: { Args: never; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
