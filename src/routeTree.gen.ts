@@ -39,7 +39,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
-import { Route as BaseCorrectionsRouteImport } from './routes/base.corrections.'
+import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
@@ -198,9 +198,9 @@ const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
   path: '/vehicule/$vehId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BaseCorrectionsRoute = BaseCorrectionsRouteImport.update({
-  id: '/base/corrections/',
-  path: '/base/corrections/',
+const BaseCorrectionsImportIdRoute = BaseCorrectionsImportIdRouteImport.update({
+  id: '/base/corrections/$importId',
+  path: '/base/corrections/$importId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BaseHistoriqueIndexRoute = BaseHistoriqueIndexRouteImport.update({
@@ -270,7 +270,7 @@ export interface FileRoutesByFullPath {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
-  '/base/corrections/': typeof BaseCorrectionsRoute
+  '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -310,7 +310,7 @@ export interface FileRoutesByTo {
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
   '/magasin': typeof MagasinIndexRoute
-  '/base/corrections': typeof BaseCorrectionsRoute
+  '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -351,7 +351,7 @@ export interface FileRoutesById {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
-  '/base/corrections/': typeof BaseCorrectionsRoute
+  '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -393,7 +393,7 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
-    | '/base/corrections/'
+    | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -433,7 +433,7 @@ export interface FileRouteTypes {
     | '/base'
     | '/carrosserie'
     | '/magasin'
-    | '/base/corrections'
+    | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -473,7 +473,7 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
-    | '/base/corrections/'
+    | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -514,7 +514,7 @@ export interface RootRouteChildren {
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
-  BaseCorrectionsRoute: typeof BaseCorrectionsRoute
+  BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
@@ -736,11 +736,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VehiculeVehIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/base/corrections/': {
-      id: '/base/corrections/'
-      path: '/base/corrections'
-      fullPath: '/base/corrections/'
-      preLoaderRoute: typeof BaseCorrectionsRouteImport
+    '/base/corrections/$importId': {
+      id: '/base/corrections/$importId'
+      path: '/base/corrections/$importId'
+      fullPath: '/base/corrections/$importId'
+      preLoaderRoute: typeof BaseCorrectionsImportIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/base/historique/': {
@@ -826,7 +826,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
-  BaseCorrectionsRoute: BaseCorrectionsRoute,
+  BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
