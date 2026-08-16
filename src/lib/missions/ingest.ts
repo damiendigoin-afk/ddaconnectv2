@@ -210,7 +210,10 @@ export async function ingestMissions(
         }
         for (const [k, v] of Object.entries(refs)) if (v && !(existing as Record<string, unknown>)[k]) update[k] = v;
         if (Object.keys(update).length) {
-          const { error } = await supabase.from("bodyshop_cases").update(update).eq("id", existing.id as string);
+          const { error } = await supabase
+            .from("bodyshop_cases")
+            .update(update as never)
+            .eq("id", existing.id as string);
           if (error) throw error;
         }
         counters.updated++;

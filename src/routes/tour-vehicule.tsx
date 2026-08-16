@@ -1,11 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronLeft, Plus, ScanLine, Search } from "lucide-react";
+import { ChevronLeft, Plus, ScanLine } from "lucide-react";
 
+import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { OrCard } from "@/components/OrCard";
 import { TourRow } from "@/components/RecentTours";
-import { fetchRecentOrders, fetchRecentTours, searchOrders } from "@/lib/queries";
+import { fetchRecentOrders, fetchRecentTours } from "@/lib/queries";
 
 export const Route = createFileRoute("/tour-vehicule")({
   head: () => ({
@@ -31,17 +32,19 @@ export const Route = createFileRoute("/tour-vehicule")({
 const MAX = 5;
 
 function ModuleHome() {
-  const [term, setTerm] = useState("");
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"tours" | "ors">("tours");
   const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
   const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(MAX) });
-  const results = useQuery({
-    queryKey: ["search-orders", term],
-    queryFn: () => searchOrders(term),
-    enabled: term.trim().length >= 2,
-  });
 
-  const searching = term.trim().length >= 2;
+  function onPick(pick: EntityPick) {
+    if (pick.orderId) {
+      navigate({ to: "/or/$orId", params: { orId: pick.orderId } });
+      return;
+    }
+    navigate({ to: "/or/nouveau", search: { plate: pick.fields["plate"] ?? "" } });
+  }
+
   const orders = (recent.data ?? []).slice(0, MAX);
   const tourList = (tours.data ?? []).slice(0, MAX);
 
