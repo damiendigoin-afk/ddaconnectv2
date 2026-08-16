@@ -31,6 +31,8 @@ import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-pa
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
 import { Route as MagasinIndexRouteImport } from './routes/magasin.index'
+import { Route as MagasinReturnIdRouteImport } from './routes/magasin.$returnId'
+import { Route as MagasinAvoirsRouteImport } from './routes/magasin.avoirs'
 import { Route as MagasinNouveauRouteImport } from './routes/magasin.nouveau'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
@@ -154,6 +156,16 @@ const MagasinIndexRoute = MagasinIndexRouteImport.update({
   path: '/magasin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MagasinReturnIdRoute = MagasinReturnIdRouteImport.update({
+  id: '/magasin/$returnId',
+  path: '/magasin/$returnId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MagasinAvoirsRoute = MagasinAvoirsRouteImport.update({
+  id: '/magasin/avoirs',
+  path: '/magasin/avoirs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MagasinNouveauRoute = MagasinNouveauRouteImport.update({
   id: '/magasin/nouveau',
   path: '/magasin/nouveau',
@@ -235,6 +247,8 @@ export interface FileRoutesByFullPath {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/magasin/$returnId': typeof MagasinReturnIdRoute
+  '/magasin/avoirs': typeof MagasinAvoirsRoute
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
@@ -271,6 +285,8 @@ export interface FileRoutesByTo {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/magasin/$returnId': typeof MagasinReturnIdRoute
+  '/magasin/avoirs': typeof MagasinAvoirsRoute
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
@@ -308,6 +324,8 @@ export interface FileRoutesById {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/magasin/$returnId': typeof MagasinReturnIdRoute
+  '/magasin/avoirs': typeof MagasinAvoirsRoute
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
@@ -346,6 +364,8 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/magasin/$returnId'
+    | '/magasin/avoirs'
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
@@ -382,6 +402,8 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/magasin/$returnId'
+    | '/magasin/avoirs'
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
@@ -418,6 +440,8 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/magasin/$returnId'
+    | '/magasin/avoirs'
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
@@ -455,6 +479,8 @@ export interface RootRouteChildren {
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
+  MagasinReturnIdRoute: typeof MagasinReturnIdRoute
+  MagasinAvoirsRoute: typeof MagasinAvoirsRoute
   MagasinNouveauRoute: typeof MagasinNouveauRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
@@ -628,6 +654,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MagasinIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/magasin/$returnId': {
+      id: '/magasin/$returnId'
+      path: '/magasin/$returnId'
+      fullPath: '/magasin/$returnId'
+      preLoaderRoute: typeof MagasinReturnIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/magasin/avoirs': {
+      id: '/magasin/avoirs'
+      path: '/magasin/avoirs'
+      fullPath: '/magasin/avoirs'
+      preLoaderRoute: typeof MagasinAvoirsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/magasin/nouveau': {
       id: '/magasin/nouveau'
       path: '/magasin/nouveau'
@@ -735,6 +775,8 @@ const rootRouteChildren: RootRouteChildren = {
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
+  MagasinReturnIdRoute: MagasinReturnIdRoute,
+  MagasinAvoirsRoute: MagasinAvoirsRoute,
   MagasinNouveauRoute: MagasinNouveauRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
