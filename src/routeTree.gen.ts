@@ -24,6 +24,7 @@ import { Route as BaseImportRouteImport } from './routes/base.import'
 import { Route as BaseVehiculesRouteImport } from './routes/base.vehicules'
 import { Route as CarrosserieIndexRouteImport } from './routes/carrosserie.index'
 import { Route as CarrosserieCaseIdRouteImport } from './routes/carrosserie.$caseId'
+import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.import'
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
@@ -120,6 +121,11 @@ const CarrosserieIndexRoute = CarrosserieIndexRouteImport.update({
 const CarrosserieCaseIdRoute = CarrosserieCaseIdRouteImport.update({
   id: '/carrosserie/$caseId',
   path: '/carrosserie/$caseId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CarrosserieImportRoute = CarrosserieImportRouteImport.update({
+  id: '/carrosserie/import',
+  path: '/carrosserie/import',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CarrosserieNouvelleRoute = CarrosserieNouvelleRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
   '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
+  '/carrosserie/import': typeof CarrosserieImportRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
@@ -286,6 +293,7 @@ export interface FileRoutesByTo {
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
   '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
+  '/carrosserie/import': typeof CarrosserieImportRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
@@ -326,6 +334,7 @@ export interface FileRoutesById {
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
   '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
+  '/carrosserie/import': typeof CarrosserieImportRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
@@ -367,6 +376,7 @@ export interface FileRouteTypes {
     | '/base/import'
     | '/base/vehicules'
     | '/carrosserie/$caseId'
+    | '/carrosserie/import'
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
@@ -406,6 +416,7 @@ export interface FileRouteTypes {
     | '/base/import'
     | '/base/vehicules'
     | '/carrosserie/$caseId'
+    | '/carrosserie/import'
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
@@ -445,6 +456,7 @@ export interface FileRouteTypes {
     | '/base/import'
     | '/base/vehicules'
     | '/carrosserie/$caseId'
+    | '/carrosserie/import'
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
@@ -485,6 +497,7 @@ export interface RootRouteChildren {
   BaseImportRoute: typeof BaseImportRoute
   BaseVehiculesRoute: typeof BaseVehiculesRoute
   CarrosserieCaseIdRoute: typeof CarrosserieCaseIdRoute
+  CarrosserieImportRoute: typeof CarrosserieImportRoute
   CarrosserieNouvelleRoute: typeof CarrosserieNouvelleRoute
   CarrosserieReferentielsRoute: typeof CarrosserieReferentielsRoute
   ClientClientIdRoute: typeof ClientClientIdRoute
@@ -616,6 +629,13 @@ declare module '@tanstack/react-router' {
       path: '/carrosserie/$caseId'
       fullPath: '/carrosserie/$caseId'
       preLoaderRoute: typeof CarrosserieCaseIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/carrosserie/import': {
+      id: '/carrosserie/import'
+      path: '/carrosserie/import'
+      fullPath: '/carrosserie/import'
+      preLoaderRoute: typeof CarrosserieImportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/carrosserie/nouvelle': {
@@ -789,6 +809,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseImportRoute: BaseImportRoute,
   BaseVehiculesRoute: BaseVehiculesRoute,
   CarrosserieCaseIdRoute: CarrosserieCaseIdRoute,
+  CarrosserieImportRoute: CarrosserieImportRoute,
   CarrosserieNouvelleRoute: CarrosserieNouvelleRoute,
   CarrosserieReferentielsRoute: CarrosserieReferentielsRoute,
   ClientClientIdRoute: ClientClientIdRoute,
