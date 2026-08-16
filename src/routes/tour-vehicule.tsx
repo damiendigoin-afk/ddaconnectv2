@@ -129,9 +129,7 @@ function ModuleHome() {
 
         <EntitySearch onPick={onPick} />
 
-        {(() => {
-          return (
-          <>
+        <>
             {/* Mobile : sélecteur simple entre les deux listes */}
             <div className="lg:hidden">
               <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
@@ -156,8 +154,7 @@ function ModuleHome() {
               {toursCol}
               {ordersCol}
             </div>
-          </>
-        )}
+        </>
       </main>
     </div>
   );
