@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Link2, Loader2, Mail, Pencil, Printer } from "lucide-react";
@@ -113,44 +113,69 @@ function ExpertiseReportPage() {
           <ExpertiseReport d={q.data} />
 
           <section className="card-surface space-y-3 p-4 print:hidden">
-            <h2 className="text-sm font-extrabold uppercase tracking-wide">Envoyer au client</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-wide">Envoi du rapport</h2>
             {e?.last_sent_at ? (
               <p className="text-xs text-muted-foreground">
                 Dernier envoi le {new Date(e.last_sent_at).toLocaleString("fr-FR")} à{" "}
                 {e.last_sent_to}
               </p>
             ) : null}
-            <input
-              type="email"
-              value={email}
-              onChange={(ev) => setEmail(ev.target.value)}
-              placeholder="client@email.fr"
-              className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base font-semibold"
-            />
-            <textarea
-              value={message}
-              onChange={(ev) => setMessage(ev.target.value)}
-              rows={3}
-              placeholder="Message d'accompagnement (facultatif)"
-              className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base"
-            />
+
+            <label className="flex items-center gap-2 text-sm font-bold uppercase">
+              <input
+                type="checkbox"
+                checked={sendToClient}
+                onChange={(ev) => setSendToClient(ev.target.checked)}
+                className="h-5 w-5"
+              />
+              Envoyer au client
+            </label>
+            {sendToClient ? (
+              <div className="space-y-2 pl-1">
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(ev) => setClientEmail(ev.target.value)}
+                  placeholder="client@email.fr"
+                  className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base font-semibold"
+                />
+                <textarea
+                  value={message}
+                  onChange={(ev) => setMessage(ev.target.value)}
+                  rows={3}
+                  placeholder="Message d'accompagnement (facultatif)"
+                  className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base"
+                />
+              </div>
+            ) : null}
+
+            <label className="flex items-center gap-2 text-sm font-bold uppercase">
+              <input
+                type="checkbox"
+                checked={sendToMe}
+                onChange={(ev) => setSendToMe(ev.target.checked)}
+                className="h-5 w-5"
+              />
+              M'envoyer le rapport
+            </label>
+            {sendToMe ? (
+              <input
+                type="email"
+                value={myEmail}
+                onChange={(ev) => setMyEmail(ev.target.value)}
+                placeholder="moi@email.fr"
+                className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base font-semibold"
+              />
+            ) : null}
+
             <button
-              onClick={() => void send()}
+              onClick={() => void sendAll()}
               disabled={sending}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-60"
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Envoyer le rapport
+              Envoyer
             </button>
-            {user?.email ? (
-              <button
-                onClick={() => void send(user.email as string, true)}
-                disabled={sending}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold uppercase disabled:opacity-60"
-              >
-                <Mail className="h-4 w-4" /> M'envoyer le rapport ({user.email})
-              </button>
-            ) : null}
           </section>
         </div>
       )}

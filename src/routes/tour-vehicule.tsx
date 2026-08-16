@@ -127,33 +127,10 @@ function ModuleHome() {
           </Link>
         </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            placeholder="Immatriculation, n° OR, client…"
-            className="w-full rounded-xl border border-border bg-card py-4 pl-11 pr-4 text-base outline-none focus:border-brand"
-          />
-        </div>
+        <EntitySearch onPick={onPick} />
 
-        {searching ? (
-          <section>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Résultats
-            </h2>
-            <div className="space-y-2">
-              {(results.data ?? []).map((o) => (
-                <OrCard key={o.id} o={o as never} />
-              ))}
-              {(results.data ?? []).length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  Aucun résultat.
-                </p>
-              ) : null}
-            </div>
-          </section>
-        ) : (
+        {(() => {
+          return (
           <>
             {/* Mobile : sélecteur simple entre les deux listes */}
             <div className="lg:hidden">
