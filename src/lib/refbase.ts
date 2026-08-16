@@ -328,6 +328,35 @@ export type RefPrefill = {
 export async function refPrefill(plate: string): Promise<RefPrefill | null> {
   const found = await findRefVehicleByPlate(plate);
   if (!found) return null;
+  return buildPrefill(found, found.customer);
+}
+
+/** Pré-remplissage à partir d'un véhicule déjà sélectionné dans la recherche universelle. */
+export async function refPrefillByVehicle(
+  vehicleId: string,
+  customer?: RefCustomer | null,
+): Promise<RefPrefill | null> {
+  const { data } = await supabase.from("ref_vehicles").select(VEH_SELECT).eq("id", vehicleId).maybeSingle();
+  const v = data as RefVehicle | null;
+  if (!v) return null;
+  let cust = customer ?? null;
+  if (!cust) {
+    const { data: rel } = await supabase
+      .from("customer_vehicle_relations")
+      .select("customer_id")
+      .eq("vehicle_id", vehicleId)
+      .limit(1);
+    const cid = (rel ?? [])[0]?.customer_id;
+    if (cid) {
+      const { data: c } = await supabase.from("customers").select(CUST_SELECT).eq("id", cid).maybeSingle();
+      cust = (c as RefCustomer) ?? null;
+    }
+  }
+  return buildPrefill(v, cust);
+}
+
+async function buildPrefill(found: RefVehicle, customer: RefCustomer | null): Promise<RefPrefill> {
+  const plate = found.registration_display ?? "";
   const fields: Record<string, string> = {
     plate: found.registration_display ?? plate.toUpperCase(),
     vin: found.vin ?? "",
@@ -336,13 +365,13 @@ export async function refPrefill(plate: string): Promise<RefPrefill | null> {
     first_registration: found.first_registration_date ?? "",
     mileage: found.last_mileage ? String(found.last_mileage) : "",
   };
-  if (found.customer) {
-    fields["last_name"] = found.customer.last_name ?? found.customer.company_name ?? "";
-    fields["first_name"] = found.customer.first_name ?? "";
-    fields["account_number"] = found.customer.source_customer_id ?? "";
+  if (customer) {
+    fields["last_name"] = customer.last_name ?? customer.company_name ?? "";
+    fields["first_name"] = customer.first_name ?? "";
+    fields["account_number"] = customer.source_customer_id ?? "";
     const [{ data: contacts }, { data: addresses }] = await Promise.all([
-      supabase.from("customer_contacts").select("type, value").eq("customer_id", found.customer.id).eq("active", true),
-      supabase.from("customer_addresses").select("*").eq("customer_id", found.customer.id).eq("active", true).limit(1),
+      supabase.from("customer_contacts").select("type, value").eq("customer_id", customer.id).eq("active", true),
+      supabase.from("customer_addresses").select("*").eq("customer_id", customer.id).eq("active", true).limit(1),
     ]);
     for (const c of (contacts ?? []) as { type: string; value: string }[]) {
       if (c.type === "EMAIL" && !fields["email"]) fields["email"] = c.value;
@@ -361,8 +390,8 @@ export async function refPrefill(plate: string): Promise<RefPrefill | null> {
   }
   return {
     vehicleId: found.id,
-    customerId: found.customer?.id ?? null,
-    label: `${found.registration_display ?? plate} — ${vehicleLabel(found)}${found.customer ? ` · ${customerName(found.customer)}` : ""}`,
+    customerId: customer?.id ?? null,
+    label: `${found.registration_display ?? plate} — ${vehicleLabel(found)}${customer ? ` · ${customerName(customer)}` : ""}`,
     fields,
   };
 }

@@ -1,4 +1,4 @@
-import { buildHeaderIndex, mapRow, type RawRow } from "./mapping";
+import { buildHeaderIndex, errorMessages, mapRow, type RawRow } from "./mapping";
 
 export type Analysis = {
   fileName: string;
@@ -62,7 +62,7 @@ export function analyze(
     phones += m.contacts.filter((c) => c.type !== "EMAIL").length;
     if (m.errors.length) {
       anomalies++;
-      if (samples.length < 20) samples.push({ row: i + 2, errors: m.errors });
+      if (samples.length < 20) samples.push({ row: i + 2, errors: errorMessages(m.errors) });
     }
   });
 

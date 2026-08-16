@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const BUCKET = "dda-media";
 
-export async function compressImage(file: File, maxSide = 1500, quality = 0.82): Promise<Blob> {
+export async function compressImage(file: Blob, maxSide = 1500, quality = 0.82): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
@@ -37,7 +37,7 @@ export type MediaLinks = {
   label?: string | null;
 };
 
-export async function uploadPhoto(file: File, folder: string, links: MediaLinks) {
+export async function uploadPhoto(file: Blob, folder: string, links: MediaLinks) {
   const blob = await compressImage(file);
   const path = `${folder}/${crypto.randomUUID()}.jpg`;
   const { error: upErr } = await supabase.storage

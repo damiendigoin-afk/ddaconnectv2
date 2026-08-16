@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { BookUser, Plus } from "lucide-react";
+import { BookUser, FileSpreadsheet, Plus } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Badge, Counter } from "@/components/bits";
@@ -75,6 +75,18 @@ function BodyshopHub() {
         <Plus className="h-7 w-7" />
         <span className="flex-1 text-left text-lg font-extrabold uppercase tracking-wide">Nouveau dossier</span>
       </button>
+
+      {isManager ? (
+        <Link
+          to="/carrosserie/import"
+          className="mt-2 flex w-full items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-3 active:scale-[0.99]"
+        >
+          <FileSpreadsheet className="h-5 w-5 text-brand" />
+          <span className="flex-1 text-left text-sm font-extrabold uppercase tracking-wide">
+            Initialiser / Importer le suivi missions
+          </span>
+        </Link>
+      ) : null}
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         {COUNTER_FILTERS.map((c) => (

@@ -1,8 +1,12 @@
+import { Camera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { PhotoManager } from "@/components/PhotoManager";
 import { StatusPicker, type PointStatus } from "@/components/StatusPicker";
+import { uploadPhoto } from "@/lib/photo";
 import type { PointDef } from "@/lib/zones";
 
 export type PointRow = {
@@ -29,6 +33,9 @@ export function PointCard({
   const [status, setStatus] = useState<PointStatus>(point.status as PointStatus);
   const [measure, setMeasure] = useState(point.measure_value ?? "");
   const [comment, setComment] = useState(point.comment ?? "");
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [photoKey, setPhotoKey] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -48,6 +55,29 @@ export function PointCard({
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void persist(patch), 500);
   }
+
+  async function onShots(shots: BurstShot[]) {
+    setCameraOpen(false);
+    if (!shots.length) return;
+    setUploading(true);
+    try {
+      for (const shot of shots) {
+        await uploadPhoto(shot.blob, `inspections/${inspectionId}`, {
+          inspection_id: inspectionId,
+          inspection_point_id: point.id,
+        });
+      }
+      toast.success(shots.length > 1 ? "Photos enregistrées" : "Photo enregistrée");
+      setPhotoKey((k) => k + 1);
+    } catch (e) {
+      console.error(e);
+      toast.error("Échec de l'envoi des photos");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const flagged = status === "watch" || status === "defect";
 
   return (
     <div className="card-surface space-y-3 p-4">
@@ -90,11 +120,31 @@ export function PointCard({
         }}
         className="w-full rounded-lg border-2 border-border px-3 py-2 text-sm outline-none focus:border-brand"
       />
+      {flagged ? (
+        <button
+          type="button"
+          onClick={() => setCameraOpen(true)}
+          disabled={uploading}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-status-defect px-4 py-4 text-base font-extrabold uppercase text-white disabled:opacity-60"
+        >
+          <Camera className="h-5 w-5" /> {uploading ? "Envoi…" : "Photo(s)"}
+        </button>
+      ) : null}
       <PhotoManager
+        key={photoKey}
         compact
         folder={`inspections/${inspectionId}`}
         links={{ inspection_id: inspectionId, inspection_point_id: point.id }}
       />
+      {cameraOpen ? (
+        <BurstCamera
+          steps={[]}
+          allowFree={false}
+          title={point.point_label}
+          onFinish={(shots) => void onShots(shots)}
+          onCancel={() => setCameraOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

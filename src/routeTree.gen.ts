@@ -24,6 +24,7 @@ import { Route as BaseImportRouteImport } from './routes/base.import'
 import { Route as BaseVehiculesRouteImport } from './routes/base.vehicules'
 import { Route as CarrosserieIndexRouteImport } from './routes/carrosserie.index'
 import { Route as CarrosserieCaseIdRouteImport } from './routes/carrosserie.$caseId'
+import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.import'
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
@@ -38,6 +39,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
+import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
@@ -121,6 +123,11 @@ const CarrosserieCaseIdRoute = CarrosserieCaseIdRouteImport.update({
   path: '/carrosserie/$caseId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CarrosserieImportRoute = CarrosserieImportRouteImport.update({
+  id: '/carrosserie/import',
+  path: '/carrosserie/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CarrosserieNouvelleRoute = CarrosserieNouvelleRouteImport.update({
   id: '/carrosserie/nouvelle',
   path: '/carrosserie/nouvelle',
@@ -191,6 +198,11 @@ const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
   path: '/vehicule/$vehId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BaseCorrectionsImportIdRoute = BaseCorrectionsImportIdRouteImport.update({
+  id: '/base/corrections/$importId',
+  path: '/base/corrections/$importId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BaseHistoriqueIndexRoute = BaseHistoriqueIndexRouteImport.update({
   id: '/base/historique/',
   path: '/base/historique/',
@@ -241,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
   '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
+  '/carrosserie/import': typeof CarrosserieImportRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
@@ -257,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -279,6 +293,7 @@ export interface FileRoutesByTo {
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
   '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
+  '/carrosserie/import': typeof CarrosserieImportRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
@@ -295,6 +310,7 @@ export interface FileRoutesByTo {
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
   '/magasin': typeof MagasinIndexRoute
+  '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -318,6 +334,7 @@ export interface FileRoutesById {
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
   '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
+  '/carrosserie/import': typeof CarrosserieImportRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
@@ -334,6 +351,7 @@ export interface FileRoutesById {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -358,6 +376,7 @@ export interface FileRouteTypes {
     | '/base/import'
     | '/base/vehicules'
     | '/carrosserie/$caseId'
+    | '/carrosserie/import'
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
@@ -374,6 +393,7 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
+    | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -396,6 +416,7 @@ export interface FileRouteTypes {
     | '/base/import'
     | '/base/vehicules'
     | '/carrosserie/$caseId'
+    | '/carrosserie/import'
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
@@ -412,6 +433,7 @@ export interface FileRouteTypes {
     | '/base'
     | '/carrosserie'
     | '/magasin'
+    | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -434,6 +456,7 @@ export interface FileRouteTypes {
     | '/base/import'
     | '/base/vehicules'
     | '/carrosserie/$caseId'
+    | '/carrosserie/import'
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
@@ -450,6 +473,7 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
+    | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -473,6 +497,7 @@ export interface RootRouteChildren {
   BaseImportRoute: typeof BaseImportRoute
   BaseVehiculesRoute: typeof BaseVehiculesRoute
   CarrosserieCaseIdRoute: typeof CarrosserieCaseIdRoute
+  CarrosserieImportRoute: typeof CarrosserieImportRoute
   CarrosserieNouvelleRoute: typeof CarrosserieNouvelleRoute
   CarrosserieReferentielsRoute: typeof CarrosserieReferentielsRoute
   ClientClientIdRoute: typeof ClientClientIdRoute
@@ -489,6 +514,7 @@ export interface RootRouteChildren {
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
+  BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
@@ -605,6 +631,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CarrosserieCaseIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/carrosserie/import': {
+      id: '/carrosserie/import'
+      path: '/carrosserie/import'
+      fullPath: '/carrosserie/import'
+      preLoaderRoute: typeof CarrosserieImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/carrosserie/nouvelle': {
       id: '/carrosserie/nouvelle'
       path: '/carrosserie/nouvelle'
@@ -703,6 +736,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VehiculeVehIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/base/corrections/$importId': {
+      id: '/base/corrections/$importId'
+      path: '/base/corrections/$importId'
+      fullPath: '/base/corrections/$importId'
+      preLoaderRoute: typeof BaseCorrectionsImportIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/base/historique/': {
       id: '/base/historique/'
       path: '/base/historique'
@@ -769,6 +809,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseImportRoute: BaseImportRoute,
   BaseVehiculesRoute: BaseVehiculesRoute,
   CarrosserieCaseIdRoute: CarrosserieCaseIdRoute,
+  CarrosserieImportRoute: CarrosserieImportRoute,
   CarrosserieNouvelleRoute: CarrosserieNouvelleRoute,
   CarrosserieReferentielsRoute: CarrosserieReferentielsRoute,
   ClientClientIdRoute: ClientClientIdRoute,
@@ -785,6 +826,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
+  BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,

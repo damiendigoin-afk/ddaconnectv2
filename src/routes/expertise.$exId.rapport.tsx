@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Link2, Loader2, Mail, Pencil, Printer } from "lucide-react";
@@ -36,33 +36,57 @@ function ExpertiseReportPage() {
   const { exId } = Route.useParams();
   const { user } = useAuth();
   const q = useQuery({ queryKey: ["expertise", exId], queryFn: () => fetchExpertise({ id: exId }) });
-  const [email, setEmail] = useState("");
+  const [sendToClient, setSendToClient] = useState(true);
+  const [clientEmail, setClientEmail] = useState("");
+  const [sendToMe, setSendToMe] = useState(false);
+  const [myEmail, setMyEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  useEffect(() => {
+    if (user?.email) setMyEmail((v: string) => v || (user.email as string));
+  }, [user?.email]);
 
   const e = q.data?.expertise;
 
-  async function send(to = email, silent = false) {
-    if (!isValidEmail(to)) {
-      toast.error("Adresse e-mail invalide.");
+  async function sendOne(to: string, withMessage: boolean) {
+    const res = await sendExpertiseReport({
+      data: {
+        expertiseId: exId,
+        to,
+        origin: window.location.origin,
+        ...(withMessage && message ? { message } : {}),
+      },
+    });
+    return res;
+  }
+
+  async function sendAll() {
+    const targets: { to: string; withMessage: boolean }[] = [];
+    if (sendToClient) {
+      if (!isValidEmail(clientEmail)) {
+        toast.error("Adresse e-mail client invalide.");
+        return;
+      }
+      targets.push({ to: clientEmail, withMessage: true });
+    }
+    if (sendToMe) {
+      if (!isValidEmail(myEmail)) {
+        toast.error("Votre adresse e-mail est invalide.");
+        return;
+      }
+      targets.push({ to: myEmail, withMessage: false });
+    }
+    if (!targets.length) {
+      toast.error("Choisissez au moins un destinataire.");
       return;
     }
     setSending(true);
     try {
-      const res = await sendExpertiseReport({
-        data: {
-          expertiseId: exId,
-          to,
-          origin: window.location.origin,
-          ...(message && !silent ? { message } : {}),
-        },
-      });
-      if (res.ok) {
-        toast.success(silent ? "Rapport envoyé sur votre e-mail." : "Rapport envoyé au client.");
-        await q.refetch();
-      } else {
-        toast.error(res.error || "Échec de l'envoi.");
-      }
+      const results = await Promise.all(targets.map((t) => sendOne(t.to, t.withMessage)));
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length) toast.error(failed[0]?.error || "Échec de l'envoi.");
+      else toast.success(targets.length > 1 ? "Rapport envoyé." : `Rapport envoyé à ${targets[0]!.to}.`);
+      await q.refetch();
     } finally {
       setSending(false);
     }
@@ -110,44 +134,69 @@ function ExpertiseReportPage() {
           <ExpertiseReport d={q.data} />
 
           <section className="card-surface space-y-3 p-4 print:hidden">
-            <h2 className="text-sm font-extrabold uppercase tracking-wide">Envoyer au client</h2>
+            <h2 className="text-sm font-extrabold uppercase tracking-wide">Envoi du rapport</h2>
             {e?.last_sent_at ? (
               <p className="text-xs text-muted-foreground">
                 Dernier envoi le {new Date(e.last_sent_at).toLocaleString("fr-FR")} à{" "}
                 {e.last_sent_to}
               </p>
             ) : null}
-            <input
-              type="email"
-              value={email}
-              onChange={(ev) => setEmail(ev.target.value)}
-              placeholder="client@email.fr"
-              className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base font-semibold"
-            />
-            <textarea
-              value={message}
-              onChange={(ev) => setMessage(ev.target.value)}
-              rows={3}
-              placeholder="Message d'accompagnement (facultatif)"
-              className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base"
-            />
+
+            <label className="flex items-center gap-2 text-sm font-bold uppercase">
+              <input
+                type="checkbox"
+                checked={sendToClient}
+                onChange={(ev) => setSendToClient(ev.target.checked)}
+                className="h-5 w-5"
+              />
+              Envoyer au client
+            </label>
+            {sendToClient ? (
+              <div className="space-y-2 pl-1">
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(ev) => setClientEmail(ev.target.value)}
+                  placeholder="client@email.fr"
+                  className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base font-semibold"
+                />
+                <textarea
+                  value={message}
+                  onChange={(ev) => setMessage(ev.target.value)}
+                  rows={3}
+                  placeholder="Message d'accompagnement (facultatif)"
+                  className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base"
+                />
+              </div>
+            ) : null}
+
+            <label className="flex items-center gap-2 text-sm font-bold uppercase">
+              <input
+                type="checkbox"
+                checked={sendToMe}
+                onChange={(ev) => setSendToMe(ev.target.checked)}
+                className="h-5 w-5"
+              />
+              M'envoyer le rapport
+            </label>
+            {sendToMe ? (
+              <input
+                type="email"
+                value={myEmail}
+                onChange={(ev) => setMyEmail(ev.target.value)}
+                placeholder="moi@email.fr"
+                className="w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base font-semibold"
+              />
+            ) : null}
+
             <button
-              onClick={() => void send()}
+              onClick={() => void sendAll()}
               disabled={sending}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-60"
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Envoyer le rapport
+              Envoyer
             </button>
-            {user?.email ? (
-              <button
-                onClick={() => void send(user.email as string, true)}
-                disabled={sending}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold uppercase disabled:opacity-60"
-              >
-                <Mail className="h-4 w-4" /> M'envoyer le rapport ({user.email})
-              </button>
-            ) : null}
           </section>
         </div>
       )}

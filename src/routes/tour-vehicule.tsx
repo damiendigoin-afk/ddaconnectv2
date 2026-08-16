@@ -1,11 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronLeft, Plus, ScanLine, Search } from "lucide-react";
+import { ChevronLeft, Plus, ScanLine } from "lucide-react";
 
+import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { OrCard } from "@/components/OrCard";
 import { TourRow } from "@/components/RecentTours";
-import { fetchRecentOrders, fetchRecentTours, searchOrders } from "@/lib/queries";
+import { fetchRecentOrders, fetchRecentTours } from "@/lib/queries";
 
 export const Route = createFileRoute("/tour-vehicule")({
   head: () => ({
@@ -31,17 +32,19 @@ export const Route = createFileRoute("/tour-vehicule")({
 const MAX = 5;
 
 function ModuleHome() {
-  const [term, setTerm] = useState("");
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"tours" | "ors">("tours");
   const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
   const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(MAX) });
-  const results = useQuery({
-    queryKey: ["search-orders", term],
-    queryFn: () => searchOrders(term),
-    enabled: term.trim().length >= 2,
-  });
 
-  const searching = term.trim().length >= 2;
+  function onPick(pick: EntityPick) {
+    if (pick.orderId) {
+      navigate({ to: "/or/$orId", params: { orId: pick.orderId } });
+      return;
+    }
+    navigate({ to: "/or/nouveau", search: { plate: pick.fields["plate"] ?? "" } });
+  }
+
   const orders = (recent.data ?? []).slice(0, MAX);
   const tourList = (tours.data ?? []).slice(0, MAX);
 
@@ -124,34 +127,9 @@ function ModuleHome() {
           </Link>
         </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            placeholder="Immatriculation, n° OR, client…"
-            className="w-full rounded-xl border border-border bg-card py-4 pl-11 pr-4 text-base outline-none focus:border-brand"
-          />
-        </div>
+        <EntitySearch onPick={onPick} />
 
-        {searching ? (
-          <section>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Résultats
-            </h2>
-            <div className="space-y-2">
-              {(results.data ?? []).map((o) => (
-                <OrCard key={o.id} o={o as never} />
-              ))}
-              {(results.data ?? []).length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  Aucun résultat.
-                </p>
-              ) : null}
-            </div>
-          </section>
-        ) : (
-          <>
+        <>
             {/* Mobile : sélecteur simple entre les deux listes */}
             <div className="lg:hidden">
               <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
@@ -176,8 +154,7 @@ function ModuleHome() {
               {toursCol}
               {ordersCol}
             </div>
-          </>
-        )}
+        </>
       </main>
     </div>
   );
