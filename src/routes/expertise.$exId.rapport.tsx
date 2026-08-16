@@ -36,36 +36,57 @@ function ExpertiseReportPage() {
   const { exId } = Route.useParams();
   const { user } = useAuth();
   const q = useQuery({ queryKey: ["expertise", exId], queryFn: () => fetchExpertise({ id: exId }) });
-  useEffect(() => {
-    if (user?.email) setMyEmail((v) => v || (user.email as string));
-  }, [user?.email]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [email, setEmail] = useState("");
+  const [sendToClient, setSendToClient] = useState(true);
+  const [clientEmail, setClientEmail] = useState("");
+  const [sendToMe, setSendToMe] = useState(false);
+  const [myEmail, setMyEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  useEffect(() => {
+    if (user?.email) setMyEmail((v: string) => v || (user.email as string));
+  }, [user?.email]);
 
   const e = q.data?.expertise;
 
-  async function send(to = email, silent = false) {
-    if (!isValidEmail(to)) {
-      toast.error("Adresse e-mail invalide.");
+  async function sendOne(to: string, withMessage: boolean) {
+    const res = await sendExpertiseReport({
+      data: {
+        expertiseId: exId,
+        to,
+        origin: window.location.origin,
+        ...(withMessage && message ? { message } : {}),
+      },
+    });
+    return res;
+  }
+
+  async function sendAll() {
+    const targets: { to: string; withMessage: boolean }[] = [];
+    if (sendToClient) {
+      if (!isValidEmail(clientEmail)) {
+        toast.error("Adresse e-mail client invalide.");
+        return;
+      }
+      targets.push({ to: clientEmail, withMessage: true });
+    }
+    if (sendToMe) {
+      if (!isValidEmail(myEmail)) {
+        toast.error("Votre adresse e-mail est invalide.");
+        return;
+      }
+      targets.push({ to: myEmail, withMessage: false });
+    }
+    if (!targets.length) {
+      toast.error("Choisissez au moins un destinataire.");
       return;
     }
     setSending(true);
     try {
-      const res = await sendExpertiseReport({
-        data: {
-          expertiseId: exId,
-          to,
-          origin: window.location.origin,
-          ...(message && !silent ? { message } : {}),
-        },
-      });
-      if (res.ok) {
-        toast.success(silent ? "Rapport envoyé sur votre e-mail." : "Rapport envoyé au client.");
-        await q.refetch();
-      } else {
-        toast.error(res.error || "Échec de l'envoi.");
-      }
+      const results = await Promise.all(targets.map((t) => sendOne(t.to, t.withMessage)));
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length) toast.error(failed[0]?.error || "Échec de l'envoi.");
+      else toast.success(targets.length > 1 ? "Rapport envoyé." : `Rapport envoyé à ${targets[0]!.to}.`);
+      await q.refetch();
     } finally {
       setSending(false);
     }
