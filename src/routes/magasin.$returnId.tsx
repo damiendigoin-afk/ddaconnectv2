@@ -101,27 +101,27 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
 
       if (res.ok) {
         const a = JSON.parse(res.json) as BatchAnalysis;
-        updates.analysis = { ...prevAnalysis, ...a };
+        updates['analysis'] = { ...prevAnalysis, ...a };
 
         if (a.plate && !row.plate) {
           let plateValue = a.plate;
           try {
             const pf = await refPrefill(a.plate);
-            if (pf?.fields.plate) plateValue = pf.fields.plate;
+            if (pf?.fields['plate']) plateValue = pf.fields['plate'];
           } catch {
             // conservé tel quel si le référentiel ne répond pas
           }
-          updates.plate = normalizePlate(plateValue);
+          updates['plate'] = normalizePlate(plateValue);
         }
-        if (a.or_number && !row.or_number) updates.or_number = a.or_number;
+        if (a.or_number && !row.or_number) updates['or_number'] = a.or_number;
         if (a.supplier_name && !row.supplier_id) {
           const needle = a.supplier_name.toLowerCase();
           const found = (suppliers.data ?? []).find(
             (s) => s.name.toLowerCase().includes(needle) || needle.includes(s.name.toLowerCase()),
           );
-          if (found) updates.supplier_id = found.id;
+          if (found) updates['supplier_id'] = found.id;
         }
-        if (a.expected_amount && !row.expected_amount) updates.expected_amount = a.expected_amount;
+        if (a.expected_amount && !row.expected_amount) updates['expected_amount'] = a.expected_amount;
 
         if (a.lines?.length) {
           const existingRefs = new Set(row.lines.map((l) => (l.reference || l.label || "").toLowerCase()));
@@ -144,7 +144,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
         setMsg(res.error || "Analyse impossible, photos conservées.");
       }
 
-      await supabase.from("part_returns").update(updates).eq("id", returnId);
+      await supabase.from("part_returns").update(updates as never).eq("id", returnId);
       reload();
     } catch {
       setMsg("Analyse impossible.");
