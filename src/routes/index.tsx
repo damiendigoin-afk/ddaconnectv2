@@ -82,6 +82,34 @@ function Hub() {
           <ChevronRight className="h-6 w-6 shrink-0" />
         </Link>
 
+        <Link
+          to="/carrosserie"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
+        >
+          <Hammer className="h-8 w-8 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-lg font-extrabold uppercase tracking-wide">Carrosserie</div>
+            <div className="text-xs text-muted-foreground">
+              Missions, experts, pièces, planning et suivi des paiements
+            </div>
+          </div>
+          <ChevronRight className="h-6 w-6 shrink-0" />
+        </Link>
+
+        <Link
+          to="/magasin"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
+        >
+          <PackageOpen className="h-8 w-8 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-lg font-extrabold uppercase tracking-wide">Magasin</div>
+            <div className="text-xs text-muted-foreground">
+              Retours de pièces, expéditions fournisseurs et avoirs
+            </div>
+          </div>
+          <ChevronRight className="h-6 w-6 shrink-0" />
+        </Link>
+
         {isManager ? (
           <Link
             to="/base"
