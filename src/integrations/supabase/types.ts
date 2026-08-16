@@ -2741,6 +2741,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string | null
+          customer_id: string | null
           energy: string | null
           expertise_type: string
           exterior_condition: string | null
@@ -2756,6 +2757,7 @@ export type Database = {
           model: string | null
           owner_name: string | null
           plate: string | null
+          ref_vehicle_id: string | null
           registration_doc: string
           repair_order_id: string | null
           share_token: string
@@ -2777,6 +2779,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          customer_id?: string | null
           energy?: string | null
           expertise_type?: string
           exterior_condition?: string | null
@@ -2792,6 +2795,7 @@ export type Database = {
           model?: string | null
           owner_name?: string | null
           plate?: string | null
+          ref_vehicle_id?: string | null
           registration_doc?: string
           repair_order_id?: string | null
           share_token?: string
@@ -2813,6 +2817,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          customer_id?: string | null
           energy?: string | null
           expertise_type?: string
           exterior_condition?: string | null
@@ -2828,6 +2833,7 @@ export type Database = {
           model?: string | null
           owner_name?: string | null
           plate?: string | null
+          ref_vehicle_id?: string | null
           registration_doc?: string
           repair_order_id?: string | null
           share_token?: string
@@ -2846,6 +2852,20 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expertises_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expertises_ref_vehicle_id_fkey"
+            columns: ["ref_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "ref_vehicles"
             referencedColumns: ["id"]
           },
           {

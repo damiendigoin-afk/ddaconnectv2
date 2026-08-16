@@ -162,6 +162,8 @@ export type Expertise = {
   id: string;
   vehicle_id: string | null;
   client_id: string | null;
+  ref_vehicle_id: string | null;
+  customer_id: string | null;
   repair_order_id: string | null;
   site_id: string | null;
   expertise_type: string;
