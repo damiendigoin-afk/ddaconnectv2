@@ -95,19 +95,19 @@ function NewExpertise() {
   async function startFromPick(p: EntityPick) {
     setBusy(true);
     try {
-      const normalized = normalizePlate(p.fields.plate ?? "");
-      const link = await findVehicleLink(normalized, p.fields.vin ?? "");
-      const owner = [p.fields.first_name, p.fields.last_name].filter(Boolean).join(" ").trim();
+      const normalized = normalizePlate(p.fields['plate'] ?? "");
+      const link = await findVehicleLink(normalized, p.fields['vin'] ?? "");
+      const owner = [p.fields['first_name'], p.fields['last_name']].filter(Boolean).join(" ").trim();
       const exp = await createExpertise({
         expertise_type: "expertise",
-        plate: p.fields.plate ? formatPlate(p.fields.plate) : null,
+        plate: p.fields['plate'] ? formatPlate(p.fields['plate']) : null,
         vehicle_id: link?.id ?? null,
         client_id: link?.client_id ?? p.customerId ?? null,
-        vin: p.fields.vin || null,
-        brand: p.fields.brand || null,
-        model: p.fields.model || null,
-        first_registration: p.fields.first_registration || null,
-        mileage: p.fields.mileage ? Number(p.fields.mileage) : null,
+        vin: p.fields['vin'] || null,
+        brand: p.fields['brand'] || null,
+        model: p.fields['model'] || null,
+        first_registration: p.fields['first_registration'] || null,
+        mileage: p.fields['mileage'] ? Number(p.fields['mileage']) : null,
         owner_name: owner || null,
         site_id: profile?.site_id ?? null,
         created_by: user?.id ?? null,
@@ -239,13 +239,13 @@ function NewExpertise() {
             <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sélection</p>
             <p className="text-base font-extrabold">{pick.label}</p>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              {pick.fields.vin ? <p>VIN : {pick.fields.vin}</p> : null}
-              {pick.fields.mobile || pick.fields.phone ? (
-                <p>Tél : {pick.fields.mobile || pick.fields.phone}</p>
+              {pick.fields['vin'] ? <p>VIN : {pick.fields['vin']}</p> : null}
+              {pick.fields['mobile'] || pick.fields['phone'] ? (
+                <p>Tél : {pick.fields['mobile'] || pick.fields['phone']}</p>
               ) : null}
-              {pick.fields.email ? <p>Email : {pick.fields.email}</p> : null}
-              {pick.fields.mileage ? <p>Kilométrage : {pick.fields.mileage} km</p> : null}
-              {pick.fields.first_registration ? <p>1re immat. : {pick.fields.first_registration}</p> : null}
+              {pick.fields['email'] ? <p>Email : {pick.fields['email']}</p> : null}
+              {pick.fields['mileage'] ? <p>Kilométrage : {pick.fields['mileage']} km</p> : null}
+              {pick.fields['first_registration'] ? <p>1re immat. : {pick.fields['first_registration']}</p> : null}
             </div>
             <button
               onClick={() => void startFromPick(pick)}
