@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { emptyCounters, reingestRows } from "@/lib/winmotor/ingest";
 
-export const Route = createFileRoute("/base/corrections/$importId")({
+export const Route = createFileRoute("/base/corrections/")({
   head: () => ({
     meta: [
       { title: "Lignes à corriger — DDA Connect" },
