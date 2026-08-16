@@ -129,7 +129,7 @@ function NewReturn() {
           data: {
             to,
             subject: `Préavis de retour ${ret.reference}`,
-            body: `Bonjour,\n\nNous souhaitons retourner la pièce suivante :\n- Référence : ${reference || "—"}\n- Désignation : ${label || "—"}\n- Quantité : ${qty}\n- Motif : ${REASONS.find((r) => r.key === reason)?.label}\n${plate ? `- Véhicule : ${normalizePlate(plate)}\n` : ""}${orNumber ? `- N° OR : ${orNumber}\n` : ""}\nMerci de nous confirmer l'accord de retour et la procédure à suiver.\n\nRéférence interne : ${ret.reference}\n\nCordialement,`,
+            body: `Bonjour,\n\nNous souhaitons retourner la pièce suivante :\n- Référence : ${reference || "—"}\n- Désignation : ${label || "—"}\n- Quantité : ${qty}\n- Motif : ${REASONS.find((r) => r.key === reason)?.label}\n${plate ? `- Véhicule : ${normalizePlate(plate)}\n` : ""}${orNumber ? `- N° OR : ${orNumber}\n` : ""}\nMerci de nous confirmer l'accord de retour et la procédure à suivre.\n\nRéférence interne : ${ret.reference}\n\nCordialement,`,
             kind: "preavis_retour",
           },
         });

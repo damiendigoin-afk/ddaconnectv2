@@ -30,6 +30,8 @@ import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
+import { Route as MagasinIndexRouteImport } from './routes/magasin.index'
+import { Route as MagasinNouveauRouteImport } from './routes/magasin.nouveau'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
@@ -147,6 +149,16 @@ const ExpertiseNouvelleRoute = ExpertiseNouvelleRouteImport.update({
   path: '/expertise/nouvelle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MagasinIndexRoute = MagasinIndexRouteImport.update({
+  id: '/magasin/',
+  path: '/magasin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MagasinNouveauRoute = MagasinNouveauRouteImport.update({
+  id: '/magasin/nouveau',
+  path: '/magasin/nouveau',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrOrIdRoute = OrOrIdRouteImport.update({
   id: '/or/$orId',
   path: '/or/$orId',
@@ -223,12 +235,14 @@ export interface FileRoutesByFullPath {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/magasin/': typeof MagasinIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -257,12 +271,14 @@ export interface FileRoutesByTo {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/magasin': typeof MagasinIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -292,12 +308,14 @@ export interface FileRoutesById {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/magasin/': typeof MagasinIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -328,12 +346,14 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/magasin/'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -362,12 +382,14 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
     | '/vehicule/$vehId'
     | '/base'
     | '/carrosserie'
+    | '/magasin'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -396,12 +418,14 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/magasin/'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -431,12 +455,14 @@ export interface RootRouteChildren {
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
+  MagasinNouveauRoute: typeof MagasinNouveauRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  MagasinIndexRoute: typeof MagasinIndexRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
@@ -595,6 +621,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpertiseNouvelleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/magasin/': {
+      id: '/magasin/'
+      path: '/magasin'
+      fullPath: '/magasin/'
+      preLoaderRoute: typeof MagasinIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/magasin/nouveau': {
+      id: '/magasin/nouveau'
+      path: '/magasin/nouveau'
+      fullPath: '/magasin/nouveau'
+      preLoaderRoute: typeof MagasinNouveauRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/or/$orId': {
       id: '/or/$orId'
       path: '/or/$orId'
@@ -695,12 +735,14 @@ const rootRouteChildren: RootRouteChildren = {
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
+  MagasinNouveauRoute: MagasinNouveauRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  MagasinIndexRoute: MagasinIndexRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
