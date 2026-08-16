@@ -154,7 +154,7 @@ function DraftCard({
   row,
   supplierName,
 }: {
-  row: ReturnType<typeof listReturns> extends Promise<infer R> ? R[number] : never;
+  row: Awaited<ReturnType<typeof listReturns>>[number];
   supplierName: string | null;
 }) {
   const [thumb, setThumb] = useState<string>("");
