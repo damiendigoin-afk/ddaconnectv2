@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Camera, Send } from "lucide-react";
+import { Camera, CheckCircle2, Send } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { Area, Badge, Field, Section, Select } from "@/components/bits";
 import { supabase } from "@/integrations/supabase/client";
+import { analyzeReturnBatchFn } from "@/lib/bodyshop-ai.functions";
 import { sendModuleEmailFn } from "@/lib/module-email.functions";
 import { BUCKET, compressImage } from "@/lib/photo";
-import { formatPlate } from "@/lib/plate";
+import { formatPlate, normalizePlate } from "@/lib/plate";
 import { listSuppliers } from "@/lib/referentials";
-import { getReturn, refreshReturnCredit, RETURN_STATUSES, returnStatusLabel, returnStatusTone } from "@/lib/returns";
+import { refPrefill } from "@/lib/refbase";
+import { deadlineFrom, getReturn, refreshReturnCredit, RETURN_STATUSES, returnStatusLabel, returnStatusTone } from "@/lib/returns";
 
 export const Route = createFileRoute("/magasin/$returnId")({
   head: () => ({
@@ -25,6 +28,16 @@ export const Route = createFileRoute("/magasin/$returnId")({
   }),
   component: ReturnView,
 });
+
+type BatchAnalysis = {
+  plate?: string | null;
+  or_number?: string | null;
+  supplier_name?: string | null;
+  bl_number?: string | null;
+  bl_date?: string | null;
+  lines?: { reference?: string | null; label?: string | null; quantity?: number | null; unit_price?: number | null }[];
+  expected_amount?: number | null;
+};
 
 function ReturnView() {
   const { returnId } = Route.useParams();
@@ -49,6 +62,10 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
   const [tracking, setTracking] = useState("");
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState("");
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const isDraft = row.status === "brouillon";
 
   const reload = () => {
     void qc.invalidateQueries({ queryKey: ["return", returnId] });
@@ -60,6 +77,115 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
   async function setStatus(status: string) {
     await supabase.from("part_returns").update({ status }).eq("id", returnId);
     reload();
+  }
+
+  async function rescan(shots: BurstShot[]) {
+    setCameraOpen(false);
+    if (!shots.length) return;
+    setBusy(true);
+    setMsg("Analyse en cours…");
+    try {
+      const newPaths: string[] = [];
+      for (const shot of shots) {
+        const path = `magasin/${returnId}/${crypto.randomUUID()}.jpg`;
+        await supabase.storage.from(BUCKET).upload(path, shot.blob, { contentType: "image/jpeg" });
+        newPaths.push(path);
+      }
+
+      const res = await analyzeReturnBatchFn({
+        data: { images: shots.map((s) => ({ dataUrl: s.dataUrl, filename: `${s.key}.jpg` })) },
+      });
+
+      const updates: Record<string, unknown> = { photos: [...(row.photos ?? []), ...newPaths] };
+      const prevAnalysis = (row.analysis as Record<string, unknown> | null) ?? {};
+
+      if (res.ok) {
+        const a = JSON.parse(res.json) as BatchAnalysis;
+        updates.analysis = { ...prevAnalysis, ...a };
+
+        if (a.plate && !row.plate) {
+          let plateValue = a.plate;
+          try {
+            const pf = await refPrefill(a.plate);
+            if (pf?.fields.plate) plateValue = pf.fields.plate;
+          } catch {
+            // conservé tel quel si le référentiel ne répond pas
+          }
+          updates.plate = normalizePlate(plateValue);
+        }
+        if (a.or_number && !row.or_number) updates.or_number = a.or_number;
+        if (a.supplier_name && !row.supplier_id) {
+          const needle = a.supplier_name.toLowerCase();
+          const found = (suppliers.data ?? []).find(
+            (s) => s.name.toLowerCase().includes(needle) || needle.includes(s.name.toLowerCase()),
+          );
+          if (found) updates.supplier_id = found.id;
+        }
+        if (a.expected_amount && !row.expected_amount) updates.expected_amount = a.expected_amount;
+
+        if (a.lines?.length) {
+          const existingRefs = new Set(row.lines.map((l) => (l.reference || l.label || "").toLowerCase()));
+          for (const l of a.lines) {
+            const key = (l.reference || l.label || "").toLowerCase();
+            if (!key || existingRefs.has(key)) continue;
+            await supabase.from("part_return_lines").insert({
+              return_id: returnId,
+              label: l.label || l.reference || "Pièce",
+              reference: l.reference || null,
+              quantity: l.quantity || 1,
+              unit_price: l.unit_price || null,
+              item_type: "piece",
+            });
+            existingRefs.add(key);
+          }
+        }
+        setMsg("Nouvelles informations fusionnées avec le brouillon.");
+      } else {
+        setMsg(res.error || "Analyse impossible, photos conservées.");
+      }
+
+      await supabase.from("part_returns").update(updates).eq("id", returnId);
+      reload();
+    } catch {
+      setMsg("Analyse impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function validateDraft() {
+    if (!row.supplier_id) {
+      setMsg("Choisis un fournisseur avant de valider.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await supabase
+        .from("part_returns")
+        .update({ status: "demande_creee", deadline_date: deadlineFrom(supplier?.max_return_days) })
+        .eq("id", returnId);
+
+      const to = supplier?.returns_email || supplier?.email;
+      if (to) {
+        const res = await sendModuleEmailFn({
+          data: {
+            to,
+            subject: `Préavis de retour ${row.reference}`,
+            body: `Bonjour,\n\nNous souhaitons retourner ${row.lines.length > 1 ? "les pièces suivantes" : "la pièce suivante"} :\n${row.lines
+              .map((l) => `- ${l.reference || "—"} — ${l.label || "—"} × ${Number(l.quantity)}`)
+              .join("\n")}\n${row.plate ? `- Véhicule : ${formatPlate(row.plate)}\n` : ""}${row.or_number ? `- N° OR : ${row.or_number}\n` : ""}\nMerci de nous confirmer l'accord de retour et la procédure à suivre.\n\nRéférence interne : ${row.reference}\n\nCordialement,`,
+            kind: "preavis_retour",
+          },
+        });
+        if (res.ok) await supabase.from("part_returns").update({ notice_sent_at: new Date().toISOString() }).eq("id", returnId);
+      }
+      setMsg("Retour validé, préavis envoyé au fournisseur.");
+      reload();
+    } catch {
+      setMsg("Validation impossible.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function ship() {
@@ -121,12 +247,52 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
 
   return (
     <AppShell title={row.reference} subtitle={supplier?.name ?? ""} back={{ to: "/magasin" }}>
+      {cameraOpen ? (
+        <BurstCamera
+          steps={[]}
+          title="Compléter le brouillon"
+          onFinish={(shots) => void rescan(shots)}
+          onCancel={() => setCameraOpen(false)}
+        />
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={returnStatusTone(row.status)}>{returnStatusLabel(row.status)}</Badge>
         {row.plate ? <span className="plate-badge text-base">{formatPlate(row.plate)}</span> : null}
         {row.deadline_date ? <span className="text-xs text-muted-foreground">Limite {new Date(row.deadline_date).toLocaleDateString("fr-FR")}</span> : null}
       </div>
       {msg ? <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-sm">{msg}</p> : null}
+
+      {isDraft ? (
+        <Section title="Brouillon">
+          <div className="space-y-2 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+            <p className="text-xs text-amber-900">
+              Ce retour est incomplet. Complète-le en scannant de nouvelles photos, puis valide-le pour déclencher le préavis fournisseur.
+            </p>
+            <button
+              onClick={() => setCameraOpen(true)}
+              disabled={busy}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
+            >
+              <Camera className="h-5 w-5" /> Scan / Photo
+            </button>
+            <Select
+              label="Fournisseur"
+              value={row.supplier_id ?? ""}
+              onChange={(v) => void supabase.from("part_returns").update({ supplier_id: v || null }).eq("id", returnId).then(reload)}
+              options={(suppliers.data ?? []).map((s) => ({ key: s.id, label: s.name }))}
+            />
+            <button
+              onClick={() => void validateDraft()}
+              disabled={busy || !row.lines.length}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-brand py-3 text-sm font-extrabold uppercase text-brand disabled:opacity-40"
+            >
+              <CheckCircle2 className="h-5 w-5" /> Valider le retour
+            </button>
+            {!row.lines.length ? <p className="text-xs text-amber-900">Ajoute au moins une pièce avant de valider.</p> : null}
+          </div>
+        </Section>
+      ) : null}
 
       <Section title="Lignes">
         <ul className="space-y-2">
@@ -141,12 +307,15 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
               </div>
             </li>
           ))}
+          {!row.lines.length ? <p className="text-sm text-muted-foreground">Aucune ligne pour l'instant.</p> : null}
         </ul>
       </Section>
 
-      <Section title="Statut">
-        <Select label="Changer le statut" value={row.status} onChange={(v) => void setStatus(v)} options={RETURN_STATUSES.map((s) => ({ key: s.key, label: s.label }))} allowEmpty={false} />
-      </Section>
+      {!isDraft ? (
+        <Section title="Statut">
+          <Select label="Changer le statut" value={row.status} onChange={(v) => void setStatus(v)} options={RETURN_STATUSES.map((s) => ({ key: s.key, label: s.label }))} allowEmpty={false} />
+        </Section>
+      ) : null}
 
       <Section title="Expédition">
         <div className="space-y-2 rounded-xl border-2 border-border bg-card p-3">

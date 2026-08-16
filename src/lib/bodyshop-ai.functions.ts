@@ -25,7 +25,7 @@ export const analyzeScanFn = createServerFn({ method: "POST" })
   });
 
 const batchInput = z.object({
-  images: z.array(z.object({ dataUrl: z.string().min(10), filename: z.string().optional() })).min(1),
+  images: z.array(z.object({ dataUrl: z.string().min(10), filename: z.string() })).min(1),
 });
 
 export const analyzeReturnBatchFn = createServerFn({ method: "POST" })
