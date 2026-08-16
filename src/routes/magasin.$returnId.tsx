@@ -114,7 +114,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
       body: "Relance automatique",
       status: res.ok ? "sent" : "error",
       error_message: res.ok ? null : res.error || null,
-      sent_at: res.ok ? new Date().toISOString() : null,
+      ...(res.ok ? { sent_at: new Date().toISOString() } : {}),
     });
     setMsg(res.ok ? "Relance envoyée." : res.error || "Envoi impossible.");
   }
