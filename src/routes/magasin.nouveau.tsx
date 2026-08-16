@@ -141,7 +141,7 @@ function NewReturn() {
       setPlate(a.plate);
       try {
         const pf = await refPrefill(a.plate);
-        if (pf?.fields.plate) setPlate(pf.fields.plate);
+        if (pf?.fields['plate']) setPlate(pf.fields['plate']);
       } catch {
         // ignore, l'utilisateur pourra corriger manuellement
       }
@@ -217,7 +217,7 @@ function NewReturn() {
           created_by: auth.user?.id ?? null,
           created_by_name: auth.user?.email ?? null,
           photos: photoPaths,
-          analysis: (rawAnalysis as unknown as Record<string, unknown>) ?? null,
+          analysis: (rawAnalysis as never) ?? null,
         })
         .select()
         .single();

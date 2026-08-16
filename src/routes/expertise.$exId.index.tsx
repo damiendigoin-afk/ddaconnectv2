@@ -217,7 +217,7 @@ function ExpertiseRunner() {
     return (
       <BurstCamera
         title="Reportage photo expertise"
-        steps={[...guidedDefs.values()].map((d) => ({ key: d.key, label: d.label, mask: d.mask }))}
+        steps={[...guidedDefs.values()].map((d) => ({ key: d.key, label: d.label, ...(d.mask ? { mask: d.mask } : {}) }))}
         onFinish={(shots) => void handleGuidedFinish(shots)}
         onCancel={() => setBurstOpen(false)}
       />
