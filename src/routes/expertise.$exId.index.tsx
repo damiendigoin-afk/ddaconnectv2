@@ -9,10 +9,11 @@ import { MediaThumb } from "@/components/PhotoManager";
 import { PhotoAnnotator } from "@/components/PhotoAnnotator";
 import { useAuth } from "@/lib/auth";
 import {
-  ACTIONS,
   CONDITIONS,
   DAMAGE_TYPES,
+  ELEMENT_SIZES,
   EXTERIOR_STEPS,
+  INTERVENTIONS,
   KEYS_OPTIONS,
   REG_DOC_OPTIONS,
   STEPS,
@@ -283,6 +284,51 @@ function ExpertiseRunner() {
           rules={rules.data ?? []}
           onChange={() => void q.refetch()}
         />
+      ) : null}
+
+      {step.key === "valorisation" ? (
+        <section className="card-surface space-y-3 p-4">
+          <div className="rounded-xl bg-secondary p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="uppercase text-muted-foreground">Remises en état</span>
+              <span className="font-extrabold">{euro(totals(damages).total)}</span>
+            </div>
+            {totals(damages).pending > 0 ? (
+              <p className="pt-1 text-xs text-muted-foreground">
+                {totals(damages).pending} poste(s) restant à chiffrer.
+              </p>
+            ) : null}
+          </div>
+          <Field
+            label="Valeur marché estimée (€)"
+            type="number"
+            value={e.market_value != null ? String(e.market_value) : ""}
+            onSave={(v) => void patch({ market_value: v === "" ? null : Number(v) })}
+          />
+          <Field
+            label="Proposition de reprise (€)"
+            type="number"
+            value={e.buyback_value != null ? String(e.buyback_value) : ""}
+            onSave={(v) => void patch({ buyback_value: v === "" ? null : Number(v) })}
+          />
+          {e.market_value != null ? (
+            <p className="text-xs text-muted-foreground">
+              Valeur marché diminuée des remises en état :{" "}
+              <span className="font-bold text-foreground">
+                {euro(Math.max(0, Number(e.market_value) - totals(damages).total))}
+              </span>
+            </p>
+          ) : null}
+          <label className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Commentaire de valorisation
+            <textarea
+              defaultValue={e.valuation_comment ?? ""}
+              rows={3}
+              onBlur={(ev) => void patch({ valuation_comment: ev.target.value })}
+              className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-base font-medium text-foreground"
+            />
+          </label>
+        </section>
       ) : null}
 
       <div className="mt-6 grid grid-cols-2 gap-2">
@@ -715,15 +761,33 @@ function DamageCard({
       </label>
       <div>
         <p className="pb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-          Action recommandée
+          Intervention
         </p>
         <Choice
-          options={ACTIONS}
-          value={damage.recommended_action}
+          options={INTERVENTIONS}
+          value={damage.intervention}
           onChange={(v) => {
-            const s = suggestCost(rules, v, damage.damage_type);
+            const s = suggestCost(rules, v, damage.element_size);
             void patch({
+              intervention: v,
               recommended_action: v,
+              estimated_cost: s.amount,
+              cost_pending: s.manual || s.amount == null,
+            });
+          }}
+        />
+      </div>
+      <div>
+        <p className="pb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Taille de l'élément
+        </p>
+        <Choice
+          options={ELEMENT_SIZES}
+          value={damage.element_size}
+          onChange={(v) => {
+            const s = suggestCost(rules, damage.intervention, v);
+            void patch({
+              element_size: v,
               estimated_cost: s.amount,
               cost_pending: s.manual || s.amount == null,
             });
