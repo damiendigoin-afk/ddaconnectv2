@@ -14,9 +14,10 @@ import { formatPlate, normalizePlate } from "@/lib/plate";
 import { refPrefill, refPrefillByVehicle } from "@/lib/refbase";
 
 export const Route = createFileRoute("/expertise/nouvelle")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    vehicle_id: typeof search["vehicle_id"] === "string" ? (search["vehicle_id"] as string) : "",
-  }),
+  validateSearch: (search: Record<string, unknown>): { vehicle_id?: string } =>
+    typeof search["vehicle_id"] === "string" && search["vehicle_id"]
+      ? { vehicle_id: search["vehicle_id"] as string }
+      : {},
   head: () => ({
     meta: [
       { title: "Nouvelle expertise — DDA Connect" },
