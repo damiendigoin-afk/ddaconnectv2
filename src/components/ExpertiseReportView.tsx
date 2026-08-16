@@ -1,9 +1,9 @@
 import { MediaThumb } from "@/components/PhotoManager";
 import { formatPlate } from "@/lib/plate";
 import {
-  ACTIONS,
   CONDITIONS,
-  EXPERTISE_TYPES,
+  ELEMENT_SIZES,
+  INTERVENTIONS,
   REG_DOC_OPTIONS,
   euro,
   totals,
@@ -39,7 +39,7 @@ export function ExpertiseReport({ d }: { d: ExpertiseData }) {
             <div className="text-sm font-bold">{vehicle || "Véhicule"}</div>
           </div>
           <span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold uppercase">
-            {label(EXPERTISE_TYPES, e.expertise_type) || "Expertise"}
+            Expertise
           </span>
         </div>
         <div className="mt-3">
@@ -91,7 +91,9 @@ export function ExpertiseReport({ d }: { d: ExpertiseData }) {
                           : euro(Number(dm.estimated_cost))}
                       </div>
                       <div className="text-[11px] uppercase text-muted-foreground">
-                        {label(ACTIONS, dm.recommended_action)}
+                        {[label(INTERVENTIONS, dm.intervention), label(ELEMENT_SIZES, dm.element_size)]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </div>
                     </div>
                   </div>
@@ -118,6 +120,26 @@ export function ExpertiseReport({ d }: { d: ExpertiseData }) {
           <div className="text-xs opacity-80">{pending} poste(s) restant à chiffrer.</div>
         ) : null}
       </section>
+
+      {e.market_value != null || e.buyback_value != null || e.valuation_comment ? (
+        <section className="card-surface p-4">
+          <h2 className="text-sm font-extrabold uppercase tracking-wide">Valorisation</h2>
+          <div className="mt-2">
+            <Row
+              k="Valeur marché estimée"
+              v={e.market_value != null ? euro(Number(e.market_value)) : ""}
+            />
+            <Row k="Remises en état" v={total ? `- ${euro(total)}` : ""} />
+            <Row
+              k="Proposition de reprise"
+              v={e.buyback_value != null ? euro(Number(e.buyback_value)) : ""}
+            />
+          </div>
+          {e.valuation_comment ? (
+            <p className="mt-3 rounded-lg bg-secondary p-3 text-sm">{e.valuation_comment}</p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="card-surface p-4">
         <h2 className="text-sm font-extrabold uppercase tracking-wide">
