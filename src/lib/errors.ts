@@ -47,7 +47,6 @@ export function explainError(e: unknown, what = "Action impossible"): Explained 
       };
     case "42501":
     case "PGRST301":
-ății:
       return { what, why: "Droits insuffisants sur cette donnée.", how: "Demandez au manager de vérifier vos accès ou votre site." };
     default:
       break;
