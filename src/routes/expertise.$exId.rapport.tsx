@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { ExpertiseReport } from "@/components/ExpertiseReportView";
+import { useAuth } from "@/lib/auth";
 import { fetchExpertise } from "@/lib/expertise";
 import { sendExpertiseReport } from "@/lib/expertise-email.functions";
 import { isValidEmail } from "@/lib/validation";
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/expertise/$exId/rapport")({
 
 function ExpertiseReportPage() {
   const { exId } = Route.useParams();
+  const { user } = useAuth();
   const q = useQuery({ queryKey: ["expertise", exId], queryFn: () => fetchExpertise({ id: exId }) });
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -40,8 +42,8 @@ function ExpertiseReportPage() {
 
   const e = q.data?.expertise;
 
-  async function send() {
-    if (!isValidEmail(email)) {
+  async function send(to = email, silent = false) {
+    if (!isValidEmail(to)) {
       toast.error("Adresse e-mail invalide.");
       return;
     }
@@ -50,13 +52,13 @@ function ExpertiseReportPage() {
       const res = await sendExpertiseReport({
         data: {
           expertiseId: exId,
-          to: email,
+          to,
           origin: window.location.origin,
-          ...(message ? { message } : {}),
+          ...(message && !silent ? { message } : {}),
         },
       });
       if (res.ok) {
-        toast.success("Rapport envoyé au client.");
+        toast.success(silent ? "Rapport envoyé sur votre e-mail." : "Rapport envoyé au client.");
         await q.refetch();
       } else {
         toast.error(res.error || "Échec de l'envoi.");
@@ -137,6 +139,15 @@ function ExpertiseReportPage() {
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               Envoyer le rapport
             </button>
+            {user?.email ? (
+              <button
+                onClick={() => void send(user.email as string, true)}
+                disabled={sending}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold uppercase disabled:opacity-60"
+              >
+                <Mail className="h-4 w-4" /> M'envoyer le rapport ({user.email})
+              </button>
+            ) : null}
           </section>
         </div>
       )}

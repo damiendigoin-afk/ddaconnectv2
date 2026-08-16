@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Eraser, X } from "lucide-react";
+import { Check, Eraser, Undo2, X } from "lucide-react";
 
 import type { Annotation } from "@/lib/expertise";
 
