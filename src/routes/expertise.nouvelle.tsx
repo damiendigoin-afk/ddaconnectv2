@@ -1,19 +1,22 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Camera, Loader2 } from "lucide-react";
+import { AlertTriangle, Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { useAuth } from "@/lib/auth";
-import { createExpertise } from "@/lib/expertise";
-import { supabase } from "@/integrations/supabase/client";
+import { explainError, toastError, type Explained } from "@/lib/errors";
+import { findOpenExpertise, missingInfo, startExpertise } from "@/lib/expertise-start";
 import { ocrPlate } from "@/lib/ocr.functions";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { formatPlate, normalizePlate } from "@/lib/plate";
-import { refPrefill } from "@/lib/refbase";
+import { refPrefill, refPrefillByVehicle } from "@/lib/refbase";
 
 export const Route = createFileRoute("/expertise/nouvelle")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    vehicle_id: typeof search["vehicle_id"] === "string" ? (search["vehicle_id"] as string) : "",
+  }),
   head: () => ({
     meta: [
       { title: "Nouvelle expertise — DDA Connect" },
@@ -34,31 +37,39 @@ export const Route = createFileRoute("/expertise/nouvelle")({
   component: NewExpertise,
 });
 
-async function findVehicleLink(plateNormalized: string, vin: string) {
-  if (plateNormalized) {
-    const { data } = await supabase
-      .from("vehicles")
-      .select("id, client_id")
-      .eq("plate_normalized", plateNormalized)
-      .maybeSingle();
-    if (data) return data;
-  }
-  if (vin) {
-    const { data } = await supabase.from("vehicles").select("id, client_id").eq("vin", vin).maybeSingle();
-    if (data) return data;
-  }
-  return null;
-}
-
 function NewExpertise() {
   const navigate = useNavigate();
+  const { vehicle_id: vehicleIdParam } = Route.useSearch();
   const { user, displayName, profile } = useAuth();
   const [manual, setManual] = useState(false);
   const [plate, setPlate] = useState("");
   const [pick, setPick] = useState<EntityPick | null>(null);
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [problem, setProblem] = useState<Explained | null>(null);
+  const [existing, setExisting] = useState<{ id: string; plate: string | null } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Contexte véhicule transmis depuis une fiche véhicule / client : rien à ressaisir.
+  useEffect(() => {
+    if (!vehicleIdParam) return;
+    let alive = true;
+    refPrefillByVehicle(vehicleIdParam)
+      .then((p) => {
+        if (!alive) return;
+        if (p) setPick(p);
+        else
+          setProblem({
+            what: "Véhicule introuvable",
+            why: "Le véhicule transmis n'existe plus dans le référentiel.",
+            how: "Recherchez le véhicule ci-dessous ou créez-le.",
+          });
+      })
+      .catch((e) => alive && setProblem(explainError(e, "Véhicule non chargé")));
+    return () => {
+      alive = false;
+    };
+  }, [vehicleIdParam]);
 
   async function scan(file: File) {
     setScanning(true);
@@ -92,31 +103,42 @@ function NewExpertise() {
     }
   }
 
-  async function startFromPick(p: EntityPick) {
+  const ctx = { siteId: profile?.site_id ?? null, userId: user?.id ?? null, userName: displayName };
+
+  async function start(input: { prefill?: EntityPick | null; plate?: string }) {
+    setBusy(true);
+    setProblem(null);
+    setExisting(null);
+    try {
+      const open = await findOpenExpertise({
+        refVehicleId: input.prefill?.vehicleId ?? null,
+        plate: input.plate ? formatPlate(normalizePlate(input.plate)) : (input.prefill?.fields["plate"] ?? null),
+      });
+      if (open) {
+        setExisting({ id: open.id as string, plate: (open.plate as string | null) ?? null });
+        setBusy(false);
+        return;
+      }
+      await create(input);
+    } catch (e) {
+      setProblem(toastError(e, "Impossible de démarrer l'expertise"));
+      setBusy(false);
+    }
+  }
+
+  async function create(input: { prefill?: EntityPick | null; plate?: string }) {
     setBusy(true);
     try {
-      const normalized = normalizePlate(p.fields['plate'] ?? "");
-      const link = await findVehicleLink(normalized, p.fields['vin'] ?? "");
-      const owner = [p.fields['first_name'], p.fields['last_name']].filter(Boolean).join(" ").trim();
-      const exp = await createExpertise({
-        expertise_type: "expertise",
-        plate: p.fields['plate'] ? formatPlate(p.fields['plate']) : null,
-        vehicle_id: link?.id ?? null,
-        client_id: link?.client_id ?? p.customerId ?? null,
-        vin: p.fields['vin'] || null,
-        brand: p.fields['brand'] || null,
-        model: p.fields['model'] || null,
-        first_registration: p.fields['first_registration'] || null,
-        mileage: p.fields['mileage'] ? Number(p.fields['mileage']) : null,
-        owner_name: owner || null,
-        site_id: profile?.site_id ?? null,
-        created_by: user?.id ?? null,
-        created_by_name: displayName || null,
-      });
+      const exp = await startExpertise(input, ctx);
+      const missing = missingInfo(input.prefill ?? null);
+      toast.success(
+        missing.length
+          ? `Expertise créée — ${missing.length} information(s) à compléter : ${missing.join(", ")}.`
+          : "Expertise créée.",
+      );
       await navigate({ to: "/expertise/$exId", params: { exId: exp.id } });
     } catch (e) {
-      console.error(e);
-      toast.error("Impossible de démarrer l'expertise.");
+      setProblem(toastError(e, "Impossible de démarrer l'expertise"));
     } finally {
       setBusy(false);
     }
@@ -125,45 +147,23 @@ function NewExpertise() {
   async function startManual() {
     const normalized = normalizePlate(plate);
     if (normalized.length < 5) {
-      toast.error("Immatriculation requise.");
+      setProblem({
+        what: "Immatriculation incomplète",
+        why: "Une immatriculation valide comporte au moins 5 caractères.",
+        how: "Corrigez l'immatriculation ou scannez la plaque.",
+      });
       return;
     }
-    setBusy(true);
-    try {
-      const { data: vehicle } = await supabase
-        .from("vehicles")
-        .select("id, client_id, plate, vin, brand, model, first_registration, last_mileage")
-        .eq("plate_normalized", normalized)
-        .maybeSingle();
-
-      const exp = await createExpertise({
-        expertise_type: "expertise",
-        plate: formatPlate(normalized),
-        vehicle_id: vehicle?.id ?? null,
-        client_id: vehicle?.client_id ?? null,
-        vin: vehicle?.vin ?? null,
-        brand: vehicle?.brand ?? null,
-        model: vehicle?.model ?? null,
-        first_registration: vehicle?.first_registration ?? null,
-        mileage: vehicle?.last_mileage ?? null,
-        site_id: profile?.site_id ?? null,
-        created_by: user?.id ?? null,
-        created_by_name: displayName || null,
-      });
-      if (vehicle) toast.success("Véhicule reconnu, informations pré-remplies.");
-      await navigate({ to: "/expertise/$exId", params: { exId: exp.id } });
-    } catch (e) {
-      console.error(e);
-      toast.error("Impossible de démarrer l'expertise.");
-    } finally {
-      setBusy(false);
-    }
+    const prefill = await refPrefill(normalized).catch(() => null);
+    await start(prefill ? { prefill } : { plate: normalized });
   }
 
   if (manual) {
     return (
       <AppShell title="Nouvelle expertise" subtitle="Saisie manuelle" back={{ to: "/expertise/nouvelle" }}>
         <div className="space-y-4">
+          <Problem problem={problem} />
+          <Existing existing={existing} onNew={() => void create({ plate })} />
           <section className="card-surface space-y-3 p-4">
             <label className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
               Immatriculation
