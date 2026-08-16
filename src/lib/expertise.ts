@@ -3,12 +3,17 @@ import { BUCKET, compressImage } from "./photo";
 
 /* ----------------------------- Référentiels ----------------------------- */
 
-export const EXPERTISE_TYPES = [
-  { key: "reprise", label: "Reprise / Achat" },
-  { key: "vo", label: "Véhicule Occasion / Vente" },
-  { key: "carrosserie", label: "Carrosserie" },
-  { key: "etat_des_lieux", label: "État des lieux" },
-  { key: "autre", label: "Autre" },
+/** Interventions retenues pour le chiffrage (barème matriciel). */
+export const INTERVENTIONS = [
+  { key: "peindre", label: "À peindre" },
+  { key: "reparer_peindre", label: "À réparer & peindre" },
+  { key: "remplacer", label: "À remplacer" },
+] as const;
+
+export const ELEMENT_SIZES = [
+  { key: "petit", label: "Petit élément" },
+  { key: "moyen", label: "Élément moyen" },
+  { key: "grand", label: "Grand élément" },
 ] as const;
 
 export const KEYS_OPTIONS = ["0", "1", "2", "3+"] as const;
@@ -100,16 +105,6 @@ export const VEHICLE_ZONES = [
   "Autre",
 ] as const;
 
-export const ACTIONS = [
-  { key: "aucune", label: "Aucune intervention" },
-  { key: "polissage", label: "Polissage / rénovation" },
-  { key: "debosselage", label: "Débosselage sans peinture" },
-  { key: "peinture", label: "Peinture" },
-  { key: "reparation_peinture", label: "Réparation + peinture" },
-  { key: "remplacement", label: "Remplacement" },
-  { key: "a_expertiser", label: "À expertiser" },
-] as const;
-
 export const STATUS_LABELS: Record<string, string> = {
   draft: "Brouillon",
   completed: "Terminée",
@@ -123,6 +118,7 @@ export const STEPS = [
   { key: "interieur", label: "Intérieur" },
   { key: "etat", label: "État général" },
   { key: "dommages", label: "Dommages" },
+  { key: "valorisation", label: "Valorisation" },
 ] as const;
 
 /* -------------------------------- Types -------------------------------- */
@@ -149,6 +145,9 @@ export type Expertise = {
   exterior_condition: string | null;
   interior_condition: string | null;
   general_comment: string | null;
+  market_value: number | null;
+  buyback_value: number | null;
+  valuation_comment: string | null;
   status: string;
   step: string;
   share_token: string;
@@ -185,6 +184,8 @@ export type ExpertiseDamage = {
   photo_id: string | null;
   damage_number: number;
   damage_type: string | null;
+  intervention: string | null;
+  element_size: string | null;
   vehicle_zone: string | null;
   recommended_action: string | null;
   comment: string | null;
@@ -199,6 +200,7 @@ export type PriceRule = {
   id: string;
   damage_type: string | null;
   action: string;
+  element_size: string | null;
   label: string;
   amount: number | null;
   manual_only: boolean;
@@ -280,14 +282,16 @@ export async function fetchPriceRules(): Promise<PriceRule[]> {
   return (data ?? []) as PriceRule[];
 }
 
-/** Montant indicatif proposé par le barème pour une action (jamais codé en dur). */
+/** Montant indicatif issu du barème (matrice intervention × taille), jamais codé en dur. */
 export function suggestCost(
   rules: PriceRule[],
-  action: string,
-  damageType?: string | null,
+  intervention: string | null,
+  size: string | null,
 ): { amount: number | null; manual: boolean } {
-  const active = rules.filter((r) => r.active && r.action === action);
-  const rule = active.find((r) => r.damage_type && r.damage_type === damageType) ?? active[0];
+  if (!intervention || !size) return { amount: null, manual: true };
+  const rule = rules.find(
+    (r) => r.active && r.action === intervention && r.element_size === size,
+  );
   if (!rule) return { amount: null, manual: true };
   return { amount: rule.amount == null ? null : Number(rule.amount), manual: rule.manual_only };
 }

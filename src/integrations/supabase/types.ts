@@ -480,9 +480,11 @@ export type Database = {
           created_by: string | null
           damage_number: number
           damage_type: string | null
+          element_size: string | null
           estimated_cost: number | null
           expertise_id: string
           id: string
+          intervention: string | null
           photo_id: string | null
           recommended_action: string | null
           updated_at: string
@@ -497,9 +499,11 @@ export type Database = {
           created_by?: string | null
           damage_number?: number
           damage_type?: string | null
+          element_size?: string | null
           estimated_cost?: number | null
           expertise_id: string
           id?: string
+          intervention?: string | null
           photo_id?: string | null
           recommended_action?: string | null
           updated_at?: string
@@ -514,9 +518,11 @@ export type Database = {
           created_by?: string | null
           damage_number?: number
           damage_type?: string | null
+          element_size?: string | null
           estimated_cost?: number | null
           expertise_id?: string
           id?: string
+          intervention?: string | null
           photo_id?: string | null
           recommended_action?: string | null
           updated_at?: string
@@ -1324,6 +1330,7 @@ export type Database = {
           amount: number | null
           created_at: string
           damage_type: string | null
+          element_size: string | null
           id: string
           label: string
           manual_only: boolean
@@ -1336,6 +1343,7 @@ export type Database = {
           amount?: number | null
           created_at?: string
           damage_type?: string | null
+          element_size?: string | null
           id?: string
           label: string
           manual_only?: boolean
@@ -1348,6 +1356,7 @@ export type Database = {
           amount?: number | null
           created_at?: string
           damage_type?: string | null
+          element_size?: string | null
           id?: string
           label?: string
           manual_only?: boolean
@@ -1439,6 +1448,7 @@ export type Database = {
       vehicle_expertises: {
         Row: {
           brand: string | null
+          buyback_value: number | null
           client_id: string | null
           color: string | null
           completed_at: string | null
@@ -1455,6 +1465,7 @@ export type Database = {
           keys_count: string | null
           last_sent_at: string | null
           last_sent_to: string | null
+          market_value: number | null
           mileage: number | null
           model: string | null
           owner_name: string | null
@@ -1466,12 +1477,14 @@ export type Database = {
           status: string
           step: string
           updated_at: string
+          valuation_comment: string | null
           vehicle_id: string | null
           version: string | null
           vin: string | null
         }
         Insert: {
           brand?: string | null
+          buyback_value?: number | null
           client_id?: string | null
           color?: string | null
           completed_at?: string | null
@@ -1488,6 +1501,7 @@ export type Database = {
           keys_count?: string | null
           last_sent_at?: string | null
           last_sent_to?: string | null
+          market_value?: number | null
           mileage?: number | null
           model?: string | null
           owner_name?: string | null
@@ -1499,12 +1513,14 @@ export type Database = {
           status?: string
           step?: string
           updated_at?: string
+          valuation_comment?: string | null
           vehicle_id?: string | null
           version?: string | null
           vin?: string | null
         }
         Update: {
           brand?: string | null
+          buyback_value?: number | null
           client_id?: string | null
           color?: string | null
           completed_at?: string | null
@@ -1521,6 +1537,7 @@ export type Database = {
           keys_count?: string | null
           last_sent_at?: string | null
           last_sent_to?: string | null
+          market_value?: number | null
           mileage?: number | null
           model?: string | null
           owner_name?: string | null
@@ -1532,6 +1549,7 @@ export type Database = {
           status?: string
           step?: string
           updated_at?: string
+          valuation_comment?: string | null
           vehicle_id?: string | null
           version?: string | null
           vin?: string | null
