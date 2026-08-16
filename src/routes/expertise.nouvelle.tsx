@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
-import { createExpertise, EXPERTISE_TYPES } from "@/lib/expertise";
+import { createExpertise } from "@/lib/expertise";
 import { supabase } from "@/integrations/supabase/client";
 import { ocrPlate } from "@/lib/ocr.functions";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
@@ -36,7 +36,6 @@ function NewExpertise() {
   const navigate = useNavigate();
   const { user, displayName, profile } = useAuth();
   const [plate, setPlate] = useState("");
-  const [type, setType] = useState<string>("reprise");
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -76,7 +75,7 @@ function NewExpertise() {
         .maybeSingle();
 
       const exp = await createExpertise({
-        expertise_type: type,
+        expertise_type: "expertise",
         plate: formatPlate(normalized),
         vehicle_id: vehicle?.id ?? null,
         client_id: vehicle?.client_id ?? null,
@@ -138,26 +137,6 @@ function NewExpertise() {
               e.target.value = "";
             }}
           />
-        </section>
-
-        <section className="card-surface p-4">
-          <h2 className="pb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Type d'expertise
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            {EXPERTISE_TYPES.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setType(t.key)}
-                className={`rounded-lg border-2 px-3 py-3 text-sm font-bold ${
-                  type === t.key ? "border-brand bg-brand/10" : "border-border bg-card"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
         </section>
 
         <button
