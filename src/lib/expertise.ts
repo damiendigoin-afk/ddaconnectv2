@@ -145,6 +145,9 @@ export type Expertise = {
   exterior_condition: string | null;
   interior_condition: string | null;
   general_comment: string | null;
+  market_value: number | null;
+  buyback_value: number | null;
+  valuation_comment: string | null;
   status: string;
   step: string;
   share_token: string;
@@ -181,6 +184,8 @@ export type ExpertiseDamage = {
   photo_id: string | null;
   damage_number: number;
   damage_type: string | null;
+  intervention: string | null;
+  element_size: string | null;
   vehicle_zone: string | null;
   recommended_action: string | null;
   comment: string | null;
@@ -195,6 +200,7 @@ export type PriceRule = {
   id: string;
   damage_type: string | null;
   action: string;
+  element_size: string | null;
   label: string;
   amount: number | null;
   manual_only: boolean;
@@ -276,14 +282,16 @@ export async function fetchPriceRules(): Promise<PriceRule[]> {
   return (data ?? []) as PriceRule[];
 }
 
-/** Montant indicatif proposé par le barème pour une action (jamais codé en dur). */
+/** Montant indicatif issu du barème (matrice intervention × taille), jamais codé en dur. */
 export function suggestCost(
   rules: PriceRule[],
-  action: string,
-  damageType?: string | null,
+  intervention: string | null,
+  size: string | null,
 ): { amount: number | null; manual: boolean } {
-  const active = rules.filter((r) => r.active && r.action === action);
-  const rule = active.find((r) => r.damage_type && r.damage_type === damageType) ?? active[0];
+  if (!intervention || !size) return { amount: null, manual: true };
+  const rule = rules.find(
+    (r) => r.active && r.action === intervention && r.element_size === size,
+  );
   if (!rule) return { amount: null, manual: true };
   return { amount: rule.amount == null ? null : Number(rule.amount), manual: rule.manual_only };
 }
