@@ -101,40 +101,58 @@ export function PhotoAnnotator({
         ref={boxRef}
         className="relative touch-none select-none overflow-hidden rounded-xl border-2 border-border bg-card"
         onPointerDown={(e) => {
-          (e.target as Element).setPointerCapture?.(e.pointerId);
+          e.currentTarget.setPointerCapture?.(e.pointerId);
           setCurrent([pointFrom(e)]);
         }}
         onPointerMove={(e) => {
           if (!current.length) return;
+          e.preventDefault();
           setCurrent((p) => [...p, pointFrom(e)]);
         }}
         onPointerUp={() => {
           if (current.length > 1) setPaths((p) => [...p, current]);
           setCurrent([]);
         }}
+        onPointerCancel={() => {
+          if (current.length > 1) setPaths((p) => [...p, current]);
+          setCurrent([]);
+        }}
       >
         <img ref={imgRef} src={src} alt="Photo du dommage" crossOrigin="anonymous" className="block w-full" />
-        <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        >
           {all.map((path, i) => (
             <polyline
               key={i}
-              points={path.map((p) => `${p.x},${p.y}`).join(" ")}
+              points={path.map((p) => `${p.x * 100},${p.y * 100}`).join(" ")}
               fill="none"
               stroke="#ff2d2d"
-              strokeWidth={0.008}
+              strokeWidth={4}
               vectorEffect="non-scaling-stroke"
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
           ))}
         </svg>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase"
+          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-border bg-card px-2 py-3 text-xs font-bold uppercase"
         >
           <X className="h-4 w-4" /> Annuler
+        </button>
+        <button
+          type="button"
+          onClick={() => setPaths((p) => p.slice(0, -1))}
+          disabled={!paths.length}
+          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-border bg-card px-2 py-3 text-xs font-bold uppercase disabled:opacity-40"
+        >
+          <Undo2 className="h-4 w-4" /> Annuler tracé
         </button>
         <button
           type="button"
@@ -142,15 +160,15 @@ export function PhotoAnnotator({
             setPaths([]);
             setCurrent([]);
           }}
-          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase"
+          className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-border bg-card px-2 py-3 text-xs font-bold uppercase"
         >
           <Eraser className="h-4 w-4" /> Effacer
         </button>
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !all.length}
           onClick={() => void validate()}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-brand px-3 py-3 text-sm font-bold uppercase text-brand-foreground disabled:opacity-60"
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-brand px-2 py-3 text-xs font-bold uppercase text-brand-foreground disabled:opacity-60"
         >
           <Check className="h-4 w-4" /> Valider
         </button>
