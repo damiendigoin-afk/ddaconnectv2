@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Car, ClipboardCheck, Database, LogOut, Users } from "lucide-react";
+import { ChevronRight, Car, ClipboardCheck, Database, Hammer, LogOut, PackageOpen, Users } from "lucide-react";
 
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
