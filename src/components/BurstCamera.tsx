@@ -1,5 +1,6 @@
 import { Check, ChevronLeft, ImagePlus, RotateCcw, SkipForward, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactElement } from "react";
 
 import { blobToDataUrl } from "@/lib/photo";
 
@@ -276,7 +277,7 @@ const carSide = (
   </>
 );
 
-const MASKS: Record<MaskKind, JSX.Element> = {
+const MASKS: Record<MaskKind, ReactElement> = {
   front: carBody,
   rear: carBody,
   "front-left": carThreeQuarter,
