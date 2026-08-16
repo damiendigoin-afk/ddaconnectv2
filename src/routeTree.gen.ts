@@ -22,6 +22,7 @@ import { Route as BaseIndexRouteImport } from './routes/base.index'
 import { Route as BaseClientsRouteImport } from './routes/base.clients'
 import { Route as BaseImportRouteImport } from './routes/base.import'
 import { Route as BaseVehiculesRouteImport } from './routes/base.vehicules'
+import { Route as CarrosserieIndexRouteImport } from './routes/carrosserie.index'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
@@ -101,6 +102,11 @@ const BaseImportRoute = BaseImportRouteImport.update({
 const BaseVehiculesRoute = BaseVehiculesRouteImport.update({
   id: '/base/vehicules',
   path: '/base/vehicules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CarrosserieIndexRoute = CarrosserieIndexRouteImport.update({
+  id: '/carrosserie/',
+  path: '/carrosserie/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientClientIdRoute = ClientClientIdRouteImport.update({
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/partage/$token': typeof PartageTokenRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
+  '/carrosserie/': typeof CarrosserieIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -231,6 +238,7 @@ export interface FileRoutesByTo {
   '/partage/$token': typeof PartageTokenRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
+  '/carrosserie': typeof CarrosserieIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/partage/$token': typeof PartageTokenRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
+  '/carrosserie/': typeof CarrosserieIndexRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/vehicule/$vehId'
     | '/base/'
+    | '/carrosserie/'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -324,6 +334,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/vehicule/$vehId'
     | '/base'
+    | '/carrosserie'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/vehicule/$vehId'
     | '/base/'
+    | '/carrosserie/'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/tour/$tourId/presentation'
@@ -385,6 +397,7 @@ export interface RootRouteChildren {
   PartageTokenRoute: typeof PartageTokenRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
+  CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
@@ -485,6 +498,13 @@ declare module '@tanstack/react-router' {
       path: '/base/vehicules'
       fullPath: '/base/vehicules'
       preLoaderRoute: typeof BaseVehiculesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/carrosserie/': {
+      id: '/carrosserie/'
+      path: '/carrosserie'
+      fullPath: '/carrosserie/'
+      preLoaderRoute: typeof CarrosserieIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/client/$clientId': {
@@ -617,6 +637,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartageTokenRoute: PartageTokenRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
+  CarrosserieIndexRoute: CarrosserieIndexRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
