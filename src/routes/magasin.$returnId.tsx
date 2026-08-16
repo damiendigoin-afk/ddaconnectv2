@@ -28,9 +28,22 @@ export const Route = createFileRoute("/magasin/$returnId")({
 
 function ReturnView() {
   const { returnId } = Route.useParams();
+  const r = useQuery({ queryKey: ["return", returnId], queryFn: () => getReturn(returnId) });
+  if (!r.data) {
+    return (
+      <AppShell title="Retour" back={{ to: "/magasin" }}>
+        <p className="text-sm text-muted-foreground">{r.isLoading ? "Chargement…" : "Retour introuvable."}</p>
+      </AppShell>
+    );
+  }
+  return <ReturnDetail row={r.data} returnId={returnId} />;
+}
+
+type ReturnRow = NonNullable<Awaited<ReturnType<typeof getReturn>>>;
+
+function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const r = useQuery({ queryKey: ["return", returnId], queryFn: () => getReturn(returnId) });
   const suppliers = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers });
   const [carrier, setCarrier] = useState("");
   const [tracking, setTracking] = useState("");
@@ -42,14 +55,6 @@ function ReturnView() {
     void qc.invalidateQueries({ queryKey: ["returns"] });
   };
 
-  const row = r.data;
-  if (!row) {
-    return (
-      <AppShell title="Retour" back={{ to: "/magasin" }}>
-        <p className="text-sm text-muted-foreground">{r.isLoading ? "Chargement…" : "Retour introuvable."}</p>
-      </AppShell>
-    );
-  }
   const supplier = suppliers.data?.find((s) => s.id === row.supplier_id);
 
   async function setStatus(status: string) {
@@ -108,7 +113,7 @@ function ReturnView() {
       subject: `Relance avoir — retour ${row.reference}`,
       body: "Relance automatique",
       status: res.ok ? "sent" : "error",
-      error_message: res.ok ? null : res.error,
+      error_message: res.ok ? null : res.error || null,
       sent_at: res.ok ? new Date().toISOString() : null,
     });
     setMsg(res.ok ? "Relance envoyée." : res.error || "Envoi impossible.");

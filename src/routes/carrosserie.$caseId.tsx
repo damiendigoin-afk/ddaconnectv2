@@ -589,10 +589,10 @@ function SupplementsTab({ row, onSaved }: { row: NonNullable<Awaited<ReturnType<
 
 function ClientTab({ row }: { row: NonNullable<Awaited<ReturnType<typeof getCase>>> }) {
   const qc = useQueryClient();
-  const [tpl, setTpl] = useState("rdv_confirme");
+  const [tpl, setTpl] = useState<string>("rdv_confirme");
   const template = CLIENT_TEMPLATES.find((t) => t.key === tpl)!;
-  const [subject, setSubject] = useState(template.subject);
-  const [body, setBody] = useState(fillTemplate(template.body, row));
+  const [subject, setSubject] = useState<string>(template.subject);
+  const [body, setBody] = useState<string>(fillTemplate(template.body, row));
   const [to, setTo] = useState(row.customer_email ?? "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
