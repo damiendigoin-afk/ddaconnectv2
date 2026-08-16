@@ -23,6 +23,7 @@ import { Route as BaseClientsRouteImport } from './routes/base.clients'
 import { Route as BaseImportRouteImport } from './routes/base.import'
 import { Route as BaseVehiculesRouteImport } from './routes/base.vehicules'
 import { Route as CarrosserieIndexRouteImport } from './routes/carrosserie.index'
+import { Route as CarrosserieCaseIdRouteImport } from './routes/carrosserie.$caseId'
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
@@ -108,6 +109,11 @@ const BaseVehiculesRoute = BaseVehiculesRouteImport.update({
 const CarrosserieIndexRoute = CarrosserieIndexRouteImport.update({
   id: '/carrosserie/',
   path: '/carrosserie/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CarrosserieCaseIdRoute = CarrosserieCaseIdRouteImport.update({
+  id: '/carrosserie/$caseId',
+  path: '/carrosserie/$caseId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CarrosserieNouvelleRoute = CarrosserieNouvelleRouteImport.update({
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
+  '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
+  '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
@@ -269,6 +277,7 @@ export interface FileRoutesById {
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
   '/base/vehicules': typeof BaseVehiculesRoute
+  '/carrosserie/$caseId': typeof CarrosserieCaseIdRoute
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/client/$clientId': typeof ClientClientIdRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/base/clients'
     | '/base/import'
     | '/base/vehicules'
+    | '/carrosserie/$caseId'
     | '/carrosserie/nouvelle'
     | '/client/$clientId'
     | '/expertise-partage/$token'
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/base/clients'
     | '/base/import'
     | '/base/vehicules'
+    | '/carrosserie/$caseId'
     | '/carrosserie/nouvelle'
     | '/client/$clientId'
     | '/expertise-partage/$token'
@@ -367,6 +378,7 @@ export interface FileRouteTypes {
     | '/base/clients'
     | '/base/import'
     | '/base/vehicules'
+    | '/carrosserie/$caseId'
     | '/carrosserie/nouvelle'
     | '/client/$clientId'
     | '/expertise-partage/$token'
@@ -400,6 +412,7 @@ export interface RootRouteChildren {
   BaseClientsRoute: typeof BaseClientsRoute
   BaseImportRoute: typeof BaseImportRoute
   BaseVehiculesRoute: typeof BaseVehiculesRoute
+  CarrosserieCaseIdRoute: typeof CarrosserieCaseIdRoute
   CarrosserieNouvelleRoute: typeof CarrosserieNouvelleRoute
   ClientClientIdRoute: typeof ClientClientIdRoute
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
@@ -518,6 +531,13 @@ declare module '@tanstack/react-router' {
       path: '/carrosserie'
       fullPath: '/carrosserie/'
       preLoaderRoute: typeof CarrosserieIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/carrosserie/$caseId': {
+      id: '/carrosserie/$caseId'
+      path: '/carrosserie/$caseId'
+      fullPath: '/carrosserie/$caseId'
+      preLoaderRoute: typeof CarrosserieCaseIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/carrosserie/nouvelle': {
@@ -648,6 +668,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseClientsRoute: BaseClientsRoute,
   BaseImportRoute: BaseImportRoute,
   BaseVehiculesRoute: BaseVehiculesRoute,
+  CarrosserieCaseIdRoute: CarrosserieCaseIdRoute,
   CarrosserieNouvelleRoute: CarrosserieNouvelleRoute,
   ClientClientIdRoute: ClientClientIdRoute,
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
