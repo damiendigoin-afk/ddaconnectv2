@@ -38,36 +38,71 @@ export type PhotoStep = {
   required: boolean;
   /** Indication de cadrage affichée avec la silhouette. */
   hint: string;
+  /** Masque de guidage utilisé par la caméra rafale (BurstCamera). */
+  mask?: BurstMaskKind;
 };
 
+export type BurstMaskKind =
+  | "front"
+  | "front-left"
+  | "left"
+  | "rear-left"
+  | "rear"
+  | "rear-right"
+  | "right"
+  | "front-right"
+  | "interior"
+  | "odometer"
+  | "document"
+  | "free";
+
 export const EXTERIOR_STEPS: PhotoStep[] = [
-  { key: "face_avant", label: "Face avant", category: "exterieur", required: true, hint: "Face au véhicule, à 2 m" },
-  { key: "34_avant_gauche", label: "3/4 avant gauche", category: "exterieur", required: true, hint: "Angle avant gauche" },
-  { key: "cote_gauche", label: "Côté gauche", category: "exterieur", required: true, hint: "Profil complet gauche" },
-  { key: "34_arriere_gauche", label: "3/4 arrière gauche", category: "exterieur", required: true, hint: "Angle arrière gauche" },
-  { key: "face_arriere", label: "Face arrière", category: "exterieur", required: true, hint: "Face arrière, à 2 m" },
-  { key: "34_arriere_droit", label: "3/4 arrière droit", category: "exterieur", required: true, hint: "Angle arrière droit" },
-  { key: "cote_droit", label: "Côté droit", category: "exterieur", required: true, hint: "Profil complet droit" },
-  { key: "34_avant_droit", label: "3/4 avant droit", category: "exterieur", required: true, hint: "Angle avant droit" },
+  { key: "face_avant", label: "Face avant", category: "exterieur", required: true, hint: "Face au véhicule, à 2 m", mask: "front" },
+  { key: "34_avant_gauche", label: "3/4 avant gauche", category: "exterieur", required: true, hint: "Angle avant gauche", mask: "front-left" },
+  { key: "cote_gauche", label: "Côté gauche", category: "exterieur", required: true, hint: "Profil complet gauche", mask: "left" },
+  { key: "34_arriere_gauche", label: "3/4 arrière gauche", category: "exterieur", required: true, hint: "Angle arrière gauche", mask: "rear-left" },
+  { key: "face_arriere", label: "Face arrière", category: "exterieur", required: true, hint: "Face arrière, à 2 m", mask: "rear" },
+  { key: "34_arriere_droit", label: "3/4 arrière droit", category: "exterieur", required: true, hint: "Angle arrière droit", mask: "rear-right" },
+  { key: "cote_droit", label: "Côté droit", category: "exterieur", required: true, hint: "Profil complet droit", mask: "right" },
+  { key: "34_avant_droit", label: "3/4 avant droit", category: "exterieur", required: true, hint: "Angle avant droit", mask: "front-right" },
 ];
 
 export const INTERIOR_STEPS_VP: PhotoStep[] = [
-  { key: "poste_conduite", label: "Poste de conduite", category: "interieur", required: true, hint: "Tableau de bord et volant" },
-  { key: "sieges_avant", label: "Sièges avant", category: "interieur", required: true, hint: "Porte avant ouverte" },
-  { key: "sieges_arriere", label: "Sièges arrière", category: "interieur", required: false, hint: "Porte arrière ouverte" },
-  { key: "coffre", label: "Coffre", category: "interieur", required: true, hint: "Coffre ouvert" },
+  { key: "poste_conduite", label: "Poste de conduite", category: "interieur", required: true, hint: "Tableau de bord et volant", mask: "interior" },
+  { key: "sieges_avant", label: "Sièges avant", category: "interieur", required: true, hint: "Porte avant ouverte", mask: "interior" },
+  { key: "sieges_arriere", label: "Sièges arrière", category: "interieur", required: false, hint: "Porte arrière ouverte", mask: "interior" },
+  { key: "coffre", label: "Coffre", category: "interieur", required: true, hint: "Coffre ouvert", mask: "interior" },
 ];
 
 export const INTERIOR_STEPS_VU: PhotoStep[] = [
-  { key: "cabine", label: "Cabine", category: "interieur", required: true, hint: "Vue d'ensemble cabine" },
-  { key: "poste_conduite", label: "Tableau de bord", category: "interieur", required: true, hint: "Tableau de bord et volant" },
-  { key: "banquette", label: "Banquette", category: "interieur", required: false, hint: "Banquette passagers" },
-  { key: "zone_chargement", label: "Zone de chargement", category: "interieur", required: true, hint: "Volume de charge" },
-  { key: "portes_arriere", label: "Portes arrière", category: "interieur", required: false, hint: "Portes ouvertes" },
+  { key: "cabine", label: "Cabine", category: "interieur", required: true, hint: "Vue d'ensemble cabine", mask: "interior" },
+  { key: "poste_conduite", label: "Tableau de bord", category: "interieur", required: true, hint: "Tableau de bord et volant", mask: "interior" },
+  { key: "banquette", label: "Banquette", category: "interieur", required: false, hint: "Banquette passagers", mask: "interior" },
+  { key: "zone_chargement", label: "Zone de chargement", category: "interieur", required: true, hint: "Volume de charge", mask: "interior" },
+  { key: "portes_arriere", label: "Portes arrière", category: "interieur", required: false, hint: "Portes ouvertes", mask: "interior" },
 ];
 
 export function interiorSteps(bodyType: string | null | undefined): PhotoStep[] {
   return bodyType === "utilitaire" ? INTERIOR_STEPS_VU : INTERIOR_STEPS_VP;
+}
+
+/** Étape dédiée à la photo du compteur, utilisée en tête du reportage rafale guidé. */
+export const MILEAGE_STEP: PhotoStep = {
+  key: "compteur",
+  label: "Compteur",
+  category: "exterieur",
+  required: true,
+  hint: "Compteur kilométrique bien visible",
+  mask: "odometer",
+};
+
+/**
+ * Parcours complet du reportage photo guidé (caméra ouverte une seule fois) :
+ * compteur → tour extérieur → intérieur. Les photos complémentaires libres sont
+ * ajoutées ensuite par l'utilisateur directement dans la caméra rafale.
+ */
+export function guidedPhotoSteps(bodyType: string | null | undefined): PhotoStep[] {
+  return [MILEAGE_STEP, ...EXTERIOR_STEPS, ...interiorSteps(bodyType)];
 }
 
 export const DAMAGE_TYPES = [

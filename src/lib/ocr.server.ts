@@ -58,3 +58,39 @@ export function parseJsonBlock(content: string): Record<string, unknown> | null 
     return null;
   }
 }
+export async function askVisionMulti(prompt: string, images: { dataUrl: string; filename?: string }[]) {
+  const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!apiKey) {
+    return { ok: false as const, error: "Analyse automatique non configurée." };
+  }
+
+  const blocks: Block[] = [{ type: "text", text: prompt }];
+  for (const img of images) {
+    if (img.dataUrl.startsWith("data:application/pdf")) {
+      blocks.push({ type: "file", file: { filename: img.filename || "document.pdf", file_data: img.dataUrl } });
+    } else {
+      blocks.push({ type: "image_url", image_url: { url: img.dataUrl } });
+    }
+  }
+
+  const res = await fetch(GATEWAY, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "google/gemini-3.5-flash",
+      messages: [{ role: "user", content: blocks }],
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error("AI gateway error", res.status, detail);
+    if (res.status === 429) return { ok: false as const, error: "Trop de demandes, réessayez dans un instant." };
+    if (res.status === 402) return { ok: false as const, error: "Crédits d'analyse épuisés." };
+    return { ok: false as const, error: "L'analyse automatique a échoué." };
+  }
+
+  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const content = json.choices?.[0]?.message?.content ?? "";
+  return { ok: true as const, content };
+}

@@ -8,6 +8,7 @@ export type CreditNote = Database["public"]["Tables"]["credit_notes"]["Row"];
 export type CreditNoteLine = Database["public"]["Tables"]["credit_note_lines"]["Row"];
 
 export const RETURN_STATUSES = [
+  { key: "brouillon", label: "Brouillon", tone: "bg-zinc-200 text-zinc-700" },
   { key: "demande_creee", label: "Demande créée", tone: "bg-secondary text-foreground" },
   { key: "a_preparer", label: "À préparer magasin", tone: "bg-amber-200 text-amber-950" },
   { key: "prepare", label: "Retour préparé", tone: "bg-blue-100 text-blue-900" },
@@ -59,6 +60,10 @@ export async function listReturns(): Promise<(PartReturn & { lines: ReturnLine[]
     .limit(500);
   if (error) throw error;
   return (data ?? []) as (PartReturn & { lines: ReturnLine[] })[];
+}
+
+export function isDraft(r: Pick<PartReturn, "status">): boolean {
+  return r.status === "brouillon";
 }
 
 export async function getReturn(id: string) {

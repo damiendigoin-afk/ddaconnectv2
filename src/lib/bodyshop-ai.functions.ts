@@ -23,3 +23,14 @@ export const analyzeScanFn = createServerFn({ method: "POST" })
     const { analyzeScan } = await import("./bodyshop-ai.server");
     return analyzeScan(data.dataUrl, data.filename);
   });
+
+const batchInput = z.object({
+  images: z.array(z.object({ dataUrl: z.string().min(10), filename: z.string().optional() })).min(1),
+});
+
+export const analyzeReturnBatchFn = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => batchInput.parse(data))
+  .handler(async ({ data }) => {
+    const { analyzeReturnBatch } = await import("./bodyshop-ai.server");
+    return analyzeReturnBatch(data.images);
+  });
