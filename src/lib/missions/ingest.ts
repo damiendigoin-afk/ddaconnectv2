@@ -207,7 +207,7 @@ export async function ingestMissions(
     .single();
   if (impErr || !imp) throw impErr ?? new Error("Import impossible");
 
-  const index = buildHeaderIndex(headers);
+  const index = buildHeaderIndex(headers, rows);
   const diagnostic = diagnoseHeaders(headers, rows);
   console.info("[Import Suivi Missions] colonnes reçues :", headers);
   console.info(
