@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Car, ChevronDown, Mail, MapPin, Phone } from "lucide-react";
+import { Car, ChevronDown, ClipboardCheck, Mail, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
@@ -104,18 +104,36 @@ function ClientPage() {
                 Véhicules ({data?.vehicles.length ?? 0})
               </h2>
               {(data?.vehicles ?? []).map((v) => (
-                <Link
-                  key={v.id}
-                  to="/vehicule/$vehId"
-                  params={{ vehId: v.id }}
-                  className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-3"
-                >
-                  <Car className="h-5 w-5 shrink-0 text-brand" />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-extrabold">{v.registration_display ?? "—"}</div>
-                    <div className="truncate text-xs text-muted-foreground">{vehicleLabel(v)}</div>
+                <div key={v.id} className="rounded-xl border-2 border-border bg-card">
+                  <Link
+                    to="/vehicule/$vehId"
+                    params={{ vehId: v.id }}
+                    className="flex items-center gap-3 px-3 py-3"
+                  >
+                    <Car className="h-5 w-5 shrink-0 text-brand" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-extrabold">{v.registration_display ?? "—"}</div>
+                      <div className="truncate text-xs text-muted-foreground">{vehicleLabel(v)}</div>
+                    </div>
+                  </Link>
+                  {/* Sélection rapide : le véhicule suit dans le module choisi. */}
+                  <div className="grid grid-cols-2 gap-2 border-t border-border p-2">
+                    <Link
+                      to="/expertise/nouvelle"
+                      search={{ vehicle_id: v.id }}
+                      className="flex items-center justify-center gap-2 rounded-lg border border-border px-2 py-2 text-xs font-bold uppercase"
+                    >
+                      <ClipboardCheck className="h-4 w-4" /> Expertise
+                    </Link>
+                    <Link
+                      to="/tour-vehicule"
+                      search={{ vehicle_id: v.id }}
+                      className="flex items-center justify-center gap-2 rounded-lg border border-border px-2 py-2 text-xs font-bold uppercase"
+                    >
+                      <Car className="h-4 w-4" /> Tour véhicule
+                    </Link>
                   </div>
-                </Link>
+                </div>
               ))}
               {!data?.vehicles.length ? (
                 <p className="card-surface p-4 text-sm text-muted-foreground">Aucun véhicule rattaché.</p>
