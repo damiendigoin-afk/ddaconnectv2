@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Camera, FileText, Loader2, ScanLine, X } from "lucide-react";
+import { Camera, Paperclip, Loader2 } from "lucide-react";
 
 import { DOC_ACCEPT, isImage, rejectReason } from "@/lib/documents";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
@@ -34,15 +34,6 @@ export type DocIdentifyResult = {
   prefill: RefPrefill | null;
 };
 
-const KINDS = [
-  { key: "plaque", label: "Photo de plaque", camera: true },
-  { key: "carte_grise", label: "Carte grise", camera: true },
-  { key: "or", label: "OR / ordre de réparation", camera: false },
-  { key: "avis_sinistre", label: "Avis de sinistre", camera: false },
-  { key: "rapport_expertise", label: "Rapport d'expertise", camera: false },
-  { key: "autre", label: "Autre document", camera: false },
-] as const;
-
 /**
  * Point d'entrée unique d'identification d'un véhicule ou d'un dossier à partir d'un document.
  * Remplace les anciens boutons « scanner une plaque » et les blocs « identification par photo ».
@@ -56,13 +47,12 @@ export function DocIdentify({
   onError?: (message: string) => void;
   compact?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const pending = useRef<{ kind: string; camera: boolean }>({ kind: "autre", camera: false });
+  const pending = useRef<{ camera: boolean }>({ camera: false });
 
-  function choose(kind: string, camera: boolean) {
-    pending.current = { kind, camera };
+  function choose(camera: boolean) {
+    pending.current = { camera };
     const el = inputRef.current;
     if (!el) return;
     if (camera) el.setAttribute("capture", "environment");
@@ -77,10 +67,9 @@ export function DocIdentify({
       onError?.(reason);
       return;
     }
-    setOpen(false);
     setBusy(true);
     try {
-      const kind = pending.current.kind;
+
       const analysable = isImage(file) || file.type === "application/pdf";
       let extracted: DocExtract = {};
       if (analysable) {
@@ -99,7 +88,7 @@ export function DocIdentify({
         prefill = await refPrefill(normalizePlate(extracted.plate));
         extracted.plate = formatPlate(extracted.plate);
       }
-      onResult({ file, kind, extracted, prefill });
+      onResult({ file, kind: extracted.doc_kind || "autre", extracted, prefill });
     } catch {
       onError?.(
         "Lecture du document impossible. Réessaie avec une photo plus nette ou saisis les informations.",
@@ -111,20 +100,36 @@ export function DocIdentify({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        disabled={busy}
-        aria-label="Identifier depuis un document"
-        className={
-          compact
-            ? "flex w-16 shrink-0 items-center justify-center rounded-xl border-2 border-border bg-card disabled:opacity-60"
-            : "flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary bg-card px-4 py-4 text-base font-bold uppercase tracking-wide disabled:opacity-60"
-        }
-      >
-        {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <ScanLine className="h-6 w-6" />}
-        {compact ? null : <span>Identifier depuis un document</span>}
-      </button>
+      <div className={compact ? "flex shrink-0 gap-1" : "flex w-full gap-2"}>
+        <button
+          type="button"
+          onClick={() => choose(true)}
+          disabled={busy}
+          aria-label="Prendre une photo à identifier"
+          className={
+            compact
+              ? "flex w-16 shrink-0 items-center justify-center rounded-xl border-2 border-border bg-card disabled:opacity-60"
+              : "flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary bg-card px-4 py-4 text-base font-bold uppercase tracking-wide disabled:opacity-60"
+          }
+        >
+          {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+          {compact ? null : <span>{busy ? "Lecture…" : "Photo"}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={() => choose(false)}
+          disabled={busy}
+          aria-label="Choisir un document"
+          className={
+            compact
+              ? "flex w-12 shrink-0 items-center justify-center rounded-xl border-2 border-border bg-card disabled:opacity-60"
+              : "flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-4 text-sm font-bold uppercase disabled:opacity-60"
+          }
+        >
+          <Paperclip className="h-5 w-5" />
+          {compact ? null : <span>Document</span>}
+        </button>
+      </div>
 
       <input
         ref={inputRef}
@@ -136,51 +141,6 @@ export function DocIdentify({
           if (f) void handle(f);
         }}
       />
-
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md space-y-2 rounded-t-2xl bg-card p-4 pb-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-1 flex items-center justify-between">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest">
-                Identifier depuis…
-              </h2>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Fermer"
-                className="rounded-lg p-1"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {KINDS.map((k) => (
-              <button
-                key={k.key}
-                type="button"
-                onClick={() => choose(k.key, k.camera)}
-                className="flex w-full items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-3 text-left text-sm font-bold"
-              >
-                {k.camera ? (
-                  <Camera className="h-5 w-5 text-brand" />
-                ) : (
-                  <FileText className="h-5 w-5 text-brand" />
-                )}
-                <span className="flex-1">{k.label}</span>
-              </button>
-            ))}
-            <p className="pt-1 text-center text-xs text-muted-foreground">
-              Photo, image existante ou fichier (PDF, Word, Excel, CSV, e-mail). Le document reste
-              rattaché au dossier.
-            </p>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }

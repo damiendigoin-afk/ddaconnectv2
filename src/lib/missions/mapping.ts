@@ -163,11 +163,18 @@ function truthy(v: string): boolean {
   return ["oui", "o", "x", "yes", "1", "true", "vge", "grele"].includes(n);
 }
 
-export function mapMissionRow(row: RawRow, index: HeaderIndex): MissionMapped {
+/** Corrections saisies à la main par l'utilisateur pour une ligne du fichier. */
+export type MissionFix = {
+  plate?: string;
+  missionDate?: string;
+  customerName?: string;
+};
+
+export function mapMissionRow(row: RawRow, index: HeaderIndex, fix?: MissionFix): MissionMapped {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const plateRaw = get(row, index, "plate");
+  const plateRaw = (fix?.plate ?? "").trim() || get(row, index, "plate");
   const plateNormalized = normalizePlate(plateRaw);
   if (!plateRaw) errors.push("Immatriculation absente (champ obligatoire).");
   else if (plateNormalized.length < 5) errors.push(`Immatriculation invalide : « ${plateRaw} ».`);
@@ -175,14 +182,14 @@ export function mapMissionRow(row: RawRow, index: HeaderIndex): MissionMapped {
   const vin = get(row, index, "vin").toUpperCase().replace(/\s/g, "");
   if (vin && vin.length !== 17) warnings.push(`VIN incomplet (${vin.length} caractères au lieu de 17) : « ${vin} ».`);
 
-  const missionDateRaw = get(row, index, "missionDate");
+  const missionDateRaw = (fix?.missionDate ?? "").trim() || get(row, index, "missionDate");
   const missionDate = toDate(missionDateRaw);
   if (missionDateRaw && !missionDate) errors.push(`Date de mission invalide : « ${missionDateRaw} ».`);
 
   const email = get(row, index, "customerEmail");
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) warnings.push(`E-mail incorrect : « ${email} ».`);
 
-  const customerName = get(row, index, "customerName");
+  const customerName = (fix?.customerName ?? "").trim() || get(row, index, "customerName");
   if (!customerName) warnings.push("Client non identifié dans le fichier.");
 
   for (const [key, label] of [

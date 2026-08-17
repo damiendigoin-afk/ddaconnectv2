@@ -3,6 +3,7 @@ import { Camera, Images, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { useLightbox } from "@/components/PhotoLightbox";
 import { deleteMedia, mediaUrl, uploadPhoto, type MediaLinks } from "@/lib/photo";
 
 export type MediaRow = { id: string; storage_path: string };
@@ -48,6 +49,7 @@ export function PhotoManager({
 }) {
   const [items, setItems] = useState<MediaRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const lightbox = useLightbox();
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -145,10 +147,11 @@ export function PhotoManager({
       />
       {items.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {items.map((item) => (
+          {items.map((item, i) => (
             <div key={item.id} className="relative">
               <MediaThumb
                 path={item.storage_path}
+                onClick={() => lightbox.open(items.map((m) => ({ path: m.storage_path })), i)}
                 className={compact ? "h-16 w-16 rounded-lg object-cover" : "h-20 w-20 rounded-lg object-cover"}
               />
               <button
@@ -163,6 +166,7 @@ export function PhotoManager({
           ))}
         </div>
       ) : null}
+      {lightbox.node}
     </div>
   );
 }

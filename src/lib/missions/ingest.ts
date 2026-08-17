@@ -1,7 +1,7 @@
 /** Import tolérant aux erreurs du fichier « SUIVI MISSIONS CARROSSERIE ».
  *  Une ligne en erreur n'interrompt jamais les suivantes. */
 import { supabase } from "@/integrations/supabase/client";
-import { buildHeaderIndex, mapMissionRow, type MissionMapped, type RawRow } from "./mapping";
+import { buildHeaderIndex, mapMissionRow, type MissionFix, type MissionMapped, type RawRow } from "./mapping";
 
 export type MissionCounters = {
   imported: number;
@@ -24,9 +24,13 @@ export type MissionConflict = {
 export type MissionErrorRow = {
   id: string;
   rowNumber: number;
+  /** Index de la ligne dans le tableau transmis : permet de renvoyer une correction. */
+  rowIndex: number;
   raw: RawRow;
   errors: string[];
   identity: string;
+  /** Valeurs pré-remplies dans le formulaire de correction. */
+  fix: MissionFix;
 };
 
 export type MissionIngestResult = {
@@ -139,6 +143,7 @@ export async function ingestMissions(
   rows: RawRow[],
   siteId: string | null,
   onProgress?: (done: number, total: number) => void,
+  fixes?: Record<number, MissionFix>,
 ): Promise<MissionIngestResult> {
   const { data: auth } = await supabase.auth.getUser();
   const { data: imp, error: impErr } = await supabase
@@ -169,7 +174,7 @@ export async function ingestMissions(
     const raw = rows[i]!;
     let mapped: MissionMapped | null = null;
     try {
-      mapped = mapMissionRow(raw, index);
+      mapped = mapMissionRow(raw, index, fixes?.[i]);
       if (mapped.errors.length) throw new Error("validation");
 
       const key = mapped.orNumber || mapped.plateNormalized;
@@ -245,9 +250,15 @@ export async function ingestMissions(
       errorRows.push({
         id: inserted,
         rowNumber,
+        rowIndex: i,
         raw,
         errors: messages,
         identity: [mapped?.plate, mapped?.customerName].filter(Boolean).join(" · ") || "—",
+        fix: {
+          plate: fixes?.[i]?.plate ?? mapped?.plate ?? "",
+          missionDate: fixes?.[i]?.missionDate ?? mapped?.missionDate ?? "",
+          customerName: fixes?.[i]?.customerName ?? mapped?.customerName ?? "",
+        },
       });
     } finally {
       onProgress?.(i + 1, rows.length);
