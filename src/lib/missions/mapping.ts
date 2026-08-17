@@ -5,6 +5,8 @@ export type RawRow = Record<string, string>;
 
 export type MissionMapped = {
   plate: string;
+  /** Valeur brute exactement telle qu'elle figure dans le fichier. */
+  plateSource: string;
   plateNormalized: string;
   vin: string;
   orNumber: string;
@@ -42,7 +44,23 @@ export type MissionMapped = {
 const SYNONYMS: Record<keyof typeof FIELDS, string[]> = {} as never;
 
 const FIELDS = {
-  plate: ["immat", "immatriculation", "plaque", "n immat", "immat vehicule"],
+  plate: [
+    "immatriculation",
+    "immat",
+    "immatriculations",
+    "n immatriculation",
+    "no immatriculation",
+    "num immatriculation",
+    "numero immatriculation",
+    "n immat",
+    "no immat",
+    "num immat",
+    "numero immat",
+    "immat vehicule",
+    "immatriculation vehicule",
+    "plaque",
+    "plaque immatriculation",
+  ],
   vin: ["vin", "chassis", "n chassis", "numero de chassis"],
   orNumber: ["or", "n or", "num or", "numero or", "ordre de reparation", "of"],
   customerName: ["client", "nom client", "nom", "assure", "proprietaire", "raison sociale"],
