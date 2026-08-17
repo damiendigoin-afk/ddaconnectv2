@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -6,7 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { Field, Select } from "@/components/bits";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { listAgreements, listExperts, listFirms, listInsurers, listSuppliers } from "@/lib/referentials";
+import { listAgreements, listExperts, listFirms, listInsurers } from "@/lib/referentials";
 
 export const Route = createFileRoute("/carrosserie/referentiels")({
   head: () => ({
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/carrosserie/referentiels")({
   component: Referentials,
 });
 
-const TABS = ["Assurances", "Cabinets", "Experts", "Agréments", "Fournisseurs"] as const;
+const TABS = ["Assurances", "Cabinets", "Experts", "Agréments"] as const;
 
 function Referentials() {
   const { isManager } = useAuth();
@@ -45,11 +45,13 @@ function Referentials() {
           </button>
         ))}
       </div>
+      <Link to="/parametrage/fournisseurs" className="mb-1 block rounded-lg border-2 border-dashed border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        Fournisseurs → paramétrage global
+      </Link>
       {tab === "Assurances" ? <Insurers /> : null}
       {tab === "Cabinets" ? <Firms /> : null}
       {tab === "Experts" ? <Experts /> : null}
       {tab === "Agréments" ? <Agreements /> : null}
-      {tab === "Fournisseurs" ? <Suppliers /> : null}
     </AppShell>
   );
 }
@@ -226,67 +228,6 @@ function Agreements() {
             <div className="font-bold">{a.name}</div>
             <div className="text-xs text-muted-foreground">
               T1 {a.t1 ?? "—"} · T2 {a.t2 ?? "—"} · T3 {a.t3 ?? "—"} · Peinture {a.paint_rate ?? "—"}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function Suppliers() {
-  const q = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers });
-  const reload = useReload("suppliers");
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("pieces");
-  const [email, setEmail] = useState("");
-  const [returnsEmail, setReturnsEmail] = useState("");
-  const [maxDays, setMaxDays] = useState("");
-  const [avgDays, setAvgDays] = useState("");
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-2 rounded-xl border-2 border-border bg-card p-3">
-        <Field label="Fournisseur" value={name} onChange={setName} />
-        <Select
-          label="Catégorie"
-          value={category}
-          onChange={setCategory}
-          options={[
-            { key: "pieces", label: "Pièces" },
-            { key: "peinture", label: "Peinture" },
-            { key: "consommables", label: "Consommables" },
-            { key: "outillage", label: "Outillage" },
-          ]}
-          allowEmpty={false}
-        />
-        <Field label="E-mail" value={email} onChange={setEmail} type="email" />
-        <Field label="E-mail retours" value={returnsEmail} onChange={setReturnsEmail} type="email" />
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Délai max retour (j)" value={maxDays} onChange={setMaxDays} />
-          <Field label="Délai moyen avoir (j)" value={avgDays} onChange={setAvgDays} />
-        </div>
-        <button
-          onClick={async () => {
-            if (!name.trim()) return;
-            await supabase.from("suppliers").insert({
-              name: name.trim(), category, email: email || null, returns_email: returnsEmail || null,
-              max_return_days: maxDays ? Number(maxDays) : null, avg_credit_days: avgDays ? Number(avgDays) : null,
-            });
-            setName(""); setEmail(""); setReturnsEmail(""); setMaxDays(""); setAvgDays(""); reload();
-          }}
-          className="w-full rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground"
-        >
-          Ajouter le fournisseur
-        </button>
-      </div>
-      <ul className="space-y-2">
-        {(q.data ?? []).map((s) => (
-          <li key={s.id} className="card-surface p-3 text-sm">
-            <div className="font-bold">{s.name}</div>
-            <div className="text-xs text-muted-foreground">
-              Retours : {s.returns_email ?? s.email ?? "—"}
-              {s.max_return_days ? ` · ${s.max_return_days} j max` : ""}
             </div>
           </li>
         ))}
