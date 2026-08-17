@@ -1,7 +1,8 @@
 import { MediaThumb } from "@/components/PhotoManager";
+import { useLightbox } from "@/components/PhotoLightbox";
 import { StatusBadge } from "@/components/StatusPicker";
 import { formatPlate } from "@/lib/plate";
-import type { ReportData } from "@/lib/report";
+import type { ReportData, ReportMedia } from "@/lib/report";
 
 export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean }) {
   const date = new Date(d.inspection.completed_at ?? d.inspection.started_at);
