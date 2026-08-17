@@ -71,3 +71,26 @@ Mets null pour tout champ non lisible. N'invente rien.`;
     if (!parsed) return { ok: false as const, error: "Carte grise illisible.", json: "" };
     return { ok: true as const, error: "", json: JSON.stringify(parsed) };
   });
+
+/**
+ * Lecture générique d'un document métier (plaque, carte grise, OR, avis de sinistre,
+ * rapport d'expertise, constat, facture…) pour identifier un véhicule / client / dossier.
+ */
+export const ocrAnyDocument = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Tu analyses un document d'atelier automobile français (photo de plaque, carte grise,
+ordre de réparation, avis de sinistre, rapport d'expertise, constat, devis, facture, BL, courrier…).
+Extrais uniquement ce que tu lis réellement. Réponds STRICTEMENT en JSON :
+{"doc_kind":null,"plate":null,"vin":null,"or_number":null,"claim_number":null,"mission_number":null,
+"customer_name":null,"customer_phone":null,"customer_email":null,"brand":null,"model":null,
+"first_registration":null,"mileage":null,"insurer":null,"expert":null,"amount_ht":null,"document_date":null,
+"summary":null}
+doc_kind parmi : plaque, carte_grise, or, avis_sinistre, rapport_expertise, constat, devis, facture, bl, courrier, autre.
+plate au format AB-123-CD. Dates ISO YYYY-MM-DD. mileage entier. Mets null si absent. N'invente rien.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename);
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    const parsed = parseJsonBlock(result.content);
+    if (!parsed) return { ok: false as const, error: "Document illisible.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+  });
