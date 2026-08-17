@@ -2644,6 +2644,65 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_contacts: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          is_primary: boolean
+          last_name: string | null
+          mobile: string | null
+          notes: string | null
+          phone: string | null
+          role_title: string | null
+          service: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          is_primary?: boolean
+          last_name?: string | null
+          mobile?: string | null
+          notes?: string | null
+          phone?: string | null
+          role_title?: string | null
+          service?: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          is_primary?: boolean
+          last_name?: string | null
+          mobile?: string | null
+          notes?: string | null
+          phone?: string | null
+          role_title?: string | null
+          service?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_contacts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           active: boolean
@@ -2654,6 +2713,7 @@ export type Database = {
           city: string | null
           created_at: string
           email: string | null
+          group_name: string | null
           id: string
           max_return_days: number | null
           name: string
@@ -2665,7 +2725,9 @@ export type Database = {
           returns_email: string | null
           sales_contact: string | null
           site_ids: string[]
+          trade_name: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           active?: boolean
@@ -2676,6 +2738,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           email?: string | null
+          group_name?: string | null
           id?: string
           max_return_days?: number | null
           name: string
@@ -2687,7 +2750,9 @@ export type Database = {
           returns_email?: string | null
           sales_contact?: string | null
           site_ids?: string[]
+          trade_name?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           active?: boolean
@@ -2698,6 +2763,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           email?: string | null
+          group_name?: string | null
           id?: string
           max_return_days?: number | null
           name?: string
@@ -2709,7 +2775,9 @@ export type Database = {
           returns_email?: string | null
           sales_contact?: string | null
           site_ids?: string[]
+          trade_name?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
