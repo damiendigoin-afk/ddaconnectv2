@@ -232,7 +232,12 @@ export function mapMissionRow(row: RawRow, index: HeaderIndex, fix?: MissionFix)
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const plateRaw = (fix?.plate ?? "").trim() || get(row, index, "plate");
+  // 1) correction manuelle 2) colonne détectée 3) repli : n'importe quelle cellule contenant une plaque.
+  let plateRaw = (fix?.plate ?? "").trim() || get(row, index, "plate");
+  if (!plateRaw) {
+    const hit = Object.values(row).find((v) => looksLikePlate(String(v ?? "")));
+    if (hit) plateRaw = String(hit).trim();
+  }
   const plateNormalized = normalizePlate(plateRaw);
   if (!plateRaw) errors.push("Immatriculation absente (champ obligatoire).");
   else if (plateNormalized.length < 5) errors.push(`Immatriculation invalide : « ${plateRaw} ».`);
@@ -265,6 +270,7 @@ export function mapMissionRow(row: RawRow, index: HeaderIndex, fix?: MissionFix)
 
   return {
     plate: plateRaw.toUpperCase(),
+    plateSource: plateRaw,
     plateNormalized,
     vin,
     orNumber: get(row, index, "orNumber"),
