@@ -1,5 +1,7 @@
-import { Camera, Loader2, Plus, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Loader2, Plus, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
 
 import {
   customerName,
@@ -18,8 +20,8 @@ export function EntitySearch({
   label,
   onPick,
   onCreateNew,
-  onScan,
-  scanning = false,
+  onDocument,
+  onDocumentError,
   initialTerm = "",
   autoFocus = false,
 }: {
@@ -27,8 +29,9 @@ export function EntitySearch({
   label?: string;
   onPick: (pick: EntityPick) => void;
   onCreateNew?: (term: string) => void;
-  onScan?: (file: File) => void;
-  scanning?: boolean;
+  /** Point d'entrée unique : identification à partir d'un document (plaque, carte grise, OR…). */
+  onDocument?: (r: DocIdentifyResult) => void;
+  onDocumentError?: (message: string) => void;
   initialTerm?: string;
   autoFocus?: boolean;
 }) {
@@ -36,7 +39,6 @@ export function EntitySearch({
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<SearchResult | null>(null);
   const [picking, setPicking] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const t = term.trim();
@@ -69,12 +71,18 @@ export function EntitySearch({
   }
 
   const empty =
-    res && !res.customers.length && !res.vehicles.length && !res.orders.length && term.trim().length >= 2;
+    res &&
+    !res.customers.length &&
+    !res.vehicles.length &&
+    !res.orders.length &&
+    term.trim().length >= 2;
 
   return (
     <div className="space-y-3">
       {label ? (
-        <span className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
       ) : null}
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -91,30 +99,11 @@ export function EntitySearch({
             className="w-full rounded-xl border-2 border-border bg-card py-4 pl-11 pr-10 text-base outline-none focus:border-brand"
           />
         </div>
-        {onScan ? (
-          <>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={scanning}
-              aria-label="Scanner la plaque"
-              className="flex w-16 shrink-0 items-center justify-center rounded-xl border-2 border-border bg-card disabled:opacity-60"
-            >
-              {scanning ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onScan(f);
-                e.target.value = "";
-              }}
-            />
-          </>
+        {onDocument ? (
+          <DocIdentify
+            onResult={onDocument}
+            {...(onDocumentError ? { onError: onDocumentError } : {})}
+          />
         ) : null}
       </div>
 
@@ -135,7 +124,9 @@ export function EntitySearch({
 
       {res?.vehicles.length ? (
         <section className="space-y-2">
-          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Véhicules</h3>
+          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Véhicules
+          </h3>
           {res.vehicles.map((v) => (
             <button
               key={v.id}
@@ -144,7 +135,9 @@ export function EntitySearch({
               className="flex w-full items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-3 text-left active:scale-[0.99]"
             >
               <div className="min-w-0 flex-1">
-                <div className="truncate text-base font-extrabold">{v.registration_display ?? "—"}</div>
+                <div className="truncate text-base font-extrabold">
+                  {v.registration_display ?? "—"}
+                </div>
                 <div className="truncate text-xs text-muted-foreground">
                   {vehicleLabel(v)}
                   {v.customer ? ` · ${customerName(v.customer)}` : ""}
@@ -157,7 +150,9 @@ export function EntitySearch({
 
       {res?.customers.length ? (
         <section className="space-y-2">
-          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Clients</h3>
+          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Clients
+          </h3>
           {res.customers.map((c) => (
             <div key={c.id} className="rounded-xl border-2 border-border bg-card px-3 py-2">
               <div className="text-base font-bold">{customerName(c)}</div>
@@ -182,7 +177,9 @@ export function EntitySearch({
 
       {res?.orders.length ? (
         <section className="space-y-2">
-          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Ordres de réparation</h3>
+          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Ordres de réparation
+          </h3>
           {res.orders.map((o) => (
             <button
               key={o.id}

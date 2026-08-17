@@ -1,13 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { Area, Field, Select } from "@/components/bits";
-import { analyzeScanFn } from "@/lib/bodyshop-ai.functions";
+import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
+import { useAuth } from "@/lib/auth";
 import { createCase, MISSION_ORIGINS } from "@/lib/bodyshop";
-import { blobToDataUrl, compressImage } from "@/lib/photo";
+import { uploadCaseDocument } from "@/lib/documents";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 import { refPrefill } from "@/lib/refbase";
 import { listAgreements, listExperts, listFirms, listInsurers } from "@/lib/referentials";
@@ -16,9 +16,16 @@ export const Route = createFileRoute("/carrosserie/nouvelle")({
   head: () => ({
     meta: [
       { title: "Nouveau dossier carrosserie — DDA Connect" },
-      { name: "description", content: "Créer un dossier carrosserie à partir d'une immatriculation, d'un scan d'OR ou d'une saisie manuelle." },
+      {
+        name: "description",
+        content:
+          "Créer un dossier carrosserie à partir d'une immatriculation, d'un scan d'OR ou d'une saisie manuelle.",
+      },
       { property: "og:title", content: "Nouveau dossier carrosserie — DDA Connect" },
-      { property: "og:description", content: "Création rapide d'un dossier carrosserie depuis l'atelier." },
+      {
+        property: "og:description",
+        content: "Création rapide d'un dossier carrosserie depuis l'atelier.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -28,7 +35,7 @@ export const Route = createFileRoute("/carrosserie/nouvelle")({
 
 function NewCase() {
   const navigate = useNavigate();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const { user, displayName } = useAuth();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [found, setFound] = useState("");
@@ -52,6 +59,8 @@ function NewCase() {
   const [comments, setComments] = useState("");
   const [refVehicleId, setRefVehicleId] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  /** Le document d'identification est conservé et rattaché au dossier dès sa création. */
+  const [pendingDoc, setPendingDoc] = useState<{ file: File; kind: string } | null>(null);
 
   const insurers = useQuery({ queryKey: ["insurers"], queryFn: listInsurers });
   const agreements = useQuery({ queryKey: ["agreements"], queryFn: listAgreements });
@@ -78,28 +87,35 @@ function NewCase() {
     setCustomerEmail((v) => v || f["email"] || "");
   }
 
-  async function onScan(file: File) {
-    setBusy(true);
+  const DOC_CATEGORY: Record<string, string> = {
+    plaque: "vehicule",
+    carte_grise: "vehicule",
+    or: "or",
+    avis_sinistre: "sinistre",
+    rapport_expertise: "expertise",
+    autre: "autres",
+  };
+
+  /** Identification unique par document : plaque, carte grise, OR, avis de sinistre… */
+  async function onDocument(r: DocIdentifyResult) {
     setMsg("");
-    try {
-      const dataUrl = await blobToDataUrl(await compressImage(file));
-      const res = await analyzeScanFn({ data: { dataUrl, filename: file.name } });
-      if (!res.ok) {
-        setMsg(res.error);
-        return;
-      }
-      const parsed = JSON.parse(res.json) as { plate?: string | null; or_number?: string | null };
-      if (parsed.or_number) setOrNumber(parsed.or_number);
-      if (parsed.plate) {
-        setPlate(formatPlate(parsed.plate));
-        await applyPlate(parsed.plate);
-      } else {
-        setMsg("Immatriculation non détectée, saisis-la manuellement.");
-      }
-    } catch {
-      setMsg("Analyse impossible.");
-    } finally {
-      setBusy(false);
+    setPendingDoc({ file: r.file, kind: r.kind });
+    const e = r.extracted;
+    if (e.or_number) setOrNumber(e.or_number);
+    if (e.claim_number) setClaim(e.claim_number);
+    if (e.customer_name) setCustomerName((v) => v || e.customer_name!);
+    if (e.customer_phone) setCustomerPhone((v) => v || e.customer_phone!);
+    if (e.customer_email) setCustomerEmail((v) => v || e.customer_email!);
+    if (e.vin) setVin((v) => v || e.vin!);
+    if (e.brand || e.model)
+      setVehicleLabelText((v) => v || [e.brand, e.model].filter(Boolean).join(" "));
+    if (e.plate) {
+      setPlate(formatPlate(e.plate));
+      await applyPlate(e.plate);
+    } else {
+      setMsg(
+        "Immatriculation non détectée : saisis-la à la main, le document reste joint au dossier.",
+      );
     }
   }
 
@@ -134,6 +150,16 @@ function NewCase() {
         case_state: "mission_creee",
         physical_state: "pas_entre",
       });
+      if (pendingDoc) {
+        await uploadCaseDocument({
+          caseId: row.id,
+          file: pendingDoc.file,
+          category: DOC_CATEGORY[pendingDoc.kind] ?? "autres",
+          docType: pendingDoc.kind,
+          origin: "identification",
+          author: { userId: user?.id ?? null, userName: displayName },
+        }).catch(() => setMsg("Dossier créé, mais le document n'a pas pu être joint."));
+      }
       await navigate({ to: "/carrosserie/$caseId", params: { caseId: row.id } });
     } catch {
       setMsg("Création impossible.");
@@ -144,31 +170,27 @@ function NewCase() {
   return (
     <AppShell title="Nouveau dossier" subtitle="Carrosserie" back={{ to: "/carrosserie" }}>
       <div className="space-y-3">
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="flex w-full items-center gap-3 rounded-xl bg-brand px-4 py-4 text-brand-foreground active:scale-[0.99]"
-        >
-          {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-          <span className="text-base font-extrabold uppercase tracking-wide">Scanner l'OR ou la plaque</span>
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void onScan(f);
-            e.target.value = "";
-          }}
-        />
+        <DocIdentify compact={false} onResult={(r) => void onDocument(r)} onError={setMsg} />
+        {pendingDoc ? (
+          <p className="text-xs text-muted-foreground">
+            Document joint au dossier à la création : {pendingDoc.file.name}
+          </p>
+        ) : null}
 
-        {msg ? <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">{msg}</p> : null}
-        {found ? <p className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-950">Trouvé en base : {found}</p> : null}
+        {msg ? (
+          <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">{msg}</p>
+        ) : null}
+        {found ? (
+          <p className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-950">
+            Trouvé en base : {found}
+          </p>
+        ) : null}
 
         <Field label="Immatriculation" value={plate} onChange={setPlate} placeholder="AA-123-BB" />
-        <button onClick={() => void applyPlate(plate)} className="w-full rounded-lg border-2 border-border py-2 text-sm font-bold">
+        <button
+          onClick={() => void applyPlate(plate)}
+          className="w-full rounded-lg border-2 border-border py-2 text-sm font-bold"
+        >
           Rechercher dans la base
         </button>
 
@@ -179,17 +201,41 @@ function NewCase() {
         <Field label="E-mail" value={customerEmail} onChange={setCustomerEmail} type="email" />
         <Field label="N° OR" value={orNumber} onChange={setOrNumber} />
 
-        <Select label="Origine de la mission" value={origin} onChange={setOrigin} options={MISSION_ORIGINS.map((o) => ({ key: o.key, label: o.label }))} allowEmpty={false} />
-        <Select label="Assurance" value={insurerId} onChange={setInsurerId} options={(insurers.data ?? []).map((i) => ({ key: i.id, label: i.name }))} />
-        <Select label="Agrément" value={agreementId} onChange={setAgreementId} options={(agreements.data ?? []).map((a) => ({ key: a.id, label: a.name }))} />
-        <Select label="Cabinet d'expertise" value={firmId} onChange={setFirmId} options={(firms.data ?? []).map((f) => ({ key: f.id, label: f.name }))} />
+        <Select
+          label="Origine de la mission"
+          value={origin}
+          onChange={setOrigin}
+          options={MISSION_ORIGINS.map((o) => ({ key: o.key, label: o.label }))}
+          allowEmpty={false}
+        />
+        <Select
+          label="Assurance"
+          value={insurerId}
+          onChange={setInsurerId}
+          options={(insurers.data ?? []).map((i) => ({ key: i.id, label: i.name }))}
+        />
+        <Select
+          label="Agrément"
+          value={agreementId}
+          onChange={setAgreementId}
+          options={(agreements.data ?? []).map((a) => ({ key: a.id, label: a.name }))}
+        />
+        <Select
+          label="Cabinet d'expertise"
+          value={firmId}
+          onChange={setFirmId}
+          options={(firms.data ?? []).map((f) => ({ key: f.id, label: f.name }))}
+        />
         <Select
           label="Expert"
           value={expertId}
           onChange={setExpertId}
           options={(experts.data ?? [])
             .filter((e) => !firmId || e.firm_id === firmId)
-            .map((e) => ({ key: e.id, label: [e.first_name, e.last_name].filter(Boolean).join(" ") }))}
+            .map((e) => ({
+              key: e.id,
+              label: [e.first_name, e.last_name].filter(Boolean).join(" "),
+            }))}
         />
         <Field label="N° de sinistre" value={claim} onChange={setClaim} />
         <Select

@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Plus, ScanLine } from "lucide-react";
+import { ChevronLeft, Plus } from "lucide-react";
+import { toast } from "sonner";
 
+import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
 import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { OrCard } from "@/components/OrCard";
 import { TourRow } from "@/components/RecentTours";
@@ -69,6 +71,15 @@ function ModuleHome() {
       return;
     }
     navigate({ to: "/or/nouveau", search: { plate: pick.fields["plate"] ?? "" } });
+  }
+
+  /** Identification unique par document : plaque, carte grise, OR, avis de sinistre… */
+  function onDocument(r: DocIdentifyResult) {
+    const plate = r.prefill?.fields["plate"] ?? r.extracted.plate ?? "";
+    if (!plate) {
+      toast.error("Aucune immatriculation lue sur ce document : saisis-la dans le nouvel OR.");
+    }
+    navigate({ to: "/or/nouveau", search: { plate } });
   }
 
   const orders = (recent.data ?? []).slice(0, MAX);
@@ -153,9 +164,7 @@ function ModuleHome() {
           </Link>
           <div>
             <h1 className="text-xl font-extrabold uppercase tracking-tight">Tour Véhicule</h1>
-            <p className="text-xs font-medium tracking-widest text-muted-foreground">
-              DDA Connect
-            </p>
+            <p className="text-xs font-medium tracking-widest text-muted-foreground">DDA Connect</p>
           </div>
         </div>
       </header>
@@ -169,50 +178,49 @@ function ModuleHome() {
           >
             <Plus className="h-6 w-6" /> Nouvel OR
           </Link>
-          <Link
-            to="/scan-plaque"
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-primary bg-card px-4 py-4 text-base font-bold uppercase tracking-wide"
-          >
-            <ScanLine className="h-5 w-5" /> Scanner une plaque
-          </Link>
+          <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
         </div>
 
-        <EntitySearch onPick={onPick} />
+        <EntitySearch
+          onPick={onPick}
+          onDocument={onDocument}
+          onDocumentError={(m) => toast.error(m)}
+        />
 
         <>
-            {/* Mobile : sélecteur simple entre les deux listes */}
-            <div className="lg:hidden">
-              <div className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
-                <button
-                  onClick={() => setTab("tours")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "tours" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-                >
-                  Clôturés
-                </button>
-                <button
-                  onClick={() => setTab("drafts")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "drafts" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-                >
-                  Brouillons
-                </button>
-                <button
-                  onClick={() => setTab("ors")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "ors" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-                >
-                  OR récents
-                </button>
-              </div>
-              {tab === "tours" ? toursCol : tab === "drafts" ? draftsCol : ordersCol}
+          {/* Mobile : sélecteur simple entre les deux listes */}
+          <div className="lg:hidden">
+            <div className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
+              <button
+                onClick={() => setTab("tours")}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "tours" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+              >
+                Clôturés
+              </button>
+              <button
+                onClick={() => setTab("drafts")}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "drafts" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+              >
+                Brouillons
+              </button>
+              <button
+                onClick={() => setTab("ors")}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "ors" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+              >
+                OR récents
+              </button>
             </div>
+            {tab === "tours" ? toursCol : tab === "drafts" ? draftsCol : ordersCol}
+          </div>
 
-            {/* Desktop / tablette large : deux colonnes */}
-            <div className="hidden gap-6 lg:grid lg:grid-cols-2 lg:items-start">
-              <div className="space-y-6">
-                {toursCol}
-                {draftsCol}
-              </div>
-              {ordersCol}
+          {/* Desktop / tablette large : deux colonnes */}
+          <div className="hidden gap-6 lg:grid lg:grid-cols-2 lg:items-start">
+            <div className="space-y-6">
+              {toursCol}
+              {draftsCol}
             </div>
+            {ordersCol}
+          </div>
         </>
       </main>
     </div>
