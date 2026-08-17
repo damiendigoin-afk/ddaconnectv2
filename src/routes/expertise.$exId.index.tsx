@@ -14,6 +14,7 @@ import {
   DAMAGE_TYPES,
   ELEMENT_SIZES,
   EXTERIOR_STEPS,
+  TIRE_STEPS,
   INTERVENTIONS,
   KEYS_OPTIONS,
   MILEAGE_STEP,
@@ -318,10 +319,16 @@ function ExpertiseRunner() {
         </div>
       ) : null}
 
-      {step.key === "exterieur" || step.key === "interieur" ? (
+      {step.key === "exterieur" || step.key === "pneumatiques" || step.key === "interieur" ? (
         <PhotoTour
           expertiseId={e.id}
-          steps={step.key === "exterieur" ? EXTERIOR_STEPS : interior}
+          steps={
+            step.key === "exterieur"
+              ? EXTERIOR_STEPS
+              : step.key === "pneumatiques"
+                ? TIRE_STEPS
+                : interior
+          }
           photos={photos}
           onChange={() => void q.refetch()}
         />

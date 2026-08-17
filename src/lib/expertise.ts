@@ -165,6 +165,7 @@ export const STEPS = [
   { key: "identite", label: "Identification" },
   { key: "compteur", label: "Compteur" },
   { key: "exterieur", label: "Tour extérieur" },
+  { key: "pneumatiques", label: "Pneumatiques" },
   { key: "interieur", label: "Intérieur" },
   { key: "etat", label: "État général" },
   { key: "dommages", label: "Dommages" },
