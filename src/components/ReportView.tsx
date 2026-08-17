@@ -70,8 +70,16 @@ export function ReportBody({
   const mediaFor = (key: "inspection_point_id" | "observation_id", id: string) =>
     d.media.filter((m) => m[key] === id);
 
+  const lightbox = useLightbox();
+  const openPhotos = (media: ReportMedia[], i: number, label: string) =>
+    lightbox.open(
+      media.map((m) => ({ path: m.storage_path, label })),
+      i,
+    );
+
   return (
     <div className="space-y-4">
+      {lightbox.node}
       {d.observations.length > 0 ? (
         <section className="space-y-2">
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
