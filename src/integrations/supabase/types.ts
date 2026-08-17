@@ -431,42 +431,51 @@ export type Database = {
           analysis: Json | null
           analysis_status: string
           case_id: string
+          category: string
           created_at: string
           created_by: string | null
           created_by_name: string | null
           doc_type: string
+          file_name: string | null
           file_size: number | null
           id: string
           label: string | null
           mime_type: string | null
+          origin: string | null
           storage_path: string
         }
         Insert: {
           analysis?: Json | null
           analysis_status?: string
           case_id: string
+          category?: string
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           doc_type?: string
+          file_name?: string | null
           file_size?: number | null
           id?: string
           label?: string | null
           mime_type?: string | null
+          origin?: string | null
           storage_path: string
         }
         Update: {
           analysis?: Json | null
           analysis_status?: string
           case_id?: string
+          category?: string
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           doc_type?: string
+          file_name?: string | null
           file_size?: number | null
           id?: string
           label?: string | null
           mime_type?: string | null
+          origin?: string | null
           storage_path?: string
         }
         Relationships: [
@@ -1910,6 +1919,53 @@ export type Database = {
           },
         ]
       }
+      metric_thresholds: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          max_value: number | null
+          metric_key: string
+          min_value: number | null
+          site_id: string | null
+          target_value: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          max_value?: number | null
+          metric_key: string
+          min_value?: number | null
+          site_id?: string | null
+          target_value?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          max_value?: number | null
+          metric_key?: string
+          min_value?: number | null
+          site_id?: string | null
+          target_value?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metric_thresholds_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mileage_history: {
         Row: {
           created_at: string
@@ -2215,6 +2271,7 @@ export type Database = {
           site_id: string | null
           status: string
           updated_at: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -2226,6 +2283,7 @@ export type Database = {
           site_id?: string | null
           status?: string
           updated_at?: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -2237,6 +2295,7 @@ export type Database = {
           site_id?: string | null
           status?: string
           updated_at?: string
+          username?: string | null
         }
         Relationships: [
           {
@@ -2781,6 +2840,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_module_access: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          id: string
+          module_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          module_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          module_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2966,10 +3052,13 @@ export type Database = {
         Row: {
           client_content_updated_at: string | null
           completed_at: string | null
+          completed_by: string | null
+          completed_by_name: string | null
           created_at: string
           created_by: string | null
           created_by_name: string | null
           current_zone_index: number
+          duration_seconds: number | null
           id: string
           inspection_type: string
           last_sent_at: string | null
@@ -2982,15 +3071,19 @@ export type Database = {
           site_id: string | null
           started_at: string
           status: string
+          updated_at: string
           vehicle_id: string
         }
         Insert: {
           client_content_updated_at?: string | null
           completed_at?: string | null
+          completed_by?: string | null
+          completed_by_name?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           current_zone_index?: number
+          duration_seconds?: number | null
           id?: string
           inspection_type: string
           last_sent_at?: string | null
@@ -3003,15 +3096,19 @@ export type Database = {
           site_id?: string | null
           started_at?: string
           status?: string
+          updated_at?: string
           vehicle_id: string
         }
         Update: {
           client_content_updated_at?: string | null
           completed_at?: string | null
+          completed_by?: string | null
+          completed_by_name?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           current_zone_index?: number
+          duration_seconds?: number | null
           id?: string
           inspection_type?: string
           last_sent_at?: string | null
@@ -3024,6 +3121,7 @@ export type Database = {
           site_id?: string | null
           started_at?: string
           status?: string
+          updated_at?: string
           vehicle_id?: string
         }
         Relationships: [
@@ -3193,6 +3291,13 @@ export type Database = {
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       next_part_return_ref: { Args: never; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
+      purge_stale_drafts: {
+        Args: { _days?: number }
+        Returns: {
+          inspections_deleted: number
+          returns_deleted: number
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       unaccent: { Args: { "": string }; Returns: string }
