@@ -101,7 +101,9 @@ export function DocIdentify({
       }
       onResult({ file, kind, extracted, prefill });
     } catch {
-      onError?.("Lecture du document impossible. Réessaie avec une photo plus nette ou saisis les informations.");
+      onError?.(
+        "Lecture du document impossible. Réessaie avec une photo plus nette ou saisis les informations.",
+      );
     } finally {
       setBusy(false);
     }
@@ -136,14 +138,24 @@ export function DocIdentify({
       />
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+          onClick={() => setOpen(false)}
+        >
           <div
             className="w-full max-w-md space-y-2 rounded-t-2xl bg-card p-4 pb-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-1 flex items-center justify-between">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest">Identifier depuis…</h2>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Fermer" className="rounded-lg p-1">
+              <h2 className="text-sm font-extrabold uppercase tracking-widest">
+                Identifier depuis…
+              </h2>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Fermer"
+                className="rounded-lg p-1"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -154,12 +166,17 @@ export function DocIdentify({
                 onClick={() => choose(k.key, k.camera)}
                 className="flex w-full items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-3 text-left text-sm font-bold"
               >
-                {k.camera ? <Camera className="h-5 w-5 text-brand" /> : <FileText className="h-5 w-5 text-brand" />}
+                {k.camera ? (
+                  <Camera className="h-5 w-5 text-brand" />
+                ) : (
+                  <FileText className="h-5 w-5 text-brand" />
+                )}
                 <span className="flex-1">{k.label}</span>
               </button>
             ))}
             <p className="pt-1 text-center text-xs text-muted-foreground">
-              Photo, image existante ou fichier (PDF, Word, Excel, CSV, e-mail). Le document reste rattaché au dossier.
+              Photo, image existante ou fichier (PDF, Word, Excel, CSV, e-mail). Le document reste
+              rattaché au dossier.
             </p>
           </div>
         </div>

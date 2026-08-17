@@ -102,7 +102,9 @@ function NewExpertise() {
     try {
       const open = await findOpenExpertise({
         refVehicleId: input.prefill?.vehicleId ?? null,
-        plate: input.plate ? formatPlate(normalizePlate(input.plate)) : (input.prefill?.fields["plate"] ?? null),
+        plate: input.plate
+          ? formatPlate(normalizePlate(input.plate))
+          : (input.prefill?.fields["plate"] ?? null),
       });
       if (open) {
         setExisting({ id: open.id as string, plate: (open.plate as string | null) ?? null });
@@ -150,7 +152,11 @@ function NewExpertise() {
 
   if (manual) {
     return (
-      <AppShell title="Nouvelle expertise" subtitle="Saisie manuelle" back={{ to: "/expertise/nouvelle" }}>
+      <AppShell
+        title="Nouvelle expertise"
+        subtitle="Saisie manuelle"
+        back={{ to: "/expertise/nouvelle" }}
+      >
         <div className="space-y-4">
           <Problem problem={problem} />
           <Existing existing={existing} onNew={() => void create({ plate })} />
@@ -188,49 +194,57 @@ function NewExpertise() {
   }
 
   return (
-    <AppShell title="Nouvelle expertise" subtitle="Identification du véhicule" back={{ to: "/expertises" }}>
+    <AppShell
+      title="Nouvelle expertise"
+      subtitle="Identification du véhicule"
+      back={{ to: "/expertises" }}
+    >
       <div className="space-y-4">
         <Problem problem={problem} />
         <Existing existing={existing} onNew={() => void create({ prefill: pick })} />
 
         {pick ? null : (
-        <EntitySearch
-          label="Client ou véhicule"
-          placeholder="Immat, nom, téléphone, VIN, n° OR…"
-          onPick={(p) => setPick(p)}
-          onCreateNew={(term) => {
-            setManual(true);
-            const normalized = normalizePlate(term);
-            setPlate(normalized.length >= 5 ? formatPlate(normalized) : term.toUpperCase());
-          }}
-          onDocument={onDocument}
-          onDocumentError={(m) => toast.error(m)}
-          autoFocus
-        />
+          <EntitySearch
+            label="Client ou véhicule"
+            placeholder="Immat, nom, téléphone, VIN, n° OR…"
+            onPick={(p) => setPick(p)}
+            onCreateNew={(term) => {
+              setManual(true);
+              const normalized = normalizePlate(term);
+              setPlate(normalized.length >= 5 ? formatPlate(normalized) : term.toUpperCase());
+            }}
+            onDocument={onDocument}
+            onDocumentError={(m) => toast.error(m)}
+            autoFocus
+          />
         )}
 
         {pick ? null : (
           <section className="card-surface space-y-2 p-4">
             <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
             <p className="text-xs text-muted-foreground">
-              Photo de plaque, carte grise, OR, avis de sinistre ou rapport d'expertise : DDA lit le document et
-              retrouve automatiquement le véhicule et son propriétaire.
+              Photo de plaque, carte grise, OR, avis de sinistre ou rapport d'expertise : DDA lit le
+              document et retrouve automatiquement le véhicule et son propriétaire.
             </p>
           </section>
         )}
 
         {pick ? (
           <section className="card-surface space-y-2 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Véhicule sélectionné</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Véhicule sélectionné
+            </p>
             <p className="text-base font-extrabold">{pick.label}</p>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              {pick.fields['vin'] ? <p>VIN : {pick.fields['vin']}</p> : null}
-              {pick.fields['mobile'] || pick.fields['phone'] ? (
-                <p>Tél : {pick.fields['mobile'] || pick.fields['phone']}</p>
+              {pick.fields["vin"] ? <p>VIN : {pick.fields["vin"]}</p> : null}
+              {pick.fields["mobile"] || pick.fields["phone"] ? (
+                <p>Tél : {pick.fields["mobile"] || pick.fields["phone"]}</p>
               ) : null}
-              {pick.fields['email'] ? <p>Email : {pick.fields['email']}</p> : null}
-              {pick.fields['mileage'] ? <p>Kilométrage : {pick.fields['mileage']} km</p> : null}
-              {pick.fields['first_registration'] ? <p>1re immat. : {pick.fields['first_registration']}</p> : null}
+              {pick.fields["email"] ? <p>Email : {pick.fields["email"]}</p> : null}
+              {pick.fields["mileage"] ? <p>Kilométrage : {pick.fields["mileage"]} km</p> : null}
+              {pick.fields["first_registration"] ? (
+                <p>1re immat. : {pick.fields["first_registration"]}</p>
+              ) : null}
             </div>
             <button
               onClick={() => void start({ prefill: pick })}
@@ -281,7 +295,9 @@ function Existing({
   if (!existing) return null;
   return (
     <section className="card-surface space-y-2 p-4">
-      <p className="text-sm font-extrabold uppercase">Une expertise est déjà ouverte pour ce véhicule</p>
+      <p className="text-sm font-extrabold uppercase">
+        Une expertise est déjà ouverte pour ce véhicule
+      </p>
       <p className="text-sm text-muted-foreground">{existing.plate ?? "—"}</p>
       <Link
         to="/expertise/$exId"

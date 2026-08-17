@@ -71,12 +71,18 @@ export function EntitySearch({
   }
 
   const empty =
-    res && !res.customers.length && !res.vehicles.length && !res.orders.length && term.trim().length >= 2;
+    res &&
+    !res.customers.length &&
+    !res.vehicles.length &&
+    !res.orders.length &&
+    term.trim().length >= 2;
 
   return (
     <div className="space-y-3">
       {label ? (
-        <span className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
       ) : null}
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -94,7 +100,10 @@ export function EntitySearch({
           />
         </div>
         {onDocument ? (
-          <DocIdentify onResult={onDocument} {...(onDocumentError ? { onError: onDocumentError } : {})} />
+          <DocIdentify
+            onResult={onDocument}
+            {...(onDocumentError ? { onError: onDocumentError } : {})}
+          />
         ) : null}
       </div>
 
@@ -115,7 +124,9 @@ export function EntitySearch({
 
       {res?.vehicles.length ? (
         <section className="space-y-2">
-          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Véhicules</h3>
+          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Véhicules
+          </h3>
           {res.vehicles.map((v) => (
             <button
               key={v.id}
@@ -124,7 +135,9 @@ export function EntitySearch({
               className="flex w-full items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-3 text-left active:scale-[0.99]"
             >
               <div className="min-w-0 flex-1">
-                <div className="truncate text-base font-extrabold">{v.registration_display ?? "—"}</div>
+                <div className="truncate text-base font-extrabold">
+                  {v.registration_display ?? "—"}
+                </div>
                 <div className="truncate text-xs text-muted-foreground">
                   {vehicleLabel(v)}
                   {v.customer ? ` · ${customerName(v.customer)}` : ""}
@@ -137,7 +150,9 @@ export function EntitySearch({
 
       {res?.customers.length ? (
         <section className="space-y-2">
-          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Clients</h3>
+          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Clients
+          </h3>
           {res.customers.map((c) => (
             <div key={c.id} className="rounded-xl border-2 border-border bg-card px-3 py-2">
               <div className="text-base font-bold">{customerName(c)}</div>
@@ -162,7 +177,9 @@ export function EntitySearch({
 
       {res?.orders.length ? (
         <section className="space-y-2">
-          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Ordres de réparation</h3>
+          <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Ordres de réparation
+          </h3>
           {res.orders.map((o) => (
             <button
               key={o.id}

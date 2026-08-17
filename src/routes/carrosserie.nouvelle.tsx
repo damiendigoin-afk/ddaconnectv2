@@ -16,9 +16,16 @@ export const Route = createFileRoute("/carrosserie/nouvelle")({
   head: () => ({
     meta: [
       { title: "Nouveau dossier carrosserie — DDA Connect" },
-      { name: "description", content: "Créer un dossier carrosserie à partir d'une immatriculation, d'un scan d'OR ou d'une saisie manuelle." },
+      {
+        name: "description",
+        content:
+          "Créer un dossier carrosserie à partir d'une immatriculation, d'un scan d'OR ou d'une saisie manuelle.",
+      },
       { property: "og:title", content: "Nouveau dossier carrosserie — DDA Connect" },
-      { property: "og:description", content: "Création rapide d'un dossier carrosserie depuis l'atelier." },
+      {
+        property: "og:description",
+        content: "Création rapide d'un dossier carrosserie depuis l'atelier.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -100,12 +107,15 @@ function NewCase() {
     if (e.customer_phone) setCustomerPhone((v) => v || e.customer_phone!);
     if (e.customer_email) setCustomerEmail((v) => v || e.customer_email!);
     if (e.vin) setVin((v) => v || e.vin!);
-    if (e.brand || e.model) setVehicleLabelText((v) => v || [e.brand, e.model].filter(Boolean).join(" "));
+    if (e.brand || e.model)
+      setVehicleLabelText((v) => v || [e.brand, e.model].filter(Boolean).join(" "));
     if (e.plate) {
       setPlate(formatPlate(e.plate));
       await applyPlate(e.plate);
     } else {
-      setMsg("Immatriculation non détectée : saisis-la à la main, le document reste joint au dossier.");
+      setMsg(
+        "Immatriculation non détectée : saisis-la à la main, le document reste joint au dossier.",
+      );
     }
   }
 
@@ -167,11 +177,20 @@ function NewCase() {
           </p>
         ) : null}
 
-        {msg ? <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">{msg}</p> : null}
-        {found ? <p className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-950">Trouvé en base : {found}</p> : null}
+        {msg ? (
+          <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">{msg}</p>
+        ) : null}
+        {found ? (
+          <p className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-950">
+            Trouvé en base : {found}
+          </p>
+        ) : null}
 
         <Field label="Immatriculation" value={plate} onChange={setPlate} placeholder="AA-123-BB" />
-        <button onClick={() => void applyPlate(plate)} className="w-full rounded-lg border-2 border-border py-2 text-sm font-bold">
+        <button
+          onClick={() => void applyPlate(plate)}
+          className="w-full rounded-lg border-2 border-border py-2 text-sm font-bold"
+        >
           Rechercher dans la base
         </button>
 
@@ -182,17 +201,41 @@ function NewCase() {
         <Field label="E-mail" value={customerEmail} onChange={setCustomerEmail} type="email" />
         <Field label="N° OR" value={orNumber} onChange={setOrNumber} />
 
-        <Select label="Origine de la mission" value={origin} onChange={setOrigin} options={MISSION_ORIGINS.map((o) => ({ key: o.key, label: o.label }))} allowEmpty={false} />
-        <Select label="Assurance" value={insurerId} onChange={setInsurerId} options={(insurers.data ?? []).map((i) => ({ key: i.id, label: i.name }))} />
-        <Select label="Agrément" value={agreementId} onChange={setAgreementId} options={(agreements.data ?? []).map((a) => ({ key: a.id, label: a.name }))} />
-        <Select label="Cabinet d'expertise" value={firmId} onChange={setFirmId} options={(firms.data ?? []).map((f) => ({ key: f.id, label: f.name }))} />
+        <Select
+          label="Origine de la mission"
+          value={origin}
+          onChange={setOrigin}
+          options={MISSION_ORIGINS.map((o) => ({ key: o.key, label: o.label }))}
+          allowEmpty={false}
+        />
+        <Select
+          label="Assurance"
+          value={insurerId}
+          onChange={setInsurerId}
+          options={(insurers.data ?? []).map((i) => ({ key: i.id, label: i.name }))}
+        />
+        <Select
+          label="Agrément"
+          value={agreementId}
+          onChange={setAgreementId}
+          options={(agreements.data ?? []).map((a) => ({ key: a.id, label: a.name }))}
+        />
+        <Select
+          label="Cabinet d'expertise"
+          value={firmId}
+          onChange={setFirmId}
+          options={(firms.data ?? []).map((f) => ({ key: f.id, label: f.name }))}
+        />
         <Select
           label="Expert"
           value={expertId}
           onChange={setExpertId}
           options={(experts.data ?? [])
             .filter((e) => !firmId || e.firm_id === firmId)
-            .map((e) => ({ key: e.id, label: [e.first_name, e.last_name].filter(Boolean).join(" ") }))}
+            .map((e) => ({
+              key: e.id,
+              label: [e.first_name, e.last_name].filter(Boolean).join(" "),
+            }))}
         />
         <Field label="N° de sinistre" value={claim} onChange={setClaim} />
         <Select

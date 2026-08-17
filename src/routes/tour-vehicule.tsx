@@ -164,9 +164,7 @@ function ModuleHome() {
           </Link>
           <div>
             <h1 className="text-xl font-extrabold uppercase tracking-tight">Tour Véhicule</h1>
-            <p className="text-xs font-medium tracking-widest text-muted-foreground">
-              DDA Connect
-            </p>
+            <p className="text-xs font-medium tracking-widest text-muted-foreground">DDA Connect</p>
           </div>
         </div>
       </header>
@@ -183,42 +181,46 @@ function ModuleHome() {
           <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
         </div>
 
-        <EntitySearch onPick={onPick} onDocument={onDocument} onDocumentError={(m) => toast.error(m)} />
+        <EntitySearch
+          onPick={onPick}
+          onDocument={onDocument}
+          onDocumentError={(m) => toast.error(m)}
+        />
 
         <>
-            {/* Mobile : sélecteur simple entre les deux listes */}
-            <div className="lg:hidden">
-              <div className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
-                <button
-                  onClick={() => setTab("tours")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "tours" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-                >
-                  Clôturés
-                </button>
-                <button
-                  onClick={() => setTab("drafts")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "drafts" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-                >
-                  Brouillons
-                </button>
-                <button
-                  onClick={() => setTab("ors")}
-                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "ors" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-                >
-                  OR récents
-                </button>
-              </div>
-              {tab === "tours" ? toursCol : tab === "drafts" ? draftsCol : ordersCol}
+          {/* Mobile : sélecteur simple entre les deux listes */}
+          <div className="lg:hidden">
+            <div className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
+              <button
+                onClick={() => setTab("tours")}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "tours" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+              >
+                Clôturés
+              </button>
+              <button
+                onClick={() => setTab("drafts")}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "drafts" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+              >
+                Brouillons
+              </button>
+              <button
+                onClick={() => setTab("ors")}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "ors" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+              >
+                OR récents
+              </button>
             </div>
+            {tab === "tours" ? toursCol : tab === "drafts" ? draftsCol : ordersCol}
+          </div>
 
-            {/* Desktop / tablette large : deux colonnes */}
-            <div className="hidden gap-6 lg:grid lg:grid-cols-2 lg:items-start">
-              <div className="space-y-6">
-                {toursCol}
-                {draftsCol}
-              </div>
-              {ordersCol}
+          {/* Desktop / tablette large : deux colonnes */}
+          <div className="hidden gap-6 lg:grid lg:grid-cols-2 lg:items-start">
+            <div className="space-y-6">
+              {toursCol}
+              {draftsCol}
             </div>
+            {ordersCol}
+          </div>
         </>
       </main>
     </div>
