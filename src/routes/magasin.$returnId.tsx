@@ -11,7 +11,7 @@ import { analyzeReturnBatchFn } from "@/lib/bodyshop-ai.functions";
 import { sendModuleEmailFn } from "@/lib/module-email.functions";
 import { BUCKET, compressImage } from "@/lib/photo";
 import { formatPlate, normalizePlate } from "@/lib/plate";
-import { listSuppliers } from "@/lib/referentials";
+import { listSuppliers, partsEmailFor } from "@/lib/suppliers";
 import { refPrefill } from "@/lib/refbase";
 import { deadlineFrom, getReturn, refreshReturnCredit, RETURN_STATUSES, returnStatusLabel, returnStatusTone } from "@/lib/returns";
 
@@ -165,7 +165,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
         .update({ status: "demande_creee", deadline_date: deadlineFrom(supplier?.max_return_days) })
         .eq("id", returnId);
 
-      const to = supplier?.returns_email || supplier?.email;
+      const to = await partsEmailFor(supplier?.id, supplier);
       if (to) {
         const res = await sendModuleEmailFn({
           data: {
@@ -193,7 +193,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
       .from("part_returns")
       .update({ status: "expedie", carrier: carrier || null, tracking_number: tracking || null, shipment_note: note || null, shipped_at: new Date().toISOString() })
       .eq("id", returnId);
-    const to = supplier?.returns_email || supplier?.email;
+    const to = await partsEmailFor(supplier?.id, supplier);
     if (to) {
       await sendModuleEmailFn({
         data: {
@@ -218,7 +218,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
   }
 
   async function remind() {
-    const to = supplier?.returns_email || supplier?.email;
+    const to = await partsEmailFor(supplier?.id, supplier);
     if (!to) {
       setMsg("Aucune adresse fournisseur.");
       return;
