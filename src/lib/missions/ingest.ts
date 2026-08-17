@@ -1,7 +1,14 @@
 /** Import tolérant aux erreurs du fichier « SUIVI MISSIONS CARROSSERIE ».
  *  Une ligne en erreur n'interrompt jamais les suivantes. */
 import { supabase } from "@/integrations/supabase/client";
-import { buildHeaderIndex, mapMissionRow, type MissionFix, type MissionMapped, type RawRow } from "./mapping";
+import {
+  buildHeaderIndex,
+  diagnoseHeaders,
+  mapMissionRow,
+  type MissionFix,
+  type MissionMapped,
+  type RawRow,
+} from "./mapping";
 
 export type MissionCounters = {
   imported: number;
@@ -67,6 +74,43 @@ const FIELD_LABELS: Record<string, string> = {
 
 function toIso(d: string | null): string | null {
   return d ? new Date(`${d}T08:00:00Z`).toISOString() : null;
+}
+
+/** Retrouve le véhicule du référentiel par immatriculation normalisée, sinon le crée. */
+async function ensureRefVehicle(m: MissionMapped, siteId: string | null): Promise<string | null> {
+  if (!m.plateNormalized) return null;
+  try {
+    const { data: found } = await supabase
+      .from("ref_vehicles")
+      .select("id, registration_display")
+      .eq("registration_normalized", m.plateNormalized)
+      .limit(1);
+    const existing = found?.[0];
+    if (existing) {
+      if (!existing.registration_display && m.plateSource) {
+        await supabase.from("ref_vehicles").update({ registration_display: m.plateSource }).eq("id", existing.id);
+      }
+      return existing.id as string;
+    }
+    const { data: created, error } = await supabase
+      .from("ref_vehicles")
+      .insert({
+        site_id: siteId,
+        source_system: "suivi_missions",
+        registration_display: m.plateSource || m.plate,
+        registration_normalized: m.plateNormalized,
+        vin: m.vin || null,
+        vin_normalized: m.vin || null,
+        model: m.vehicleLabel || null,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return (created?.id as string) ?? null;
+  } catch {
+    // Le référentiel ne doit jamais bloquer la création du dossier.
+    return null;
+  }
 }
 
 /** Valeurs candidates issues du fichier pour un dossier. */
@@ -164,6 +208,16 @@ export async function ingestMissions(
   if (impErr || !imp) throw impErr ?? new Error("Import impossible");
 
   const index = buildHeaderIndex(headers);
+  const diagnostic = diagnoseHeaders(headers, rows);
+  console.info("[Import Suivi Missions] colonnes reçues :", headers);
+  console.info(
+    `[Import Suivi Missions] colonne immatriculation : ${diagnostic.plateColumn ?? "AUCUNE"} (${diagnostic.plateDetection})`,
+  );
+  for (const s of diagnostic.samples) {
+    console.info(
+      `[Import Suivi Missions] ligne ${s.row} — source "${s.source}" · trim "${s.trimmed}" · normalisée "${s.normalized}"`,
+    );
+  }
   const counters: MissionCounters = { imported: 0, updated: 0, toFix: 0, duplicates: 0, skipped: 0 };
   const conflicts: MissionConflict[] = [];
   const errorRows: MissionErrorRow[] = [];
@@ -185,9 +239,15 @@ export async function ingestMissions(
       }
       if (key) seen.add(key);
 
+      if (i < 3) {
+        console.info(
+          `[Import Suivi Missions] ligne ${rowNumber} — enregistrée "${mapped.plateNormalized}" (source "${mapped.plateSource}")`,
+        );
+      }
       const existing = await findExistingCase(mapped);
       const patch = filePatch(mapped);
       const refs = await resolveReferentials(mapped);
+      const refVehicleId = await ensureRefVehicle(mapped, siteId);
 
       if (existing) {
         const update: Record<string, unknown> = {};
@@ -214,6 +274,7 @@ export async function ingestMissions(
           }
         }
         for (const [k, v] of Object.entries(refs)) if (v && !(existing as Record<string, unknown>)[k]) update[k] = v;
+        if (refVehicleId && !(existing as Record<string, unknown>)["ref_vehicle_id"]) update["ref_vehicle_id"] = refVehicleId;
         if (Object.keys(update).length) {
           const { error } = await supabase
             .from("bodyshop_cases")
@@ -227,6 +288,7 @@ export async function ingestMissions(
         const { error } = await supabase.from("bodyshop_cases").insert({
           site_id: siteId,
           plate: mapped.plateNormalized,
+          ref_vehicle_id: refVehicleId,
           mission_date: mapped.missionDate ?? new Date().toISOString().slice(0, 10),
           mission_origin: "import_suivi",
           physical_state: mapped.physicalState,
