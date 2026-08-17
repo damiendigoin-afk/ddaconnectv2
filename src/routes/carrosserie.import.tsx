@@ -7,7 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { Counter } from "@/components/bits";
 import { useAuth } from "@/lib/auth";
 import { parseFile } from "@/lib/winmotor/parse";
-import { buildHeaderIndex, mapMissionRow, type RawRow } from "@/lib/missions/mapping";
+import { buildHeaderIndex, mapMissionRow, type MissionFix, type RawRow } from "@/lib/missions/mapping";
 import {
   applyConflict,
   ingestMissions,
@@ -34,13 +34,15 @@ export const Route = createFileRoute("/carrosserie/import")({
   component: ImportMissions,
 });
 
+type Problem = { index: number; row: number; errors: string[]; fix: MissionFix };
+
 type Preview = {
   fileName: string;
   headers: string[];
   rows: RawRow[];
   ok: number;
   toFix: number;
-  samples: { row: number; errors: string[] }[];
+  problems: Problem[];
 };
 
 function ImportMissions() {
@@ -51,6 +53,7 @@ function ImportMissions() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<MissionIngestResult | null>(null);
+  const [fixes, setFixes] = useState<Record<number, MissionFix>>({});
 
   if (!isManager) {
     return (
@@ -67,17 +70,28 @@ function ImportMissions() {
       const parsed = await parseFile(f);
       const index = buildHeaderIndex(parsed.headers);
       let ok = 0;
-      let toFix = 0;
-      const samples: { row: number; errors: string[] }[] = [];
+      const problems: Problem[] = [];
       parsed.rows.forEach((r, i) => {
         const m = mapMissionRow(r as RawRow, index);
         if (m.errors.length) {
-          toFix++;
-          if (samples.length < 15) samples.push({ row: i + 2, errors: m.errors });
+          problems.push({
+            index: i,
+            row: i + 2,
+            errors: m.errors,
+            fix: { plate: m.plate, missionDate: m.missionDate ?? "", customerName: m.customerName },
+          });
         } else ok++;
       });
+      setFixes({});
       setFile(f);
-      setPreview({ fileName: f.name, headers: parsed.headers, rows: parsed.rows as RawRow[], ok, toFix, samples });
+      setPreview({
+        fileName: f.name,
+        headers: parsed.headers,
+        rows: parsed.rows as RawRow[],
+        ok,
+        toFix: problems.length,
+        problems,
+      });
     } catch (e) {
       console.error(e);
       toast.error("Fichier illisible. Formats acceptés : .xlsx, .xls, .csv");
@@ -97,6 +111,7 @@ function ImportMissions() {
         preview.rows,
         profile?.site_id ?? null,
         (done, total) => setProgress(Math.round((done / total) * 100)),
+        fixes,
       );
       setResult(res);
       toast.success(`${res.counters.imported} créés · ${res.counters.updated} mis à jour`);
