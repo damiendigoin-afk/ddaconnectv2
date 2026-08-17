@@ -39,7 +39,7 @@ const MAX = 5;
 function ModuleHome() {
   const navigate = useNavigate();
   const { vehicle_id: vehicleIdParam } = Route.useSearch();
-  const [tab, setTab] = useState<"tours" | "ors">("tours");
+  const [tab, setTab] = useState<"tours" | "drafts" | "ors">("tours");
 
   // Le véhicule choisi sur une fiche suit l'utilisateur : aucune ressaisie.
   useEffect(() => {
@@ -182,12 +182,18 @@ function ModuleHome() {
         <>
             {/* Mobile : sélecteur simple entre les deux listes */}
             <div className="lg:hidden">
-              <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
+              <div className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
                 <button
                   onClick={() => setTab("tours")}
                   className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "tours" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
                 >
-                  Tours récents
+                  Clôturés
+                </button>
+                <button
+                  onClick={() => setTab("drafts")}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "drafts" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+                >
+                  Brouillons
                 </button>
                 <button
                   onClick={() => setTab("ors")}
@@ -196,12 +202,15 @@ function ModuleHome() {
                   OR récents
                 </button>
               </div>
-              {tab === "tours" ? toursCol : ordersCol}
+              {tab === "tours" ? toursCol : tab === "drafts" ? draftsCol : ordersCol}
             </div>
 
             {/* Desktop / tablette large : deux colonnes */}
             <div className="hidden gap-6 lg:grid lg:grid-cols-2 lg:items-start">
-              {toursCol}
+              <div className="space-y-6">
+                {toursCol}
+                {draftsCol}
+              </div>
               {ordersCol}
             </div>
         </>
