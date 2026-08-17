@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Plus, ScanLine } from "lucide-react";
+import { ChevronLeft, Plus } from "lucide-react";
+import { toast } from "sonner";
 
+import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
 import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { OrCard } from "@/components/OrCard";
 import { TourRow } from "@/components/RecentTours";
@@ -69,6 +71,15 @@ function ModuleHome() {
       return;
     }
     navigate({ to: "/or/nouveau", search: { plate: pick.fields["plate"] ?? "" } });
+  }
+
+  /** Identification unique par document : plaque, carte grise, OR, avis de sinistre… */
+  function onDocument(r: DocIdentifyResult) {
+    const plate = r.prefill?.fields["plate"] ?? r.extracted.plate ?? "";
+    if (!plate) {
+      toast.error("Aucune immatriculation lue sur ce document : saisis-la dans le nouvel OR.");
+    }
+    navigate({ to: "/or/nouveau", search: { plate } });
   }
 
   const orders = (recent.data ?? []).slice(0, MAX);
@@ -169,15 +180,10 @@ function ModuleHome() {
           >
             <Plus className="h-6 w-6" /> Nouvel OR
           </Link>
-          <Link
-            to="/scan-plaque"
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-primary bg-card px-4 py-4 text-base font-bold uppercase tracking-wide"
-          >
-            <ScanLine className="h-5 w-5" /> Scanner une plaque
-          </Link>
+          <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
         </div>
 
-        <EntitySearch onPick={onPick} />
+        <EntitySearch onPick={onPick} onDocument={onDocument} onDocumentError={(m) => toast.error(m)} />
 
         <>
             {/* Mobile : sélecteur simple entre les deux listes */}
