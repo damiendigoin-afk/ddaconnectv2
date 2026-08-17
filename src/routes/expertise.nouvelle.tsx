@@ -221,6 +221,10 @@ function NewExpertise() {
   return (
     <AppShell title="Nouvelle expertise" subtitle="Identification du véhicule" back={{ to: "/expertises" }}>
       <div className="space-y-4">
+        <Problem problem={problem} />
+        <Existing existing={existing} onNew={() => void create({ prefill: pick })} />
+
+        {pick ? null : (
         <EntitySearch
           label="Client ou véhicule"
           placeholder="Immat, nom, téléphone, VIN, n° OR…"
@@ -234,10 +238,11 @@ function NewExpertise() {
           scanning={scanning}
           autoFocus
         />
+        )}
 
         {pick ? (
           <section className="card-surface space-y-2 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sélection</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Véhicule sélectionné</p>
             <p className="text-base font-extrabold">{pick.label}</p>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-muted-foreground">
               {pick.fields['vin'] ? <p>VIN : {pick.fields['vin']}</p> : null}
@@ -249,15 +254,70 @@ function NewExpertise() {
               {pick.fields['first_registration'] ? <p>1re immat. : {pick.fields['first_registration']}</p> : null}
             </div>
             <button
-              onClick={() => void startFromPick(pick)}
+              onClick={() => void start({ prefill: pick })}
               disabled={busy}
               className="mt-2 w-full rounded-xl bg-brand px-4 py-4 text-base font-extrabold uppercase text-brand-foreground disabled:opacity-60"
             >
               {busy ? "Création…" : "Démarrer l'expertise"}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPick(null);
+                setExisting(null);
+                setProblem(null);
+              }}
+              className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold uppercase"
+            >
+              Changer de véhicule
+            </button>
           </section>
         ) : null}
       </div>
     </AppShell>
+  );
+}
+
+/** Message d'erreur explicite : ce qui bloque, pourquoi, comment corriger. */
+export function Problem({ problem }: { problem: Explained | null }) {
+  if (!problem) return null;
+  return (
+    <section className="rounded-xl border-2 border-destructive/60 bg-destructive/10 p-4">
+      <p className="flex items-center gap-2 text-sm font-extrabold uppercase text-destructive">
+        <AlertTriangle className="h-4 w-4" /> {problem.what}
+      </p>
+      <p className="mt-1 text-sm">{problem.why}</p>
+      <p className="mt-1 text-sm font-bold">→ {problem.how}</p>
+    </section>
+  );
+}
+
+function Existing({
+  existing,
+  onNew,
+}: {
+  existing: { id: string; plate: string | null } | null;
+  onNew: () => void;
+}) {
+  if (!existing) return null;
+  return (
+    <section className="card-surface space-y-2 p-4">
+      <p className="text-sm font-extrabold uppercase">Une expertise est déjà ouverte pour ce véhicule</p>
+      <p className="text-sm text-muted-foreground">{existing.plate ?? "—"}</p>
+      <Link
+        to="/expertise/$exId"
+        params={{ exId: existing.id }}
+        className="block w-full rounded-xl bg-brand px-4 py-3 text-center text-sm font-extrabold uppercase text-brand-foreground"
+      >
+        Ouvrir l'expertise existante
+      </Link>
+      <button
+        type="button"
+        onClick={onNew}
+        className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold uppercase"
+      >
+        Créer une nouvelle expertise
+      </button>
+    </section>
   );
 }
