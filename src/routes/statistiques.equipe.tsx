@@ -4,15 +4,21 @@ import { useMemo, useState } from "react";
 import { FileText, Upload } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { PeriodPicker } from "@/components/PeriodPicker";
 import { useAuth } from "@/lib/auth";
 import { fetchModuleAccess } from "@/lib/access";
 import {
-  fetchEntriesForPeriod,
+  aggregate,
+  defaultRange,
+  fetchEntriesInRange,
   fetchImports,
+  groupByOperator,
   hours,
   openReportFile,
   pct,
   periodLabel,
+  rangeLabel,
+  type PeriodRange,
 } from "@/lib/stats";
 
 export const Route = createFileRoute("/statistiques/equipe")({
@@ -37,14 +43,12 @@ function TeamStats() {
   const uid = user?.id ?? "";
   const access = useQuery({ queryKey: ["access", uid], queryFn: () => fetchModuleAccess(uid), enabled: !!uid });
   const imports = useQuery({ queryKey: ["prod-imports"], queryFn: fetchImports });
-  const [period, setPeriod] = useState("");
+  const [range, setRange] = useState<PeriodRange>(() => defaultRange());
 
   const active = (imports.data ?? []).filter((i) => i.status === "active");
-  const currentPeriod = period || active[0]?.period_start || "";
   const entries = useQuery({
-    queryKey: ["prod-period", currentPeriod],
-    queryFn: () => fetchEntriesForPeriod(currentPeriod),
-    enabled: !!currentPeriod,
+    queryKey: ["prod-range", range.start, range.end],
+    queryFn: () => fetchEntriesInRange(range),
   });
 
   const rows = useMemo(
