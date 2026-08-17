@@ -95,6 +95,28 @@ export function PointCard({
           void persist({ status: v });
         }}
       />
+      {def?.quickDefects && (status === "watch" || status === "defect") ? (
+        <div className="flex flex-wrap gap-2">
+          {def.quickDefects.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => {
+                const next = comment.includes(d)
+                  ? comment
+                  : [comment.trim(), d].filter(Boolean).join(" · ");
+                setComment(next);
+                void persist({ comment: next });
+              }}
+              className={`rounded-full border-2 px-3 py-2 text-xs font-bold ${
+                comment.includes(d) ? "border-brand bg-brand/10" : "border-border bg-card"
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {def?.measure ? (
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground">{def.measure.label}</span>
