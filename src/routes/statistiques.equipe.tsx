@@ -51,15 +51,8 @@ function TeamStats() {
     queryFn: () => fetchEntriesInRange(range),
   });
 
-  const rows = useMemo(
-    () => [...(entries.data ?? [])].sort((a, b) => (b.productivity_ratio ?? 0) - (a.productivity_ratio ?? 0)),
-    [entries.data],
-  );
-  const totals = useMemo(() => {
-    const s = (f: (r: (typeof rows)[number]) => number | null) =>
-      rows.reduce((a, r) => a + (f(r) ?? 0), 0) || null;
-    return { purchased: s((r) => r.hours_purchased), spent: s((r) => r.hours_spent), billed: s((r) => r.hours_billed) };
-  }, [rows]);
+  const rows = useMemo(() => groupByOperator(entries.data ?? []), [entries.data]);
+  const totals = useMemo(() => aggregate(entries.data ?? []), [entries.data]);
 
   const allowed = isManager || access.data?.has("stats_equipe");
   if (!allowed) {
@@ -73,27 +66,11 @@ function TeamStats() {
     );
   }
 
-  const periods = Array.from(new Set(active.map((i) => i.period_start)));
-
   return (
     <AppShell title="Statistiques équipe" subtitle="Productivité atelier" back={{ to: "/statistiques" }}>
       <div className="space-y-4">
-        {periods.length ? (
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-muted-foreground">Période</span>
-            <select
-              value={currentPeriod}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="w-full rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold"
-            >
-              {periods.map((p) => (
-                <option key={p} value={p}>
-                  {periodLabel(p)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
+        <PeriodPicker value={range} onChange={setRange} />
+        {active.length ? null : (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             Aucun rapport de productivité importé pour l'instant.
           </p>
@@ -101,6 +78,9 @@ function TeamStats() {
 
         {rows.length ? (
           <div className="card-surface space-y-2 p-4">
+            <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              {rangeLabel(range)}
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <Kpi label="H achetées" value={hours(totals.purchased)} />
               <Kpi label="H passées" value={hours(totals.spent)} />
@@ -118,18 +98,18 @@ function TeamStats() {
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.id} className="border-t border-border">
+                    <tr key={r.name} className="border-t border-border">
                       <td className="py-2">
-                        <span className="font-bold">{r.winmotor_name}</span>
-                        {!r.user_id ? (
+                        <span className="font-bold">{r.name}</span>
+                        {!r.userId ? (
                           <span className="ml-2 rounded px-1 text-[10px] font-bold uppercase text-status-watch">
                             non rattaché
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 text-right font-bold">{pct(r.productivity_ratio)}</td>
-                      <td className="py-2 text-right">{pct(r.profitability_ratio)}</td>
-                      <td className="py-2 text-right">{hours(r.hours_billed)}</td>
+                      <td className="py-2 text-right font-bold">{pct(r.agg.productivity)}</td>
+                      <td className="py-2 text-right">{pct(r.agg.profitability)}</td>
+                      <td className="py-2 text-right">{hours(r.agg.billed)}</td>
                     </tr>
                   ))}
                 </tbody>
