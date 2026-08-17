@@ -161,18 +161,24 @@ function ImportMissions() {
             </p>
           </section>
 
-          {preview.samples.length ? (
-            <section className="card-surface p-4">
+          {preview.problems.length ? (
+            <section className="card-surface space-y-3 p-4">
               <h3 className="flex items-center gap-2 text-sm font-extrabold uppercase">
-                <AlertTriangle className="h-4 w-4 text-amber-600" /> Aperçu des anomalies
+                <AlertTriangle className="h-4 w-4 text-amber-600" /> Informations à compléter
               </h3>
-              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                {preview.samples.map((s) => (
-                  <li key={s.row}>
-                    Ligne {s.row} — {s.errors.join(", ")}
-                  </li>
-                ))}
-              </ul>
+              <p className="text-xs text-muted-foreground">
+                Corrigez ici ce qui manque (immatriculation, date de mission, client) puis validez : rien n'est à
+                recommencer.
+              </p>
+              {preview.problems.map((p) => (
+                <FixForm
+                  key={p.index}
+                  errors={p.errors}
+                  rowNumber={p.row}
+                  value={fixes[p.index] ?? p.fix}
+                  onChange={(v) => setFixes((prev) => ({ ...prev, [p.index]: v }))}
+                />
+              ))}
             </section>
           ) : null}
 
@@ -197,7 +203,7 @@ function ImportMissions() {
               disabled={busy}
               className="rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-60"
             >
-              {busy ? `Import ${progress}%` : "Lancer l'import"}
+              {busy ? `Import ${progress}%` : preview.problems.length ? "Valider et importer" : "Lancer l'import"}
             </button>
           </div>
         </div>
@@ -206,6 +212,19 @@ function ImportMissions() {
       {result ? (
         <ResultView
           result={result}
+          onRetry={async (rows, rowFixes) => {
+            if (!preview || !file) return;
+            const res = await ingestMissions(
+              { name: `${file.name} (corrections)`, size: file.size },
+              preview.headers,
+              rows,
+              profile?.site_id ?? null,
+              undefined,
+              rowFixes,
+            );
+            setResult(res);
+            toast.success(`${res.counters.imported} créés · ${res.counters.updated} mis à jour`);
+          }}
           onDone={() => void navigate({ to: "/carrosserie" })}
         />
       ) : null}
@@ -213,7 +232,15 @@ function ImportMissions() {
   );
 }
 
-function ResultView({ result, onDone }: { result: MissionIngestResult; onDone: () => void }) {
+function ResultView({
+  result,
+  onDone,
+  onRetry,
+}: {
+  result: MissionIngestResult;
+  onDone: () => void;
+  onRetry: (rows: RawRow[], fixes: Record<number, MissionFix>) => Promise<void>;
+}) {
   const [conflicts, setConflicts] = useState<MissionConflict[]>(result.conflicts);
 
   async function keepFile(c: MissionConflict) {
@@ -269,9 +296,7 @@ function ResultView({ result, onDone }: { result: MissionIngestResult; onDone: (
         </section>
       ) : null}
 
-      {result.errorRows.length ? (
-        <ErrorRows rows={result.errorRows} />
-      ) : null}
+      {result.errorRows.length ? <ErrorRows rows={result.errorRows} onRetry={onRetry} /> : null}
 
       <button
         onClick={onDone}
@@ -283,26 +308,104 @@ function ResultView({ result, onDone }: { result: MissionIngestResult; onDone: (
   );
 }
 
-function ErrorRows({ rows }: { rows: MissionErrorRow[] }) {
+function FixForm({
+  rowNumber,
+  errors,
+  value,
+  onChange,
+}: {
+  rowNumber: number;
+  errors: string[];
+  value: MissionFix;
+  onChange: (v: MissionFix) => void;
+}) {
+  return (
+    <div className="rounded-xl border-2 border-border p-3">
+      <div className="text-xs font-bold uppercase text-muted-foreground">Ligne {rowNumber}</div>
+      <ul className="mt-1 space-y-0.5 text-xs text-amber-700">
+        {errors.map((e, i) => (
+          <li key={i}>⚠ {e}</li>
+        ))}
+      </ul>
+      <div className="mt-2 space-y-2">
+        <label className="block">
+          <span className="text-[11px] font-bold uppercase text-muted-foreground">Immatriculation</span>
+          <input
+            value={value.plate ?? ""}
+            onChange={(e) => onChange({ ...value, plate: e.target.value.toUpperCase() })}
+            placeholder="AB-123-CD"
+            className="w-full rounded-lg border-2 border-border bg-card px-3 py-2 text-sm font-bold uppercase"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-bold uppercase text-muted-foreground">Date de mission</span>
+          <input
+            type="date"
+            value={value.missionDate ?? ""}
+            onChange={(e) => onChange({ ...value, missionDate: e.target.value })}
+            className="w-full rounded-lg border-2 border-border bg-card px-3 py-2 text-sm font-bold"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-bold uppercase text-muted-foreground">Client</span>
+          <input
+            value={value.customerName ?? ""}
+            onChange={(e) => onChange({ ...value, customerName: e.target.value })}
+            className="w-full rounded-lg border-2 border-border bg-card px-3 py-2 text-sm"
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function ErrorRows({
+  rows,
+  onRetry,
+}: {
+  rows: MissionErrorRow[];
+  onRetry: (rows: RawRow[], fixes: Record<number, MissionFix>) => Promise<void>;
+}) {
+  const [fixes, setFixes] = useState<Record<number, MissionFix>>(
+    Object.fromEntries(rows.map((r, i) => [i, r.fix])),
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function retry() {
+    setBusy(true);
+    try {
+      await onRetry(rows.map((r) => r.raw), fixes);
+    } catch (e) {
+      console.error(e);
+      toast.error("Réimport impossible. Vérifiez les informations saisies.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="space-y-2">
       <h3 className="px-1 text-sm font-extrabold uppercase">Lignes à corriger ({rows.length})</h3>
-      {rows.map((r) => (
+      {rows.map((r, i) => (
         <div key={`${r.rowNumber}-${r.id}`} className="card-surface p-4">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-bold">Ligne {r.rowNumber}</span>
-            <span className="truncate text-xs text-muted-foreground">{r.identity}</span>
-          </div>
-          <ul className="mt-1 space-y-0.5 text-xs text-red-700">
-            {r.errors.map((e, i) => (
-              <li key={i}>⛔ {e}</li>
-            ))}
-          </ul>
+          <div className="mb-1 truncate text-xs text-muted-foreground">{r.identity}</div>
+          <FixForm
+            rowNumber={r.rowNumber}
+            errors={r.errors}
+            value={fixes[i] ?? r.fix}
+            onChange={(v) => setFixes((prev) => ({ ...prev, [i]: v }))}
+          />
         </div>
       ))}
+      <button
+        onClick={() => void retry()}
+        disabled={busy}
+        className="w-full rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-60"
+      >
+        {busy ? "Import…" : "Valider et importer"}
+      </button>
       <p className="px-1 text-xs text-muted-foreground">
-        Ces lignes sont conservées dans l'historique d'import : corrigez le fichier source puis relancez un import,
-        les dossiers déjà créés seront simplement mis à jour.
+        Les dossiers déjà créés seront simplement mis à jour : aucun doublon.
       </p>
     </section>
   );
