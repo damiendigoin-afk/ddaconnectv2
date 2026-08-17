@@ -388,3 +388,81 @@ export function durationLabel(seconds: number | null): string {
   const s = seconds % 60;
   return m ? `${m} min ${String(s).padStart(2, "0")} s` : `${s} s`;
 }
+
+/* ------------------------------------------- périodes multi-mois (v2.7) */
+
+export type PeriodRange = { start: string; end: string };
+
+export function addMonths(startIso: string, delta: number): string {
+  const d = new Date(`${startIso}T00:00:00`);
+  return monthKey(new Date(d.getFullYear(), d.getMonth() + delta, 1));
+}
+
+/** Dernier mois complet : en août, juillet. */
+export function lastCompleteMonth(now = new Date()): string {
+  return monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+}
+
+export function defaultRange(now = new Date()): PeriodRange {
+  const m = lastCompleteMonth(now);
+  return { start: m, end: m };
+}
+
+export function rangeLabel(range: PeriodRange): string {
+  return periodLabel(range.start, endOfMonth(range.end));
+}
+
+/** Liste de mois du plus récent au plus ancien, pour le sélecteur. */
+export function monthOptions(count = 36, now = new Date()): string[] {
+  const first = monthKey(new Date(now.getFullYear(), now.getMonth(), 1));
+  return Array.from({ length: count }, (_, i) => addMonths(first, -i));
+}
+
+export async function fetchEntriesInRange(range: PeriodRange, userId?: string): Promise<ProdEntry[]> {
+  let q = supabase
+    .from("productivity_entries")
+    .select("*")
+    .gte("period_start", range.start)
+    .lte("period_start", range.end);
+  if (userId) q = q.eq("user_id", userId);
+  const { data, error } = await q.order("period_start", { ascending: false }).order("winmotor_name");
+  if (error) throw error;
+  return (data ?? []) as ProdEntry[];
+}
+
+export type Aggregate = {
+  purchased: number | null;
+  spent: number | null;
+  billed: number | null;
+  productivity: number | null;
+  profitability: number | null;
+  months: number;
+};
+
+/** Agrégation d'une période : les ratios sont recalculés sur les totaux, jamais moyennés. */
+export function aggregate(entries: ProdEntry[]): Aggregate {
+  const purchased = sum(entries.map((e) => e.hours_purchased));
+  const spent = sum(entries.map((e) => e.hours_spent));
+  const billed = sum(entries.map((e) => e.hours_billed));
+  return {
+    purchased,
+    spent,
+    billed,
+    productivity: billed !== null && purchased ? billed / purchased : null,
+    profitability: billed !== null && spent ? billed / spent : null,
+    months: new Set(entries.map((e) => e.period_start)).size,
+  };
+}
+
+/** Regroupe par productif (utile pour la vue équipe agrégée). */
+export function groupByOperator(entries: ProdEntry[]): { name: string; userId: string | null; agg: Aggregate }[] {
+  const map = new Map<string, ProdEntry[]>();
+  for (const e of entries) {
+    const list = map.get(e.winmotor_name) ?? [];
+    list.push(e);
+    map.set(e.winmotor_name, list);
+  }
+  return [...map.entries()]
+    .map(([name, list]) => ({ name, userId: list.find((l) => l.user_id)?.user_id ?? null, agg: aggregate(list) }))
+    .sort((a, b) => (b.agg.productivity ?? 0) - (a.agg.productivity ?? 0));
+}
