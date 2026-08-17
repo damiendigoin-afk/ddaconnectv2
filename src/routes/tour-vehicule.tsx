@@ -1,14 +1,19 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, Plus, ScanLine } from "lucide-react";
 
 import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { OrCard } from "@/components/OrCard";
 import { TourRow } from "@/components/RecentTours";
 import { fetchRecentOrders, fetchRecentTours } from "@/lib/queries";
+import { refPrefillByVehicle } from "@/lib/refbase";
 
 export const Route = createFileRoute("/tour-vehicule")({
+  validateSearch: (search: Record<string, unknown>): { vehicle_id?: string } =>
+    typeof search["vehicle_id"] === "string" && search["vehicle_id"]
+      ? { vehicle_id: search["vehicle_id"] as string }
+      : {},
   head: () => ({
     meta: [
       { title: "Tour Véhicule — DDA Connect" },
@@ -33,7 +38,21 @@ const MAX = 5;
 
 function ModuleHome() {
   const navigate = useNavigate();
+  const { vehicle_id: vehicleIdParam } = Route.useSearch();
   const [tab, setTab] = useState<"tours" | "ors">("tours");
+
+  // Le véhicule choisi sur une fiche suit l'utilisateur : aucune ressaisie.
+  useEffect(() => {
+    if (!vehicleIdParam) return;
+    let alive = true;
+    void refPrefillByVehicle(vehicleIdParam).then((p) => {
+      if (!alive || !p) return;
+      navigate({ to: "/or/nouveau", search: { plate: p.fields["plate"] ?? "" } });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [vehicleIdParam, navigate]);
   const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
   const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(MAX) });
 
