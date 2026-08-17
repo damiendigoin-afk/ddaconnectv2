@@ -34,7 +34,7 @@ export const CONDITIONS = [
 export type PhotoStep = {
   key: string;
   label: string;
-  category: "exterieur" | "interieur";
+  category: "exterieur" | "interieur" | "pneumatiques";
   required: boolean;
   /** Indication de cadrage affichée avec la silhouette. */
   hint: string;
@@ -53,6 +53,9 @@ export type BurstMaskKind =
   | "front-right"
   | "interior"
   | "odometer"
+  | "wheel"
+  | "tread"
+  | "plate"
   | "document"
   | "free";
 
@@ -82,6 +85,18 @@ export const INTERIOR_STEPS_VU: PhotoStep[] = [
   { key: "portes_arriere", label: "Portes arrière", category: "interieur", required: false, hint: "Portes ouvertes", mask: "interior" },
 ];
 
+/** Pneumatiques : jante + bande de roulement pour chacune des 4 roues. */
+export const TIRE_STEPS: PhotoStep[] = [
+  { key: "roue_avant_gauche", label: "Roue avant gauche", category: "pneumatiques", required: true, hint: "Roue entière, de profil", mask: "wheel" },
+  { key: "gomme_avant_gauche", label: "Gomme avant gauche", category: "pneumatiques", required: true, hint: "Bande de roulement, au plus près", mask: "tread" },
+  { key: "roue_avant_droite", label: "Roue avant droite", category: "pneumatiques", required: true, hint: "Roue entière, de profil", mask: "wheel" },
+  { key: "gomme_avant_droite", label: "Gomme avant droite", category: "pneumatiques", required: true, hint: "Bande de roulement, au plus près", mask: "tread" },
+  { key: "roue_arriere_gauche", label: "Roue arrière gauche", category: "pneumatiques", required: true, hint: "Roue entière, de profil", mask: "wheel" },
+  { key: "gomme_arriere_gauche", label: "Gomme arrière gauche", category: "pneumatiques", required: true, hint: "Bande de roulement, au plus près", mask: "tread" },
+  { key: "roue_arriere_droite", label: "Roue arrière droite", category: "pneumatiques", required: true, hint: "Roue entière, de profil", mask: "wheel" },
+  { key: "gomme_arriere_droite", label: "Gomme arrière droite", category: "pneumatiques", required: true, hint: "Bande de roulement, au plus près", mask: "tread" },
+];
+
 export function interiorSteps(bodyType: string | null | undefined): PhotoStep[] {
   return bodyType === "utilitaire" ? INTERIOR_STEPS_VU : INTERIOR_STEPS_VP;
 }
@@ -102,7 +117,7 @@ export const MILEAGE_STEP: PhotoStep = {
  * ajoutées ensuite par l'utilisateur directement dans la caméra rafale.
  */
 export function guidedPhotoSteps(bodyType: string | null | undefined): PhotoStep[] {
-  return [MILEAGE_STEP, ...EXTERIOR_STEPS, ...interiorSteps(bodyType)];
+  return [MILEAGE_STEP, ...EXTERIOR_STEPS, ...TIRE_STEPS, ...interiorSteps(bodyType)];
 }
 
 export const DAMAGE_TYPES = [
