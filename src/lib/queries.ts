@@ -119,12 +119,22 @@ export type RecentTour = {
   client_name: string;
 };
 
-export async function fetchRecentTours(limit = 10): Promise<RecentTour[]> {
-  const { data, error } = await supabase
+/**
+ * `scope` : "completed" = historique des tours clôturés (liste principale),
+ * "open" = brouillons / tours en cours, "all" = tout.
+ */
+export async function fetchRecentTours(
+  limit = 10,
+  scope: "completed" | "open" | "all" = "completed",
+): Promise<RecentTour[]> {
+  let query = supabase
     .from("vehicle_inspections")
     .select(
       "id, inspection_type, status, started_at, completed_at, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, brand, model), repair_order:repair_orders(id, or_number, client:clients(first_name, last_name))",
-    )
+    );
+  if (scope === "completed") query = query.eq("status", "completed");
+  if (scope === "open") query = query.neq("status", "completed");
+  const { data, error } = await query
     .order("started_at", { ascending: false })
     .limit(limit);
   if (error) throw error;

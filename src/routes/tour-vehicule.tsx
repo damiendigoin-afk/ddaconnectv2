@@ -39,7 +39,7 @@ const MAX = 5;
 function ModuleHome() {
   const navigate = useNavigate();
   const { vehicle_id: vehicleIdParam } = Route.useSearch();
-  const [tab, setTab] = useState<"tours" | "ors">("tours");
+  const [tab, setTab] = useState<"tours" | "drafts" | "ors">("tours");
 
   // Le véhicule choisi sur une fiche suit l'utilisateur : aucune ressaisie.
   useEffect(() => {
@@ -54,7 +54,14 @@ function ModuleHome() {
     };
   }, [vehicleIdParam, navigate]);
   const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
-  const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(MAX) });
+  const tours = useQuery({
+    queryKey: ["recent-tours", "completed"],
+    queryFn: () => fetchRecentTours(MAX, "completed"),
+  });
+  const drafts = useQuery({
+    queryKey: ["recent-tours", "open"],
+    queryFn: () => fetchRecentTours(MAX, "open"),
+  });
 
   function onPick(pick: EntityPick) {
     if (pick.orderId) {
@@ -66,12 +73,36 @@ function ModuleHome() {
 
   const orders = (recent.data ?? []).slice(0, MAX);
   const tourList = (tours.data ?? []).slice(0, MAX);
+  const draftList = (drafts.data ?? []).slice(0, MAX);
+
+  const draftsCol = (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Brouillons / tours en cours
+        </h2>
+        <Link to="/tours" className="text-xs font-bold uppercase tracking-widest text-brand">
+          Tout voir
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {draftList.map((t) => (
+          <TourRow key={t.id} t={t} resume />
+        ))}
+        {draftList.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Aucun tour en cours.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
 
   const toursCol = (
     <section>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Tours Véhicule récents
+          Tours Véhicule clôturés
         </h2>
         <Link to="/tours" className="text-xs font-bold uppercase tracking-widest text-brand">
           Voir tous les Tours
@@ -151,12 +182,18 @@ function ModuleHome() {
         <>
             {/* Mobile : sélecteur simple entre les deux listes */}
             <div className="lg:hidden">
-              <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
+              <div className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
                 <button
                   onClick={() => setTab("tours")}
                   className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "tours" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
                 >
-                  Tours récents
+                  Clôturés
+                </button>
+                <button
+                  onClick={() => setTab("drafts")}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "drafts" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+                >
+                  Brouillons
                 </button>
                 <button
                   onClick={() => setTab("ors")}
@@ -165,12 +202,15 @@ function ModuleHome() {
                   OR récents
                 </button>
               </div>
-              {tab === "tours" ? toursCol : ordersCol}
+              {tab === "tours" ? toursCol : tab === "drafts" ? draftsCol : ordersCol}
             </div>
 
             {/* Desktop / tablette large : deux colonnes */}
             <div className="hidden gap-6 lg:grid lg:grid-cols-2 lg:items-start">
-              {toursCol}
+              <div className="space-y-6">
+                {toursCol}
+                {draftsCol}
+              </div>
               {ordersCol}
             </div>
         </>

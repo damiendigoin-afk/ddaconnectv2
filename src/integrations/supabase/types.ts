@@ -1853,6 +1853,7 @@ export type Database = {
           observation_id: string | null
           repair_order_id: string | null
           storage_path: string
+          thumb_path: string | null
         }
         Insert: {
           created_at?: string
@@ -1864,6 +1865,7 @@ export type Database = {
           observation_id?: string | null
           repair_order_id?: string | null
           storage_path: string
+          thumb_path?: string | null
         }
         Update: {
           created_at?: string
@@ -1875,6 +1877,7 @@ export type Database = {
           observation_id?: string | null
           repair_order_id?: string | null
           storage_path?: string
+          thumb_path?: string | null
         }
         Relationships: [
           {

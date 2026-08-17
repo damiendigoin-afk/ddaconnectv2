@@ -54,3 +54,20 @@ Si illisible : {"mileage":null,"unit":null}`;
     if (!mileage) return { ok: false as const, error: "Kilométrage non détecté.", mileage: 0 };
     return { ok: true as const, error: "", mileage };
   });
+/** Lecture d'une carte grise française (certificat d'immatriculation). */
+export const ocrRegistrationCard = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Tu lis un certificat d'immatriculation français (carte grise).
+Réponds STRICTEMENT en JSON :
+{"plate":null,"vin":null,"brand":null,"model":null,"version":null,"energy":null,
+"first_registration":null,"owner_name":null,"color":null}
+plate = champ A (format AB-123-CD), vin = champ E, brand = champ D.1, model = champ D.2 ou D.3,
+first_registration = champ B au format ISO YYYY-MM-DD, energy = champ P.3, owner_name = champs C.1/C.4.1.
+Mets null pour tout champ non lisible. N'invente rien.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename);
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    const parsed = parseJsonBlock(result.content);
+    if (!parsed) return { ok: false as const, error: "Carte grise illisible.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+  });

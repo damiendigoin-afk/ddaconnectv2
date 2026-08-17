@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { TourRow } from "@/components/RecentTours";
@@ -23,16 +24,38 @@ export const Route = createFileRoute("/tours")({
 });
 
 function AllTours() {
-  const tours = useQuery({ queryKey: ["all-tours"], queryFn: () => fetchRecentTours(100) });
+  const [scope, setScope] = useState<"completed" | "open">("completed");
+  const tours = useQuery({
+    queryKey: ["all-tours", scope],
+    queryFn: () => fetchRecentTours(100, scope),
+  });
   return (
-    <AppShell title="Tours véhicule" subtitle="Historique complet" back={{ to: "/tour-vehicule" }}>
+    <AppShell
+      title="Tours véhicule"
+      subtitle={scope === "completed" ? "Historique des tours clôturés" : "Travaux à terminer"}
+      back={{ to: "/tour-vehicule" }}
+    >
+      <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
+        <button
+          onClick={() => setScope("completed")}
+          className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${scope === "completed" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+        >
+          Tours clôturés
+        </button>
+        <button
+          onClick={() => setScope("open")}
+          className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${scope === "open" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+        >
+          Brouillons / en cours
+        </button>
+      </div>
       <div className="space-y-2">
         {(tours.data ?? []).map((t) => (
-          <TourRow key={t.id} t={t} />
+          <TourRow key={t.id} t={t} resume={scope === "open"} />
         ))}
         {tours.data?.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Aucun tour véhicule.
+            {scope === "completed" ? "Aucun tour clôturé." : "Aucun brouillon en attente."}
           </p>
         ) : null}
       </div>

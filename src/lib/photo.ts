@@ -38,16 +38,30 @@ export type MediaLinks = {
 };
 
 export async function uploadPhoto(file: Blob, folder: string, links: MediaLinks) {
-  const blob = await compressImage(file);
-  const path = `${folder}/${crypto.randomUUID()}.jpg`;
+  // Deux représentations : haute définition conservée pour consultation détaillée,
+  // miniature légère pour les listes et rapports.
+  const hd = await compressImage(file, 2400, 0.92);
+  const thumb = await compressImage(file, 700, 0.72);
+  const id = crypto.randomUUID();
+  const path = `${folder}/${id}.jpg`;
+  const thumbPath = `${folder}/${id}_thumb.jpg`;
+
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
-    .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+    .upload(path, hd, { contentType: "image/jpeg", upsert: false });
   if (upErr) throw upErr;
+  const { error: thErr } = await supabase.storage
+    .from(BUCKET)
+    .upload(thumbPath, thumb, { contentType: "image/jpeg", upsert: true });
 
   const { data, error } = await supabase
     .from("media")
-    .insert({ ...links, media_type: "photo", storage_path: path })
+    .insert({
+      ...links,
+      media_type: "photo",
+      storage_path: path,
+      thumb_path: thErr ? null : thumbPath,
+    })
     .select()
     .single();
   if (error) throw error;
@@ -66,6 +80,6 @@ export async function mediaUrl(path: string): Promise<string> {
 }
 
 export async function deleteMedia(id: string, path: string) {
-  await supabase.storage.from(BUCKET).remove([path]);
+  await supabase.storage.from(BUCKET).remove([path, path.replace(/\.jpg$/, "_thumb.jpg")]);
   await supabase.from("media").delete().eq("id", id);
 }

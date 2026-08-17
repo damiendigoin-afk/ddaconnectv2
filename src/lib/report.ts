@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ReportMedia = { id: string; storage_path: string; inspection_point_id: string | null; observation_id: string | null };
+export type ReportMedia = {
+  id: string;
+  storage_path: string;
+  thumb_path: string | null;
+  inspection_point_id: string | null;
+  observation_id: string | null;
+};
 
 export type ReportData = {
   inspection: {
@@ -75,7 +81,7 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
       .order("created_at"),
     supabase
       .from("media")
-      .select("id, storage_path, inspection_point_id, observation_id")
+      .select("id, storage_path, thumb_path, inspection_point_id, observation_id")
       .eq("inspection_id", insp.id),
   ]);
 

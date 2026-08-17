@@ -10,12 +10,13 @@ const COMM_STYLE: Record<string, string> = {
   modified: "bg-status-watch-soft text-status-watch",
 };
 
-export function TourRow({ t }: { t: RecentTour }) {
+export function TourRow({ t, resume }: { t: RecentTour; resume?: boolean }) {
   const Icon = t.comm === "sent" ? MailCheck : t.comm === "modified" ? MailWarning : Mail;
   const date = new Date(t.completed_at ?? t.started_at);
+  const open = resume ?? t.status !== "completed";
   return (
     <Link
-      to="/tour/$tourId/rapport"
+      to={open ? "/tour/$tourId" : "/tour/$tourId/rapport"}
       params={{ tourId: t.id }}
       className="card-surface block p-4 active:scale-[0.995]"
     >
@@ -35,7 +36,9 @@ export function TourRow({ t }: { t: RecentTour }) {
           </div>
           <div>{t.inspection_type === "guide" ? "Tour guidé" : "Tour libre"}</div>
           {t.status !== "completed" ? (
-            <div className="font-bold uppercase text-status-watch">En cours</div>
+            <div className="font-bold uppercase text-status-watch">
+              {open ? "Reprendre le tour" : "En cours"}
+            </div>
           ) : null}
         </div>
       </div>
