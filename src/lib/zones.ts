@@ -3,6 +3,8 @@ export type PointDef = {
   label: string;
   measure?: { unit: string; label: string };
   special?: "mileage";
+  /** Défauts fréquents proposés en un tap (renseignent le commentaire). */
+  quickDefects?: string[];
 };
 
 export type ZoneDef = {
@@ -69,6 +71,19 @@ export const GUIDED_ZONES: ZoneDef[] = [
       { key: "optique_avd", label: "Optique avant droit" },
       { key: "feux_avant", label: "Feux de croisement / route" },
       { key: "pare_choc_avant", label: "Pare-chocs / calandre" },
+      {
+        key: "plaque_avant",
+        label: "Plaque d'immatriculation avant",
+        quickDefects: [
+          "Plaque abîmée",
+          "Plaque déformée",
+          "Plaque cassée",
+          "Plaque illisible",
+          "Plaque mal fixée",
+          "Plaque absente",
+          "Autre défaut",
+        ],
+      },
       { key: "pare_brise", label: "Pare-brise" },
       { key: "essuie_glaces", label: "Balais essuie-glaces" },
     ],
@@ -106,7 +121,20 @@ export const GUIDED_ZONES: ZoneDef[] = [
       { key: "pare_choc_arriere", label: "Pare-chocs arrière" },
       { key: "lunette_arriere", label: "Lunette arrière / essuie-glace" },
       { key: "hayon", label: "Hayon / coffre" },
-      { key: "plaque_arriere", label: "Plaque / éclairage plaque" },
+      {
+        key: "plaque_immat_arriere",
+        label: "Plaque d'immatriculation arrière",
+        quickDefects: [
+          "Plaque abîmée",
+          "Plaque déformée",
+          "Plaque cassée",
+          "Plaque illisible",
+          "Plaque mal fixée",
+          "Plaque absente",
+          "Autre défaut",
+        ],
+      },
+      { key: "plaque_arriere", label: "Éclairage de plaque" },
       { key: "roue_secours", label: "Roue de secours / kit" },
     ],
   },
