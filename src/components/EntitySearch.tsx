@@ -1,5 +1,7 @@
-import { Camera, Loader2, Plus, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Loader2, Plus, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
 
 import {
   customerName,
@@ -18,8 +20,8 @@ export function EntitySearch({
   label,
   onPick,
   onCreateNew,
-  onScan,
-  scanning = false,
+  onDocument,
+  onDocumentError,
   initialTerm = "",
   autoFocus = false,
 }: {
@@ -27,8 +29,9 @@ export function EntitySearch({
   label?: string;
   onPick: (pick: EntityPick) => void;
   onCreateNew?: (term: string) => void;
-  onScan?: (file: File) => void;
-  scanning?: boolean;
+  /** Point d'entrée unique : identification à partir d'un document (plaque, carte grise, OR…). */
+  onDocument?: (r: DocIdentifyResult) => void;
+  onDocumentError?: (message: string) => void;
   initialTerm?: string;
   autoFocus?: boolean;
 }) {
@@ -36,7 +39,6 @@ export function EntitySearch({
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<SearchResult | null>(null);
   const [picking, setPicking] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const t = term.trim();
@@ -91,30 +93,8 @@ export function EntitySearch({
             className="w-full rounded-xl border-2 border-border bg-card py-4 pl-11 pr-10 text-base outline-none focus:border-brand"
           />
         </div>
-        {onScan ? (
-          <>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={scanning}
-              aria-label="Scanner la plaque"
-              className="flex w-16 shrink-0 items-center justify-center rounded-xl border-2 border-border bg-card disabled:opacity-60"
-            >
-              {scanning ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onScan(f);
-                e.target.value = "";
-              }}
-            />
-          </>
+        {onDocument ? (
+          <DocIdentify onResult={onDocument} {...(onDocumentError ? { onError: onDocumentError } : {})} />
         ) : null}
       </div>
 
