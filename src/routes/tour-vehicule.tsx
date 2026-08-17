@@ -54,7 +54,14 @@ function ModuleHome() {
     };
   }, [vehicleIdParam, navigate]);
   const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
-  const tours = useQuery({ queryKey: ["recent-tours"], queryFn: () => fetchRecentTours(MAX) });
+  const tours = useQuery({
+    queryKey: ["recent-tours", "completed"],
+    queryFn: () => fetchRecentTours(MAX, "completed"),
+  });
+  const drafts = useQuery({
+    queryKey: ["recent-tours", "open"],
+    queryFn: () => fetchRecentTours(MAX, "open"),
+  });
 
   function onPick(pick: EntityPick) {
     if (pick.orderId) {
@@ -66,12 +73,36 @@ function ModuleHome() {
 
   const orders = (recent.data ?? []).slice(0, MAX);
   const tourList = (tours.data ?? []).slice(0, MAX);
+  const draftList = (drafts.data ?? []).slice(0, MAX);
+
+  const draftsCol = (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Brouillons / tours en cours
+        </h2>
+        <Link to="/tours" className="text-xs font-bold uppercase tracking-widest text-brand">
+          Tout voir
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {draftList.map((t) => (
+          <TourRow key={t.id} t={t} resume />
+        ))}
+        {draftList.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Aucun tour en cours.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
 
   const toursCol = (
     <section>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Tours Véhicule récents
+          Tours Véhicule clôturés
         </h2>
         <Link to="/tours" className="text-xs font-bold uppercase tracking-widest text-brand">
           Voir tous les Tours
