@@ -39,6 +39,9 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
+import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
+import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
 import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
@@ -201,6 +204,21 @@ const PartageTokenRoute = PartageTokenRouteImport.update({
   path: '/partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatistiquesIndexRoute = StatistiquesIndexRouteImport.update({
+  id: '/statistiques/',
+  path: '/statistiques/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatistiquesEquipeRoute = StatistiquesEquipeRouteImport.update({
+  id: '/statistiques/equipe',
+  path: '/statistiques/equipe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatistiquesImportRoute = StatistiquesImportRouteImport.update({
+  id: '/statistiques/import',
+  path: '/statistiques/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
   id: '/vehicule/$vehId',
   path: '/vehicule/$vehId',
@@ -286,11 +304,14 @@ export interface FileRoutesByFullPath {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/statistiques/equipe': typeof StatistiquesEquipeRoute
+  '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -329,11 +350,14 @@ export interface FileRoutesByTo {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/statistiques/equipe': typeof StatistiquesEquipeRoute
+  '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
   '/magasin': typeof MagasinIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
+  '/statistiques': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -373,11 +397,14 @@ export interface FileRoutesById {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/statistiques/equipe': typeof StatistiquesEquipeRoute
+  '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -418,11 +445,14 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/statistiques/equipe'
+    | '/statistiques/import'
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
     | '/parametrage/'
+    | '/statistiques/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -461,11 +491,14 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/statistiques/equipe'
+    | '/statistiques/import'
     | '/vehicule/$vehId'
     | '/base'
     | '/carrosserie'
     | '/magasin'
     | '/parametrage'
+    | '/statistiques'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -504,11 +537,14 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/partage/$token'
+    | '/statistiques/equipe'
+    | '/statistiques/import'
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
     | '/parametrage/'
+    | '/statistiques/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -548,11 +584,14 @@ export interface RootRouteChildren {
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
+  StatistiquesImportRoute: typeof StatistiquesImportRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
+  StatistiquesIndexRoute: typeof StatistiquesIndexRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
@@ -777,6 +816,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/statistiques/': {
+      id: '/statistiques/'
+      path: '/statistiques'
+      fullPath: '/statistiques/'
+      preLoaderRoute: typeof StatistiquesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/statistiques/equipe': {
+      id: '/statistiques/equipe'
+      path: '/statistiques/equipe'
+      fullPath: '/statistiques/equipe'
+      preLoaderRoute: typeof StatistiquesEquipeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/statistiques/import': {
+      id: '/statistiques/import'
+      path: '/statistiques/import'
+      fullPath: '/statistiques/import'
+      preLoaderRoute: typeof StatistiquesImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vehicule/$vehId': {
       id: '/vehicule/$vehId'
       path: '/vehicule/$vehId'
@@ -884,11 +944,14 @@ const rootRouteChildren: RootRouteChildren = {
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   PartageTokenRoute: PartageTokenRoute,
+  StatistiquesEquipeRoute: StatistiquesEquipeRoute,
+  StatistiquesImportRoute: StatistiquesImportRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
+  StatistiquesIndexRoute: StatistiquesIndexRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,

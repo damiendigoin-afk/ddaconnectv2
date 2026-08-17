@@ -94,3 +94,30 @@ plate au format AB-123-CD. Dates ISO YYYY-MM-DD. mileage entier. Mets null si ab
     if (!parsed) return { ok: false as const, error: "Document illisible.", json: "" };
     return { ok: true as const, error: "", json: JSON.stringify(parsed) };
   });
+
+/**
+ * Lecture d'un rapport Winmotor « Ratios de productivité et de rentabilité ».
+ * La période est lue DANS le document (titre), jamais déduite du nom de fichier.
+ */
+export const ocrProductivityReport = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Tu analyses un rapport Winmotor français intitulé
+"Ratios de productivité et de rentabilité entre le JJ/MM/AAAA au JJ/MM/AAAA".
+Réponds STRICTEMENT en JSON :
+{"site":null,"period_start":null,"period_end":null,
+"rows":[{"name":"CORDONNIER JULIEN","hours_purchased":112,"hours_spent":112.50,"hours_billed":131.24,"productivity":1.17,"profitability":1.17}],
+"totals":{"hours_purchased":null,"hours_spent":null,"hours_billed":null,"productivity":null,"profitability":null}}
+Règles impératives :
+- period_start et period_end au format ISO YYYY-MM-DD, lus dans le TITRE du document (source de vérité).
+- site = raison sociale de l'établissement figurant sur le rapport.
+- rows = une ligne par productif (salarié), dans l'ordre du document, en excluant la ligne de total.
+- Les nombres utilisent la virgule décimale dans le document : convertis en point (112,50 -> 112.50).
+- Une valeur absente, vide ou "-" doit valoir null, JAMAIS 0.
+- N'invente aucun productif et ne recalcule aucun ratio : recopie les valeurs du rapport.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename);
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    const parsed = parseJsonBlock(result.content);
+    if (!parsed) return { ok: false as const, error: "Rapport Winmotor illisible.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+  });
