@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Car, ClipboardCheck, Database, Hammer, LogOut, PackageOpen, Users } from "lucide-react";
+import { ChevronRight, Car, ClipboardCheck, Database, Hammer, LogOut, PackageOpen, Users, SlidersHorizontal } from "lucide-react";
 
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
@@ -121,6 +121,20 @@ function Hub() {
               <div className="text-xs text-muted-foreground">
                 Import Winmotor, clients, véhicules et historique des imports
               </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
+
+        {isManager ? (
+          <Link
+            to="/parametrage"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <SlidersHorizontal className="h-6 w-6 shrink-0" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Paramétrage global</div>
+              <div className="text-xs text-muted-foreground">Fournisseurs, contacts et référentiels partagés</div>
             </div>
             <ChevronRight className="h-5 w-5 shrink-0" />
           </Link>

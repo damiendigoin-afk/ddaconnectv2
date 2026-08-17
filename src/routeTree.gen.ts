@@ -37,6 +37,7 @@ import { Route as MagasinAvoirsRouteImport } from './routes/magasin.avoirs'
 import { Route as MagasinNouveauRouteImport } from './routes/magasin.nouveau'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
+import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
 import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
@@ -44,6 +45,8 @@ import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historiqu
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
 import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
+import { Route as ParametrageFournisseursIndexRouteImport } from './routes/parametrage.fournisseurs.index'
+import { Route as ParametrageFournisseursSupplierIdRouteImport } from './routes/parametrage.fournisseurs.$supplierId'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
@@ -188,6 +191,11 @@ const OrNouveauRoute = OrNouveauRouteImport.update({
   path: '/or/nouveau',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
+  id: '/parametrage/',
+  path: '/parametrage/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
@@ -223,6 +231,18 @@ const ExpertiseExIdRapportRoute = ExpertiseExIdRapportRouteImport.update({
   path: '/expertise/$exId/rapport',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageFournisseursIndexRoute =
+  ParametrageFournisseursIndexRouteImport.update({
+    id: '/parametrage/fournisseurs/',
+    path: '/parametrage/fournisseurs/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ParametrageFournisseursSupplierIdRoute =
+  ParametrageFournisseursSupplierIdRouteImport.update({
+    id: '/parametrage/fournisseurs/$supplierId',
+    path: '/parametrage/fournisseurs/$supplierId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
   id: '/tour/$tourId/',
   path: '/tour/$tourId/',
@@ -270,13 +290,16 @@ export interface FileRoutesByFullPath {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/parametrage/': typeof ParametrageIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
+  '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
+  '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -310,13 +333,16 @@ export interface FileRoutesByTo {
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
   '/magasin': typeof MagasinIndexRoute
+  '/parametrage': typeof ParametrageIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
+  '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
+  '/parametrage/fournisseurs': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
 }
 export interface FileRoutesById {
@@ -351,13 +377,16 @@ export interface FileRoutesById {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/parametrage/': typeof ParametrageIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
+  '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
+  '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -393,13 +422,16 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
+    | '/parametrage/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
+    | '/parametrage/fournisseurs/$supplierId'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique/'
     | '/expertise/$exId/'
+    | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -433,13 +465,16 @@ export interface FileRouteTypes {
     | '/base'
     | '/carrosserie'
     | '/magasin'
+    | '/parametrage'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
+    | '/parametrage/fournisseurs/$supplierId'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique'
     | '/expertise/$exId'
+    | '/parametrage/fournisseurs'
     | '/tour/$tourId'
   id:
     | '__root__'
@@ -473,13 +508,16 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/magasin/'
+    | '/parametrage/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
+    | '/parametrage/fournisseurs/$supplierId'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique/'
     | '/expertise/$exId/'
+    | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
   fileRoutesById: FileRoutesById
 }
@@ -514,13 +552,16 @@ export interface RootRouteChildren {
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
+  ParametrageIndexRoute: typeof ParametrageIndexRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
+  ParametrageFournisseursSupplierIdRoute: typeof ParametrageFournisseursSupplierIdRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
   BaseHistoriqueIndexRoute: typeof BaseHistoriqueIndexRoute
   ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
+  ParametrageFournisseursIndexRoute: typeof ParametrageFournisseursIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
 }
 
@@ -722,6 +763,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrNouveauRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/': {
+      id: '/parametrage/'
+      path: '/parametrage'
+      fullPath: '/parametrage/'
+      preLoaderRoute: typeof ParametrageIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/partage/$token': {
       id: '/partage/$token'
       path: '/partage/$token'
@@ -769,6 +817,20 @@ declare module '@tanstack/react-router' {
       path: '/expertise/$exId/rapport'
       fullPath: '/expertise/$exId/rapport'
       preLoaderRoute: typeof ExpertiseExIdRapportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametrage/fournisseurs/': {
+      id: '/parametrage/fournisseurs/'
+      path: '/parametrage/fournisseurs'
+      fullPath: '/parametrage/fournisseurs/'
+      preLoaderRoute: typeof ParametrageFournisseursIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametrage/fournisseurs/$supplierId': {
+      id: '/parametrage/fournisseurs/$supplierId'
+      path: '/parametrage/fournisseurs/$supplierId'
+      fullPath: '/parametrage/fournisseurs/$supplierId'
+      preLoaderRoute: typeof ParametrageFournisseursSupplierIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tour/$tourId/': {
@@ -826,13 +888,17 @@ const rootRouteChildren: RootRouteChildren = {
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
+  ParametrageIndexRoute: ParametrageIndexRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
+  ParametrageFournisseursSupplierIdRoute:
+    ParametrageFournisseursSupplierIdRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
   BaseHistoriqueIndexRoute: BaseHistoriqueIndexRoute,
   ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
+  ParametrageFournisseursIndexRoute: ParametrageFournisseursIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
 }
 export const routeTree = rootRouteImport

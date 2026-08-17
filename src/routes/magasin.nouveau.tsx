@@ -11,7 +11,7 @@ import { analyzeReturnBatchFn } from "@/lib/bodyshop-ai.functions";
 import { sendModuleEmailFn } from "@/lib/module-email.functions";
 import { BUCKET } from "@/lib/photo";
 import { normalizePlate } from "@/lib/plate";
-import { listSuppliers } from "@/lib/referentials";
+import { listSuppliers, partsEmailFor } from "@/lib/suppliers";
 import { refPrefill } from "@/lib/refbase";
 import { deadlineFrom } from "@/lib/returns";
 
@@ -239,7 +239,7 @@ function NewReturn() {
       }
 
       if (status === "demande_creee") {
-        const to = supplier?.returns_email || supplier?.email || "";
+        const to = await partsEmailFor(supplier?.id, supplier);
         if (notify && to) {
           const res = await sendModuleEmailFn({
             data: {
