@@ -4,9 +4,12 @@ import { useMemo, useState } from "react";
 import { BarChart3, Upload, Users2 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { PeriodPicker } from "@/components/PeriodPicker";
 import { useAuth } from "@/lib/auth";
 import { fetchModuleAccess } from "@/lib/access";
 import {
+  aggregate,
+  defaultRange,
   durationLabel,
   fetchMissingReports,
   fetchMyEntries,
@@ -14,6 +17,8 @@ import {
   hours,
   pct,
   periodLabel,
+  rangeLabel,
+  type PeriodRange,
 } from "@/lib/stats";
 
 export const Route = createFileRoute("/statistiques/")({
@@ -41,12 +46,14 @@ function MyStats() {
   const access = useQuery({ queryKey: ["access", uid], queryFn: () => fetchModuleAccess(uid), enabled: !!uid });
   const missing = useQuery({ queryKey: ["prod-missing"], queryFn: () => fetchMissingReports() });
 
-  const [period, setPeriod] = useState<string>("");
+  const [range, setRange] = useState<PeriodRange>(() => defaultRange());
   const list = entries.data ?? [];
-  const current = useMemo(
-    () => list.find((e) => e.period_start === period) ?? list[0] ?? null,
-    [list, period],
+  const selected = useMemo(
+    () => list.filter((e) => e.period_start >= range.start && e.period_start <= range.end),
+    [list, range],
   );
+  const agg = useMemo(() => aggregate(selected), [selected]);
+  const operatorName = selected[0]?.winmotor_name ?? "";
 
   const canImport = isManager || access.data?.has("stats_import");
   const canTeam = isManager || access.data?.has("stats_equipe");
@@ -75,39 +82,25 @@ function MyStats() {
           </div>
         ) : null}
 
-        {list.length ? (
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-muted-foreground">Mois</span>
-            <select
-              value={current?.period_start ?? ""}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="w-full rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold"
-            >
-              {list.map((e) => (
-                <option key={e.id} value={e.period_start}>
-                  {periodLabel(e.period_start, e.period_end)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        <PeriodPicker value={range} onChange={setRange} />
 
-        {current ? (
+        {selected.length ? (
           <div className="card-surface space-y-4 p-4">
             <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              {periodLabel(current.period_start, current.period_end)} · {current.winmotor_name}
+              {rangeLabel(range)}
+              {operatorName ? ` · ${operatorName}` : ""}
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Kpi label="Productivité" value={pct(current.productivity_ratio)} strong />
-              <Kpi label="Rentabilité" value={pct(current.profitability_ratio)} strong />
-              <Kpi label="H achetées" value={hours(current.hours_purchased)} />
-              <Kpi label="H passées" value={hours(current.hours_spent)} />
-              <Kpi label="H facturées" value={hours(current.hours_billed)} />
+              <Kpi label="Productivité" value={pct(agg.productivity)} strong />
+              <Kpi label="Rentabilité" value={pct(agg.profitability)} strong />
+              <Kpi label="H achetées" value={hours(agg.purchased)} />
+              <Kpi label="H passées" value={hours(agg.spent)} />
+              <Kpi label="H facturées" value={hours(agg.billed)} />
             </div>
           </div>
         ) : (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Aucune statistique Winmotor rattachée à votre compte pour l'instant.
+            Aucune statistique Winmotor sur {rangeLabel(range).toLowerCase()} pour votre compte.
           </p>
         )}
 
