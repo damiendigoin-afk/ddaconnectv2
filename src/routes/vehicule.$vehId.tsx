@@ -87,12 +87,14 @@ function VehiclePage() {
               <div className="grid grid-cols-2 gap-2">
                 <Link
                   to="/tour-vehicule"
+                  search={{ vehicle_id: vehId }}
                   className="flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase"
                 >
                   <Car className="h-4 w-4" /> Tour véhicule
                 </Link>
                 <Link
                   to="/expertise/nouvelle"
+                  search={{ vehicle_id: vehId }}
                   className="flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase"
                 >
                   <ClipboardCheck className="h-4 w-4" /> Expertise

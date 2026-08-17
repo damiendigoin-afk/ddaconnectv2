@@ -41,14 +41,16 @@ function BaseHub() {
         <UniversalSearch />
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="card-surface p-4">
+          <Link to="/base/clients" className="card-surface p-4 active:scale-[0.99]">
             <div className="text-xs uppercase text-muted-foreground">Clients</div>
             <div className="text-2xl font-extrabold">{(data?.customers ?? 0).toLocaleString("fr-FR")}</div>
-          </div>
-          <div className="card-surface p-4">
+            <div className="text-[11px] font-bold uppercase text-brand">Voir la liste</div>
+          </Link>
+          <Link to="/base/vehicules" className="card-surface p-4 active:scale-[0.99]">
             <div className="text-xs uppercase text-muted-foreground">Véhicules</div>
             <div className="text-2xl font-extrabold">{(data?.vehicles ?? 0).toLocaleString("fr-FR")}</div>
-          </div>
+            <div className="text-[11px] font-bold uppercase text-brand">Voir la liste</div>
+          </Link>
         </div>
 
         <Link
