@@ -8,7 +8,10 @@ import QRCode from "qrcode";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import type { AppRole, UserStatus } from "@/lib/auth";
-import { fetchUsers, ROLE_LABELS, setUserRole, setUserStatus, STATUS_LABELS } from "@/lib/users";
+import { fetchUsers, ROLE_LABELS, setUserNames, setUserRole, setUserStatus, STATUS_LABELS } from "@/lib/users";
+import { fetchAllModuleAccess, MODULES, setModuleAccess } from "@/lib/access";
+import { fetchOperators, linkOperator, normPerson } from "@/lib/stats";
+import { toastError } from "@/lib/errors";
 
 export const Route = createFileRoute("/utilisateurs")({
   head: () => ({
@@ -41,6 +44,9 @@ function UsersPage() {
   const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/auth?invite=1` : "";
 
   const users = useQuery({ queryKey: ["users"], queryFn: fetchUsers, enabled: isManager });
+  const access = useQuery({ queryKey: ["module-access"], queryFn: fetchAllModuleAccess, enabled: isManager });
+  const operators = useQuery({ queryKey: ["winmotor-operators"], queryFn: fetchOperators, enabled: isManager });
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!qrOpen || !inviteUrl) return;
@@ -56,7 +62,33 @@ function UsersPage() {
       toast.success("Utilisateur mis à jour");
       await qc.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: () => toast.error("Modification impossible"),
+    onError: (e) => toastError(e, "Modification de l'utilisateur impossible"),
+  });
+
+  const edit = useMutation({
+    mutationFn: async (a: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      alias: string;
+      siteId: string | null;
+    }) => {
+      await setUserNames(a.id, a.firstName, a.lastName);
+      if (a.alias.trim()) await linkOperator(a.alias.trim().toUpperCase(), a.siteId, a.id);
+    },
+    onSuccess: async () => {
+      toast.success("Fiche utilisateur enregistrée");
+      await qc.invalidateQueries();
+    },
+    onError: (e) => toastError(e, "Enregistrement de la fiche impossible"),
+  });
+
+  const perm = useMutation({
+    mutationFn: (a: { id: string; key: string; allowed: boolean }) => setModuleAccess(a.id, a.key, a.allowed),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["module-access"] });
+    },
+    onError: (e) => toastError(e, "Modification des accès impossible"),
   });
 
   if (loading) {
@@ -151,7 +183,35 @@ function UsersPage() {
                 {u.status !== "disabled" && u.id !== user?.id ? (
                   <Action label="Désactiver" onClick={() => mutate.mutate({ id: u.id, status: "disabled" })} />
                 ) : null}
+                <Action
+                  label={openId === u.id ? "Fermer la fiche" : "Fiche & accès"}
+                  onClick={() => setOpenId((v) => (v === u.id ? null : u.id))}
+                />
               </div>
+
+              {openId === u.id ? (
+                <UserEditor
+                  user={u}
+                  alias={
+                    (operators.data ?? []).find((o) => o.user_id === u.id)?.alias ??
+                    ((operators.data ?? []).find(
+                      (o) => o.normalized === normPerson([u.first_name, u.last_name].filter(Boolean).join(" ")),
+                    )?.alias ??
+                      "")
+                  }
+                  modules={access.data?.get(u.id) ?? new Set<string>()}
+                  onSave={(v) =>
+                    edit.mutate({
+                      id: u.id,
+                      firstName: v.firstName,
+                      lastName: v.lastName,
+                      alias: v.alias,
+                      siteId: u.site_id,
+                    })
+                  }
+                  onToggle={(key, allowed) => perm.mutate({ id: u.id, key, allowed })}
+                />
+              ) : null}
             </div>
           ))}
           {users.data?.length === 0 ? (
@@ -175,5 +235,93 @@ function Action({ label, onClick, primary }: { label: string; onClick: () => voi
     >
       {label}
     </button>
+  );
+}
+
+function UserEditor({
+  user,
+  alias,
+  modules,
+  onSave,
+  onToggle,
+}: {
+  user: { first_name: string | null; last_name: string | null };
+  alias: string;
+  modules: Set<string>;
+  onSave: (v: { firstName: string; lastName: string; alias: string }) => void;
+  onToggle: (key: string, allowed: boolean) => void;
+}) {
+  const [firstName, setFirstName] = useState(user.first_name ?? "");
+  const [lastName, setLastName] = useState(user.last_name ?? "");
+  const [wmAlias, setWmAlias] = useState(alias);
+
+  return (
+    <div className="space-y-3 rounded-lg border-2 border-border bg-secondary/40 p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <Input label="Prénom" value={firstName} onChange={setFirstName} />
+        <Input label="Nom" value={lastName} onChange={setLastName} />
+      </div>
+      <Input
+        label="Nom Winmotor (productif)"
+        value={wmAlias}
+        onChange={setWmAlias}
+        placeholder="ex. CORDONNIER JULIEN"
+      />
+      <p className="text-[11px] text-muted-foreground">
+        Ce nom sert au rapprochement automatique des statistiques Winmotor : il est mémorisé et appliqué aux imports
+        passés et futurs.
+      </p>
+
+      <div className="space-y-1">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Accès aux modules</div>
+        <div className="flex flex-wrap gap-2">
+          {MODULES.map((m) => {
+            const on = modules.has(m.key);
+            return (
+              <button
+                key={m.key}
+                onClick={() => onToggle(m.key, !on)}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
+                  on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
+                }`}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <button
+        onClick={() => onSave({ firstName, lastName, alias: wmAlias })}
+        className="w-full rounded-lg bg-brand px-3 py-3 text-xs font-extrabold uppercase text-brand-foreground"
+      >
+        Enregistrer la fiche
+      </button>
+    </div>
+  );
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <input
+        value={value}
+        placeholder={placeholder ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border-2 border-border bg-card px-3 py-2 text-sm font-bold"
+      />
+    </label>
   );
 }

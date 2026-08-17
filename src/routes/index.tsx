@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Car, ClipboardCheck, Database, Hammer, LogOut, PackageOpen, Users, SlidersHorizontal } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { BarChart3, ChevronRight, Car, ClipboardCheck, Database, Hammer, LogOut, PackageOpen, Users, SlidersHorizontal } from "lucide-react";
 
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
+import { fetchMissingReports, periodLabel } from "@/lib/stats";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,6 +29,11 @@ export const Route = createFileRoute("/")({
 
 function Hub() {
   const { isManager, displayName, signOut } = useAuth();
+  const missing = useQuery({
+    queryKey: ["prod-missing"],
+    queryFn: () => fetchMissingReports(),
+    enabled: isManager,
+  });
 
   return (
     <div className="min-h-screen bg-background pb-16">
@@ -53,6 +60,20 @@ function Hub() {
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 py-5">
         <UniversalSearch />
+
+        {isManager && (missing.data ?? []).length ? (
+          <Link
+            to="/statistiques/import"
+            className="block rounded-xl border-2 border-status-watch bg-status-watch-soft px-4 py-4"
+          >
+            <div className="text-sm font-extrabold uppercase text-status-watch">
+              ⚠ Productivité {periodLabel((missing.data ?? [])[0]!.periodStart)} à importer
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {(missing.data ?? []).map((m) => m.siteLabel).join(" · ")} — importer le rapport Winmotor mensuel
+            </div>
+          </Link>
+        ) : null}
 
         <Link
           to="/tour-vehicule"
@@ -108,6 +129,18 @@ function Hub() {
             </div>
           </div>
           <ChevronRight className="h-6 w-6 shrink-0" />
+        </Link>
+
+        <Link
+          to="/statistiques"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <BarChart3 className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Mes statistiques</div>
+            <div className="text-xs text-muted-foreground">Productivité, rentabilité et activité du mois</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
 
         {isManager ? (

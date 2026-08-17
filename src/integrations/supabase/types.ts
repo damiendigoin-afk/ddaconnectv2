@@ -2260,6 +2260,141 @@ export type Database = {
           },
         ]
       }
+      productivity_entries: {
+        Row: {
+          created_at: string
+          hours_billed: number | null
+          hours_purchased: number | null
+          hours_spent: number | null
+          id: string
+          import_id: string
+          period_end: string
+          period_start: string
+          productivity_ratio: number | null
+          profitability_ratio: number | null
+          site_id: string | null
+          updated_at: string
+          user_id: string | null
+          winmotor_name: string
+        }
+        Insert: {
+          created_at?: string
+          hours_billed?: number | null
+          hours_purchased?: number | null
+          hours_spent?: number | null
+          id?: string
+          import_id: string
+          period_end: string
+          period_start: string
+          productivity_ratio?: number | null
+          profitability_ratio?: number | null
+          site_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          winmotor_name: string
+        }
+        Update: {
+          created_at?: string
+          hours_billed?: number | null
+          hours_purchased?: number | null
+          hours_spent?: number | null
+          id?: string
+          import_id?: string
+          period_end?: string
+          period_start?: string
+          productivity_ratio?: number | null
+          profitability_ratio?: number | null
+          site_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          winmotor_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productivity_entries_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "productivity_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productivity_entries_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      productivity_imports: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          id: string
+          imported_by: string | null
+          imported_by_name: string | null
+          kind: string
+          period_end: string
+          period_start: string
+          replaced_by: string | null
+          site_id: string | null
+          site_label: string | null
+          status: string
+          storage_path: string | null
+          totals: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          imported_by?: string | null
+          imported_by_name?: string | null
+          kind?: string
+          period_end: string
+          period_start: string
+          replaced_by?: string | null
+          site_id?: string | null
+          site_label?: string | null
+          status?: string
+          storage_path?: string | null
+          totals?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          imported_by?: string | null
+          imported_by_name?: string | null
+          kind?: string
+          period_end?: string
+          period_start?: string
+          replaced_by?: string | null
+          site_id?: string | null
+          site_label?: string | null
+          status?: string
+          storage_path?: string | null
+          totals?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productivity_imports_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "productivity_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productivity_imports_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -3276,6 +3411,44 @@ export type Database = {
           },
         ]
       }
+      winmotor_operators: {
+        Row: {
+          alias: string
+          created_at: string
+          id: string
+          normalized: string | null
+          site_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          id?: string
+          normalized?: string | null
+          site_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          id?: string
+          normalized?: string | null
+          site_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_operators_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -3290,6 +3463,7 @@ export type Database = {
       }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       next_part_return_ref: { Args: never; Returns: string }
+      norm_person: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
       purge_stale_drafts: {
         Args: { _days?: number }

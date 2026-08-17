@@ -39,3 +39,11 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   salarie: "Salarié",
   client: "Client",
 };
+
+export async function setUserNames(userId: string, firstName: string, lastName: string) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ first_name: firstName.trim() || null, last_name: lastName.trim() || null })
+    .eq("id", userId);
+  if (error) throw error;
+}
