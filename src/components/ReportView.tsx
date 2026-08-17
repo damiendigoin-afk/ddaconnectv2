@@ -116,7 +116,11 @@ export function ReportBody({
                   ) : null}
                 </>
               )}
-              <PhotoRow media={mediaFor("observation_id", o.id)} />
+              <PhotoRow
+                media={mediaFor("observation_id", o.id)}
+                label={o.element}
+                onOpen={openPhotos}
+              />
             </div>
           ))}
         </section>
@@ -159,7 +163,11 @@ export function ReportBody({
                   </>
                 )}
                 {clientView && p.status !== "watch" && p.status !== "defect" ? null : (
-                  <PhotoRow media={mediaFor("inspection_point_id", p.id)} />
+                  <PhotoRow
+                    media={mediaFor("inspection_point_id", p.id)}
+                    label={p.point_label}
+                    onOpen={openPhotos}
+                  />
                 )}
               </div>
             ))}
@@ -172,19 +180,42 @@ export function ReportBody({
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             Autres photos du tour
           </h2>
-          <PhotoRow media={d.media.filter((m) => !m.inspection_point_id && !m.observation_id)} />
+          <PhotoRow
+            media={d.media.filter((m) => !m.inspection_point_id && !m.observation_id)}
+            label="Photo du tour"
+            onOpen={openPhotos}
+          />
         </section>
       ) : null}
     </div>
   );
 }
 
-function PhotoRow({ media }: { media: { id: string; storage_path: string }[] }) {
+function PhotoRow({
+  media,
+  label,
+  onOpen,
+}: {
+  media: ReportMedia[];
+  label: string;
+  onOpen: (media: ReportMedia[], index: number, label: string) => void;
+}) {
   if (media.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2">
-      {media.map((m) => (
-        <MediaThumb key={m.id} path={m.storage_path} className="h-24 w-24 rounded-lg object-cover" />
+      {media.map((m, i) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => onOpen(media, i, label)}
+          aria-label={`Agrandir la photo — ${label}`}
+          className="rounded-lg"
+        >
+          <MediaThumb
+            path={m.thumb_path ?? m.storage_path}
+            className="h-24 w-24 rounded-lg object-cover"
+          />
+        </button>
       ))}
     </div>
   );
