@@ -5,6 +5,8 @@ export type RawRow = Record<string, string>;
 
 export type MissionMapped = {
   plate: string;
+  /** Valeur brute exactement telle qu'elle figure dans le fichier. */
+  plateSource: string;
   plateNormalized: string;
   vin: string;
   orNumber: string;
@@ -42,7 +44,23 @@ export type MissionMapped = {
 const SYNONYMS: Record<keyof typeof FIELDS, string[]> = {} as never;
 
 const FIELDS = {
-  plate: ["immat", "immatriculation", "plaque", "n immat", "immat vehicule"],
+  plate: [
+    "immatriculation",
+    "immat",
+    "immatriculations",
+    "n immatriculation",
+    "no immatriculation",
+    "num immatriculation",
+    "numero immatriculation",
+    "n immat",
+    "no immat",
+    "num immat",
+    "numero immat",
+    "immat vehicule",
+    "immatriculation vehicule",
+    "plaque",
+    "plaque immatriculation",
+  ],
   vin: ["vin", "chassis", "n chassis", "numero de chassis"],
   orNumber: ["or", "n or", "num or", "numero or", "ordre de reparation", "of"],
   customerName: ["client", "nom client", "nom", "assure", "proprietaire", "raison sociale"],
@@ -87,7 +105,21 @@ export function norm(s: string): string {
 
 export type HeaderIndex = Partial<Record<keyof typeof FIELDS, string>>;
 
-export function buildHeaderIndex(headers: string[]): HeaderIndex {
+/** Reconnaît une plaque FR (SIV « AB-123-CD » ou FNI « 1234 AB 56 »). */
+export const PLATE_RE = /^[A-Z]{2}[\s.-]?\d{3}[\s.-]?[A-Z]{2}$|^\d{1,4}[\s.-]?[A-Z]{2,3}[\s.-]?\d{2,3}$/;
+
+export function looksLikePlate(v: string): boolean {
+  return PLATE_RE.test((v || "").toUpperCase().trim());
+}
+
+export type HeaderDiagnostic = {
+  headers: string[];
+  plateColumn: string | null;
+  plateDetection: "entete" | "valeurs" | "aucune";
+  samples: { row: number; source: string; trimmed: string; normalized: string }[];
+};
+
+export function buildHeaderIndex(headers: string[], sampleRows?: RawRow[]): HeaderIndex {
   const index: HeaderIndex = {};
   const normalized = headers.map((h) => ({ raw: h, n: norm(h) }));
   for (const key of Object.keys(FIELDS) as (keyof typeof FIELDS)[]) {
@@ -98,7 +130,33 @@ export function buildHeaderIndex(headers: string[]): HeaderIndex {
       normalized.find((h) => candidates.some((c) => h.n.includes(c)));
     if (hit) index[key] = hit.raw;
   }
+  // Repli : aucune colonne d'en-tête reconnue → on cherche la colonne dont les valeurs sont des plaques.
+  if (!index.plate && sampleRows?.length) {
+    let best: { col: string; score: number } | null = null;
+    for (const h of headers) {
+      const score = sampleRows.slice(0, 40).filter((r) => looksLikePlate(String(r[h] ?? ""))).length;
+      if (score > 0 && (!best || score > best.score)) best = { col: h, score };
+    }
+    if (best) index.plate = best.col;
+  }
   return index;
+}
+
+/** Diagnostic d'import : colonnes reçues, colonne retenue et valeurs des 3 premières lignes. */
+export function diagnoseHeaders(headers: string[], rows: RawRow[]): HeaderDiagnostic {
+  const byHeader = buildHeaderIndex(headers);
+  const withValues = buildHeaderIndex(headers, rows);
+  const col = withValues.plate ?? null;
+  return {
+    headers,
+    plateColumn: col,
+    plateDetection: byHeader.plate ? "entete" : col ? "valeurs" : "aucune",
+    samples: rows.slice(0, 3).map((r, i) => {
+      const source = col ? String(r[col] ?? "") : "";
+      const trimmed = source.trim();
+      return { row: i + 2, source, trimmed, normalized: normalizePlate(trimmed) };
+    }),
+  };
 }
 
 function get(row: RawRow, index: HeaderIndex, key: keyof typeof FIELDS): string {
@@ -174,7 +232,12 @@ export function mapMissionRow(row: RawRow, index: HeaderIndex, fix?: MissionFix)
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const plateRaw = (fix?.plate ?? "").trim() || get(row, index, "plate");
+  // 1) correction manuelle 2) colonne détectée 3) repli : n'importe quelle cellule contenant une plaque.
+  let plateRaw = (fix?.plate ?? "").trim() || get(row, index, "plate");
+  if (!plateRaw) {
+    const hit = Object.values(row).find((v) => looksLikePlate(String(v ?? "")));
+    if (hit) plateRaw = String(hit).trim();
+  }
   const plateNormalized = normalizePlate(plateRaw);
   if (!plateRaw) errors.push("Immatriculation absente (champ obligatoire).");
   else if (plateNormalized.length < 5) errors.push(`Immatriculation invalide : « ${plateRaw} ».`);
@@ -207,6 +270,7 @@ export function mapMissionRow(row: RawRow, index: HeaderIndex, fix?: MissionFix)
 
   return {
     plate: plateRaw.toUpperCase(),
+    plateSource: plateRaw,
     plateNormalized,
     vin,
     orNumber: get(row, index, "orNumber"),

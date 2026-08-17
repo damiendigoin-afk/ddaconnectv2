@@ -69,11 +69,61 @@ export function parseCsv(text: string, delimiter: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
+/** Mots-clés d'en-tête attendus dans les exports atelier (Winmotor, Suivi Missions…). */
+const HEADER_HINTS = [
+  "immat",
+  "client",
+  "vehicule",
+  "marque",
+  "modele",
+  "date",
+  "sinistre",
+  "mission",
+  "assur",
+  "expert",
+  "montant",
+  "vin",
+  "chassis",
+  "or",
+  "telephone",
+  "email",
+];
+
+function normHeader(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Les fichiers réels commencent souvent par un titre / des lignes vides : on cherche la vraie ligne d'en-tête. */
+export function findHeaderRow(matrix: string[][]): number {
+  let best = 0;
+  let bestScore = -1;
+  const limit = Math.min(matrix.length, 15);
+  for (let r = 0; r < limit; r++) {
+    const cells = (matrix[r] ?? []).map((c) => normHeader(String(c ?? "")));
+    const filled = cells.filter((c) => c !== "").length;
+    if (filled < 2) continue;
+    const hints = cells.filter((c) => c && HEADER_HINTS.some((h) => c.includes(h))).length;
+    const score = hints * 10 + filled;
+    if (hints > 0 && score > bestScore) {
+      bestScore = score;
+      best = r;
+    }
+  }
+  if (bestScore < 0) best = matrix.findIndex((r) => (r ?? []).some((c) => String(c ?? "").trim() !== ""));
+  return best < 0 ? 0 : best;
+}
+
 function toRows(matrix: string[][]): ParsedFile {
-  const rawHeaders = matrix[0] ?? [];
+  const headerRow = findHeaderRow(matrix);
+  const rawHeaders = matrix[headerRow] ?? [];
   const headers = rawHeaders.map((h, i) => (h.trim() ? h.trim() : `COL_${i + 1}`));
   const rows: RawRow[] = [];
-  for (let r = 1; r < matrix.length; r++) {
+  for (let r = headerRow + 1; r < matrix.length; r++) {
     const line = matrix[r]!;
     const obj: RawRow = {};
     for (let c = 0; c < headers.length; c++) obj[headers[c]!] = (line[c] ?? "").trim();

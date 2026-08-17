@@ -7,7 +7,14 @@ import { AppShell } from "@/components/AppShell";
 import { Counter } from "@/components/bits";
 import { useAuth } from "@/lib/auth";
 import { parseFile } from "@/lib/winmotor/parse";
-import { buildHeaderIndex, mapMissionRow, type MissionFix, type RawRow } from "@/lib/missions/mapping";
+import {
+  buildHeaderIndex,
+  diagnoseHeaders,
+  mapMissionRow,
+  type HeaderDiagnostic,
+  type MissionFix,
+  type RawRow,
+} from "@/lib/missions/mapping";
 import {
   applyConflict,
   ingestMissions,
@@ -43,6 +50,7 @@ type Preview = {
   ok: number;
   toFix: number;
   problems: Problem[];
+  diagnostic: HeaderDiagnostic;
 };
 
 function ImportMissions() {
@@ -68,11 +76,14 @@ function ImportMissions() {
     setResult(null);
     try {
       const parsed = await parseFile(f);
-      const index = buildHeaderIndex(parsed.headers);
+      const rows = parsed.rows as RawRow[];
+      const index = buildHeaderIndex(parsed.headers, rows);
+      const diagnostic = diagnoseHeaders(parsed.headers, rows);
+      console.info("[Import Suivi Missions] diagnostic", diagnostic);
       let ok = 0;
       const problems: Problem[] = [];
-      parsed.rows.forEach((r, i) => {
-        const m = mapMissionRow(r as RawRow, index);
+      rows.forEach((r, i) => {
+        const m = mapMissionRow(r, index);
         if (m.errors.length) {
           problems.push({
             index: i,
@@ -87,10 +98,11 @@ function ImportMissions() {
       setPreview({
         fileName: f.name,
         headers: parsed.headers,
-        rows: parsed.rows as RawRow[],
+        rows,
         ok,
         toFix: problems.length,
         problems,
+        diagnostic,
       });
     } catch (e) {
       console.error(e);
@@ -159,6 +171,24 @@ function ImportMissions() {
             <p className="mt-3 text-xs text-muted-foreground">
               Les lignes en erreur n'interrompent pas l'import : elles sont conservées pour correction.
             </p>
+            <details className="mt-3 rounded-lg bg-secondary p-3 text-xs">
+              <summary className="cursor-pointer font-bold uppercase">Diagnostic de lecture</summary>
+              <p className="mt-2">
+                Colonne immatriculation :{" "}
+                <strong>{preview.diagnostic.plateColumn ?? "aucune détectée"}</strong>{" "}
+                {preview.diagnostic.plateColumn ? `(${preview.diagnostic.plateDetection})` : null}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {preview.diagnostic.samples.map((s) => (
+                  <li key={s.row}>
+                    Ligne {s.row} : « {s.source || "—"} » → {s.normalized || "—"}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 break-words text-muted-foreground">
+                Colonnes lues : {preview.headers.join(" · ")}
+              </p>
+            </details>
           </section>
 
           {preview.problems.length ? (
