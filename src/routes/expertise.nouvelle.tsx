@@ -1,15 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Camera, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
 import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { useAuth } from "@/lib/auth";
 import { explainError, toastError, type Explained } from "@/lib/errors";
 import { findOpenExpertise, missingInfo, startExpertise } from "@/lib/expertise-start";
-import { ocrPlate, ocrRegistrationCard } from "@/lib/ocr.functions";
-import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 import { refPrefill, refPrefillByVehicle } from "@/lib/refbase";
 
@@ -46,11 +45,8 @@ function NewExpertise() {
   const [plate, setPlate] = useState("");
   const [pick, setPick] = useState<EntityPick | null>(null);
   const [busy, setBusy] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [problem, setProblem] = useState<Explained | null>(null);
   const [existing, setExisting] = useState<{ id: string; plate: string | null } | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const cardRef = useRef<HTMLInputElement>(null);
 
   // Contexte véhicule transmis depuis une fiche véhicule / client : rien à ressaisir.
   useEffect(() => {
@@ -73,82 +69,28 @@ function NewExpertise() {
     };
   }, [vehicleIdParam]);
 
-  async function scan(file: File) {
-    setScanning(true);
-    try {
-      const blob = await compressImage(file, 1400, 0.8);
-      const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrPlate({ data: { dataUrl, filename: file.name } });
-      if (res.ok) {
-        const formatted = formatPlate(res.plate);
-        toast.success(`Plaque détectée : ${formatted}`);
-        if (manual) {
-          setPlate(formatted);
-        } else {
-          const prefill = await refPrefill(res.plate);
-          if (prefill) {
-            setPick(prefill);
-            toast.success("Véhicule reconnu, informations pré-remplies.");
-          } else {
-            setManual(true);
-            setPlate(formatted);
-          }
-        }
-      } else {
-        toast.error(res.error);
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error("Lecture de la plaque impossible.");
-    } finally {
-      setScanning(false);
-    }
-  }
-
-  /** Identification par photo de la carte grise : lecture puis rapprochement base. */
-  async function scanCard(file: File) {
-    setScanning(true);
+  /** Identification unique : plaque, carte grise, OR, avis de sinistre… un seul point d'entrée. */
+  function onDocument(r: DocIdentifyResult) {
     setProblem(null);
-    try {
-      const blob = await compressImage(file, 1800, 0.85);
-      const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrRegistrationCard({ data: { dataUrl, filename: file.name } });
-      if (!res.ok) {
-        setProblem({
-          what: "Carte grise non exploitée",
-          why: res.error,
-          how: "Reprenez la photo à plat, bien éclairée, ou saisissez l'immatriculation.",
-        });
-        return;
-      }
-      const card = JSON.parse(res.json) as Record<string, string | null>;
-      const raw = card["plate"] ?? "";
-      const normalized = normalizePlate(raw);
-      if (normalized.length < 5) {
-        setProblem({
-          what: "Immatriculation non lue",
-          why: "Le champ A de la carte grise n'a pas pu être déchiffré.",
-          how: "Reprenez la photo plus près du champ A ou saisissez l'immatriculation.",
-        });
-        setManual(true);
-        return;
-      }
-      const prefill = await refPrefill(normalized).catch(() => null);
-      if (prefill) {
-        setPick(prefill);
-        toast.success(`Véhicule trouvé dans la base : ${formatPlate(normalized)}`);
-      } else {
-        setManual(true);
-        setPlate(formatPlate(normalized));
-        toast.message("Véhicule absent de la base", {
-          description: `${formatPlate(normalized)} — ${[card["brand"], card["model"]].filter(Boolean).join(" ") || "informations à compléter"}`,
-        });
-      }
-    } catch (e) {
-      setProblem(toastError(e, "Lecture de la carte grise impossible"));
-    } finally {
-      setScanning(false);
+    if (r.prefill) {
+      setPick(r.prefill);
+      toast.success("Véhicule reconnu, informations pré-remplies.");
+      return;
     }
+    if (r.extracted.plate) {
+      setManual(true);
+      setPlate(r.extracted.plate);
+      toast.message("Véhicule absent de la base", {
+        description: `${r.extracted.plate} — ${[r.extracted.brand, r.extracted.model].filter(Boolean).join(" ") || "informations à compléter"}`,
+      });
+      return;
+    }
+    setProblem({
+      what: "Véhicule non identifié",
+      why: "Aucune immatriculation n'a pu être lue sur ce document.",
+      how: "Reprenez la photo à plat et bien éclairée, ou saisissez l'immatriculation à la main.",
+    });
+    setManual(true);
   }
 
   const ctx = { siteId: profile?.site_id ?? null, userId: user?.id ?? null, userName: displayName };
@@ -224,27 +166,7 @@ function NewExpertise() {
                 className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-3 text-xl font-extrabold tracking-widest text-foreground"
               />
             </label>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={scanning}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase"
-            >
-              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-              Scanner la plaque
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void scan(f);
-                e.target.value = "";
-              }}
-            />
+            <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
           </section>
           <button
             onClick={() => void startManual()}
@@ -281,64 +203,19 @@ function NewExpertise() {
             const normalized = normalizePlate(term);
             setPlate(normalized.length >= 5 ? formatPlate(normalized) : term.toUpperCase());
           }}
-          onScan={(file) => void scan(file)}
-          scanning={scanning}
+          onDocument={onDocument}
+          onDocumentError={(m) => toast.error(m)}
           autoFocus
         />
         )}
 
         {pick ? null : (
           <section className="card-surface space-y-2 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Identification par photo
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={scanning}
-                className="flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-3 py-4 text-sm font-bold uppercase disabled:opacity-60"
-              >
-                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                Photo de la plaque
-              </button>
-              <button
-                type="button"
-                onClick={() => cardRef.current?.click()}
-                disabled={scanning}
-                className="flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-3 py-4 text-sm font-bold uppercase disabled:opacity-60"
-              >
-                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-                Photo de la carte grise
-              </button>
-            </div>
+            <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
             <p className="text-xs text-muted-foreground">
-              DDA lit l'immatriculation et retrouve automatiquement le véhicule et son propriétaire.
+              Photo de plaque, carte grise, OR, avis de sinistre ou rapport d'expertise : DDA lit le document et
+              retrouve automatiquement le véhicule et son propriétaire.
             </p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void scan(f);
-                e.target.value = "";
-              }}
-            />
-            <input
-              ref={cardRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void scanCard(f);
-                e.target.value = "";
-              }}
-            />
           </section>
         )}
 
