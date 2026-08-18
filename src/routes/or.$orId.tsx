@@ -219,7 +219,7 @@ function OrderPage() {
               Tours véhicule ({tours.data?.length ?? 0})
             </h2>
             {(tours.data ?? []).map((t) => {
-              const d = new Date(t.completed_at ?? t.started_at);
+              const d = new Date(t.completed_at ?? t.started_at ?? Date.now());
               return (
                 <Link
                   key={t.id}

@@ -32,7 +32,7 @@ export function ExpertiseReport({ d }: { d: ExpertiseData }) {
   const photoOf = (id: string | null) => photos.find((p) => p.id === id);
   const lightbox = useLightbox();
   const openPhoto = (p: (typeof photos)[number]) =>
-    lightbox.open([{ src: p.storage_path, thumb: p.report_path ?? p.storage_path, label: p.label }], 0);
+    lightbox.open([{ path: p.storage_path, label: p.label }], 0);
 
   return (
     <div className="space-y-4">

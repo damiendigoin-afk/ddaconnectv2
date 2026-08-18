@@ -82,7 +82,10 @@ function TourPage() {
                 _user_id: user.id,
                 _user_name: displayName || "Utilisateur",
               });
-              if (error) return toast.error("Le tour n’a pas pu démarrer.");
+              if (error) {
+                toast.error("Le tour n’a pas pu démarrer.");
+                return;
+              }
               await qc.invalidateQueries({ queryKey: ["tour", tourId] });
             }}
             className="w-full rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground"
@@ -234,7 +237,10 @@ function Guided(props: SharedProps) {
       _user_id: user.id,
       _user_name: displayName || "Utilisateur",
     });
-    if (error) return toast.error("Le tour n’a pas pu être clôturé.");
+    if (error) {
+      toast.error("Le tour n’a pas pu être clôturé.");
+      return;
+    }
     toast.success("Tour véhicule terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
@@ -479,7 +485,10 @@ function Free(props: SharedProps) {
       _user_id: user.id,
       _user_name: displayName || "Utilisateur",
     });
-    if (error) return toast.error("Le tour n’a pas pu être clôturé.");
+    if (error) {
+      toast.error("Le tour n’a pas pu être clôturé.");
+      return;
+    }
     toast.success("Tour libre terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }

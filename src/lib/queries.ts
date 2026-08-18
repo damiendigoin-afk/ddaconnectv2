@@ -45,7 +45,7 @@ export type InspectionSummary = {
   status: string;
   current_zone_index: number;
   mileage: number | null;
-  started_at: string;
+  started_at: string | null;
   completed_at: string | null;
   points: number;
   observations: number;
@@ -102,7 +102,7 @@ export type RecentTour = {
   id: string;
   inspection_type: string;
   status: string;
-  started_at: string;
+  started_at: string | null;
   completed_at: string | null;
   mileage: number | null;
   last_sent_at: string | null;

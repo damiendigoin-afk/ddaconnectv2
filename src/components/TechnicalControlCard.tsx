@@ -64,7 +64,6 @@ export function TechnicalControlCard({
     const pointPatch = {
       ct_due_date: ct || null,
       pollution_due_date: pollution || null,
-      ct_photo_media_id: mediaId ?? null,
       ct_read_at: now,
       ct_source: manual ? "manuel" : "ocr",
       ct_manually_corrected: manual,
@@ -72,7 +71,7 @@ export function TechnicalControlCard({
     const vehiclePatch = {
       ct_due_date: ct || null,
       pollution_due_date: pollution || null,
-      ct_photo_media_id: mediaId ?? undefined,
+      ...(mediaId ? { ct_photo_media_id: mediaId } : {}),
       ct_read_at: now,
       ct_source: manual ? "manuel" : "ocr",
       ct_manually_corrected: manual,
