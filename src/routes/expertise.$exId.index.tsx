@@ -766,7 +766,7 @@ function DamagesStep({
           const f = ev.target.files?.[0];
           ev.target.value = "";
           if (!f) return;
-          const blob = await compressImage(f, 1800, 0.85);
+          const blob = await compressImage(f, 2400, 0.92);
           setDraft({ url: URL.createObjectURL(blob), blob });
         }}
       />

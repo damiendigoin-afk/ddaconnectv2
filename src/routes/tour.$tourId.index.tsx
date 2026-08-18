@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ChevronLeft, ChevronRight, LogOut, Plus, Trash2, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, LogOut, Play, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -9,8 +9,10 @@ import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { MileageCard } from "@/components/MileageCard";
 import { PhotoManager } from "@/components/PhotoManager";
 import { PointCard, type PointRow } from "@/components/PointCard";
+import { TechnicalControlCard } from "@/components/TechnicalControlCard";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
 import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
@@ -40,6 +42,7 @@ function TourPage() {
   const { tourId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user, displayName } = useAuth();
   const tour = useQuery({ queryKey: ["tour", tourId], queryFn: () => loadTour(tourId) });
 
   const vehicle = tour.data?.vehicle as { id: string; plate: string; last_mileage: number | null } | null;
@@ -59,6 +62,37 @@ function TourPage() {
   }
 
   if (completed) return null;
+
+  if (!tour.data.started_at) {
+    return (
+      <AppShell title="Tour véhicule" subtitle={vehicle.plate} back={{ to: "/or/$orId", params: { orId: order.id } }}>
+        <section className="card-surface space-y-4 p-5 text-center">
+          <Play className="mx-auto h-10 w-10 text-brand" />
+          <div>
+            <h1 className="text-lg font-extrabold uppercase">Prêt à commencer</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Le chronomètre démarre uniquement lorsque vous lancez le contrôle.</p>
+          </div>
+          <button
+            type="button"
+            disabled={!user}
+            onClick={async () => {
+              if (!user) return;
+              const { error } = await supabase.rpc("start_vehicle_inspection", {
+                _inspection_id: tourId,
+                _user_id: user.id,
+                _user_name: displayName || "Utilisateur",
+              });
+              if (error) return toast.error("Le tour n’a pas pu démarrer.");
+              await qc.invalidateQueries({ queryKey: ["tour", tourId] });
+            }}
+            className="w-full rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground"
+          >
+            Démarrer le tour
+          </button>
+        </section>
+      </AppShell>
+    );
+  }
 
   const quit = () => {
     toast.success("Tour sauvegardé en brouillon.");
@@ -81,6 +115,8 @@ function TourPage() {
     lastMileage: vehicle.last_mileage,
     mileage: tour.data.mileage as number | null,
     zoneIndex: tour.data.current_zone_index as number,
+    ctDueDate: (vehicle as unknown as { ct_due_date?: string | null }).ct_due_date ?? null,
+    pollutionDueDate: (vehicle as unknown as { pollution_due_date?: string | null }).pollution_due_date ?? null,
     quit,
     deleteDraft,
   };
@@ -96,6 +132,8 @@ type SharedProps = {
   lastMileage: number | null;
   mileage: number | null;
   zoneIndex: number;
+  ctDueDate: string | null;
+  pollutionDueDate: string | null;
   quit: () => void;
   deleteDraft: () => void;
 };
@@ -123,6 +161,7 @@ function TourNav({ quit, deleteDraft }: { quit: () => void; deleteDraft: () => v
 
 function Guided(props: SharedProps) {
   const navigate = useNavigate();
+  const { user, displayName } = useAuth();
   const [zone, setZone] = useState(Math.min(props.zoneIndex, GUIDED_ZONES.length));
   const [mileage, setMileage] = useState(props.mileage);
   const [showSummary, setShowSummary] = useState(false);
@@ -189,10 +228,13 @@ function Guided(props: SharedProps) {
   }
 
   async function finish() {
-    await supabase
-      .from("vehicle_inspections")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
-      .eq("id", props.tourId);
+    if (!user) return;
+    const { error } = await supabase.rpc("finish_vehicle_inspection", {
+      _inspection_id: props.tourId,
+      _user_id: user.id,
+      _user_name: displayName || "Utilisateur",
+    });
+    if (error) return toast.error("Le tour n’a pas pu être clôturé.");
     toast.success("Tour véhicule terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
@@ -316,6 +358,20 @@ function Guided(props: SharedProps) {
               />
             );
           }
+          if (def?.special === "ct") {
+            return (
+              <div key={p.id}>
+                <PointCard point={p} def={def} inspectionId={props.tourId} />
+                <TechnicalControlCard
+                  pointId={p.id}
+                  tourId={props.tourId}
+                  vehicleId={props.vehicleId}
+                  initialCt={(p as unknown as { ct_due_date?: string | null }).ct_due_date ?? props.ctDueDate}
+                  initialPollution={(p as unknown as { pollution_due_date?: string | null }).pollution_due_date ?? props.pollutionDueDate}
+                />
+              </div>
+            );
+          }
           return <PointCard key={p.id} point={p} def={def} inspectionId={props.tourId} />;
         })}
       </div>
@@ -388,6 +444,7 @@ type ObsRow = {
 function Free(props: SharedProps) {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user, displayName } = useAuth();
   const [editing, setEditing] = useState<ObsRow | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -416,10 +473,13 @@ function Free(props: SharedProps) {
   });
 
   async function finish() {
-    await supabase
-      .from("vehicle_inspections")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
-      .eq("id", props.tourId);
+    if (!user) return;
+    const { error } = await supabase.rpc("finish_vehicle_inspection", {
+      _inspection_id: props.tourId,
+      _user_id: user.id,
+      _user_name: displayName || "Utilisateur",
+    });
+    if (error) return toast.error("Le tour n’a pas pu être clôturé.");
     toast.success("Tour libre terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
