@@ -23,11 +23,13 @@ export function PeriodPicker({
   }
 
   function setStart(start: string) {
-    onChange({ start, end: value.end < start ? start : value.end });
+    const end = value.end < start ? start : value.end;
+    onChange({ start, end: monthsBetween(start, end) > 12 ? addMonths(start, 11) : end });
   }
 
   function setEnd(end: string) {
-    onChange({ start: value.start > end ? end : value.start, end });
+    const start = value.start > end ? end : value.start;
+    onChange({ start: monthsBetween(start, end) > 12 ? addMonths(end, -11) : start, end });
   }
 
   function year(y: number) {

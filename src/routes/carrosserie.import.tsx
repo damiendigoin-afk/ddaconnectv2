@@ -181,7 +181,7 @@ function ImportMissions() {
               <ul className="mt-1 space-y-0.5">
                 {preview.diagnostic.samples.map((s) => (
                   <li key={s.row}>
-                    Ligne {s.row} : « {s.source || "—"} » → {s.normalized || "—"}
+                    Ligne {s.row} · colonne {s.column ?? "—"} : brut « {s.source || "—"} » · nettoyé « {s.trimmed || "—"} » · normalisé {s.normalized || "—"} · enregistré « {s.stored || "—"} »
                   </li>
                 ))}
               </ul>

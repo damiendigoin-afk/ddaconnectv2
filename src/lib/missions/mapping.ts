@@ -116,7 +116,7 @@ export type HeaderDiagnostic = {
   headers: string[];
   plateColumn: string | null;
   plateDetection: "entete" | "valeurs" | "aucune";
-  samples: { row: number; source: string; trimmed: string; normalized: string }[];
+  samples: { row: number; column: string | null; source: string; trimmed: string; normalized: string; stored: string }[];
 };
 
 export function buildHeaderIndex(headers: string[], sampleRows?: RawRow[]): HeaderIndex {
@@ -124,10 +124,11 @@ export function buildHeaderIndex(headers: string[], sampleRows?: RawRow[]): Head
   const normalized = headers.map((h) => ({ raw: h, n: norm(h) }));
   for (const key of Object.keys(FIELDS) as (keyof typeof FIELDS)[]) {
     const candidates = FIELDS[key] as readonly string[];
+    const safeCandidates = candidates.filter((c) => c.length >= 4 || candidates.includes(c));
     const hit =
       normalized.find((h) => candidates.includes(h.n)) ??
-      normalized.find((h) => candidates.some((c) => h.n.startsWith(c))) ??
-      normalized.find((h) => candidates.some((c) => h.n.includes(c)));
+      normalized.find((h) => safeCandidates.some((c) => c.length >= 4 && h.n.startsWith(`${c} `))) ??
+      normalized.find((h) => safeCandidates.some((c) => c.length >= 5 && h.n.includes(c)));
     if (hit) index[key] = hit.raw;
   }
   // Repli : aucune colonne d'en-tête reconnue → on cherche la colonne dont les valeurs sont des plaques.
@@ -154,7 +155,14 @@ export function diagnoseHeaders(headers: string[], rows: RawRow[]): HeaderDiagno
     samples: rows.slice(0, 3).map((r, i) => {
       const source = col ? String(r[col] ?? "") : "";
       const trimmed = source.trim();
-      return { row: i + 2, source, trimmed, normalized: normalizePlate(trimmed) };
+      return {
+        row: i + 2,
+        column: col,
+        source,
+        trimmed,
+        normalized: normalizePlate(trimmed),
+        stored: trimmed.toUpperCase(),
+      };
     }),
   };
 }
@@ -162,6 +170,17 @@ export function diagnoseHeaders(headers: string[], rows: RawRow[]): HeaderDiagno
 function get(row: RawRow, index: HeaderIndex, key: keyof typeof FIELDS): string {
   const col = index[key];
   return col ? String(row[col] ?? "").trim() : "";
+}
+
+export function plateTrace(row: RawRow, index: HeaderIndex, fix?: MissionFix) {
+  const column = index.plate ?? null;
+  const raw = fix?.plate !== undefined ? fix.plate : column ? String(row[column] ?? "") : "";
+  let source = raw;
+  if (!source.trim() && !column) {
+    source = String(Object.values(row).find((v) => looksLikePlate(String(v ?? ""))) ?? "");
+  }
+  const cleaned = source.replace(/\u00a0/g, " ").trim();
+  return { column, raw: source, cleaned, normalized: normalizePlate(cleaned), stored: cleaned.toUpperCase() };
 }
 
 function toNumber(v: string): number | null {
@@ -233,11 +252,8 @@ export function mapMissionRow(row: RawRow, index: HeaderIndex, fix?: MissionFix)
   const warnings: string[] = [];
 
   // 1) correction manuelle 2) colonne détectée 3) repli : n'importe quelle cellule contenant une plaque.
-  let plateRaw = (fix?.plate ?? "").trim() || get(row, index, "plate");
-  if (!plateRaw) {
-    const hit = Object.values(row).find((v) => looksLikePlate(String(v ?? "")));
-    if (hit) plateRaw = String(hit).trim();
-  }
+  const trace = plateTrace(row, index, fix);
+  const plateRaw = trace.cleaned;
   const plateNormalized = normalizePlate(plateRaw);
   if (!plateRaw) errors.push("Immatriculation absente (champ obligatoire).");
   else if (plateNormalized.length < 5) errors.push(`Immatriculation invalide : « ${plateRaw} ».`);

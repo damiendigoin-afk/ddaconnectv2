@@ -89,6 +89,15 @@ const HEADER_HINTS = [
   "email",
 ];
 
+const STRONG_HEADER_HINTS = [
+  /^(n |no |numero )?immat(riculation)?( vehicule)?$/,
+  /^(nom )?client$/,
+  /^(marque |type )?vehicule$/,
+  /^(date )?mission$/,
+  /^(n |no |numero )?(or|sinistre|mission)$/,
+  /^(assureur|assurance|expert|vin|chassis)$/,
+];
+
 function normHeader(s: string): string {
   return s
     .normalize("NFD")
@@ -107,8 +116,9 @@ export function findHeaderRow(matrix: string[][]): number {
     const cells = (matrix[r] ?? []).map((c) => normHeader(String(c ?? "")));
     const filled = cells.filter((c) => c !== "").length;
     if (filled < 2) continue;
-    const hints = cells.filter((c) => c && HEADER_HINTS.some((h) => c.includes(h))).length;
-    const score = hints * 10 + filled;
+    const strong = cells.filter((c) => c && STRONG_HEADER_HINTS.some((h) => h.test(c))).length;
+    const hints = cells.filter((c) => c && HEADER_HINTS.some((h) => c === h || c.startsWith(`${h} `))).length;
+    const score = strong * 100 + hints * 10 + filled;
     if (hints > 0 && score > bestScore) {
       bestScore = score;
       best = r;
@@ -121,13 +131,16 @@ export function findHeaderRow(matrix: string[][]): number {
 function toRows(matrix: string[][]): ParsedFile {
   const headerRow = findHeaderRow(matrix);
   const rawHeaders = matrix[headerRow] ?? [];
-  const headers = rawHeaders.map((h, i) => (h.trim() ? h.trim() : `COL_${i + 1}`));
+  const headers = rawHeaders.map((h, i) => {
+    const cleaned = h.replace(/\u00a0/g, " ").trim();
+    return cleaned || `COL_${i + 1}`;
+  });
   const rows: RawRow[] = [];
   for (let r = headerRow + 1; r < matrix.length; r++) {
     const line = matrix[r]!;
     const obj: RawRow = {};
-    for (let c = 0; c < headers.length; c++) obj[headers[c]!] = (line[c] ?? "").trim();
-    rows.push(obj);
+    for (let c = 0; c < headers.length; c++) obj[headers[c]!] = String(line[c] ?? "");
+    if (Object.values(obj).some((value) => value.trim() !== "")) rows.push(obj);
   }
   return { headers, rows, delimiter: "", encoding: "" };
 }
@@ -137,9 +150,17 @@ export async function parseFile(file: File): Promise<ParsedFile> {
   if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
     const XLSX = await import("xlsx");
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array", raw: false, cellDates: false });
-    const sheet = wb.Sheets[wb.SheetNames[0]!]!;
-    const matrix = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "", raw: false }) as string[][];
-    const parsed = toRows(matrix.map((r) => r.map((c) => String(c ?? ""))));
+    const candidates = wb.SheetNames.map((sheetName) => {
+      const sheet = wb.Sheets[sheetName];
+      if (!sheet) return { matrix: [] as string[][], score: -1 };
+      const matrix = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "", raw: false }) as string[][];
+      const clean = matrix.map((r) => r.map((c) => String(c ?? "")));
+      const header = clean[findHeaderRow(clean)] ?? [];
+      const score = header.map(normHeader).filter((c) => STRONG_HEADER_HINTS.some((h) => h.test(c))).length;
+      return { matrix: clean, score };
+    });
+    const selected = candidates.sort((a, b) => b.score - a.score)[0];
+    const parsed = toRows(selected?.matrix ?? []);
     return { ...parsed, delimiter: "xlsx", encoding: "XLSX" };
   }
   const { text, encoding } = decode(await file.arrayBuffer());

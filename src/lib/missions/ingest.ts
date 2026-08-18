@@ -5,6 +5,7 @@ import {
   buildHeaderIndex,
   diagnoseHeaders,
   mapMissionRow,
+  plateTrace,
   type MissionFix,
   type MissionMapped,
   type RawRow,
@@ -77,9 +78,8 @@ function toIso(d: string | null): string | null {
 }
 
 /** Retrouve le véhicule du référentiel par immatriculation normalisée, sinon le crée. */
-async function ensureRefVehicle(m: MissionMapped, siteId: string | null): Promise<string | null> {
-  if (!m.plateNormalized) return null;
-  try {
+async function ensureRefVehicle(m: MissionMapped, siteId: string | null): Promise<string> {
+  if (!m.plateNormalized) throw new Error("Immatriculation normalisée absente.");
     const { data: found } = await supabase
       .from("ref_vehicles")
       .select("id, registration_display")
@@ -106,11 +106,8 @@ async function ensureRefVehicle(m: MissionMapped, siteId: string | null): Promis
       .select("id")
       .single();
     if (error) throw error;
-    return (created?.id as string) ?? null;
-  } catch {
-    // Le référentiel ne doit jamais bloquer la création du dossier.
-    return null;
-  }
+    if (!created?.id) throw new Error("Le véhicule n'a pas pu être créé dans le référentiel.");
+    return created.id as string;
 }
 
 /** Valeurs candidates issues du fichier pour un dossier. */
@@ -229,6 +226,15 @@ export async function ingestMissions(
     let mapped: MissionMapped | null = null;
     try {
       mapped = mapMissionRow(raw, index, fixes?.[i]);
+      const trace = plateTrace(raw, index, fixes?.[i]);
+      console.info("[Import Suivi Missions] plaque", {
+        rowNumber,
+        detectedColumn: trace.column,
+        raw: trace.raw,
+        cleaned: trace.cleaned,
+        normalized: trace.normalized,
+        stored: trace.stored,
+      });
       if (mapped.errors.length) throw new Error("validation");
 
       const key = mapped.orNumber || mapped.plateNormalized;
@@ -283,7 +289,7 @@ export async function ingestMissions(
           if (error) throw error;
         }
         counters.updated++;
-        await logRow(imp.id, rowNumber, raw, "imported", []);
+        await logRow(imp.id, rowNumber, raw, "imported", [], trace);
       } else {
         const { error } = await supabase.from("bodyshop_cases").insert({
           site_id: siteId,
@@ -300,7 +306,7 @@ export async function ingestMissions(
         });
         if (error) throw error;
         counters.imported++;
-        await logRow(imp.id, rowNumber, raw, "imported", []);
+        await logRow(imp.id, rowNumber, raw, "imported", [], trace);
       }
     } catch (e) {
       // Une ligne en erreur ne bloque jamais les suivantes.
@@ -348,6 +354,7 @@ async function logRow(
   raw: RawRow,
   status: string,
   errors: string[],
+  trace?: ReturnType<typeof plateTrace>,
 ): Promise<string> {
   try {
     const { data } = await supabase
@@ -355,7 +362,7 @@ async function logRow(
       .insert({
         import_id: importId,
         row_number: rowNumber,
-        raw_data: raw as never,
+        raw_data: { ...raw, __plate_trace: trace ?? null } as never,
         processing_status: status,
         processing_errors: errors,
       })
