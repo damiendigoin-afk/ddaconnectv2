@@ -201,6 +201,15 @@ function Guided(props: SharedProps) {
             rows = [...rows, ...(added as typeof rows)].sort((a, b) => a.zone_index - b.zone_index);
           }
         }
+        // Libellés de référence mis à jour : on aligne les tours existants.
+        const labels = new Map(GUIDED_ZONES.flatMap((z) => z.points.map((p) => [p.key, p.label] as const)));
+        for (const row of rows) {
+          const label = labels.get(row.point_key);
+          if (label && label !== row.point_label) {
+            row.point_label = label;
+            await supabase.from("inspection_points").update({ point_label: label }).eq("id", row.id);
+          }
+        }
       }
       return rows;
     },
