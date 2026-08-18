@@ -178,7 +178,31 @@ function Guided(props: SharedProps) {
         .eq("inspection_id", props.tourId)
         .order("zone_index");
       if (error) throw error;
-      return data as (PointRow & { zone_index: number; zone_label: string })[];
+      let rows = data as (PointRow & { zone_index: number; zone_label: string })[];
+      // Auto-réparation : un tour commencé avant l'ajout d'un point de contrôle
+      // (ex. contrôle technique) doit tout de même l'afficher.
+      if (rows.length > 0) {
+        const existing = new Set(rows.map((p) => p.point_key));
+        const missing = GUIDED_ZONES.flatMap((zone, zi) =>
+          zone.points
+            .filter((p) => !existing.has(p.key))
+            .map((p) => ({
+              inspection_id: props.tourId,
+              zone_key: zone.key,
+              zone_label: zone.label,
+              zone_index: zi + 1,
+              point_key: p.key,
+              point_label: p.label,
+            })),
+        );
+        if (missing.length > 0) {
+          const { data: added } = await supabase.from("inspection_points").insert(missing).select("*");
+          if (added) {
+            rows = [...rows, ...(added as typeof rows)].sort((a, b) => a.zone_index - b.zone_index);
+          }
+        }
+      }
+      return rows;
     },
   });
 
