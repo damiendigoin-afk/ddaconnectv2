@@ -18,6 +18,12 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
       ? Math.max(0, Math.round((finishedAt.getTime() - startedAt.getTime()) / 1000))
       : null);
   const hhmm = (v: Date) => v.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const formatDuration = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h > 0) return `${h} h ${String(m).padStart(2, "0")}`;
+    return m > 0 ? `${m} min` : `${s} s`;
+  };
   const counts = {
     ok: d.points.filter((p) => p.status === "ok").length,
     watch: d.points.filter((p) => p.status === "watch").length,
@@ -42,11 +48,7 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
         <div className="flex flex-wrap gap-x-3 text-xs font-semibold text-muted-foreground">
           {startedAt ? <span>Début : {hhmm(startedAt)}</span> : null}
           {finishedAt ? <span>Fin : {hhmm(finishedAt)}</span> : null}
-          {duration != null ? (
-            <span>
-              Durée : {Math.floor(duration / 60)} min {duration % 60} s
-            </span>
-          ) : null}
+          {duration != null ? <span>Durée : {formatDuration(duration)}</span> : null}
           {d.inspection.completed_by_name ? <span>Terminé par {d.inspection.completed_by_name}</span> : null}
         </div>
       ) : null}
