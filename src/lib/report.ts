@@ -16,6 +16,7 @@ export type ReportData = {
     mileage: number | null;
     started_at: string | null;
     completed_at: string | null;
+    finished_at: string | null;
     duration_seconds: number | null;
     completed_by_name: string | null;
     share_token: string;
