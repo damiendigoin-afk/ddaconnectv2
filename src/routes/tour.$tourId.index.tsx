@@ -230,7 +230,15 @@ function Guided(props: SharedProps) {
   const current = zones[position - 1] ?? zones[0]!;
   const zoneDef =
     GUIDED_ZONES.find((z) => z.key === current.key) ?? GUIDED_ZONES[current.index - 1] ?? GUIDED_ZONES[0]!;
-  const zonePoints = (points.data ?? []).filter((p) => p.zone_index === current.index);
+  const zonePoints = (points.data ?? [])
+    .filter((p) => p.zone_index === current.index)
+    .sort((a, b) => {
+      const order = (k: string) => {
+        const i = zoneDef.points.findIndex((d) => d.key === k);
+        return i === -1 ? 999 : i;
+      };
+      return order(a.point_key) - order(b.point_key);
+    });
 
   const counts = useMemo(() => {
     const all = points.data ?? [];
