@@ -6,7 +6,24 @@ import type { ReportData, ReportMedia } from "@/lib/report";
 
 export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean }) {
   const date = new Date(d.inspection.completed_at ?? d.inspection.started_at ?? Date.now());
-  const duration = d.inspection.duration_seconds;
+  const startedAt = d.inspection.started_at ? new Date(d.inspection.started_at) : null;
+  const finishedAt = d.inspection.finished_at
+    ? new Date(d.inspection.finished_at)
+    : d.inspection.completed_at
+      ? new Date(d.inspection.completed_at)
+      : null;
+  const duration =
+    d.inspection.duration_seconds ??
+    (startedAt && finishedAt
+      ? Math.max(0, Math.round((finishedAt.getTime() - startedAt.getTime()) / 1000))
+      : null);
+  const hhmm = (v: Date) => v.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const formatDuration = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h > 0) return `${h} h ${String(m).padStart(2, "0")}`;
+    return m > 0 ? `${m} min` : `${s} s`;
+  };
   const counts = {
     ok: d.points.filter((p) => p.status === "ok").length,
     watch: d.points.filter((p) => p.status === "watch").length,
@@ -27,10 +44,12 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
       {d.inspection.mileage ? (
         <div className="font-semibold">{d.inspection.mileage.toLocaleString("fr-FR")} km</div>
       ) : null}
-      {duration != null ? (
-        <div className="text-xs text-muted-foreground">
-          Durée {Math.floor(duration / 60)} min {duration % 60} s
-          {d.inspection.completed_by_name ? ` · Terminé par ${d.inspection.completed_by_name}` : ""}
+      {startedAt || finishedAt || duration != null ? (
+        <div className="flex flex-wrap gap-x-3 text-xs font-semibold text-muted-foreground">
+          {startedAt ? <span>Début : {hhmm(startedAt)}</span> : null}
+          {finishedAt ? <span>Fin : {hhmm(finishedAt)}</span> : null}
+          {duration != null ? <span>Durée : {formatDuration(duration)}</span> : null}
+          {d.inspection.completed_by_name ? <span>Terminé par {d.inspection.completed_by_name}</span> : null}
         </div>
       ) : null}
       <div className="pt-2 text-sm">

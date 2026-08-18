@@ -178,7 +178,40 @@ function Guided(props: SharedProps) {
         .eq("inspection_id", props.tourId)
         .order("zone_index");
       if (error) throw error;
-      return data as (PointRow & { zone_index: number; zone_label: string })[];
+      let rows = data as (PointRow & { zone_index: number; zone_label: string })[];
+      // Auto-réparation : un tour commencé avant l'ajout d'un point de contrôle
+      // (ex. contrôle technique) doit tout de même l'afficher.
+      if (rows.length > 0) {
+        const existing = new Set(rows.map((p) => p.point_key));
+        const missing = GUIDED_ZONES.flatMap((zone, zi) =>
+          zone.points
+            .filter((p) => !existing.has(p.key))
+            .map((p) => ({
+              inspection_id: props.tourId,
+              zone_key: zone.key,
+              zone_label: zone.label,
+              zone_index: zi + 1,
+              point_key: p.key,
+              point_label: p.label,
+            })),
+        );
+        if (missing.length > 0) {
+          const { data: added } = await supabase.from("inspection_points").insert(missing).select("*");
+          if (added) {
+            rows = [...rows, ...(added as typeof rows)].sort((a, b) => a.zone_index - b.zone_index);
+          }
+        }
+        // Libellés de référence mis à jour : on aligne les tours existants.
+        const labels = new Map(GUIDED_ZONES.flatMap((z) => z.points.map((p) => [p.key, p.label] as const)));
+        for (const row of rows) {
+          const label = labels.get(row.point_key);
+          if (label && label !== row.point_label) {
+            row.point_label = label;
+            await supabase.from("inspection_points").update({ point_label: label }).eq("id", row.id);
+          }
+        }
+      }
+      return rows;
     },
   });
 
@@ -206,7 +239,15 @@ function Guided(props: SharedProps) {
   const current = zones[position - 1] ?? zones[0]!;
   const zoneDef =
     GUIDED_ZONES.find((z) => z.key === current.key) ?? GUIDED_ZONES[current.index - 1] ?? GUIDED_ZONES[0]!;
-  const zonePoints = (points.data ?? []).filter((p) => p.zone_index === current.index);
+  const zonePoints = (points.data ?? [])
+    .filter((p) => p.zone_index === current.index)
+    .sort((a, b) => {
+      const order = (k: string) => {
+        const i = zoneDef.points.findIndex((d) => d.key === k);
+        return i === -1 ? 999 : i;
+      };
+      return order(a.point_key) - order(b.point_key);
+    });
 
   const counts = useMemo(() => {
     const all = points.data ?? [];
