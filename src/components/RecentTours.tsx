@@ -12,7 +12,7 @@ const COMM_STYLE: Record<string, string> = {
 
 export function TourRow({ t, resume }: { t: RecentTour; resume?: boolean }) {
   const Icon = t.comm === "sent" ? MailCheck : t.comm === "modified" ? MailWarning : Mail;
-  const date = new Date(t.completed_at ?? t.started_at);
+  const date = new Date(t.completed_at ?? t.started_at ?? Date.now());
   const open = resume ?? t.status !== "completed";
   return (
     <Link

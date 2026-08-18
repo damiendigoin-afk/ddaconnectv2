@@ -5,7 +5,8 @@ import { formatPlate } from "@/lib/plate";
 import type { ReportData, ReportMedia } from "@/lib/report";
 
 export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean }) {
-  const date = new Date(d.inspection.completed_at ?? d.inspection.started_at);
+  const date = new Date(d.inspection.completed_at ?? d.inspection.started_at ?? Date.now());
+  const duration = d.inspection.duration_seconds;
   const counts = {
     ok: d.points.filter((p) => p.status === "ok").length,
     watch: d.points.filter((p) => p.status === "watch").length,
@@ -25,6 +26,12 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
       </div>
       {d.inspection.mileage ? (
         <div className="font-semibold">{d.inspection.mileage.toLocaleString("fr-FR")} km</div>
+      ) : null}
+      {duration != null ? (
+        <div className="text-xs text-muted-foreground">
+          Durée {Math.floor(duration / 60)} min {duration % 60} s
+          {d.inspection.completed_by_name ? ` · Terminé par ${d.inspection.completed_by_name}` : ""}
+        </div>
       ) : null}
       <div className="pt-2 text-sm">
         {clientView ? (

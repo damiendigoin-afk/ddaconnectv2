@@ -14,8 +14,10 @@ export type ReportData = {
     inspection_type: string;
     status: string;
     mileage: number | null;
-    started_at: string;
+    started_at: string | null;
     completed_at: string | null;
+    duration_seconds: number | null;
+    completed_by_name: string | null;
     share_token: string;
     last_sent_at: string | null;
     last_sent_to: string | null;
@@ -60,7 +62,7 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
   let query = supabase
     .from("vehicle_inspections")
     .select(
-      "id, inspection_type, status, mileage, started_at, completed_at, share_token, last_sent_at, last_sent_to, client_content_updated_at, vehicle:vehicles(id, plate, brand, model), repair_order:repair_orders(id, or_number, or_date, client:clients(first_name, last_name, email))",
+      "id, inspection_type, status, mileage, started_at, completed_at, duration_seconds, completed_by_name, share_token, last_sent_at, last_sent_to, client_content_updated_at, vehicle:vehicles(id, plate, brand, model), repair_order:repair_orders(id, or_number, or_date, client:clients(first_name, last_name, email))",
     );
   query = by.id ? query.eq("id", by.id) : query.eq("share_token", by.token!);
   const { data: insp, error } = await query.single();

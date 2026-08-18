@@ -54,6 +54,23 @@ Si illisible : {"mileage":null,"unit":null}`;
     if (!mileage) return { ok: false as const, error: "Kilométrage non détecté.", mileage: 0 };
     return { ok: true as const, error: "", mileage };
   });
+
+export const ocrTechnicalControl = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Lis la vignette ou le procès-verbal de contrôle technique français visible.
+Réponds STRICTEMENT en JSON :
+{"ct_due_date":null,"pollution_due_date":null,"vehicle_kind":"vp","confidence":0.0}
+ct_due_date = prochaine échéance du contrôle technique au format YYYY-MM-DD.
+pollution_due_date = prochaine échéance du contrôle complémentaire pollution, uniquement si elle est réellement indiquée.
+vehicle_kind = "vu" pour un véhicule utilitaire soumis au contrôle complémentaire pollution, sinon "vp".
+Ne confonds pas date du contrôle réalisé et date limite du prochain contrôle. Mets null si illisible. N'invente rien.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename);
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    const parsed = parseJsonBlock(result.content);
+    if (!parsed) return { ok: false as const, error: "Dates du contrôle technique illisibles.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+  });
 /** Lecture d'une carte grise française (certificat d'immatriculation). */
 export const ocrRegistrationCard = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => fileInput.parse(data))

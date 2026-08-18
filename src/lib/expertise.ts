@@ -385,7 +385,7 @@ export async function uploadExpertisePhoto(args: {
 }): Promise<ExpertisePhoto> {
   const folder = `expertises/${args.expertiseId}`;
   const id = crypto.randomUUID();
-  const original = await compressImage(new File([args.file], "p.jpg", { type: "image/jpeg" }), 2000, 0.9);
+  const original = await compressImage(new File([args.file], "p.jpg", { type: "image/jpeg" }), 2400, 0.92);
   const reportSource = args.annotated ?? original;
   const report = await compressImage(
     new File([reportSource], "p.jpg", { type: "image/jpeg" }),

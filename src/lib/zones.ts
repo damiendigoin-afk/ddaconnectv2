@@ -2,7 +2,7 @@ export type PointDef = {
   key: string;
   label: string;
   measure?: { unit: string; label: string };
-  special?: "mileage";
+  special?: "mileage" | "ct";
   /** Défauts fréquents proposés en un tap (renseignent le commentaire). */
   quickDefects?: string[];
 };
@@ -85,6 +85,7 @@ export const GUIDED_ZONES: ZoneDef[] = [
         ],
       },
       { key: "pare_brise", label: "Pare-brise" },
+      { key: "controle_technique", label: "Contrôle technique (vignette)", special: "ct" },
       { key: "essuie_glaces", label: "Balais essuie-glaces" },
     ],
   },
