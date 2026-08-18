@@ -85,8 +85,8 @@ export const GUIDED_ZONES: ZoneDef[] = [
         ],
       },
       { key: "pare_brise", label: "Pare-brise" },
-      { key: "controle_technique", label: "Contrôle technique (vignette)", special: "ct" },
-      { key: "essuie_glaces", label: "Balais essuie-glaces" },
+      { key: "essuie_glaces", label: "Balais essuie-glaces avant" },
+      { key: "controle_technique", label: "Contrôle technique", special: "ct" },
     ],
   },
   {
