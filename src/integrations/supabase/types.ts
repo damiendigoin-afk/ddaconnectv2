@@ -1761,12 +1761,17 @@ export type Database = {
           client_comment: string | null
           comment: string | null
           created_at: string
+          ct_due_date: string | null
+          ct_manually_corrected: boolean
+          ct_read_at: string | null
+          ct_source: string | null
           id: string
           inspection_id: string
           measure_unit: string | null
           measure_value: string | null
           point_key: string
           point_label: string
+          pollution_due_date: string | null
           status: string
           updated_at: string
           zone_index: number
@@ -1777,12 +1782,17 @@ export type Database = {
           client_comment?: string | null
           comment?: string | null
           created_at?: string
+          ct_due_date?: string | null
+          ct_manually_corrected?: boolean
+          ct_read_at?: string | null
+          ct_source?: string | null
           id?: string
           inspection_id: string
           measure_unit?: string | null
           measure_value?: string | null
           point_key: string
           point_label: string
+          pollution_due_date?: string | null
           status?: string
           updated_at?: string
           zone_index: number
@@ -1793,12 +1803,17 @@ export type Database = {
           client_comment?: string | null
           comment?: string | null
           created_at?: string
+          ct_due_date?: string | null
+          ct_manually_corrected?: boolean
+          ct_read_at?: string | null
+          ct_source?: string | null
           id?: string
           inspection_id?: string
           measure_unit?: string | null
           measure_value?: string | null
           point_key?: string
           point_label?: string
+          pollution_due_date?: string | null
           status?: string
           updated_at?: string
           zone_index?: number
@@ -2449,6 +2464,11 @@ export type Database = {
           cnit: string | null
           color: string | null
           created_at: string
+          ct_due_date: string | null
+          ct_manually_corrected: boolean
+          ct_photo_media_id: string | null
+          ct_read_at: string | null
+          ct_source: string | null
           d2_code: string | null
           delivery_date: string | null
           doors: number | null
@@ -2468,6 +2488,7 @@ export type Database = {
           model: string | null
           next_ct_date: string | null
           next_service_at: string | null
+          pollution_due_date: string | null
           power_hp: string | null
           power_kw: string | null
           previous_registration: string | null
@@ -2496,6 +2517,11 @@ export type Database = {
           cnit?: string | null
           color?: string | null
           created_at?: string
+          ct_due_date?: string | null
+          ct_manually_corrected?: boolean
+          ct_photo_media_id?: string | null
+          ct_read_at?: string | null
+          ct_source?: string | null
           d2_code?: string | null
           delivery_date?: string | null
           doors?: number | null
@@ -2515,6 +2541,7 @@ export type Database = {
           model?: string | null
           next_ct_date?: string | null
           next_service_at?: string | null
+          pollution_due_date?: string | null
           power_hp?: string | null
           power_kw?: string | null
           previous_registration?: string | null
@@ -2543,6 +2570,11 @@ export type Database = {
           cnit?: string | null
           color?: string | null
           created_at?: string
+          ct_due_date?: string | null
+          ct_manually_corrected?: boolean
+          ct_photo_media_id?: string | null
+          ct_read_at?: string | null
+          ct_source?: string | null
           d2_code?: string | null
           delivery_date?: string | null
           doors?: number | null
@@ -2562,6 +2594,7 @@ export type Database = {
           model?: string | null
           next_ct_date?: string | null
           next_service_at?: string | null
+          pollution_due_date?: string | null
           power_hp?: string | null
           power_kw?: string | null
           previous_registration?: string | null
@@ -2585,6 +2618,13 @@ export type Database = {
           vin_normalized?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ref_vehicles_ct_photo_media_id_fkey"
+            columns: ["ct_photo_media_id"]
+            isOneToOne: false
+            referencedRelation: "media"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ref_vehicles_import_id_fkey"
             columns: ["import_id"]
@@ -3189,11 +3229,13 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           completed_by_name: string | null
+          control_type: string | null
           created_at: string
           created_by: string | null
           created_by_name: string | null
           current_zone_index: number
           duration_seconds: number | null
+          finished_at: string | null
           id: string
           inspection_type: string
           last_sent_at: string | null
@@ -3204,7 +3246,9 @@ export type Database = {
           repair_order_id: string
           share_token: string
           site_id: string | null
-          started_at: string
+          started_at: string | null
+          started_by: string | null
+          started_by_name: string | null
           status: string
           updated_at: string
           vehicle_id: string
@@ -3214,11 +3258,13 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           completed_by_name?: string | null
+          control_type?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           current_zone_index?: number
           duration_seconds?: number | null
+          finished_at?: string | null
           id?: string
           inspection_type: string
           last_sent_at?: string | null
@@ -3229,7 +3275,9 @@ export type Database = {
           repair_order_id: string
           share_token?: string
           site_id?: string | null
-          started_at?: string
+          started_at?: string | null
+          started_by?: string | null
+          started_by_name?: string | null
           status?: string
           updated_at?: string
           vehicle_id: string
@@ -3239,11 +3287,13 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           completed_by_name?: string | null
+          control_type?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           current_zone_index?: number
           duration_seconds?: number | null
+          finished_at?: string | null
           id?: string
           inspection_type?: string
           last_sent_at?: string | null
@@ -3254,7 +3304,9 @@ export type Database = {
           repair_order_id?: string
           share_token?: string
           site_id?: string | null
-          started_at?: string
+          started_at?: string | null
+          started_by?: string | null
+          started_by_name?: string | null
           status?: string
           updated_at?: string
           vehicle_id?: string
@@ -3366,6 +3418,11 @@ export type Database = {
           brand: string | null
           client_id: string | null
           created_at: string
+          ct_due_date: string | null
+          ct_manually_corrected: boolean
+          ct_photo_media_id: string | null
+          ct_read_at: string | null
+          ct_source: string | null
           first_registration: string | null
           id: string
           last_mileage: number | null
@@ -3373,12 +3430,18 @@ export type Database = {
           model: string | null
           plate: string
           plate_normalized: string
+          pollution_due_date: string | null
           vin: string | null
         }
         Insert: {
           brand?: string | null
           client_id?: string | null
           created_at?: string
+          ct_due_date?: string | null
+          ct_manually_corrected?: boolean
+          ct_photo_media_id?: string | null
+          ct_read_at?: string | null
+          ct_source?: string | null
           first_registration?: string | null
           id?: string
           last_mileage?: number | null
@@ -3386,12 +3449,18 @@ export type Database = {
           model?: string | null
           plate: string
           plate_normalized: string
+          pollution_due_date?: string | null
           vin?: string | null
         }
         Update: {
           brand?: string | null
           client_id?: string | null
           created_at?: string
+          ct_due_date?: string | null
+          ct_manually_corrected?: boolean
+          ct_photo_media_id?: string | null
+          ct_read_at?: string | null
+          ct_source?: string | null
           first_registration?: string | null
           id?: string
           last_mileage?: number | null
@@ -3399,6 +3468,7 @@ export type Database = {
           model?: string | null
           plate?: string
           plate_normalized?: string
+          pollution_due_date?: string | null
           vin?: string | null
         }
         Relationships: [
@@ -3407,6 +3477,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_ct_photo_media_id_fkey"
+            columns: ["ct_photo_media_id"]
+            isOneToOne: false
+            referencedRelation: "media"
             referencedColumns: ["id"]
           },
         ]
@@ -3454,6 +3531,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      finish_vehicle_inspection: {
+        Args: { _inspection_id: string; _user_id: string; _user_name: string }
+        Returns: {
+          client_content_updated_at: string | null
+          completed_at: string | null
+          completed_by: string | null
+          completed_by_name: string | null
+          control_type: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          current_zone_index: number
+          duration_seconds: number | null
+          finished_at: string | null
+          id: string
+          inspection_type: string
+          last_sent_at: string | null
+          last_sent_by: string | null
+          last_sent_by_name: string | null
+          last_sent_to: string | null
+          mileage: number | null
+          repair_order_id: string
+          share_token: string
+          site_id: string | null
+          started_at: string | null
+          started_by: string | null
+          started_by_name: string | null
+          status: string
+          updated_at: string
+          vehicle_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vehicle_inspections"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3474,6 +3589,44 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      start_vehicle_inspection: {
+        Args: { _inspection_id: string; _user_id: string; _user_name: string }
+        Returns: {
+          client_content_updated_at: string | null
+          completed_at: string | null
+          completed_by: string | null
+          completed_by_name: string | null
+          control_type: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          current_zone_index: number
+          duration_seconds: number | null
+          finished_at: string | null
+          id: string
+          inspection_type: string
+          last_sent_at: string | null
+          last_sent_by: string | null
+          last_sent_by_name: string | null
+          last_sent_to: string | null
+          mileage: number | null
+          repair_order_id: string
+          share_token: string
+          site_id: string | null
+          started_at: string | null
+          started_by: string | null
+          started_by_name: string | null
+          status: string
+          updated_at: string
+          vehicle_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vehicle_inspections"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
