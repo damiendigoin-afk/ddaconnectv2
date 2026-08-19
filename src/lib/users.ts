@@ -47,3 +47,18 @@ export async function setUserNames(userId: string, firstName: string, lastName: 
     .eq("id", userId);
   if (error) throw error;
 }
+
+/** Site par défaut : un site précis ou le mode Groupe. Jamais bloquant. */
+export async function setUserDefaultSite(userId: string, value: string) {
+  const isGroup = value === "groupe";
+  const { error } = await supabase
+    .from("profiles")
+    .update({ site_scope: isGroup ? "groupe" : "site", site_id: isGroup ? null : value })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function setGmailAllowed(userId: string, allowed: boolean) {
+  const { error } = await supabase.from("profiles").update({ gmail_allowed: allowed }).eq("id", userId);
+  if (error) throw error;
+}

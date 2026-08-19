@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, ChevronRight, Car, ClipboardCheck, Database, Hammer, LogOut, PackageOpen, Users, SlidersHorizontal } from "lucide-react";
+import { BarChart3, ChevronRight, Car, ClipboardCheck, Database, Hammer, Inbox, LogOut, PackageOpen, Users, SlidersHorizontal } from "lucide-react";
 
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
@@ -139,6 +139,20 @@ function Hub() {
           <div className="flex-1">
             <div className="text-base font-extrabold uppercase tracking-wide">Mes statistiques</div>
             <div className="text-xs text-muted-foreground">Productivité, rentabilité et activité du mois</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          to="/emails"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <Inbox className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Flux emails</div>
+            <div className="text-xs text-muted-foreground">
+              Boîtes centralisées, classement automatique et anti-doublons
+            </div>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>

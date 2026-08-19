@@ -28,6 +28,7 @@ import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.impo
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
+import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
@@ -51,8 +52,10 @@ import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$ex
 import { Route as ParametrageFournisseursIndexRouteImport } from './routes/parametrage.fournisseurs.index'
 import { Route as ParametrageFournisseursSupplierIdRouteImport } from './routes/parametrage.fournisseurs.$supplierId'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
+import { Route as TourTourIdPdfRouteImport } from './routes/tour.$tourId.pdf'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
+import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/emails.ingest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -147,6 +150,11 @@ const CarrosserieReferentielsRoute = CarrosserieReferentielsRouteImport.update({
 const ClientClientIdRoute = ClientClientIdRouteImport.update({
   id: '/client/$clientId',
   path: '/client/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailsIndexRoute = EmailsIndexRouteImport.update({
+  id: '/emails/',
+  path: '/emails/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
@@ -266,6 +274,11 @@ const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
   path: '/tour/$tourId/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TourTourIdPdfRoute = TourTourIdPdfRouteImport.update({
+  id: '/tour/$tourId/pdf',
+  path: '/tour/$tourId/pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TourTourIdPresentationRoute = TourTourIdPresentationRouteImport.update({
   id: '/tour/$tourId/presentation',
   path: '/tour/$tourId/presentation',
@@ -274,6 +287,11 @@ const TourTourIdPresentationRoute = TourTourIdPresentationRouteImport.update({
 const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
   id: '/tour/$tourId/rapport',
   path: '/tour/$tourId/rapport',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicEmailsIngestRoute = ApiPublicEmailsIngestRouteImport.update({
+  id: '/api/public/emails/ingest',
+  path: '/api/public/emails/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -309,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -316,12 +335,14 @@ export interface FileRoutesByFullPath {
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
+  '/tour/$tourId/pdf': typeof TourTourIdPdfRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
+  '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -355,6 +376,7 @@ export interface FileRoutesByTo {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
@@ -362,12 +384,14 @@ export interface FileRoutesByTo {
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
+  '/tour/$tourId/pdf': typeof TourTourIdPdfRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
+  '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -402,6 +426,7 @@ export interface FileRoutesById {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -409,12 +434,14 @@ export interface FileRoutesById {
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
+  '/tour/$tourId/pdf': typeof TourTourIdPdfRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
+  '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -450,6 +477,7 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/emails/'
     | '/magasin/'
     | '/parametrage/'
     | '/statistiques/'
@@ -457,12 +485,14 @@ export interface FileRouteTypes {
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
+    | '/tour/$tourId/pdf'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique/'
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
+    | '/api/public/emails/ingest'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -496,6 +526,7 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base'
     | '/carrosserie'
+    | '/emails'
     | '/magasin'
     | '/parametrage'
     | '/statistiques'
@@ -503,12 +534,14 @@ export interface FileRouteTypes {
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
+    | '/tour/$tourId/pdf'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique'
     | '/expertise/$exId'
     | '/parametrage/fournisseurs'
     | '/tour/$tourId'
+    | '/api/public/emails/ingest'
   id:
     | '__root__'
     | '/'
@@ -542,6 +575,7 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/emails/'
     | '/magasin/'
     | '/parametrage/'
     | '/statistiques/'
@@ -549,12 +583,14 @@ export interface FileRouteTypes {
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
+    | '/tour/$tourId/pdf'
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique/'
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
+    | '/api/public/emails/ingest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -589,6 +625,7 @@ export interface RootRouteChildren {
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
@@ -596,12 +633,14 @@ export interface RootRouteChildren {
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   ParametrageFournisseursSupplierIdRoute: typeof ParametrageFournisseursSupplierIdRoute
+  TourTourIdPdfRoute: typeof TourTourIdPdfRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
   TourTourIdRapportRoute: typeof TourTourIdRapportRoute
   BaseHistoriqueIndexRoute: typeof BaseHistoriqueIndexRoute
   ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
   ParametrageFournisseursIndexRoute: typeof ParametrageFournisseursIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
+  ApiPublicEmailsIngestRoute: typeof ApiPublicEmailsIngestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -737,6 +776,13 @@ declare module '@tanstack/react-router' {
       path: '/client/$clientId'
       fullPath: '/client/$clientId'
       preLoaderRoute: typeof ClientClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emails/': {
+      id: '/emails/'
+      path: '/emails'
+      fullPath: '/emails/'
+      preLoaderRoute: typeof EmailsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expertise-partage/$token': {
@@ -900,6 +946,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TourTourIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tour/$tourId/pdf': {
+      id: '/tour/$tourId/pdf'
+      path: '/tour/$tourId/pdf'
+      fullPath: '/tour/$tourId/pdf'
+      preLoaderRoute: typeof TourTourIdPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tour/$tourId/presentation': {
       id: '/tour/$tourId/presentation'
       path: '/tour/$tourId/presentation'
@@ -912,6 +965,13 @@ declare module '@tanstack/react-router' {
       path: '/tour/$tourId/rapport'
       fullPath: '/tour/$tourId/rapport'
       preLoaderRoute: typeof TourTourIdRapportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/emails/ingest': {
+      id: '/api/public/emails/ingest'
+      path: '/api/public/emails/ingest'
+      fullPath: '/api/public/emails/ingest'
+      preLoaderRoute: typeof ApiPublicEmailsIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -949,6 +1009,7 @@ const rootRouteChildren: RootRouteChildren = {
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
@@ -957,12 +1018,14 @@ const rootRouteChildren: RootRouteChildren = {
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   ParametrageFournisseursSupplierIdRoute:
     ParametrageFournisseursSupplierIdRoute,
+  TourTourIdPdfRoute: TourTourIdPdfRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
   TourTourIdRapportRoute: TourTourIdRapportRoute,
   BaseHistoriqueIndexRoute: BaseHistoriqueIndexRoute,
   ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
   ParametrageFournisseursIndexRoute: ParametrageFournisseursIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
+  ApiPublicEmailsIngestRoute: ApiPublicEmailsIngestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

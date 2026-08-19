@@ -1264,6 +1264,100 @@ export type Database = {
           },
         ]
       }
+      email_accounts: {
+        Row: {
+          address: string
+          created_at: string
+          history_id: string | null
+          id: string
+          label: string | null
+          last_error: string | null
+          last_sync_at: string | null
+          provider: string
+          site_id: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          history_id?: string | null
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          provider?: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          history_id?: string | null
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          provider?: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_accounts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_attachments: {
+        Row: {
+          created_at: string
+          email_id: string
+          filename: string
+          gmail_attachment_id: string | null
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_id: string
+          filename: string
+          gmail_attachment_id?: string | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_id?: string
+          filename?: string
+          gmail_attachment_id?: string | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachments_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           created_at: string
@@ -1304,6 +1398,137 @@ export type Database = {
             columns: ["inspection_id"]
             isOneToOne: false
             referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_receipts: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          email_id: string
+          gmail_message_id: string | null
+          id: string
+          mailbox_address: string
+          person_name: string | null
+          received_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          email_id: string
+          gmail_message_id?: string | null
+          id?: string
+          mailbox_address: string
+          person_name?: string | null
+          received_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          email_id?: string
+          gmail_message_id?: string | null
+          id?: string
+          mailbox_address?: string
+          person_name?: string | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_receipts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_receipts_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emails: {
+        Row: {
+          body_html: string | null
+          body_text: string | null
+          category: string
+          category_confidence: number
+          category_source: string
+          cc_addresses: string[]
+          created_at: string
+          fingerprint: string
+          from_address: string
+          from_name: string | null
+          gmail_thread_id: string | null
+          has_attachments: boolean
+          id: string
+          kind: string
+          rfc_message_id: string | null
+          sent_at: string
+          site_id: string | null
+          snippet: string | null
+          subject: string | null
+          thread_key: string | null
+          to_addresses: string[]
+          updated_at: string
+        }
+        Insert: {
+          body_html?: string | null
+          body_text?: string | null
+          category?: string
+          category_confidence?: number
+          category_source?: string
+          cc_addresses?: string[]
+          created_at?: string
+          fingerprint: string
+          from_address: string
+          from_name?: string | null
+          gmail_thread_id?: string | null
+          has_attachments?: boolean
+          id?: string
+          kind?: string
+          rfc_message_id?: string | null
+          sent_at: string
+          site_id?: string | null
+          snippet?: string | null
+          subject?: string | null
+          thread_key?: string | null
+          to_addresses?: string[]
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string | null
+          body_text?: string | null
+          category?: string
+          category_confidence?: number
+          category_source?: string
+          cc_addresses?: string[]
+          created_at?: string
+          fingerprint?: string
+          from_address?: string
+          from_name?: string | null
+          gmail_thread_id?: string | null
+          has_attachments?: boolean
+          id?: string
+          kind?: string
+          rfc_message_id?: string | null
+          sent_at?: string
+          site_id?: string | null
+          snippet?: string | null
+          subject?: string | null
+          thread_key?: string | null
+          to_addresses?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emails_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -2416,9 +2641,11 @@ export type Database = {
           created_at: string
           email: string | null
           first_name: string | null
+          gmail_allowed: boolean
           id: string
           last_name: string | null
           site_id: string | null
+          site_scope: string
           status: string
           updated_at: string
           username: string | null
@@ -2428,9 +2655,11 @@ export type Database = {
           created_at?: string
           email?: string | null
           first_name?: string | null
+          gmail_allowed?: boolean
           id: string
           last_name?: string | null
           site_id?: string | null
+          site_scope?: string
           status?: string
           updated_at?: string
           username?: string | null
@@ -2440,9 +2669,11 @@ export type Database = {
           created_at?: string
           email?: string | null
           first_name?: string | null
+          gmail_allowed?: boolean
           id?: string
           last_name?: string | null
           site_id?: string | null
+          site_scope?: string
           status?: string
           updated_at?: string
           username?: string | null
@@ -2832,6 +3063,7 @@ export type Database = {
           active: boolean
           address: string | null
           city: string | null
+          code: string | null
           created_at: string
           email_from_address: string
           email_from_name: string
@@ -2848,6 +3080,7 @@ export type Database = {
           active?: boolean
           address?: string | null
           city?: string | null
+          code?: string | null
           created_at?: string
           email_from_address?: string
           email_from_name?: string
@@ -2864,6 +3097,7 @@ export type Database = {
           active?: boolean
           address?: string | null
           city?: string | null
+          code?: string | null
           created_at?: string
           email_from_address?: string
           email_from_name?: string

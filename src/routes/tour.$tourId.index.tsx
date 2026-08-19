@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ChevronLeft, ChevronRight, LogOut, Play, Plus, Trash2, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, LogOut, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -53,6 +53,26 @@ function TourPage() {
     if (completed) navigate({ to: "/tour/$tourId/rapport", params: { tourId } });
   }, [completed, navigate, tourId]);
 
+  // V3 : le chronomètre démarre automatiquement en arrière-plan à l'ouverture du tour.
+  const notStarted = !!tour.data && !tour.data.started_at && !completed;
+  useEffect(() => {
+    if (!notStarted || !user) return;
+    let alive = true;
+    void supabase
+      .rpc("start_vehicle_inspection", {
+        _inspection_id: tourId,
+        _user_id: user.id,
+        _user_name: displayName || "Utilisateur",
+      })
+      .then(({ error }) => {
+        if (!alive || error) return;
+        void qc.invalidateQueries({ queryKey: ["tour", tourId] });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [notStarted, user, tourId, displayName, qc]);
+
   if (tour.isLoading || !tour.data || !vehicle || !order) {
     return (
       <AppShell title="Tour véhicule">
@@ -62,40 +82,6 @@ function TourPage() {
   }
 
   if (completed) return null;
-
-  if (!tour.data.started_at) {
-    return (
-      <AppShell title="Tour véhicule" subtitle={vehicle.plate} back={{ to: "/or/$orId", params: { orId: order.id } }}>
-        <section className="card-surface space-y-4 p-5 text-center">
-          <Play className="mx-auto h-10 w-10 text-brand" />
-          <div>
-            <h1 className="text-lg font-extrabold uppercase">Prêt à commencer</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Le chronomètre démarre uniquement lorsque vous lancez le contrôle.</p>
-          </div>
-          <button
-            type="button"
-            disabled={!user}
-            onClick={async () => {
-              if (!user) return;
-              const { error } = await supabase.rpc("start_vehicle_inspection", {
-                _inspection_id: tourId,
-                _user_id: user.id,
-                _user_name: displayName || "Utilisateur",
-              });
-              if (error) {
-                toast.error("Le tour n’a pas pu démarrer.");
-                return;
-              }
-              await qc.invalidateQueries({ queryKey: ["tour", tourId] });
-            }}
-            className="w-full rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground"
-          >
-            Démarrer le tour
-          </button>
-        </section>
-      </AppShell>
-    );
-  }
 
   const quit = () => {
     toast.success("Tour sauvegardé en brouillon.");

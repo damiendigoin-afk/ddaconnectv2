@@ -16,6 +16,8 @@ export type Profile = {
   avatar_url: string | null;
   status: UserStatus;
   site_id: string | null;
+  site_scope: string;
+  gmail_allowed: boolean;
   created_at: string;
 };
 
