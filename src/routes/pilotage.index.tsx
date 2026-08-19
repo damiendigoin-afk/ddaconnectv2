@@ -32,10 +32,10 @@ export const Route = createFileRoute("/pilotage/")({
       {
         name: "description",
         content:
-          "Balance âgée des créances carrosserie, comparaison Groupe année en cours vs N-1 et santé de la plateforme (volumes emails, stockage, automatisations).",
+          "Objectifs et réalisé, KPIs Groupe N/N-1/N-2, balance âgée, impayés, recouvrement et relances.",
       },
       { property: "og:title", content: "Gestion — DDA Connect" },
-      { property: "og:description", content: "Créances par ancienneté, indicateurs N/N-1 et quotas plateforme." },
+      { property: "og:description", content: "Créances par ancienneté, objectifs et indicateurs Groupe N/N-1/N-2." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -98,9 +98,9 @@ function PilotageHub() {
 
   if (!isManager) {
     return (
-      <AppShell title="Pilotage" subtitle="Réservé aux managers" back={{ to: "/" }}>
+      <AppShell title="Gestion" subtitle="Réservé aux managers" back={{ to: "/" }}>
         <p className="rounded-xl border-2 border-dashed border-border p-4 text-sm text-muted-foreground">
-          Le pilotage, le recouvrement et la santé de la plateforme sont réservés aux managers.
+          La gestion et le recouvrement sont réservés aux managers.
         </p>
       </AppShell>
     );
@@ -326,6 +326,3 @@ function RelanceButton({ busy, due, onRelance }: { busy: boolean; due: boolean; 
   );
 }
 
-function fmtSize(mo: number) {
-  return mo >= 1024 ? `${(mo / 1024).toFixed(1)} Go` : `${Math.round(mo)} Mo`;
-}
