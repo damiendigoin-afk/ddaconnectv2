@@ -7,6 +7,7 @@ export const MODULES = [
   { key: "carrosserie", label: "Carrosserie" },
   { key: "magasin", label: "Magasin" },
   { key: "base", label: "Base de données" },
+  { key: "emails", label: "Flux emails" },
   { key: "stats_equipe", label: "Statistiques équipe" },
   { key: "stats_import", label: "Import statistiques" },
 ] as const;

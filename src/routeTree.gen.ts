@@ -28,6 +28,7 @@ import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.impo
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
+import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
@@ -149,6 +150,11 @@ const CarrosserieReferentielsRoute = CarrosserieReferentielsRouteImport.update({
 const ClientClientIdRoute = ClientClientIdRouteImport.update({
   id: '/client/$clientId',
   path: '/client/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailsIndexRoute = EmailsIndexRouteImport.update({
+  id: '/emails/',
+  path: '/emails/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertisePartageTokenRoute = ExpertisePartageTokenRouteImport.update({
@@ -321,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -369,6 +376,7 @@ export interface FileRoutesByTo {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
@@ -418,6 +426,7 @@ export interface FileRoutesById {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -468,6 +477,7 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/emails/'
     | '/magasin/'
     | '/parametrage/'
     | '/statistiques/'
@@ -516,6 +526,7 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base'
     | '/carrosserie'
+    | '/emails'
     | '/magasin'
     | '/parametrage'
     | '/statistiques'
@@ -564,6 +575,7 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/emails/'
     | '/magasin/'
     | '/parametrage/'
     | '/statistiques/'
@@ -613,6 +625,7 @@ export interface RootRouteChildren {
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
@@ -763,6 +776,13 @@ declare module '@tanstack/react-router' {
       path: '/client/$clientId'
       fullPath: '/client/$clientId'
       preLoaderRoute: typeof ClientClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emails/': {
+      id: '/emails/'
+      path: '/emails'
+      fullPath: '/emails/'
+      preLoaderRoute: typeof EmailsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expertise-partage/$token': {
@@ -989,6 +1009,7 @@ const rootRouteChildren: RootRouteChildren = {
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
