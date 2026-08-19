@@ -19,6 +19,7 @@ import {
   Truck,
   Users,
   SlidersHorizontal,
+  TrendingUp,
 } from "lucide-react";
 
 import { UniversalSearch } from "@/components/UniversalSearch";
@@ -259,6 +260,20 @@ function Hub() {
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
+
+        {isManager ? (
+          <Link
+            to="/pilotage"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <TrendingUp className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Pilotage & recouvrement</div>
+              <div className="text-xs text-muted-foreground">Balance âgée, indicateurs Groupe N/N-1 et santé plateforme</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
         {isManager ? (
           <Link

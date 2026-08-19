@@ -15,6 +15,7 @@ export const MODULES = [
   { key: "connaissances", label: "Base de connaissances" },
   { key: "recuperation", label: "Récupération / VN / VO" },
   { key: "notes_frais", label: "Notes de frais" },
+  { key: "pilotage", label: "Pilotage & recouvrement" },
   { key: "automatisations", label: "Automatisations" },
   { key: "stats_equipe", label: "Statistiques équipe" },
   { key: "stats_import", label: "Import statistiques" },
