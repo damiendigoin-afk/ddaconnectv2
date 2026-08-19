@@ -201,26 +201,67 @@ function EmailsPage() {
               </div>
             ) : null}
 
-            {(accounts.data ?? []).map((a) => (
-              <div key={a.id} className="card-surface flex items-center gap-3 p-4">
-                <Mail className="h-5 w-5 shrink-0 text-brand" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-bold">{a.address}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {a.status === "connected" ? "Connectée" : a.status === "error" ? a.last_error ?? "Erreur" : "En attente"}
-                    {a.last_sync_at
-                      ? ` · dernière collecte ${new Date(a.last_sync_at).toLocaleString("fr-FR")}`
-                      : ""}
+            {(accounts.data ?? []).map((a: EmailAccount) => (
+              <div key={a.id} className="card-surface space-y-3 p-4">
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 shrink-0 text-brand" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold">{a.address}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {a.gmail_connected
+                        ? "Gmail connecté"
+                        : a.status === "connected"
+                          ? "Connectée"
+                          : a.status === "error"
+                            ? a.last_error ?? "Erreur"
+                            : "En attente"}
+                      {a.last_sync_at
+                        ? ` · dernière collecte ${new Date(a.last_sync_at).toLocaleString("fr-FR")}`
+                        : ""}
+                    </div>
                   </div>
                 </div>
                 {isManager ? (
-                  <button
-                    onClick={() => toggle.mutate({ id: a.id, status: a.status === "connected" ? "paused" : "connected" })}
-                    className="rounded-lg border-2 border-border px-3 py-2 text-xs font-bold uppercase"
-                  >
-                    <RefreshCw className="mr-1 inline h-3 w-3" />
-                    {a.status === "connected" ? "Suspendre" : "Activer"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    {a.gmail_connected ? (
+                      <>
+                        <button
+                          onClick={() => syncGmail.mutate(a.id)}
+                          disabled={syncGmail.isPending}
+                          className="rounded-lg bg-brand px-3 py-2 text-xs font-bold uppercase text-brand-foreground disabled:opacity-50"
+                        >
+                          <Zap className="mr-1 inline h-3 w-3" />
+                          {syncGmail.isPending ? "Sync…" : "Synchroniser"}
+                        </button>
+                        <button
+                          onClick={() => disconnectGmailMut.mutate(a.id)}
+                          disabled={disconnectGmailMut.isPending}
+                          className="rounded-lg border-2 border-border px-3 py-2 text-xs font-bold uppercase"
+                        >
+                          <Unlink className="mr-1 inline h-3 w-3" />
+                          Déconnecter
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => connectGmail.mutate(a.id)}
+                        disabled={connectGmail.isPending}
+                        className="rounded-lg bg-brand px-3 py-2 text-xs font-bold uppercase text-brand-foreground disabled:opacity-50"
+                      >
+                        <Link2 className="mr-1 inline h-3 w-3" />
+                        {connectGmail.isPending ? "Redirection…" : "Connecter Gmail"}
+                      </button>
+                    )}
+                    {!a.gmail_connected ? (
+                      <button
+                        onClick={() => toggle.mutate({ id: a.id, status: a.status === "connected" ? "paused" : "connected" })}
+                        className="rounded-lg border-2 border-border px-3 py-2 text-xs font-bold uppercase"
+                      >
+                        <RefreshCw className="mr-1 inline h-3 w-3" />
+                        {a.status === "connected" ? "Suspendre" : "Activer"}
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             ))}
