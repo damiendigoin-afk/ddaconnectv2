@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Copy, ExternalLink, Mail, MessageSquareText, Send } from "lucide-react";
+import { Copy, ExternalLink, FileDown, Mail, MessageSquareText, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -159,6 +159,14 @@ function ReportPage() {
           >
             <Copy className="h-4 w-4" /> Copier le lien
           </button>
+          <a
+            href={`/tour/${tourId}/pdf`}
+            target="_blank"
+            rel="noreferrer"
+            className="col-span-2 flex items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase"
+          >
+            <FileDown className="h-4 w-4" /> Exporter PDF
+          </a>
         </div>
 
         <div className="card-surface space-y-3 p-4">
