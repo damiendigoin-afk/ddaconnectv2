@@ -5,7 +5,9 @@ import { Camera, Check, Loader2, Plus, Send, Upload } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Area, Badge, Field, Section, Select } from "@/components/bits";
+import { ExpertContact } from "@/components/ExpertContact";
 import { supabase } from "@/integrations/supabase/client";
+import { darvaCoherence, darvaForCase } from "@/lib/darva";
 import { analyzeExpertReportFn } from "@/lib/bodyshop-ai.functions";
 import {
   CASE_STATES,
@@ -75,6 +77,11 @@ function CaseView() {
         {row.is_vge ? <Badge tone="bg-red-200 text-red-950">VGE</Badge> : null}
         {row.is_hail ? <Badge tone="bg-blue-100 text-blue-900">Grêle</Badge> : null}
         {row.work_location !== "site" ? <Badge tone="bg-purple-100 text-purple-900">Sous-traitance</Badge> : null}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <DarvaAlertBanner caseId={caseId} plate={row.plate} missionOrigin={row.mission_origin} />
+        <ExpertContact row={row} onSent={refresh} />
       </div>
 
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
