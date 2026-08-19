@@ -1,6 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, ChevronRight, Car, ClipboardCheck, Database, Hammer, Inbox, LogOut, PackageOpen, Users, SlidersHorizontal } from "lucide-react";
+import {
+  BarChart3,
+  BookOpen,
+  Bot,
+  ChevronRight,
+  Car,
+  ClipboardCheck,
+  Database,
+  FileSpreadsheet,
+  Gauge,
+  Hammer,
+  Inbox,
+  LogOut,
+  PackageOpen,
+  ShieldCheck,
+  Truck,
+  Users,
+  SlidersHorizontal,
+} from "lucide-react";
 
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
@@ -156,6 +174,80 @@ function Hub() {
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
+
+        <Link
+          to="/darva"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <ShieldCheck className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Gestion DARVA</div>
+            <div className="text-xs text-muted-foreground">Missions, accords, factures et règlements assureurs</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          to="/maintenance"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <Gauge className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Maintenance prédictive</div>
+            <div className="text-xs text-muted-foreground">Échéances projetées à partir des kilométrages relevés</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          to="/recuperation"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <Truck className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Récupération / VN / VO</div>
+            <div className="text-xs text-muted-foreground">Planning et checklists de récupération et de livraison</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          to="/notes-frais"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <FileSpreadsheet className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Notes de frais</div>
+            <div className="text-xs text-muted-foreground">Saisie des dépenses, justificatifs et validation manager</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          to="/connaissances"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <BookOpen className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Base de connaissances</div>
+            <div className="text-xs text-muted-foreground">Procédures, modes opératoires et astuces partagées</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        {isManager ? (
+          <Link
+            to="/automatisations"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <Bot className="h-6 w-6 shrink-0" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Automatisations</div>
+              <div className="text-xs text-muted-foreground">Purges, détection d'échéances et relève des boîtes mail</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
         {isManager ? (
           <Link
