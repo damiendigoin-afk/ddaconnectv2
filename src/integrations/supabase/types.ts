@@ -113,6 +113,89 @@ export type Database = {
           },
         ]
       }
+      automation_jobs: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          job_key: string
+          label: string
+          last_message: string | null
+          last_run_at: string | null
+          last_status: string | null
+          schedule: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          job_key: string
+          label: string
+          last_message?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          schedule?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          job_key?: string
+          label?: string
+          last_message?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          schedule?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      automation_runs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          finished_at: string | null
+          id: string
+          job_id: string | null
+          message: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          finished_at?: string | null
+          id?: string
+          job_id?: string | null
+          message?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          finished_at?: string | null
+          id?: string
+          job_id?: string | null
+          message?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "automation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bodyshop_cases: {
         Row: {
           agreement_id: string | null
@@ -1216,6 +1299,78 @@ export type Database = {
           },
         ]
       }
+      darva_flows: {
+        Row: {
+          amount: number | null
+          case_id: string | null
+          claim_ref: string | null
+          created_at: string
+          created_by: string | null
+          direction: string
+          id: string
+          insurer: string | null
+          message_type: string
+          notes: string | null
+          occurred_at: string
+          plate: string | null
+          reference: string | null
+          site_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          case_id?: string | null
+          claim_ref?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          id?: string
+          insurer?: string | null
+          message_type?: string
+          notes?: string | null
+          occurred_at?: string
+          plate?: string | null
+          reference?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          case_id?: string | null
+          claim_ref?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          id?: string
+          insurer?: string | null
+          message_type?: string
+          notes?: string | null
+          occurred_at?: string
+          plate?: string | null
+          reference?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "darva_flows_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "bodyshop_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "darva_flows_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dms_update_proposals: {
         Row: {
           created_at: string
@@ -1526,6 +1681,77 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "emails_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_notes: {
+        Row: {
+          amount_ttc: number
+          category: string
+          created_at: string
+          id: string
+          merchant: string | null
+          notes: string | null
+          receipt_path: string | null
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          site_id: string | null
+          spent_on: string
+          status: string
+          submitted_at: string | null
+          updated_at: string
+          user_id: string
+          user_name: string | null
+          vat_amount: number | null
+        }
+        Insert: {
+          amount_ttc?: number
+          category?: string
+          created_at?: string
+          id?: string
+          merchant?: string | null
+          notes?: string | null
+          receipt_path?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          site_id?: string | null
+          spent_on?: string
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          user_id: string
+          user_name?: string | null
+          vat_amount?: number | null
+        }
+        Update: {
+          amount_ttc?: number
+          category?: string
+          created_at?: string
+          id?: string
+          merchant?: string | null
+          notes?: string | null
+          receipt_path?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          site_id?: string | null
+          spent_on?: string
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          user_id?: string
+          user_name?: string | null
+          vat_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_notes_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
@@ -2090,6 +2316,117 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      knowledge_articles: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          body: string
+          category: string
+          created_at: string
+          id: string
+          pinned: boolean
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      maintenance_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          customer_name: string | null
+          due_date: string | null
+          due_km: number | null
+          id: string
+          km_per_month: number | null
+          last_km: number | null
+          last_seen_at: string | null
+          notes: string | null
+          plate: string | null
+          ref_vehicle_id: string | null
+          risk: string
+          site_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          alert_type?: string
+          created_at?: string
+          customer_name?: string | null
+          due_date?: string | null
+          due_km?: number | null
+          id?: string
+          km_per_month?: number | null
+          last_km?: number | null
+          last_seen_at?: string | null
+          notes?: string | null
+          plate?: string | null
+          ref_vehicle_id?: string | null
+          risk?: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          customer_name?: string | null
+          due_date?: string | null
+          due_km?: number | null
+          id?: string
+          km_per_month?: number | null
+          last_km?: number | null
+          last_seen_at?: string | null
+          notes?: string | null
+          plate?: string | null
+          ref_vehicle_id?: string | null
+          risk?: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_alerts_ref_vehicle_id_fkey"
+            columns: ["ref_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "ref_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_alerts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       media: {
         Row: {
@@ -3453,6 +3790,74 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_handovers: {
+        Row: {
+          address: string | null
+          checklist: Json
+          created_at: string
+          created_by: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          done_at: string | null
+          id: string
+          kind: string
+          model: string | null
+          notes: string | null
+          plate: string | null
+          scheduled_at: string | null
+          site_id: string | null
+          status: string
+          updated_at: string
+          vin: string | null
+        }
+        Insert: {
+          address?: string | null
+          checklist?: Json
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          done_at?: string | null
+          id?: string
+          kind?: string
+          model?: string | null
+          notes?: string | null
+          plate?: string | null
+          scheduled_at?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          vin?: string | null
+        }
+        Update: {
+          address?: string | null
+          checklist?: Json
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          done_at?: string | null
+          id?: string
+          kind?: string
+          model?: string | null
+          notes?: string | null
+          plate?: string | null
+          scheduled_at?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          vin?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_handovers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
