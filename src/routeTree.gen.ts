@@ -28,6 +28,7 @@ import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.impo
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
+import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.index'
 import { Route as DarvaIndexRouteImport } from './routes/darva.index'
 import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
@@ -42,6 +43,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
 import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
@@ -154,6 +156,11 @@ const ClientClientIdRoute = ClientClientIdRouteImport.update({
   path: '/client/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnaissancesIndexRoute = ConnaissancesIndexRouteImport.update({
+  id: '/connaissances/',
+  path: '/connaissances/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DarvaIndexRoute = DarvaIndexRouteImport.update({
   id: '/darva/',
   path: '/darva/',
@@ -222,6 +229,11 @@ const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecuperationIndexRoute = RecuperationIndexRouteImport.update({
+  id: '/recuperation/',
+  path: '/recuperation/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatistiquesIndexRoute = StatistiquesIndexRouteImport.update({
@@ -339,11 +351,13 @@ export interface FileRoutesByFullPath {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/connaissances/': typeof ConnaissancesIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
@@ -390,11 +404,13 @@ export interface FileRoutesByTo {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/connaissances': typeof ConnaissancesIndexRoute
   '/darva': typeof DarvaIndexRoute
   '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
+  '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
@@ -442,11 +458,13 @@ export interface FileRoutesById {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/connaissances/': typeof ConnaissancesIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
@@ -495,11 +513,13 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/connaissances/'
     | '/darva/'
     | '/emails/'
     | '/magasin/'
     | '/maintenance/'
     | '/parametrage/'
+    | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
@@ -546,11 +566,13 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base'
     | '/carrosserie'
+    | '/connaissances'
     | '/darva'
     | '/emails'
     | '/magasin'
     | '/maintenance'
     | '/parametrage'
+    | '/recuperation'
     | '/statistiques'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
@@ -597,11 +619,13 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/connaissances/'
     | '/darva/'
     | '/emails/'
     | '/magasin/'
     | '/maintenance/'
     | '/parametrage/'
+    | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
@@ -649,11 +673,13 @@ export interface RootRouteChildren {
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  ConnaissancesIndexRoute: typeof ConnaissancesIndexRoute
   DarvaIndexRoute: typeof DarvaIndexRoute
   EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
+  RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
@@ -804,6 +830,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connaissances/': {
+      id: '/connaissances/'
+      path: '/connaissances'
+      fullPath: '/connaissances/'
+      preLoaderRoute: typeof ConnaissancesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/darva/': {
       id: '/darva/'
       path: '/darva'
@@ -900,6 +933,13 @@ declare module '@tanstack/react-router' {
       path: '/partage/$token'
       fullPath: '/partage/$token'
       preLoaderRoute: typeof PartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recuperation/': {
+      id: '/recuperation/'
+      path: '/recuperation'
+      fullPath: '/recuperation/'
+      preLoaderRoute: typeof RecuperationIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/statistiques/': {
@@ -1049,11 +1089,13 @@ const rootRouteChildren: RootRouteChildren = {
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  ConnaissancesIndexRoute: ConnaissancesIndexRoute,
   DarvaIndexRoute: DarvaIndexRoute,
   EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
+  RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
