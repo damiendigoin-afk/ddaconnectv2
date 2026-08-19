@@ -46,6 +46,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
@@ -249,6 +250,11 @@ const PartageTokenRoute = PartageTokenRouteImport.update({
   path: '/partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QualiteIndexRoute = QualiteIndexRouteImport.update({
+  id: '/qualite/',
+  path: '/qualite/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecuperationIndexRoute = RecuperationIndexRouteImport.update({
   id: '/recuperation/',
   path: '/recuperation/',
@@ -378,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -434,6 +441,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceIndexRoute
   '/notes-frais': typeof NotesFraisIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
+  '/qualite': typeof QualiteIndexRoute
   '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -491,6 +499,7 @@ export interface FileRoutesById {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -549,6 +558,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
@@ -605,6 +615,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/notes-frais'
     | '/parametrage'
+    | '/qualite'
     | '/recuperation'
     | '/statistiques'
     | '/base/corrections/$importId'
@@ -661,6 +672,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
@@ -718,6 +730,7 @@ export interface RootRouteChildren {
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   NotesFraisIndexRoute: typeof NotesFraisIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
+  QualiteIndexRoute: typeof QualiteIndexRoute
   RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
@@ -995,6 +1008,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/qualite/': {
+      id: '/qualite/'
+      path: '/qualite'
+      fullPath: '/qualite/'
+      preLoaderRoute: typeof QualiteIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recuperation/': {
       id: '/recuperation/'
       path: '/recuperation'
@@ -1158,6 +1178,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceIndexRoute: MaintenanceIndexRoute,
   NotesFraisIndexRoute: NotesFraisIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
+  QualiteIndexRoute: QualiteIndexRoute,
   RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
