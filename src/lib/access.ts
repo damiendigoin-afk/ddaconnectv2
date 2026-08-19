@@ -8,6 +8,7 @@ export const MODULES = [
   { key: "magasin", label: "Magasin" },
   { key: "base", label: "Base de données" },
   { key: "emails", label: "Flux emails" },
+  { key: "crm", label: "CRM demandes clients" },
   { key: "darva", label: "Gestion DARVA" },
   { key: "maintenance", label: "Maintenance prédictive" },
   { key: "connaissances", label: "Base de connaissances" },

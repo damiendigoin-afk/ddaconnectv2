@@ -30,6 +30,7 @@ import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.no
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.index'
+import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as DarvaIndexRouteImport } from './routes/darva.index'
 import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
@@ -166,6 +167,11 @@ const ClientClientIdRoute = ClientClientIdRouteImport.update({
 const ConnaissancesIndexRoute = ConnaissancesIndexRouteImport.update({
   id: '/connaissances/',
   path: '/connaissances/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrmIndexRoute = CrmIndexRouteImport.update({
+  id: '/crm/',
+  path: '/crm/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DarvaIndexRoute = DarvaIndexRouteImport.update({
@@ -365,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
+  '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
@@ -420,6 +427,7 @@ export interface FileRoutesByTo {
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
   '/connaissances': typeof ConnaissancesIndexRoute
+  '/crm': typeof CrmIndexRoute
   '/darva': typeof DarvaIndexRoute
   '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
@@ -476,6 +484,7 @@ export interface FileRoutesById {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
+  '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
@@ -533,6 +542,7 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/connaissances/'
+    | '/crm/'
     | '/darva/'
     | '/emails/'
     | '/magasin/'
@@ -588,6 +598,7 @@ export interface FileRouteTypes {
     | '/base'
     | '/carrosserie'
     | '/connaissances'
+    | '/crm'
     | '/darva'
     | '/emails'
     | '/magasin'
@@ -643,6 +654,7 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/connaissances/'
+    | '/crm/'
     | '/darva/'
     | '/emails/'
     | '/magasin/'
@@ -699,6 +711,7 @@ export interface RootRouteChildren {
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   ConnaissancesIndexRoute: typeof ConnaissancesIndexRoute
+  CrmIndexRoute: typeof CrmIndexRoute
   DarvaIndexRoute: typeof DarvaIndexRoute
   EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
@@ -868,6 +881,13 @@ declare module '@tanstack/react-router' {
       path: '/connaissances'
       fullPath: '/connaissances/'
       preLoaderRoute: typeof ConnaissancesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crm/': {
+      id: '/crm/'
+      path: '/crm'
+      fullPath: '/crm/'
+      preLoaderRoute: typeof CrmIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/darva/': {
@@ -1131,6 +1151,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
   ConnaissancesIndexRoute: ConnaissancesIndexRoute,
+  CrmIndexRoute: CrmIndexRoute,
   DarvaIndexRoute: DarvaIndexRoute,
   EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
