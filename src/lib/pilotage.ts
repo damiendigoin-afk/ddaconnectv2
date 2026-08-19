@@ -122,6 +122,8 @@ export type PilotageRow = {
 
 export type PilotageResult = {
   year: number;
+  compareYear: number;
+  ytd: boolean;
   rows: PilotageRow[];
   monthly: { month: number; current: number; previous: number }[];
 };
@@ -134,11 +136,27 @@ async function countBetween(table: string, column: string, from: string, to: str
   return count ?? 0;
 }
 
-/** Indicateurs Groupe N vs N-1 (dossiers, tours, expertises, CA carrosserie). */
-export async function fetchPilotage(year: number, siteId?: string | null): Promise<PilotageResult> {
-  const span = (y: number) => [`${y}-01-01`, `${y + 1}-01-01`] as const;
+/** Indicateurs Groupe N vs année de référence (N-1, N-2…), année complète ou YTD. */
+export async function fetchPilotage(opts: {
+  year: number;
+  compareYear?: number;
+  ytd?: boolean;
+  siteId?: string | null;
+}): Promise<PilotageResult> {
+  const year = opts.year;
+  const compareYear = opts.compareYear ?? year - 1;
+  const ytd = opts.ytd ?? false;
+  const siteId = opts.siteId ?? null;
+  const now = new Date();
+  const cutoff = (y: number) => {
+    if (!ytd) return `${y + 1}-01-01`;
+    const d = new Date(Date.UTC(y, now.getUTCMonth(), now.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const span = (y: number) => [`${y}-01-01`, cutoff(y)] as const;
   const [cy0, cy1] = span(year);
-  const [py0, py1] = span(year - 1);
+  const [py0, py1] = span(compareYear);
 
   const [casesCur, casesPrev, toursCur, toursPrev, expCur, expPrev, crmCur, crmPrev] = await Promise.all([
     countBetween("bodyshop_cases", "created_at", cy0, cy1, siteId),
@@ -154,8 +172,8 @@ export async function fetchPilotage(year: number, siteId?: string | null): Promi
   let revenueQ = supabase
     .from("bodyshop_cases")
     .select("created_at, amount_total_ttc")
-    .gte("created_at", py0)
-    .lt("created_at", cy1)
+    .gte("created_at", py0 < cy0 ? py0 : cy0)
+    .lt("created_at", cy1 > py1 ? cy1 : py1)
     .limit(5000);
   if (siteId) revenueQ = revenueQ.eq("site_id", siteId);
   const { data: revRows, error: revErr } = await revenueQ;
@@ -169,10 +187,11 @@ export async function fetchPilotage(year: number, siteId?: string | null): Promi
     const amount = num(r.amount_total_ttc);
     const slot = monthly[d.getUTCMonth()];
     if (!slot) continue;
-    if (d.getUTCFullYear() === year) {
+    const iso = r.created_at.slice(0, 10);
+    if (d.getUTCFullYear() === year && iso >= cy0 && iso < cy1) {
       caCur += amount;
       slot.current += amount;
-    } else if (d.getUTCFullYear() === year - 1) {
+    } else if (d.getUTCFullYear() === compareYear && iso >= py0 && iso < py1) {
       caPrev += amount;
       slot.previous += amount;
     }
@@ -180,6 +199,8 @@ export async function fetchPilotage(year: number, siteId?: string | null): Promi
 
   return {
     year,
+    compareYear,
+    ytd,
     monthly,
     rows: [
       { key: "cases", label: "Dossiers carrosserie", current: casesCur, previous: casesPrev, unit: "count" },
