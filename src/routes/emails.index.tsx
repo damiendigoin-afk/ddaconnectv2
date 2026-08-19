@@ -52,6 +52,19 @@ function EmailsPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [newBox, setNewBox] = useState("");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("gmail_connected");
+    const error = params.get("gmail_error");
+    if (connected) {
+      toast.success("Gmail connecté avec succès");
+      window.history.replaceState({}, "", "/emails");
+    } else if (error) {
+      toastError(new Error(decodeURIComponent(error)), "Connexion Gmail échouée");
+      window.history.replaceState({}, "", "/emails");
+    }
+  }, []);
+
   const accounts = useQuery({ queryKey: ["email-accounts"], queryFn: fetchEmailAccounts });
   const emails = useQuery({
     queryKey: ["emails", search, category, mailbox],
