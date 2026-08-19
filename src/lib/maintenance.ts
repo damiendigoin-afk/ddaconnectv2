@@ -71,11 +71,13 @@ export async function rebuildPredictions(intervalKm = 15000): Promise<number> {
       .select("vehicle_id, mileage, measured_at")
       .order("measured_at", { ascending: true })
       .limit(5000),
-    supabase.from("ref_vehicles").select("id, plate").limit(5000),
+    supabase.from("ref_vehicles").select("id, registration_display").limit(5000),
   ]);
   if (error) throw error;
   const rows = (data ?? []) as MileageRow[];
-  const plates = new Map(((vehs ?? []) as { id: string; plate: string | null }[]).map((v) => [v.id, v.plate]));
+  const plates = new Map(
+    ((vehs ?? []) as { id: string; registration_display: string | null }[]).map((v) => [v.id, v.registration_display]),
+  );
 
   const byVeh = new Map<string, MileageRow[]>();
   for (const r of rows) {
