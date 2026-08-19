@@ -80,7 +80,7 @@ export async function listReceivables(siteId?: string | null): Promise<Receivabl
       reference_at: ref,
       days,
       bucket: bucketOf(days),
-      total_ttc: num(c.amount_total_ttc),
+      total_ttc: num(c['amount_total_ttc']),
       expected,
       received,
       outstanding,
