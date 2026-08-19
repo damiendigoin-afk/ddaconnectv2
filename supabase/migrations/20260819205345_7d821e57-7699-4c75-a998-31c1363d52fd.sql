@@ -1,0 +1,1 @@
+DELETE FROM public.emails WHERE rfc_message_id = '<e2e-test-1@dda>';
