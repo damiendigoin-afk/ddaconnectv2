@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { logEvent, type CaseRow } from "@/lib/bodyshop";
 import { sendModuleEmailFn } from "@/lib/module-email.functions";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
-import { BUCKET, blobToDataUrl, compressImage } from "@/lib/photo";
+import { BUCKET, compressImage } from "@/lib/photo";
 import { normalizePlate } from "@/lib/plate";
 import { expertEmailFor, listExperts, listFirms } from "@/lib/referentials";
 import { EXPERT_REASONS, fillPlaceholders, listTemplates, type ExpertReasonKey } from "@/lib/templates";
