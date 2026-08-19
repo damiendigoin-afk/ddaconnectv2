@@ -58,11 +58,12 @@ export const Route = createFileRoute("/api/public/gmail/callback")({
             return redirectTo(`/emails?gmail_error=${encodeURIComponent(upsertError.message)}`);
           }
 
-          // Mark account as connected
+          // Mark account as connected via Gmail OAuth
           await supabaseAdmin
             .from("email_accounts")
             .update({
               status: "connected",
+              gmail_connected: true,
               last_sync_at: new Date().toISOString(),
               last_error: null,
             })

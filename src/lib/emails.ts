@@ -17,6 +17,7 @@ export type EmailAccount = {
   status: string;
   last_sync_at: string | null;
   last_error: string | null;
+  gmail_connected: boolean;
 };
 
 export type EmailRow = {

@@ -132,7 +132,7 @@ export const disconnectGmail = createServerFn({ method: "POST" })
 
     await supabaseAdmin
       .from("email_accounts")
-      .update({ status: "paused" })
+      .update({ status: "paused", gmail_connected: false })
       .eq("id", data.accountId);
 
     return { ok: true };
