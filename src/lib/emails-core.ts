@@ -55,7 +55,7 @@ const RULES: { cat: EmailCategory; words: string[]; weight: number }[] = [
   { cat: "client", words: ["bonjour, je", "ma voiture", "mon véhicule", "mon vehicule", "réclamation", "reclamation"], weight: 0.6 },
 ];
 
-export function categorizeEmail(input: { subject?: string | null; body?: string | null; from?: string | null }): {
+export function categorizeEmail(input: { subject?: string | null | undefined; body?: string | null | undefined; from?: string | null | undefined }): {
   category: EmailCategory;
   confidence: number;
 } {
@@ -119,7 +119,7 @@ export function emailFingerprint(input: {
   )}`;
 }
 
-export function threadKeyOf(input: { gmailThreadId?: string | null; subject?: string | null; from: string }): string {
+export function threadKeyOf(input: { gmailThreadId?: string | null | undefined; subject?: string | null | undefined; from: string }): string {
   if (input.gmailThreadId) return `g:${input.gmailThreadId}`;
   return `s:${hash(normalizeSubject(input.subject) + "|" + input.from.toLowerCase().trim())}`;
 }
