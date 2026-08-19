@@ -1560,6 +1560,7 @@ export type Database = {
         Row: {
           address: string
           created_at: string
+          gmail_connected: boolean
           history_id: string | null
           id: string
           label: string | null
@@ -1576,6 +1577,7 @@ export type Database = {
         Insert: {
           address: string
           created_at?: string
+          gmail_connected?: boolean
           history_id?: string | null
           id?: string
           label?: string | null
@@ -1592,6 +1594,7 @@ export type Database = {
         Update: {
           address?: string
           created_at?: string
+          gmail_connected?: boolean
           history_id?: string | null
           id?: string
           label?: string | null

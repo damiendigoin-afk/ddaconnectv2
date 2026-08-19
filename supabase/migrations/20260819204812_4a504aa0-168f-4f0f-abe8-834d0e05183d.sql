@@ -1,0 +1,1 @@
+ALTER TABLE public.email_accounts ADD COLUMN IF NOT EXISTS gmail_connected boolean NOT NULL DEFAULT false;

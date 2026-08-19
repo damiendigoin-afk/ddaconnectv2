@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Inbox, Mail, Paperclip, Plug, RefreshCw, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Inbox, Link2, Mail, Paperclip, Plug, RefreshCw, Unlink, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -15,8 +15,14 @@ import {
   receivedByLabel,
   setAccountStatus,
   upsertEmailAccount,
+  type EmailAccount,
   type EmailRow,
 } from "@/lib/emails";
+import {
+  disconnectGmail,
+  getGmailAuthUrl,
+  syncGmailAccount,
+} from "@/lib/gmail.functions";
 
 export const Route = createFileRoute("/emails/")({
   head: () => ({
@@ -46,6 +52,19 @@ function EmailsPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [newBox, setNewBox] = useState("");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("gmail_connected");
+    const error = params.get("gmail_error");
+    if (connected) {
+      toast.success("Gmail connecté avec succès");
+      window.history.replaceState({}, "", "/emails");
+    } else if (error) {
+      toastError(new Error(decodeURIComponent(error)), "Connexion Gmail échouée");
+      window.history.replaceState({}, "", "/emails");
+    }
+  }, []);
+
   const accounts = useQuery({ queryKey: ["email-accounts"], queryFn: fetchEmailAccounts });
   const emails = useQuery({
     queryKey: ["emails", search, category, mailbox],
@@ -68,6 +87,33 @@ function EmailsPage() {
     mutationFn: (a: { id: string; status: string }) => setAccountStatus(a.id, a.status),
     onSuccess: async () => qc.invalidateQueries({ queryKey: ["email-accounts"] }),
     onError: (e) => toastError(e, "Modification de la boîte impossible"),
+  });
+
+  const connectGmail = useMutation({
+    mutationFn: async (accountId: string) => {
+      const { url } = await getGmailAuthUrl({ data: { accountId, origin: window.location.origin } });
+      window.location.href = url;
+    },
+    onError: (e) => toastError(e, "Connexion Gmail impossible"),
+  });
+
+  const syncGmail = useMutation({
+    mutationFn: (accountId: string) => syncGmailAccount({ data: { accountId } }),
+    onSuccess: async (res) => {
+      toast.success(`${res.ingested} email(s) importé(s), ${res.duplicates} doublon(s)`);
+      await qc.invalidateQueries({ queryKey: ["emails"] });
+      await qc.invalidateQueries({ queryKey: ["email-accounts"] });
+    },
+    onError: (e) => toastError(e, "Synchronisation Gmail impossible"),
+  });
+
+  const disconnectGmailMut = useMutation({
+    mutationFn: (accountId: string) => disconnectGmail({ data: { accountId } }),
+    onSuccess: async () => {
+      toast.success("Gmail déconnecté");
+      await qc.invalidateQueries({ queryKey: ["email-accounts"] });
+    },
+    onError: (e) => toastError(e, "Déconnexion Gmail impossible"),
   });
 
   if (loading) {
@@ -168,26 +214,67 @@ function EmailsPage() {
               </div>
             ) : null}
 
-            {(accounts.data ?? []).map((a) => (
-              <div key={a.id} className="card-surface flex items-center gap-3 p-4">
-                <Mail className="h-5 w-5 shrink-0 text-brand" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-bold">{a.address}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {a.status === "connected" ? "Connectée" : a.status === "error" ? a.last_error ?? "Erreur" : "En attente"}
-                    {a.last_sync_at
-                      ? ` · dernière collecte ${new Date(a.last_sync_at).toLocaleString("fr-FR")}`
-                      : ""}
+            {(accounts.data ?? []).map((a: EmailAccount) => (
+              <div key={a.id} className="card-surface space-y-3 p-4">
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 shrink-0 text-brand" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold">{a.address}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {a.gmail_connected
+                        ? "Gmail connecté"
+                        : a.status === "connected"
+                          ? "Connectée"
+                          : a.status === "error"
+                            ? a.last_error ?? "Erreur"
+                            : "En attente"}
+                      {a.last_sync_at
+                        ? ` · dernière collecte ${new Date(a.last_sync_at).toLocaleString("fr-FR")}`
+                        : ""}
+                    </div>
                   </div>
                 </div>
                 {isManager ? (
-                  <button
-                    onClick={() => toggle.mutate({ id: a.id, status: a.status === "connected" ? "paused" : "connected" })}
-                    className="rounded-lg border-2 border-border px-3 py-2 text-xs font-bold uppercase"
-                  >
-                    <RefreshCw className="mr-1 inline h-3 w-3" />
-                    {a.status === "connected" ? "Suspendre" : "Activer"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    {a.gmail_connected ? (
+                      <>
+                        <button
+                          onClick={() => syncGmail.mutate(a.id)}
+                          disabled={syncGmail.isPending}
+                          className="rounded-lg bg-brand px-3 py-2 text-xs font-bold uppercase text-brand-foreground disabled:opacity-50"
+                        >
+                          <Zap className="mr-1 inline h-3 w-3" />
+                          {syncGmail.isPending ? "Sync…" : "Synchroniser"}
+                        </button>
+                        <button
+                          onClick={() => disconnectGmailMut.mutate(a.id)}
+                          disabled={disconnectGmailMut.isPending}
+                          className="rounded-lg border-2 border-border px-3 py-2 text-xs font-bold uppercase"
+                        >
+                          <Unlink className="mr-1 inline h-3 w-3" />
+                          Déconnecter
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => connectGmail.mutate(a.id)}
+                        disabled={connectGmail.isPending}
+                        className="rounded-lg bg-brand px-3 py-2 text-xs font-bold uppercase text-brand-foreground disabled:opacity-50"
+                      >
+                        <Link2 className="mr-1 inline h-3 w-3" />
+                        {connectGmail.isPending ? "Redirection…" : "Connecter Gmail"}
+                      </button>
+                    )}
+                    {!a.gmail_connected ? (
+                      <button
+                        onClick={() => toggle.mutate({ id: a.id, status: a.status === "connected" ? "paused" : "connected" })}
+                        className="rounded-lg border-2 border-border px-3 py-2 text-xs font-bold uppercase"
+                      >
+                        <RefreshCw className="mr-1 inline h-3 w-3" />
+                        {a.status === "connected" ? "Suspendre" : "Activer"}
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             ))}
