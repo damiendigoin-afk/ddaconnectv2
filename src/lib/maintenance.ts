@@ -58,25 +58,29 @@ export async function setAlertStatus(id: string, status: string) {
   if (error) throw error;
 }
 
-type MileageRow = { ref_vehicle_id: string | null; plate: string | null; mileage: number | null; recorded_at: string | null };
+type MileageRow = { vehicle_id: string | null; mileage: number | null; measured_at: string | null };
 
 /**
  * Recalcule les échéances à partir de l'historique kilométrique :
  * moyenne km/mois puis projection sur le prochain seuil de révision (15 000 km).
  */
 export async function rebuildPredictions(intervalKm = 15000): Promise<number> {
-  const { data, error } = await supabase
-    .from("vehicle_mileage_history")
-    .select("ref_vehicle_id, plate, mileage, recorded_at")
-    .order("recorded_at", { ascending: true })
-    .limit(5000);
+  const [{ data, error }, { data: vehs }] = await Promise.all([
+    supabase
+      .from("vehicle_mileage_history")
+      .select("vehicle_id, mileage, measured_at")
+      .order("measured_at", { ascending: true })
+      .limit(5000),
+    supabase.from("ref_vehicles").select("id, plate").limit(5000),
+  ]);
   if (error) throw error;
   const rows = (data ?? []) as MileageRow[];
+  const plates = new Map(((vehs ?? []) as { id: string; plate: string | null }[]).map((v) => [v.id, v.plate]));
 
   const byVeh = new Map<string, MileageRow[]>();
   for (const r of rows) {
-    const key = r.ref_vehicle_id ?? r.plate ?? "";
-    if (!key || r.mileage == null || !r.recorded_at) continue;
+    const key = r.vehicle_id ?? "";
+    if (!key || r.mileage == null || !r.measured_at) continue;
     const list = byVeh.get(key) ?? [];
     list.push(r);
     byVeh.set(key, list);
@@ -88,20 +92,20 @@ export async function rebuildPredictions(intervalKm = 15000): Promise<number> {
     const first = list[0]!;
     const last = list[list.length - 1]!;
     const months =
-      (new Date(last.recorded_at!).getTime() - new Date(first.recorded_at!).getTime()) / (1000 * 60 * 60 * 24 * 30.4);
+      (new Date(last.measured_at!).getTime() - new Date(first.measured_at!).getTime()) / (1000 * 60 * 60 * 24 * 30.4);
     if (months <= 0.5) continue;
     const perMonth = Math.max(0, Math.round((last.mileage! - first.mileage!) / months));
     if (perMonth <= 0) continue;
     const dueKm = Math.ceil(last.mileage! / intervalKm) * intervalKm;
     const monthsLeft = (dueKm - last.mileage!) / perMonth;
-    const due = new Date(last.recorded_at!);
+    const due = new Date(last.measured_at!);
     due.setDate(due.getDate() + Math.round(monthsLeft * 30.4));
     payload.push({
-      ref_vehicle_id: last.ref_vehicle_id,
-      plate: last.plate,
+      ref_vehicle_id: last.vehicle_id,
+      plate: plates.get(last.vehicle_id ?? "") ?? null,
       alert_type: "revision",
       last_km: last.mileage,
-      last_seen_at: last.recorded_at!.slice(0, 10),
+      last_seen_at: last.measured_at!.slice(0, 10),
       km_per_month: perMonth,
       due_km: dueKm,
       due_date: due.toISOString().slice(0, 10),
