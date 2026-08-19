@@ -45,6 +45,8 @@ import { Route as NotesFraisIndexRouteImport } from './routes/notes-frais.index'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
+import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.global'
+import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.messages'
 import { Route as ParametrageSanteRouteImport } from './routes/parametrage.sante'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
@@ -248,6 +250,16 @@ const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
   path: '/parametrage/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageGlobalRoute = ParametrageGlobalRouteImport.update({
+  id: '/parametrage/global',
+  path: '/parametrage/global',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParametrageMessagesRoute = ParametrageMessagesRouteImport.update({
+  id: '/parametrage/messages',
+  path: '/parametrage/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametrageSanteRoute = ParametrageSanteRouteImport.update({
   id: '/parametrage/sante',
   path: '/parametrage/sante',
@@ -387,6 +399,8 @@ export interface FileRoutesByFullPath {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/global': typeof ParametrageGlobalRoute
+  '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/partage/$token': typeof PartageTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -447,6 +461,8 @@ export interface FileRoutesByTo {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/global': typeof ParametrageGlobalRoute
+  '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/partage/$token': typeof PartageTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -508,6 +524,8 @@ export interface FileRoutesById {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/global': typeof ParametrageGlobalRoute
+  '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/partage/$token': typeof PartageTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -570,6 +588,8 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/global'
+    | '/parametrage/messages'
     | '/parametrage/sante'
     | '/partage/$token'
     | '/statistiques/equipe'
@@ -630,6 +650,8 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/global'
+    | '/parametrage/messages'
     | '/parametrage/sante'
     | '/partage/$token'
     | '/statistiques/equipe'
@@ -690,6 +712,8 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/global'
+    | '/parametrage/messages'
     | '/parametrage/sante'
     | '/partage/$token'
     | '/statistiques/equipe'
@@ -751,6 +775,8 @@ export interface RootRouteChildren {
   MagasinNouveauRoute: typeof MagasinNouveauRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
+  ParametrageGlobalRoute: typeof ParametrageGlobalRoute
+  ParametrageMessagesRoute: typeof ParametrageMessagesRoute
   ParametrageSanteRoute: typeof ParametrageSanteRoute
   PartageTokenRoute: typeof PartageTokenRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
@@ -1040,6 +1066,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/global': {
+      id: '/parametrage/global'
+      path: '/parametrage/global'
+      fullPath: '/parametrage/global'
+      preLoaderRoute: typeof ParametrageGlobalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametrage/messages': {
+      id: '/parametrage/messages'
+      path: '/parametrage/messages'
+      fullPath: '/parametrage/messages'
+      preLoaderRoute: typeof ParametrageMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametrage/sante': {
       id: '/parametrage/sante'
       path: '/parametrage/sante'
@@ -1223,6 +1263,8 @@ const rootRouteChildren: RootRouteChildren = {
   MagasinNouveauRoute: MagasinNouveauRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
+  ParametrageGlobalRoute: ParametrageGlobalRoute,
+  ParametrageMessagesRoute: ParametrageMessagesRoute,
   ParametrageSanteRoute: ParametrageSanteRoute,
   PartageTokenRoute: PartageTokenRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
