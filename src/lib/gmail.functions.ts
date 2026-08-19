@@ -30,7 +30,7 @@ export const syncGmailAccount = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getValidAccessToken, fetchRecentMessages } = await import("@/lib/gmail-oauth.server");
-    const { ingestEmail } = await import("@/lib/emails");
+    const { ingestEmailServer } = await import("@/lib/emails-ingest.server");
 
     // Load stored tokens
     const { data: tokenRow, error: tokenError } = await supabaseAdmin
@@ -81,7 +81,7 @@ export const syncGmailAccount = createServerFn({ method: "POST" })
     let duplicates = 0;
 
     for (const msg of messages) {
-      const result = await ingestEmail({
+      const result = await ingestEmailServer({
         rfcMessageId: msg.rfcMessageId,
         gmailMessageId: msg.gmailMessageId,
         gmailThreadId: msg.gmailThreadId,
