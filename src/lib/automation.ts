@@ -62,6 +62,10 @@ export async function runJob(job: AutomationJob): Promise<string> {
       message = `${n} échéance(s) recalculée(s).`;
     } else if (job.job_key === "emails_sync") {
       message = "Relève déclenchée : les nouveaux messages seront classés à la prochaine collecte.";
+    } else if (job.job_key === "crm_escalation") {
+      const { escalateStale } = await import("@/lib/crm");
+      const n = await escalateStale();
+      message = `${n} demande(s) client escaladée(s).`;
     } else {
       status = "ignore";
       message = "Automatisation inconnue.";

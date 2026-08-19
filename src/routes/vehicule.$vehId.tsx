@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { customerName, fetchRefVehicle, vehicleLabel } from "@/lib/refbase";
+import { completenessLabel, vehicleCompleteness } from "@/lib/quality";
 
 export const Route = createFileRoute("/vehicule/$vehId")({
   head: () => ({
@@ -61,6 +62,22 @@ function VehiclePage() {
                 <Row label="Prochain CT" value={fr(v.next_ct_date)} />
               </dl>
             </section>
+
+            <div className="rounded-xl border-2 border-border bg-card p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wide">Complétude de la fiche</span>
+                <span className="text-sm font-extrabold">{vehicleCompleteness(v as unknown as Record<string, unknown>).score} %</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full rounded-full bg-brand"
+                  style={{ width: `${vehicleCompleteness(v as unknown as Record<string, unknown>).score}%` }}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {completenessLabel(vehicleCompleteness(v as unknown as Record<string, unknown>))}
+              </p>
+            </div>
 
             {owner ? (
               <Link

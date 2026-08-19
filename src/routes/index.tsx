@@ -12,6 +12,7 @@ import {
   Gauge,
   Hammer,
   Inbox,
+  Headphones,
   LogOut,
   PackageOpen,
   ShieldCheck,
@@ -219,6 +220,30 @@ function Hub() {
           <div className="flex-1">
             <div className="text-base font-extrabold uppercase tracking-wide">Notes de frais</div>
             <div className="text-xs text-muted-foreground">Saisie des dépenses, justificatifs et validation manager</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          to="/crm"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <Headphones className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">CRM demandes clients</div>
+            <div className="text-xs text-muted-foreground">Appels, emails et réclamations avec relance et escalade</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          to="/qualite"
+          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <Inbox className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Qualité des données</div>
+            <div className="text-xs text-muted-foreground">Doublons clients/véhicules, fusions et documents à classer</div>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>

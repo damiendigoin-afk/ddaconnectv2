@@ -30,6 +30,7 @@ import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.no
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.index'
+import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as DarvaIndexRouteImport } from './routes/darva.index'
 import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
@@ -45,6 +46,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
@@ -168,6 +170,11 @@ const ConnaissancesIndexRoute = ConnaissancesIndexRouteImport.update({
   path: '/connaissances/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CrmIndexRoute = CrmIndexRouteImport.update({
+  id: '/crm/',
+  path: '/crm/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DarvaIndexRoute = DarvaIndexRouteImport.update({
   id: '/darva/',
   path: '/darva/',
@@ -241,6 +248,11 @@ const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QualiteIndexRoute = QualiteIndexRouteImport.update({
+  id: '/qualite/',
+  path: '/qualite/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RecuperationIndexRoute = RecuperationIndexRouteImport.update({
@@ -365,12 +377,14 @@ export interface FileRoutesByFullPath {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
+  '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -420,12 +434,14 @@ export interface FileRoutesByTo {
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
   '/connaissances': typeof ConnaissancesIndexRoute
+  '/crm': typeof CrmIndexRoute
   '/darva': typeof DarvaIndexRoute
   '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
   '/notes-frais': typeof NotesFraisIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
+  '/qualite': typeof QualiteIndexRoute
   '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -476,12 +492,14 @@ export interface FileRoutesById {
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
+  '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -533,12 +551,14 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/connaissances/'
+    | '/crm/'
     | '/darva/'
     | '/emails/'
     | '/magasin/'
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
@@ -588,12 +608,14 @@ export interface FileRouteTypes {
     | '/base'
     | '/carrosserie'
     | '/connaissances'
+    | '/crm'
     | '/darva'
     | '/emails'
     | '/magasin'
     | '/maintenance'
     | '/notes-frais'
     | '/parametrage'
+    | '/qualite'
     | '/recuperation'
     | '/statistiques'
     | '/base/corrections/$importId'
@@ -643,12 +665,14 @@ export interface FileRouteTypes {
     | '/base/'
     | '/carrosserie/'
     | '/connaissances/'
+    | '/crm/'
     | '/darva/'
     | '/emails/'
     | '/magasin/'
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
@@ -699,12 +723,14 @@ export interface RootRouteChildren {
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   ConnaissancesIndexRoute: typeof ConnaissancesIndexRoute
+  CrmIndexRoute: typeof CrmIndexRoute
   DarvaIndexRoute: typeof DarvaIndexRoute
   EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   NotesFraisIndexRoute: typeof NotesFraisIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
+  QualiteIndexRoute: typeof QualiteIndexRoute
   RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
@@ -870,6 +896,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnaissancesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/crm/': {
+      id: '/crm/'
+      path: '/crm'
+      fullPath: '/crm/'
+      preLoaderRoute: typeof CrmIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/darva/': {
       id: '/darva/'
       path: '/darva'
@@ -973,6 +1006,13 @@ declare module '@tanstack/react-router' {
       path: '/partage/$token'
       fullPath: '/partage/$token'
       preLoaderRoute: typeof PartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qualite/': {
+      id: '/qualite/'
+      path: '/qualite'
+      fullPath: '/qualite/'
+      preLoaderRoute: typeof QualiteIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/recuperation/': {
@@ -1131,12 +1171,14 @@ const rootRouteChildren: RootRouteChildren = {
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
   ConnaissancesIndexRoute: ConnaissancesIndexRoute,
+  CrmIndexRoute: CrmIndexRoute,
   DarvaIndexRoute: DarvaIndexRoute,
   EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
   NotesFraisIndexRoute: NotesFraisIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
+  QualiteIndexRoute: QualiteIndexRoute,
   RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
