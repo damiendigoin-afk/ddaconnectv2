@@ -16,7 +16,7 @@ import { AuthProvider } from "@/lib/auth";
 import { SiteProvider } from "@/lib/site-context";
 import { AuthGate } from "@/components/AuthGate";
 import { ModuleGate } from "@/components/ModuleGate";
-import { TopBar } from "@/components/TopBar";
+import { TopBar, TopBarSpacer } from "@/components/TopBar";
 
 function NotFoundComponent() {
   return (
