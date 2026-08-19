@@ -25,6 +25,7 @@ import {
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
 import { fetchMissingReports, periodLabel } from "@/lib/stats";
+import { useModuleAccess } from "@/lib/module-access";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,6 +50,7 @@ export const Route = createFileRoute("/")({
 
 function Hub() {
   const { isManager, displayName, signOut } = useAuth();
+  const { can } = useModuleAccess();
   const missing = useQuery({
     queryKey: ["prod-missing"],
     queryFn: () => fetchMissingReports(),
@@ -95,61 +97,69 @@ function Hub() {
           </Link>
         ) : null}
 
-        <Link
-          to="/tour-vehicule"
-          className="flex items-center gap-4 rounded-xl bg-brand px-4 py-5 text-brand-foreground shadow-sm active:scale-[0.99]"
-        >
-          <Car className="h-8 w-8 shrink-0" />
-          <div className="flex-1">
-            <div className="text-lg font-extrabold uppercase tracking-wide">Tour Véhicule</div>
-            <div className="text-xs font-medium opacity-80">
-              OR, contrôle guidé ou libre, rapport et envoi client
+        {can("tour") ? (
+          <Link
+            to="/tour-vehicule"
+            className="flex items-center gap-4 rounded-xl bg-brand px-4 py-5 text-brand-foreground shadow-sm active:scale-[0.99]"
+          >
+            <Car className="h-8 w-8 shrink-0" />
+            <div className="flex-1">
+              <div className="text-lg font-extrabold uppercase tracking-wide">Tour Véhicule</div>
+              <div className="text-xs font-medium opacity-80">
+                OR, contrôle guidé ou libre, rapport et envoi client
+              </div>
             </div>
-          </div>
-          <ChevronRight className="h-6 w-6 shrink-0" />
-        </Link>
+            <ChevronRight className="h-6 w-6 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/expertises"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
-        >
-          <ClipboardCheck className="h-8 w-8 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-lg font-extrabold uppercase tracking-wide">Expertise Véhicule</div>
-            <div className="text-xs text-muted-foreground">
-              État des lieux photo, dommages chiffrés et rapport client
+        {can("expertise") ? (
+          <Link
+            to="/expertises"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
+          >
+            <ClipboardCheck className="h-8 w-8 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-lg font-extrabold uppercase tracking-wide">Expertise Véhicule</div>
+              <div className="text-xs text-muted-foreground">
+                État des lieux photo, dommages chiffrés et rapport client
+              </div>
             </div>
-          </div>
-          <ChevronRight className="h-6 w-6 shrink-0" />
-        </Link>
+            <ChevronRight className="h-6 w-6 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/carrosserie"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
-        >
-          <Hammer className="h-8 w-8 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-lg font-extrabold uppercase tracking-wide">Carrosserie</div>
-            <div className="text-xs text-muted-foreground">
-              Missions, experts, pièces, planning et suivi des paiements
+        {can("carrosserie") ? (
+          <Link
+            to="/carrosserie"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
+          >
+            <Hammer className="h-8 w-8 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-lg font-extrabold uppercase tracking-wide">Carrosserie</div>
+              <div className="text-xs text-muted-foreground">
+                Missions, experts, pièces, planning et suivi des paiements
+              </div>
             </div>
-          </div>
-          <ChevronRight className="h-6 w-6 shrink-0" />
-        </Link>
+            <ChevronRight className="h-6 w-6 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/magasin"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
-        >
-          <PackageOpen className="h-8 w-8 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-lg font-extrabold uppercase tracking-wide">Magasin</div>
-            <div className="text-xs text-muted-foreground">
-              Retours de pièces, expéditions fournisseurs et avoirs
+        {can("magasin") ? (
+          <Link
+            to="/magasin"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-5 active:scale-[0.99]"
+          >
+            <PackageOpen className="h-8 w-8 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-lg font-extrabold uppercase tracking-wide">Magasin</div>
+              <div className="text-xs text-muted-foreground">
+                Retours de pièces, expéditions fournisseurs et avoirs
+              </div>
             </div>
-          </div>
-          <ChevronRight className="h-6 w-6 shrink-0" />
-        </Link>
+            <ChevronRight className="h-6 w-6 shrink-0" />
+          </Link>
+        ) : null}
 
         <Link
           to="/statistiques"
@@ -163,105 +173,121 @@ function Hub() {
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
 
-        <Link
-          to="/emails"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <Inbox className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">Flux emails</div>
-            <div className="text-xs text-muted-foreground">
-              Boîtes centralisées, classement automatique et anti-doublons
+        {can("emails") ? (
+          <Link
+            to="/emails"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <Inbox className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Flux emails</div>
+              <div className="text-xs text-muted-foreground">
+                Boîtes centralisées, classement automatique et anti-doublons
+              </div>
             </div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/darva"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <ShieldCheck className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">Gestion DARVA</div>
-            <div className="text-xs text-muted-foreground">Missions, accords, factures et règlements assureurs</div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+        {can("darva") ? (
+          <Link
+            to="/darva"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <ShieldCheck className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Gestion DARVA</div>
+              <div className="text-xs text-muted-foreground">Missions, accords, factures et règlements assureurs</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/maintenance"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <Gauge className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">Maintenance prédictive</div>
-            <div className="text-xs text-muted-foreground">Échéances projetées à partir des kilométrages relevés</div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+        {can("maintenance") ? (
+          <Link
+            to="/maintenance"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <Gauge className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Maintenance prédictive</div>
+              <div className="text-xs text-muted-foreground">Échéances projetées à partir des kilométrages relevés</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/recuperation"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <Truck className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">Récupération / VN / VO</div>
-            <div className="text-xs text-muted-foreground">Planning et checklists de récupération et de livraison</div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+        {can("recuperation") ? (
+          <Link
+            to="/recuperation"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <Truck className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Récupération / VN / VO</div>
+              <div className="text-xs text-muted-foreground">Planning et checklists de récupération et de livraison</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/notes-frais"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <FileSpreadsheet className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">Notes de frais</div>
-            <div className="text-xs text-muted-foreground">Saisie des dépenses, justificatifs et validation manager</div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+        {can("notes_frais") ? (
+          <Link
+            to="/notes-frais"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <FileSpreadsheet className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Notes de frais</div>
+              <div className="text-xs text-muted-foreground">Saisie des dépenses, justificatifs et validation manager</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/crm"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <Headphones className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">CRM demandes clients</div>
-            <div className="text-xs text-muted-foreground">Appels, emails et réclamations avec relance et escalade</div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+        {can("crm") ? (
+          <Link
+            to="/crm"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <Headphones className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">CRM demandes clients</div>
+              <div className="text-xs text-muted-foreground">Appels, emails et réclamations avec relance et escalade</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/qualite"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <Inbox className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">Qualité des données</div>
-            <div className="text-xs text-muted-foreground">Doublons clients/véhicules, fusions et documents à classer</div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+        {can("qualite") ? (
+          <Link
+            to="/qualite"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <Inbox className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Qualité des données</div>
+              <div className="text-xs text-muted-foreground">Doublons clients/véhicules, fusions et documents à classer</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        <Link
-          to="/connaissances"
-          className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
-        >
-          <BookOpen className="h-6 w-6 shrink-0 text-brand" />
-          <div className="flex-1">
-            <div className="text-base font-extrabold uppercase tracking-wide">Base de connaissances</div>
-            <div className="text-xs text-muted-foreground">Procédures, modes opératoires et astuces partagées</div>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0" />
-        </Link>
+        {can("connaissances") ? (
+          <Link
+            to="/connaissances"
+            className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+          >
+            <BookOpen className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-base font-extrabold uppercase tracking-wide">Base de connaissances</div>
+              <div className="text-xs text-muted-foreground">Procédures, modes opératoires et astuces partagées</div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </Link>
+        ) : null}
 
-        {isManager ? (
+        {can("pilotage") ? (
           <Link
             to="/pilotage"
             className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
@@ -275,7 +301,7 @@ function Hub() {
           </Link>
         ) : null}
 
-        {isManager ? (
+        {can("automatisations") ? (
           <Link
             to="/automatisations"
             className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
@@ -289,7 +315,7 @@ function Hub() {
           </Link>
         ) : null}
 
-        {isManager ? (
+        {can("base") ? (
           <Link
             to="/base"
             className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
