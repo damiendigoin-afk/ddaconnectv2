@@ -1,20 +1,29 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
+import { Send } from "lucide-react";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { Badge, Counter, Section } from "@/components/bits";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
+import { toastError } from "@/lib/errors";
+import { sendReceivableReminder } from "@/lib/dunning.functions";
 import {
   AGE_BUCKETS,
   agedTotals,
+  fetchDunningLog,
+  fetchObjectives,
+  needsDunning,
   eur,
   fetchPilotage,
   fetchPlatformHealth,
   healthTone,
   listReceivables,
   variation,
+  type DunningInfo,
   type Receivable,
 } from "@/lib/pilotage";
 
@@ -37,22 +46,58 @@ export const Route = createFileRoute("/pilotage/")({
 });
 
 type Tab = "recouvrement" | "groupe" | "sante";
+type Compare = "n1" | "n2" | "ytd";
 
 function PilotageHub() {
-  const { isManager } = useAuth();
+  const { isManager, displayName } = useAuth();
   const { site, isGroup, label } = useSite();
   const siteId = isGroup ? null : (site?.id ?? null);
   const [tab, setTab] = useState<Tab>("recouvrement");
   const [bucket, setBucket] = useState<string>("");
+  const [onlyDue, setOnlyDue] = useState(false);
+  const [compare, setCompare] = useState<Compare>("n1");
   const year = new Date().getFullYear();
+  const qc = useQueryClient();
+  const compareYear = compare === "n2" ? year - 2 : year - 1;
+  const ytd = compare === "ytd";
 
   const receivables = useQuery({ queryKey: ["pilotage", "receivables", siteId], queryFn: () => listReceivables(siteId) });
-  const pilot = useQuery({ queryKey: ["pilotage", "groupe", year, siteId], queryFn: () => fetchPilotage(year, siteId), enabled: tab === "groupe" });
+  const pilot = useQuery({
+    queryKey: ["pilotage", "groupe", year, compareYear, ytd, siteId],
+    queryFn: () => fetchPilotage({ year, compareYear, ytd, siteId }),
+    enabled: tab === "groupe",
+  });
+  const objectives = useQuery({ queryKey: ["pilotage", "objectifs", siteId], queryFn: () => fetchObjectives(siteId), enabled: tab === "groupe" });
   const health = useQuery({ queryKey: ["pilotage", "sante"], queryFn: fetchPlatformHealth, enabled: tab === "sante" });
 
   const rows = receivables.data ?? [];
+  const caseIds = useMemo(() => rows.map((r) => r.case_id), [rows]);
+  const dunning = useQuery({
+    queryKey: ["pilotage", "relances", caseIds.length, caseIds[0] ?? ""],
+    queryFn: () => fetchDunningLog(caseIds),
+    enabled: caseIds.length > 0,
+  });
+  const dunningMap = dunning.data ?? new Map<string, DunningInfo>();
   const totals = useMemo(() => agedTotals(rows), [rows]);
-  const visible = bucket ? rows.filter((r) => r.bucket === bucket) : rows;
+  const toChase = rows.filter((r) => needsDunning(r, dunningMap.get(r.case_id)));
+  const visible = rows
+    .filter((r) => (bucket ? r.bucket === bucket : true))
+    .filter((r) => (onlyDue ? needsDunning(r, dunningMap.get(r.case_id)) : true));
+
+  const sendReminder = useServerFn(sendReceivableReminder);
+  const relance = useMutation({
+    mutationFn: async (v: { caseId: string; to: string }) =>
+      sendReminder({ data: { caseId: v.caseId, to: v.to, authorName: displayName || "DDA Connect" } }),
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.error || "Relance non envoyée");
+        return;
+      }
+      toast.success("Relance envoyée");
+      void qc.invalidateQueries({ queryKey: ["pilotage", "relances"] });
+    },
+    onError: (e) => toastError(e, "Relance impossible"),
+  });
 
   if (!isManager) {
     return (
@@ -98,15 +143,33 @@ function PilotageHub() {
             ) : null}
           </Section>
 
-          <Section title={`Créances ouvertes (${visible.length})`}>
+          <Section
+            title={`Créances ouvertes (${visible.length})`}
+            right={
+              <button
+                onClick={() => setOnlyDue((v) => !v)}
+                className={`rounded-lg border-2 px-2 py-1 text-[11px] font-bold uppercase ${onlyDue ? "border-brand bg-brand/10 text-brand" : "border-border"}`}
+              >
+                À relancer ({toChase.length})
+              </button>
+            }
+          >
             {!receivables.isLoading && !visible.length ? (
               <p className="rounded-xl border-2 border-dashed border-border p-4 text-sm text-muted-foreground">
-                Aucune créance en attente d'encaissement sur ce périmètre.
+                {onlyDue
+                  ? "Aucune créance à relancer : tout est récent ou déjà relancé."
+                  : "Aucune créance en attente d'encaissement sur ce périmètre."}
               </p>
             ) : null}
             <div className="space-y-2">
               {visible.map((r) => (
-                <ReceivableCard key={r.case_id} row={r} />
+                <ReceivableCard
+                  key={r.case_id}
+                  row={r}
+                  info={dunningMap.get(r.case_id)}
+                  busy={relance.isPending}
+                  onRelance={(to) => relance.mutate({ caseId: r.case_id, to })}
+                />
               ))}
             </div>
           </Section>
@@ -114,12 +177,29 @@ function PilotageHub() {
       ) : null}
 
       {tab === "groupe" ? (
-        <Section title={`Année ${year} vs ${year - 1}`}>
+        <Section title={`Année ${year} vs ${compareYear}${ytd ? " (YTD)" : ""}`}>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              ["n1", `vs ${year - 1}`],
+              ["n2", `vs ${year - 2}`],
+              ["ytd", "YTD"],
+            ] as const).map(([k, lbl]) => (
+              <button
+                key={k}
+                onClick={() => setCompare(k)}
+                className={`rounded-lg border-2 px-2 py-2 text-[11px] font-bold uppercase ${compare === k ? "border-brand bg-brand/10 text-brand" : "border-border bg-card"}`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
           {pilot.isLoading ? <p className="text-sm text-muted-foreground">Calcul en cours…</p> : null}
-          <div className="space-y-2">
+          <div className="mt-2 space-y-2">
             {(pilot.data?.rows ?? []).map((r) => {
               const v = variation(r.current, r.previous);
               const fmt = (n: number) => (r.unit === "eur" ? eur(n) : String(n));
+              const obj = objectives.data?.get(r.key);
+              const pct = obj?.target ? Math.min(100, (r.current / obj.target) * 100) : null;
               return (
                 <div key={r.key} className="rounded-xl border-2 border-border bg-card p-3">
                   <div className="flex items-baseline justify-between gap-2">
@@ -130,8 +210,18 @@ function PilotageHub() {
                     </span>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {year} : <strong className="text-foreground">{fmt(r.current)}</strong> · {year - 1} : {fmt(r.previous)}
+                    {year} : <strong className="text-foreground">{fmt(r.current)}</strong> · {compareYear} : {fmt(r.previous)}
                   </div>
+                  {pct !== null && obj ? (
+                    <>
+                      <div className="mt-2 h-2 rounded bg-secondary">
+                        <div className={`h-2 rounded ${pct >= 100 ? "bg-status-ok" : pct >= 70 ? "bg-brand" : "bg-status-watch"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="mt-1 text-[11px] font-bold uppercase text-muted-foreground">
+                        Objectif {fmt(obj.target)} · {pct.toFixed(0)} % atteint
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               );
             })}
@@ -208,13 +298,21 @@ function PilotageHub() {
   );
 }
 
-function ReceivableCard({ row }: { row: Receivable }) {
+function ReceivableCard({
+  row,
+  info,
+  busy,
+  onRelance,
+}: {
+  row: Receivable;
+  info: DunningInfo | undefined;
+  busy: boolean;
+  onRelance: (to: string) => void;
+}) {
+  const due = needsDunning(row, info);
   return (
-    <Link
-      to="/carrosserie/$caseId"
-      params={{ caseId: row.case_id }}
-      className="block rounded-xl border-2 border-border bg-card p-3 active:scale-[0.99]"
-    >
+    <div className="rounded-xl border-2 border-border bg-card p-3">
+      <Link to="/carrosserie/$caseId" params={{ caseId: row.case_id }} className="block active:scale-[0.99]">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-extrabold uppercase tracking-wide">{row.plate || row.or_number || "Dossier"}</span>
         <span className="text-sm font-extrabold">{eur(row.outstanding)}</span>
@@ -231,7 +329,48 @@ function ReceivableCard({ row }: { row: Receivable }) {
             {p.label} {eur(p.outstanding)}
           </Badge>
         ))}
+        {info?.lastAt ? <Badge>Relancé {info.count}× · {new Date(info.lastAt).toLocaleDateString("fr-FR")}</Badge> : null}
+        {due ? <Badge tone="bg-status-alert-soft text-status-alert">À relancer</Badge> : null}
       </div>
-    </Link>
+      </Link>
+      <RelanceButton busy={busy} due={due} onRelance={onRelance} />
+    </div>
+  );
+}
+
+function RelanceButton({ busy, due, onRelance }: { busy: boolean; due: boolean; onRelance: (to: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState("");
+  return (
+    <div className="mt-2">
+      {open ? (
+        <div className="flex gap-2">
+          <input
+            type="email"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            placeholder="email du destinataire"
+            className="min-w-0 flex-1 rounded-lg border-2 border-border bg-background px-2 py-2 text-sm outline-none focus:border-brand"
+          />
+          <button
+            disabled={busy || !/.+@.+\..+/.test(to)}
+            onClick={() => {
+              onRelance(to.trim());
+              setOpen(false);
+            }}
+            className="rounded-lg bg-brand px-3 py-2 text-[11px] font-bold uppercase text-brand-foreground disabled:opacity-50"
+          >
+            Envoyer
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className={`flex items-center gap-1 rounded-lg border-2 px-2 py-1 text-[11px] font-bold uppercase ${due ? "border-brand bg-brand/10 text-brand" : "border-border"}`}
+        >
+          <Send className="h-3 w-3" /> Relancer
+        </button>
+      )}
+    </div>
   );
 }

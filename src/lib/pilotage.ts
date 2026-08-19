@@ -122,6 +122,8 @@ export type PilotageRow = {
 
 export type PilotageResult = {
   year: number;
+  compareYear: number;
+  ytd: boolean;
   rows: PilotageRow[];
   monthly: { month: number; current: number; previous: number }[];
 };
@@ -134,11 +136,27 @@ async function countBetween(table: string, column: string, from: string, to: str
   return count ?? 0;
 }
 
-/** Indicateurs Groupe N vs N-1 (dossiers, tours, expertises, CA carrosserie). */
-export async function fetchPilotage(year: number, siteId?: string | null): Promise<PilotageResult> {
-  const span = (y: number) => [`${y}-01-01`, `${y + 1}-01-01`] as const;
+/** Indicateurs Groupe N vs année de référence (N-1, N-2…), année complète ou YTD. */
+export async function fetchPilotage(opts: {
+  year: number;
+  compareYear?: number;
+  ytd?: boolean;
+  siteId?: string | null;
+}): Promise<PilotageResult> {
+  const year = opts.year;
+  const compareYear = opts.compareYear ?? year - 1;
+  const ytd = opts.ytd ?? false;
+  const siteId = opts.siteId ?? null;
+  const now = new Date();
+  const cutoff = (y: number) => {
+    if (!ytd) return `${y + 1}-01-01`;
+    const d = new Date(Date.UTC(y, now.getUTCMonth(), now.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const span = (y: number) => [`${y}-01-01`, cutoff(y)] as const;
   const [cy0, cy1] = span(year);
-  const [py0, py1] = span(year - 1);
+  const [py0, py1] = span(compareYear);
 
   const [casesCur, casesPrev, toursCur, toursPrev, expCur, expPrev, crmCur, crmPrev] = await Promise.all([
     countBetween("bodyshop_cases", "created_at", cy0, cy1, siteId),
@@ -154,8 +172,8 @@ export async function fetchPilotage(year: number, siteId?: string | null): Promi
   let revenueQ = supabase
     .from("bodyshop_cases")
     .select("created_at, amount_total_ttc")
-    .gte("created_at", py0)
-    .lt("created_at", cy1)
+    .gte("created_at", py0 < cy0 ? py0 : cy0)
+    .lt("created_at", cy1 > py1 ? cy1 : py1)
     .limit(5000);
   if (siteId) revenueQ = revenueQ.eq("site_id", siteId);
   const { data: revRows, error: revErr } = await revenueQ;
@@ -169,10 +187,11 @@ export async function fetchPilotage(year: number, siteId?: string | null): Promi
     const amount = num(r.amount_total_ttc);
     const slot = monthly[d.getUTCMonth()];
     if (!slot) continue;
-    if (d.getUTCFullYear() === year) {
+    const iso = r.created_at.slice(0, 10);
+    if (d.getUTCFullYear() === year && iso >= cy0 && iso < cy1) {
       caCur += amount;
       slot.current += amount;
-    } else if (d.getUTCFullYear() === year - 1) {
+    } else if (d.getUTCFullYear() === compareYear && iso >= py0 && iso < py1) {
       caPrev += amount;
       slot.previous += amount;
     }
@@ -180,6 +199,8 @@ export async function fetchPilotage(year: number, siteId?: string | null): Promi
 
   return {
     year,
+    compareYear,
+    ytd,
     monthly,
     rows: [
       { key: "cases", label: "Dossiers carrosserie", current: casesCur, previous: casesPrev, unit: "count" },
@@ -284,3 +305,68 @@ export function healthTone(m: HealthMetric) {
 
 export const eur = (v: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
+
+/* ------------------------------------------------------------------ */
+/* Relances de créances — journal et priorisation                       */
+/* ------------------------------------------------------------------ */
+
+export type DunningInfo = { lastAt: string | null; count: number };
+
+/** Dernière relance et nombre d'envois par dossier. */
+export async function fetchDunningLog(caseIds: string[]): Promise<Map<string, DunningInfo>> {
+  const map = new Map<string, DunningInfo>();
+  if (!caseIds.length) return map;
+  const { data, error } = await supabase
+    .from("bodyshop_communications")
+    .select("case_id, created_at, status")
+    .eq("template_key", "relance_creance")
+    .in("case_id", caseIds.slice(0, 300))
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  for (const r of (data ?? []) as { case_id: string; created_at: string; status: string }[]) {
+    if (r.status === "echec") continue;
+    const cur = map.get(r.case_id) ?? { lastAt: null, count: 0 };
+    cur.count += 1;
+    if (!cur.lastAt || r.created_at > cur.lastAt) cur.lastAt = r.created_at;
+    map.set(r.case_id, cur);
+  }
+  return map;
+}
+
+export const DUNNING_MIN_DAYS = 30;
+export const DUNNING_COOLDOWN_DAYS = 15;
+
+/** Créance à relancer : plus de 30 j d'ancienneté et pas de relance récente. */
+export function needsDunning(row: Receivable, info?: DunningInfo): boolean {
+  if (row.days <= DUNNING_MIN_DAYS) return false;
+  if (!info?.lastAt) return true;
+  return Date.now() - new Date(info.lastAt).getTime() > DUNNING_COOLDOWN_DAYS * 86_400_000;
+}
+
+/* ------------------------------------------------------------------ */
+/* Objectifs vs réalisé                                                 */
+/* ------------------------------------------------------------------ */
+
+export type Objective = { metric_key: string; target: number; unit: string | null };
+
+/** Objectifs annuels paramétrés (metric_thresholds), site puis Groupe en repli. */
+export async function fetchObjectives(siteId?: string | null): Promise<Map<string, Objective>> {
+  const { data, error } = await supabase
+    .from("metric_thresholds")
+    .select("metric_key, target_value, unit, site_id, active")
+    .eq("active", true)
+    .limit(200);
+  if (error) throw error;
+  const map = new Map<string, Objective>();
+  const rows = (data ?? []) as { metric_key: string; target_value: number | null; unit: string | null; site_id: string | null }[];
+  for (const r of rows) {
+    if (r.target_value == null) continue;
+    if (r.site_id && r.site_id !== siteId) continue;
+    const existing = map.get(r.metric_key);
+    // une valeur spécifique au site prime sur la valeur Groupe
+    if (existing && !r.site_id) continue;
+    map.set(r.metric_key, { metric_key: r.metric_key, target: r.target_value, unit: r.unit });
+  }
+  return map;
+}

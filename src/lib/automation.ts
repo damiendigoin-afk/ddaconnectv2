@@ -66,6 +66,9 @@ export async function runJob(job: AutomationJob): Promise<string> {
       const { escalateStale } = await import("@/lib/crm");
       const n = await escalateStale();
       message = `${n} demande(s) client escaladée(s).`;
+    } else if (job.job_key === "dunning_reminders") {
+      const n = await runDunningReminders();
+      message = `${n.sent} relance(s) envoyée(s) sur ${n.due} créance(s) éligible(s).`;
     } else {
       status = "ignore";
       message = "Automatisation inconnue.";
@@ -87,4 +90,35 @@ export async function runJob(job: AutomationJob): Promise<string> {
     .eq("id", job.id);
   if (status === "echec") throw new Error(message);
   return message;
+}
+/** Relances automatiques des créances de plus de 30 jours (cooldown 15 j). */
+export async function runDunningReminders(): Promise<{ due: number; sent: number }> {
+  const { listReceivables, fetchDunningLog, needsDunning } = await import("@/lib/pilotage");
+  const { sendReceivableReminder } = await import("@/lib/dunning.functions");
+
+  const rows = await listReceivables(null);
+  const log = await fetchDunningLog(rows.map((r) => r.case_id));
+  const due = rows.filter((r) => needsDunning(r, log.get(r.case_id)));
+  if (!due.length) return { due: 0, sent: 0 };
+
+  const ids = due.slice(0, 25).map((r) => r.case_id);
+  const { data, error } = await supabase
+    .from("bodyshop_cases")
+    .select("id, customer_email")
+    .in("id", ids);
+  if (error) throw error;
+  const emails = new Map(
+    ((data ?? []) as { id: string; customer_email: string | null }[])
+      .filter((r) => r.customer_email && /.+@.+\..+/.test(r.customer_email))
+      .map((r) => [r.id, r.customer_email as string]),
+  );
+
+  let sent = 0;
+  for (const id of ids) {
+    const to = emails.get(id);
+    if (!to) continue;
+    const res = await sendReceivableReminder({ data: { caseId: id, to, authorName: "Automatisation" } });
+    if (res.ok) sent += 1;
+  }
+  return { due: due.length, sent };
 }
