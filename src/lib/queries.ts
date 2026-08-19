@@ -109,6 +109,9 @@ export type RecentTour = {
   last_sent_to: string | null;
   client_content_updated_at: string | null;
   comm: CommStatus;
+  finished_at: string | null;
+  duration_seconds: number | null;
+  operator_name: string | null;
   defects: number;
   watches: number;
   plate: string;
@@ -130,7 +133,7 @@ export async function fetchRecentTours(
   let query = supabase
     .from("vehicle_inspections")
     .select(
-      "id, inspection_type, status, started_at, completed_at, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, brand, model), repair_order:repair_orders(id, or_number, client:clients(first_name, last_name))",
+      "id, inspection_type, status, started_at, completed_at, finished_at, duration_seconds, started_by_name, completed_by_name, created_by_name, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, brand, model), repair_order:repair_orders(id, or_number, client:clients(first_name, last_name))",
     );
   if (scope === "completed") query = query.eq("status", "completed");
   if (scope === "open") query = query.neq("status", "completed");
@@ -153,6 +156,9 @@ export async function fetchRecentTours(
       status: i.status,
       started_at: i.started_at,
       completed_at: i.completed_at,
+      finished_at: i.finished_at,
+      duration_seconds: i.duration_seconds,
+      operator_name: i.completed_by_name ?? i.started_by_name ?? i.created_by_name ?? null,
       mileage: i.mileage,
       last_sent_at: i.last_sent_at,
       last_sent_to: i.last_sent_to,

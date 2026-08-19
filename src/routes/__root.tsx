@@ -16,6 +16,7 @@ import { AuthProvider } from "@/lib/auth";
 import { SiteProvider } from "@/lib/site-context";
 import { AuthGate } from "@/components/AuthGate";
 import { ModuleGate } from "@/components/ModuleGate";
+import { TopBar, TopBarSpacer } from "@/components/TopBar";
 
 function NotFoundComponent() {
   return (
@@ -136,7 +137,10 @@ function RootComponent() {
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <AuthGate>
             <ModuleGate>
-              <Outlet />
+              <TopBar />
+              <TopBarSpacer>
+                <Outlet />
+              </TopBarSpacer>
             </ModuleGate>
           </AuthGate>
           <Toaster position="top-center" richColors />
