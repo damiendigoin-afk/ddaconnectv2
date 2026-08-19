@@ -326,7 +326,7 @@ function Guided(props: SharedProps) {
     <AppShell
       title={`Zone ${position} / ${zoneCount}`}
       subtitle={current.label.toUpperCase()}
-      back={{ to: "/or/$orId", params: { orId: props.orderId } }}
+      back={{ to: "/tours" }}
     >
       <TourNav quit={props.quit} deleteDraft={props.deleteDraft} />
       <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
@@ -539,7 +539,7 @@ function Free(props: SharedProps) {
     <AppShell
       title="Tour libre"
       subtitle={props.plate}
-      back={{ to: "/or/$orId", params: { orId: props.orderId } }}
+      back={{ to: "/tours" }}
     >
       <TourNav quit={props.quit} deleteDraft={props.deleteDraft} />
       <button
