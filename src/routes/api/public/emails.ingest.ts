@@ -28,7 +28,9 @@ export const Route = createFileRoute("/api/public/emails/ingest")({
     handlers: {
       POST: async ({ request }) => {
         const apiKey = request.headers.get("apikey");
-        if (!apiKey || apiKey !== process.env["SUPABASE_ANON_KEY"]) {
+        const expected =
+          process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"] ?? null;
+        if (!expected || !apiKey || apiKey !== expected) {
           return new Response("Unauthorized", { status: 401 });
         }
         const parsed = schema.safeParse(await request.json().catch(() => null));
