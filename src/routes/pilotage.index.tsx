@@ -40,8 +40,8 @@ type Tab = "recouvrement" | "groupe" | "sante";
 
 function PilotageHub() {
   const { isManager } = useAuth();
-  const { site, scope } = useSite();
-  const siteId = scope === "groupe" ? null : (site?.id ?? null);
+  const { site, isGroup, label } = useSite();
+  const siteId = isGroup ? null : (site?.id ?? null);
   const [tab, setTab] = useState<Tab>("recouvrement");
   const [bucket, setBucket] = useState<string>("");
   const year = new Date().getFullYear();
@@ -65,7 +65,7 @@ function PilotageHub() {
   }
 
   return (
-    <AppShell title="Pilotage & recouvrement" subtitle={scope === "groupe" ? "Vue Groupe" : (site?.name ?? "Site")} back={{ to: "/" }}>
+    <AppShell title="Pilotage & recouvrement" subtitle={isGroup ? `Vue Groupe — ${label}` : (site?.name ?? "Site")} back={{ to: "/" }}>
       <div className="grid grid-cols-3 gap-2">
         <Counter label="Encours" value={eur(totals.total)} active={tab === "recouvrement"} onClick={() => setTab("recouvrement")} />
         <Counter label={`Groupe ${year}/${year - 1}`} value="N/N-1" active={tab === "groupe"} onClick={() => setTab("groupe")} />
