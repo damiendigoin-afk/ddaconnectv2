@@ -4525,6 +4525,14 @@ export type Database = {
       next_part_return_ref: { Args: never; Returns: string }
       norm_person: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
+      platform_storage_stats: {
+        Args: never
+        Returns: {
+          bucket_bytes: number
+          bucket_files: number
+          db_bytes: number
+        }[]
+      }
       purge_stale_drafts: {
         Args: { _days?: number }
         Returns: {
