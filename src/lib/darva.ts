@@ -64,3 +64,29 @@ export async function updateDarvaStatus(id: string, status: string) {
   const { error } = await supabase.from("darva_flows").update({ status }).eq("id", id);
   if (error) throw error;
 }
+
+/** Flux DARVA rattachés à un dossier (par dossier ou par immatriculation). */
+export async function darvaForCase(caseId: string, plate: string | null): Promise<DarvaFlow[]> {
+  const all = await listDarva();
+  const p = (plate ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return all.filter(
+    (f) => f.case_id === caseId || (!!p && (f.plate ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase() === p),
+  );
+}
+
+export type DarvaAlert = { tone: "warn" | "info"; message: string };
+
+/** Cohérence entre l'origine du dossier et les flux DARVA enregistrés. */
+export function darvaCoherence(missionOrigin: string | null, flows: DarvaFlow[]): DarvaAlert | null {
+  const isDarva = missionOrigin === "darva";
+  if (isDarva && flows.length === 0) {
+    return { tone: "warn", message: "Mission DARVA sans flux enregistré : crée le flux mission dans le module DARVA." };
+  }
+  if (!isDarva && flows.length > 0) {
+    return {
+      tone: "info",
+      message: "Ce dossier est en OR classique mais des flux DARVA existent pour ce véhicule : vérifie l'origine de mission.",
+    };
+  }
+  return null;
+}
