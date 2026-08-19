@@ -1565,9 +1565,11 @@ export type Database = {
           label: string | null
           last_error: string | null
           last_sync_at: string | null
+          last_sync_count: number
           provider: string
           site_id: string | null
           status: string
+          sync_cursor: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1579,9 +1581,11 @@ export type Database = {
           label?: string | null
           last_error?: string | null
           last_sync_at?: string | null
+          last_sync_count?: number
           provider?: string
           site_id?: string | null
           status?: string
+          sync_cursor?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1593,9 +1597,11 @@ export type Database = {
           label?: string | null
           last_error?: string | null
           last_sync_at?: string | null
+          last_sync_count?: number
           provider?: string
           site_id?: string | null
           status?: string
+          sync_cursor?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1690,6 +1696,50 @@ export type Database = {
             columns: ["inspection_id"]
             isOneToOne: false
             referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_oauth_tokens: {
+        Row: {
+          access_token: string | null
+          account_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          provider: string
+          refresh_token: string | null
+          scope: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          account_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          account_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_oauth_tokens_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "email_accounts"
             referencedColumns: ["id"]
           },
         ]
