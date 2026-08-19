@@ -76,6 +76,33 @@ function EmailsPage() {
     onError: (e) => toastError(e, "Modification de la boîte impossible"),
   });
 
+  const connectGmail = useMutation({
+    mutationFn: async (accountId: string) => {
+      const { url } = await getGmailAuthUrl({ data: { accountId, origin: window.location.origin } });
+      window.location.href = url;
+    },
+    onError: (e) => toastError(e, "Connexion Gmail impossible"),
+  });
+
+  const syncGmail = useMutation({
+    mutationFn: (accountId: string) => syncGmailAccount({ data: { accountId } }),
+    onSuccess: async (res) => {
+      toast.success(`${res.ingested} email(s) importé(s), ${res.duplicates} doublon(s)`);
+      await qc.invalidateQueries({ queryKey: ["emails"] });
+      await qc.invalidateQueries({ queryKey: ["email-accounts"] });
+    },
+    onError: (e) => toastError(e, "Synchronisation Gmail impossible"),
+  });
+
+  const disconnectGmailMut = useMutation({
+    mutationFn: (accountId: string) => disconnectGmail({ data: { accountId } }),
+    onSuccess: async () => {
+      toast.success("Gmail déconnecté");
+      await qc.invalidateQueries({ queryKey: ["email-accounts"] });
+    },
+    onError: (e) => toastError(e, "Déconnexion Gmail impossible"),
+  });
+
   if (loading) {
     return (
       <AppShell title="Flux emails" back={{ to: "/" }}>
