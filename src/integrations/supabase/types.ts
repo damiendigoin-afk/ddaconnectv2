@@ -2344,6 +2344,86 @@ export type Database = {
           },
         ]
       }
+      inbox_documents: {
+        Row: {
+          classified_at: string | null
+          classified_by: string | null
+          classified_by_name: string | null
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          customer_name: string | null
+          doc_type: string | null
+          extracted: Json
+          file_name: string
+          file_size: number | null
+          id: string
+          linked_id: string | null
+          linked_kind: string | null
+          mime_type: string | null
+          note: string | null
+          plate: string | null
+          site_id: string | null
+          status: string
+          storage_path: string
+        }
+        Insert: {
+          classified_at?: string | null
+          classified_by?: string | null
+          classified_by_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_name?: string | null
+          doc_type?: string | null
+          extracted?: Json
+          file_name: string
+          file_size?: number | null
+          id?: string
+          linked_id?: string | null
+          linked_kind?: string | null
+          mime_type?: string | null
+          note?: string | null
+          plate?: string | null
+          site_id?: string | null
+          status?: string
+          storage_path: string
+        }
+        Update: {
+          classified_at?: string | null
+          classified_by?: string | null
+          classified_by_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_name?: string | null
+          doc_type?: string | null
+          extracted?: Json
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          linked_id?: string | null
+          linked_kind?: string | null
+          mime_type?: string | null
+          note?: string | null
+          plate?: string | null
+          site_id?: string | null
+          status?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_documents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_points: {
         Row: {
           client_comment: string | null
@@ -2632,6 +2712,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      merge_log: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          details: Json
+          entity_kind: string
+          id: string
+          kept_id: string
+          merged_id: string
+          reason: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          details?: Json
+          entity_kind: string
+          id?: string
+          kept_id: string
+          merged_id: string
+          reason?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          details?: Json
+          entity_kind?: string
+          id?: string
+          kept_id?: string
+          merged_id?: string
+          reason?: string | null
+        }
+        Relationships: []
       }
       metric_thresholds: {
         Row: {
