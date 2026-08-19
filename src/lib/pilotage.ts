@@ -262,9 +262,13 @@ export async function fetchPlatformHealth(): Promise<{ metrics: HealthMetric[]; 
     | { bucket_bytes: number | string | null; bucket_files: number | string | null; db_bytes: number | string | null }
     | null
     | undefined;
-  const bucketMo = num(st?.bucket_bytes) / MB;
-  const dbMo = num(st?.db_bytes) / MB;
-  const files = num(st?.bucket_files);
+  const big = (v: unknown) => {
+    const n = typeof v === "string" ? Number(v) : typeof v === "number" ? v : 0;
+    return Number.isFinite(n) ? n : 0;
+  };
+  const bucketMo = big(st?.bucket_bytes) / MB;
+  const dbMo = big(st?.db_bytes) / MB;
+  const files = big(st?.bucket_files);
 
   return {
     failedRuns: runRows.filter((r) => r.status === "erreur" || r.status === "error" || r.status === "echec").length,
