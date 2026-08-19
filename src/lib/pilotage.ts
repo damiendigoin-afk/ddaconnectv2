@@ -305,3 +305,68 @@ export function healthTone(m: HealthMetric) {
 
 export const eur = (v: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
+
+/* ------------------------------------------------------------------ */
+/* Relances de créances — journal et priorisation                       */
+/* ------------------------------------------------------------------ */
+
+export type DunningInfo = { lastAt: string | null; count: number };
+
+/** Dernière relance et nombre d'envois par dossier. */
+export async function fetchDunningLog(caseIds: string[]): Promise<Map<string, DunningInfo>> {
+  const map = new Map<string, DunningInfo>();
+  if (!caseIds.length) return map;
+  const { data, error } = await supabase
+    .from("bodyshop_communications")
+    .select("case_id, created_at, status")
+    .eq("template_key", "relance_creance")
+    .in("case_id", caseIds.slice(0, 300))
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  for (const r of (data ?? []) as { case_id: string; created_at: string; status: string }[]) {
+    if (r.status === "echec") continue;
+    const cur = map.get(r.case_id) ?? { lastAt: null, count: 0 };
+    cur.count += 1;
+    if (!cur.lastAt || r.created_at > cur.lastAt) cur.lastAt = r.created_at;
+    map.set(r.case_id, cur);
+  }
+  return map;
+}
+
+export const DUNNING_MIN_DAYS = 30;
+export const DUNNING_COOLDOWN_DAYS = 15;
+
+/** Créance à relancer : plus de 30 j d'ancienneté et pas de relance récente. */
+export function needsDunning(row: Receivable, info?: DunningInfo): boolean {
+  if (row.days <= DUNNING_MIN_DAYS) return false;
+  if (!info?.lastAt) return true;
+  return Date.now() - new Date(info.lastAt).getTime() > DUNNING_COOLDOWN_DAYS * 86_400_000;
+}
+
+/* ------------------------------------------------------------------ */
+/* Objectifs vs réalisé                                                 */
+/* ------------------------------------------------------------------ */
+
+export type Objective = { metric_key: string; target: number; unit: string | null };
+
+/** Objectifs annuels paramétrés (metric_thresholds), site puis Groupe en repli. */
+export async function fetchObjectives(siteId?: string | null): Promise<Map<string, Objective>> {
+  const { data, error } = await supabase
+    .from("metric_thresholds")
+    .select("metric_key, target_value, unit, site_id, active")
+    .eq("active", true)
+    .limit(200);
+  if (error) throw error;
+  const map = new Map<string, Objective>();
+  const rows = (data ?? []) as { metric_key: string; target_value: number | null; unit: string | null; site_id: string | null }[];
+  for (const r of rows) {
+    if (r.target_value == null) continue;
+    if (r.site_id && r.site_id !== siteId) continue;
+    const existing = map.get(r.metric_key);
+    // une valeur spécifique au site prime sur la valeur Groupe
+    if (existing && !r.site_id) continue;
+    map.set(r.metric_key, { metric_key: r.metric_key, target: r.target_value, unit: r.unit });
+  }
+  return map;
+}
