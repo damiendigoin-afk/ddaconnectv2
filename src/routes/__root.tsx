@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth";
 import { SiteProvider } from "@/lib/site-context";
 import { AuthGate } from "@/components/AuthGate";
+import { ModuleGate } from "@/components/ModuleGate";
 
 function NotFoundComponent() {
   return (
@@ -134,7 +135,9 @@ function RootComponent() {
         <SiteProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <AuthGate>
-            <Outlet />
+            <ModuleGate>
+              <Outlet />
+            </ModuleGate>
           </AuthGate>
           <Toaster position="top-center" richColors />
         </SiteProvider>
