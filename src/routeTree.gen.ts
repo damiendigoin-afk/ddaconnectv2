@@ -46,6 +46,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
 import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
@@ -250,6 +251,11 @@ const PartageTokenRoute = PartageTokenRouteImport.update({
   path: '/partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PilotageIndexRoute = PilotageIndexRouteImport.update({
+  id: '/pilotage/',
+  path: '/pilotage/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QualiteIndexRoute = QualiteIndexRouteImport.update({
   id: '/qualite/',
   path: '/qualite/',
@@ -384,6 +390,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/pilotage/': typeof PilotageIndexRoute
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -441,6 +448,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceIndexRoute
   '/notes-frais': typeof NotesFraisIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
+  '/pilotage': typeof PilotageIndexRoute
   '/qualite': typeof QualiteIndexRoute
   '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
@@ -499,6 +507,7 @@ export interface FileRoutesById {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/pilotage/': typeof PilotageIndexRoute
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -558,6 +567,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/pilotage/'
     | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
@@ -615,6 +625,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/notes-frais'
     | '/parametrage'
+    | '/pilotage'
     | '/qualite'
     | '/recuperation'
     | '/statistiques'
@@ -672,6 +683,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/pilotage/'
     | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
@@ -730,6 +742,7 @@ export interface RootRouteChildren {
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   NotesFraisIndexRoute: typeof NotesFraisIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
+  PilotageIndexRoute: typeof PilotageIndexRoute
   QualiteIndexRoute: typeof QualiteIndexRoute
   RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
@@ -1008,6 +1021,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pilotage/': {
+      id: '/pilotage/'
+      path: '/pilotage'
+      fullPath: '/pilotage/'
+      preLoaderRoute: typeof PilotageIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/qualite/': {
       id: '/qualite/'
       path: '/qualite'
@@ -1178,6 +1198,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceIndexRoute: MaintenanceIndexRoute,
   NotesFraisIndexRoute: NotesFraisIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
+  PilotageIndexRoute: PilotageIndexRoute,
   QualiteIndexRoute: QualiteIndexRoute,
   RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
