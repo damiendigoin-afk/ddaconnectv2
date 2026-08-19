@@ -66,6 +66,9 @@ export async function runJob(job: AutomationJob): Promise<string> {
       const { escalateStale } = await import("@/lib/crm");
       const n = await escalateStale();
       message = `${n} demande(s) client escaladée(s).`;
+    } else if (job.job_key === "dunning_reminders") {
+      const n = await runDunningReminders();
+      message = `${n.sent} relance(s) envoyée(s) sur ${n.due} créance(s) éligible(s).`;
     } else {
       status = "ignore";
       message = "Automatisation inconnue.";
