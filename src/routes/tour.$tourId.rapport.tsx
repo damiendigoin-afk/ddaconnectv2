@@ -136,7 +136,7 @@ function ReportPage() {
     <AppShell
       title="Rapport atelier"
       subtitle={formatPlate(d.vehicle?.plate ?? "")}
-      back={d.order ? { to: "/or/$orId", params: { orId: d.order.id } } : { to: "/tour-vehicule" }}
+      back={{ to: "/tours" }}
     >
       <div className="space-y-4">
         <Summary d={d} />
