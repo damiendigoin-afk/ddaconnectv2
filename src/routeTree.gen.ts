@@ -18,6 +18,7 @@ import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as AutomatisationsIndexRouteImport } from './routes/automatisations.index'
 import { Route as BaseIndexRouteImport } from './routes/base.index'
 import { Route as BaseClientsRouteImport } from './routes/base.clients'
 import { Route as BaseImportRouteImport } from './routes/base.import'
@@ -39,6 +40,7 @@ import { Route as MagasinReturnIdRouteImport } from './routes/magasin.$returnId'
 import { Route as MagasinAvoirsRouteImport } from './routes/magasin.avoirs'
 import { Route as MagasinNouveauRouteImport } from './routes/magasin.nouveau'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
+import { Route as NotesFraisIndexRouteImport } from './routes/notes-frais.index'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
@@ -104,6 +106,11 @@ const UtilisateursRoute = UtilisateursRouteImport.update({
 const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   id: '/api/test-email',
   path: '/api/test-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomatisationsIndexRoute = AutomatisationsIndexRouteImport.update({
+  id: '/automatisations/',
+  path: '/automatisations/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BaseIndexRoute = BaseIndexRouteImport.update({
@@ -209,6 +216,11 @@ const MagasinNouveauRoute = MagasinNouveauRouteImport.update({
 const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
   id: '/maintenance/',
   path: '/maintenance/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotesFraisIndexRoute = NotesFraisIndexRouteImport.update({
+  id: '/notes-frais/',
+  path: '/notes-frais/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrOrIdRoute = OrOrIdRouteImport.update({
@@ -349,6 +361,7 @@ export interface FileRoutesByFullPath {
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
@@ -356,6 +369,7 @@ export interface FileRoutesByFullPath {
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -402,6 +416,7 @@ export interface FileRoutesByTo {
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/automatisations': typeof AutomatisationsIndexRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
   '/connaissances': typeof ConnaissancesIndexRoute
@@ -409,6 +424,7 @@ export interface FileRoutesByTo {
   '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
+  '/notes-frais': typeof NotesFraisIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
   '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
@@ -456,6 +472,7 @@ export interface FileRoutesById {
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
@@ -463,6 +480,7 @@ export interface FileRoutesById {
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
@@ -511,6 +529,7 @@ export interface FileRouteTypes {
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
+    | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
     | '/connaissances/'
@@ -518,6 +537,7 @@ export interface FileRouteTypes {
     | '/emails/'
     | '/magasin/'
     | '/maintenance/'
+    | '/notes-frais/'
     | '/parametrage/'
     | '/recuperation/'
     | '/statistiques/'
@@ -564,6 +584,7 @@ export interface FileRouteTypes {
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
+    | '/automatisations'
     | '/base'
     | '/carrosserie'
     | '/connaissances'
@@ -571,6 +592,7 @@ export interface FileRouteTypes {
     | '/emails'
     | '/magasin'
     | '/maintenance'
+    | '/notes-frais'
     | '/parametrage'
     | '/recuperation'
     | '/statistiques'
@@ -617,6 +639,7 @@ export interface FileRouteTypes {
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
+    | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
     | '/connaissances/'
@@ -624,6 +647,7 @@ export interface FileRouteTypes {
     | '/emails/'
     | '/magasin/'
     | '/maintenance/'
+    | '/notes-frais/'
     | '/parametrage/'
     | '/recuperation/'
     | '/statistiques/'
@@ -671,6 +695,7 @@ export interface RootRouteChildren {
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
   StatistiquesImportRoute: typeof StatistiquesImportRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
+  AutomatisationsIndexRoute: typeof AutomatisationsIndexRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
   ConnaissancesIndexRoute: typeof ConnaissancesIndexRoute
@@ -678,6 +703,7 @@ export interface RootRouteChildren {
   EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
+  NotesFraisIndexRoute: typeof NotesFraisIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
   RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
@@ -758,6 +784,13 @@ declare module '@tanstack/react-router' {
       path: '/api/test-email'
       fullPath: '/api/test-email'
       preLoaderRoute: typeof ApiTestEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automatisations/': {
+      id: '/automatisations/'
+      path: '/automatisations'
+      fullPath: '/automatisations/'
+      preLoaderRoute: typeof AutomatisationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/base/': {
@@ -905,6 +938,13 @@ declare module '@tanstack/react-router' {
       path: '/maintenance'
       fullPath: '/maintenance/'
       preLoaderRoute: typeof MaintenanceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notes-frais/': {
+      id: '/notes-frais/'
+      path: '/notes-frais'
+      fullPath: '/notes-frais/'
+      preLoaderRoute: typeof NotesFraisIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/or/$orId': {
@@ -1087,6 +1127,7 @@ const rootRouteChildren: RootRouteChildren = {
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
   StatistiquesImportRoute: StatistiquesImportRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
+  AutomatisationsIndexRoute: AutomatisationsIndexRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
   ConnaissancesIndexRoute: ConnaissancesIndexRoute,
@@ -1094,6 +1135,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
+  NotesFraisIndexRoute: NotesFraisIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
   RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
