@@ -269,9 +269,9 @@ function PilotageHub() {
                             : "bg-secondary text-foreground"
                       }
                     >
-                      {m.value}
-                      {m.unit === "mo" ? " Mo" : ""}
-                      {m.quota ? ` / ${m.quota}` : ""}
+                      {m.unit === "mo" ? fmtSize(m.value) : m.value}
+                      {m.quota ? ` / ${m.unit === "mo" ? fmtSize(m.quota) : m.quota}` : ""}
+                      {m.quota ? ` · ${Math.round((m.value / m.quota) * 100)} %` : ""}
                     </Badge>
                   </div>
                   <div className="mt-2 h-2 rounded bg-secondary">
@@ -373,4 +373,8 @@ function RelanceButton({ busy, due, onRelance }: { busy: boolean; due: boolean; 
       )}
     </div>
   );
+}
+
+function fmtSize(mo: number) {
+  return mo >= 1024 ? `${(mo / 1024).toFixed(1)} Go` : `${Math.round(mo)} Mo`;
 }
