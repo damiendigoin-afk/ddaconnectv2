@@ -112,6 +112,30 @@ function CaseView() {
 
 /* ---------------- Infos ---------------- */
 
+function DarvaAlertBanner({
+  caseId,
+  plate,
+  missionOrigin,
+}: {
+  caseId: string;
+  plate: string | null;
+  missionOrigin: string | null;
+}) {
+  const flows = useQuery({ queryKey: ["darva-case", caseId], queryFn: () => darvaForCase(caseId, plate) });
+  if (!flows.data) return null;
+  const alert = darvaCoherence(missionOrigin, flows.data);
+  if (!alert) return null;
+  return (
+    <p
+      className={`rounded-xl border-2 px-3 py-2 text-xs font-bold ${
+        alert.tone === "warn" ? "border-status-watch bg-status-watch-soft text-status-watch" : "border-border bg-secondary"
+      }`}
+    >
+      {alert.message}
+    </p>
+  );
+}
+
 function InfosTab({ row, onSaved }: { row: NonNullable<Awaited<ReturnType<typeof getCase>>>; onSaved: () => void }) {
   const [caseState, setCaseState] = useState(row.case_state);
   const [physical, setPhysical] = useState(row.physical_state);
