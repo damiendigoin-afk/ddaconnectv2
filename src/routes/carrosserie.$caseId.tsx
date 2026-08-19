@@ -5,7 +5,7 @@ import { Camera, Check, Loader2, Plus, Send, Upload } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Area, Badge, Field, Section, Select } from "@/components/bits";
-import { ExpertContact } from "@/components/ExpertContact";
+import { ExpertCommunication } from "@/components/ExpertCommunication";
 import { supabase } from "@/integrations/supabase/client";
 import { darvaCoherence, darvaForCase } from "@/lib/darva";
 import { analyzeExpertReportFn } from "@/lib/bodyshop-ai.functions";
@@ -81,7 +81,7 @@ function CaseView() {
 
       <div className="mt-3 space-y-2">
         <DarvaAlertBanner caseId={caseId} plate={row.plate} missionOrigin={row.mission_origin} />
-        <ExpertContact row={row} onSent={refresh} />
+        <ExpertCommunication row={row} onSent={refresh} />
       </div>
 
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">

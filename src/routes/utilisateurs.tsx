@@ -8,7 +8,16 @@ import QRCode from "qrcode";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import type { AppRole, UserStatus } from "@/lib/auth";
-import { fetchUsers, ROLE_LABELS, setUserNames, setUserRole, setUserStatus, STATUS_LABELS } from "@/lib/users";
+import {
+  fetchUsers,
+  ROLE_LABELS,
+  setUserDefaultSite,
+  setUserNames,
+  setUserRole,
+  setUserStatus,
+  STATUS_LABELS,
+} from "@/lib/users";
+import { fetchSites, guessSiteCode, GROUP_LABEL } from "@/lib/sites";
 import { fetchAllModuleAccess, MODULES, setModuleAccess } from "@/lib/access";
 import { fetchOperators, linkOperator, normPerson } from "@/lib/stats";
 import { toastError } from "@/lib/errors";
@@ -46,6 +55,7 @@ function UsersPage() {
   const users = useQuery({ queryKey: ["users"], queryFn: fetchUsers, enabled: isManager });
   const access = useQuery({ queryKey: ["module-access"], queryFn: fetchAllModuleAccess, enabled: isManager });
   const operators = useQuery({ queryKey: ["winmotor-operators"], queryFn: fetchOperators, enabled: isManager });
+  const sites = useQuery({ queryKey: ["sites"], queryFn: fetchSites, enabled: isManager });
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -72,8 +82,10 @@ function UsersPage() {
       lastName: string;
       alias: string;
       siteId: string | null;
+      defaultSite: string;
     }) => {
       await setUserNames(a.id, a.firstName, a.lastName);
+      if (a.defaultSite) await setUserDefaultSite(a.id, a.defaultSite);
       if (a.alias.trim()) await linkOperator(a.alias.trim().toUpperCase(), a.siteId, a.id);
     },
     onSuccess: async () => {
@@ -200,6 +212,8 @@ function UsersPage() {
                       "")
                   }
                   modules={access.data?.get(u.id) ?? new Set<string>()}
+                  sites={sites.data ?? []}
+                  defaultSite={u.site_scope === "groupe" ? "groupe" : (u.site_id ?? "")}
                   onSave={(v) =>
                     edit.mutate({
                       id: u.id,
@@ -207,6 +221,7 @@ function UsersPage() {
                       lastName: v.lastName,
                       alias: v.alias,
                       siteId: u.site_id,
+                      defaultSite: v.defaultSite,
                     })
                   }
                   onToggle={(key, allowed) => perm.mutate({ id: u.id, key, allowed })}
@@ -242,18 +257,26 @@ function UserEditor({
   user,
   alias,
   modules,
+  sites,
+  defaultSite,
   onSave,
   onToggle,
 }: {
-  user: { first_name: string | null; last_name: string | null };
+  user: { first_name: string | null; last_name: string | null; email?: string | null };
   alias: string;
   modules: Set<string>;
-  onSave: (v: { firstName: string; lastName: string; alias: string }) => void;
+  sites: { id: string; code: string | null; name: string }[];
+  defaultSite: string;
+  onSave: (v: { firstName: string; lastName: string; alias: string; defaultSite: string }) => void;
   onToggle: (key: string, allowed: boolean) => void;
 }) {
   const [firstName, setFirstName] = useState(user.first_name ?? "");
   const [lastName, setLastName] = useState(user.last_name ?? "");
   const [wmAlias, setWmAlias] = useState(alias);
+  // Préremplissage depuis l'e-mail, jamais bloquant : le choix reste modifiable.
+  const guessed = guessSiteCode(user.email ?? null);
+  const guessedId = guessed ? (sites.find((s) => s.code === guessed)?.id ?? "") : "";
+  const [site, setSite] = useState(defaultSite || guessedId);
 
   return (
     <div className="space-y-3 rounded-lg border-2 border-border bg-secondary/40 p-3">
@@ -270,6 +293,29 @@ function UserEditor({
       <p className="text-[11px] text-muted-foreground">
         Ce nom sert au rapprochement automatique des statistiques Winmotor : il est mémorisé et appliqué aux imports
         passés et futurs.
+      </p>
+
+      <label className="block">
+        <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          Site par défaut
+        </span>
+        <select
+          value={site}
+          onChange={(e) => setSite(e.target.value)}
+          className="w-full rounded-lg border-2 border-border bg-card px-3 py-2 text-sm font-bold"
+        >
+          <option value="">— Non défini —</option>
+          {sites.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+          <option value="groupe">{GROUP_LABEL} (Groupe)</option>
+        </select>
+      </label>
+      <p className="text-[11px] text-muted-foreground">
+        Contexte d'ouverture, logo, entêtes et filtres par défaut. Aucun blocage : l'utilisateur peut changer
+        ponctuellement de site dans l'application.
       </p>
 
       <div className="space-y-1">
@@ -293,7 +339,7 @@ function UserEditor({
       </div>
 
       <button
-        onClick={() => onSave({ firstName, lastName, alias: wmAlias })}
+        onClick={() => onSave({ firstName, lastName, alias: wmAlias, defaultSite: site })}
         className="w-full rounded-lg bg-brand px-3 py-3 text-xs font-extrabold uppercase text-brand-foreground"
       >
         Enregistrer la fiche

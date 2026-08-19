@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { BookUser, FileSpreadsheet, Plus } from "lucide-react";
 
+import { ExpertCommunication } from "@/components/ExpertCommunication";
+
 import { AppShell } from "@/components/AppShell";
 import { Badge, Counter } from "@/components/bits";
 import { useAuth } from "@/lib/auth";
@@ -87,6 +89,10 @@ function BodyshopHub() {
           </span>
         </Link>
       ) : null}
+
+      <div className="mt-2">
+        <ExpertCommunication />
+      </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         {COUNTER_FILTERS.map((c) => (
