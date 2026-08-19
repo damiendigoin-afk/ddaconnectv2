@@ -5,7 +5,9 @@ import { Camera, Check, Loader2, Plus, Send, Upload } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Area, Badge, Field, Section, Select } from "@/components/bits";
+import { ExpertContact } from "@/components/ExpertContact";
 import { supabase } from "@/integrations/supabase/client";
+import { darvaCoherence, darvaForCase } from "@/lib/darva";
 import { analyzeExpertReportFn } from "@/lib/bodyshop-ai.functions";
 import {
   CASE_STATES,
@@ -77,6 +79,11 @@ function CaseView() {
         {row.work_location !== "site" ? <Badge tone="bg-purple-100 text-purple-900">Sous-traitance</Badge> : null}
       </div>
 
+      <div className="mt-3 space-y-2">
+        <DarvaAlertBanner caseId={caseId} plate={row.plate} missionOrigin={row.mission_origin} />
+        <ExpertContact row={row} onSent={refresh} />
+      </div>
+
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
         {TABS.map((t) => (
           <button
@@ -104,6 +111,30 @@ function CaseView() {
 }
 
 /* ---------------- Infos ---------------- */
+
+function DarvaAlertBanner({
+  caseId,
+  plate,
+  missionOrigin,
+}: {
+  caseId: string;
+  plate: string | null;
+  missionOrigin: string | null;
+}) {
+  const flows = useQuery({ queryKey: ["darva-case", caseId], queryFn: () => darvaForCase(caseId, plate) });
+  if (!flows.data) return null;
+  const alert = darvaCoherence(missionOrigin, flows.data);
+  if (!alert) return null;
+  return (
+    <p
+      className={`rounded-xl border-2 px-3 py-2 text-xs font-bold ${
+        alert.tone === "warn" ? "border-status-watch bg-status-watch-soft text-status-watch" : "border-border bg-secondary"
+      }`}
+    >
+      {alert.message}
+    </p>
+  );
+}
 
 function InfosTab({ row, onSaved }: { row: NonNullable<Awaited<ReturnType<typeof getCase>>>; onSaved: () => void }) {
   const [caseState, setCaseState] = useState(row.case_state);
