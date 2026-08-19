@@ -306,7 +306,6 @@ function ReceivableCard({
 }: {
   row: Receivable;
   info: DunningInfo | undefined;
-  info: DunningInfo | undefined;
   busy: boolean;
   onRelance: (to: string) => void;
 }) {
@@ -374,4 +373,8 @@ function RelanceButton({ busy, due, onRelance }: { busy: boolean; due: boolean; 
       )}
     </div>
   );
+}
+
+function fmtSize(mo: number) {
+  return mo >= 1024 ? `${(mo / 1024).toFixed(1)} Go` : `${Math.round(mo)} Mo`;
 }
