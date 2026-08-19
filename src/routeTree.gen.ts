@@ -18,6 +18,7 @@ import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as AutomatisationsIndexRouteImport } from './routes/automatisations.index'
 import { Route as BaseIndexRouteImport } from './routes/base.index'
 import { Route as BaseClientsRouteImport } from './routes/base.clients'
 import { Route as BaseImportRouteImport } from './routes/base.import'
@@ -28,6 +29,8 @@ import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.impo
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
+import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.index'
+import { Route as DarvaIndexRouteImport } from './routes/darva.index'
 import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
@@ -36,10 +39,13 @@ import { Route as MagasinIndexRouteImport } from './routes/magasin.index'
 import { Route as MagasinReturnIdRouteImport } from './routes/magasin.$returnId'
 import { Route as MagasinAvoirsRouteImport } from './routes/magasin.avoirs'
 import { Route as MagasinNouveauRouteImport } from './routes/magasin.nouveau'
+import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
+import { Route as NotesFraisIndexRouteImport } from './routes/notes-frais.index'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
 import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
@@ -102,6 +108,11 @@ const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   path: '/api/test-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AutomatisationsIndexRoute = AutomatisationsIndexRouteImport.update({
+  id: '/automatisations/',
+  path: '/automatisations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BaseIndexRoute = BaseIndexRouteImport.update({
   id: '/base/',
   path: '/base/',
@@ -152,6 +163,16 @@ const ClientClientIdRoute = ClientClientIdRouteImport.update({
   path: '/client/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnaissancesIndexRoute = ConnaissancesIndexRouteImport.update({
+  id: '/connaissances/',
+  path: '/connaissances/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DarvaIndexRoute = DarvaIndexRouteImport.update({
+  id: '/darva/',
+  path: '/darva/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmailsIndexRoute = EmailsIndexRouteImport.update({
   id: '/emails/',
   path: '/emails/',
@@ -192,6 +213,16 @@ const MagasinNouveauRoute = MagasinNouveauRouteImport.update({
   path: '/magasin/nouveau',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
+  id: '/maintenance/',
+  path: '/maintenance/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotesFraisIndexRoute = NotesFraisIndexRouteImport.update({
+  id: '/notes-frais/',
+  path: '/notes-frais/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrOrIdRoute = OrOrIdRouteImport.update({
   id: '/or/$orId',
   path: '/or/$orId',
@@ -210,6 +241,11 @@ const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecuperationIndexRoute = RecuperationIndexRouteImport.update({
+  id: '/recuperation/',
+  path: '/recuperation/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatistiquesIndexRoute = StatistiquesIndexRouteImport.update({
@@ -325,11 +361,17 @@ export interface FileRoutesByFullPath {
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/connaissances/': typeof ConnaissancesIndexRoute
+  '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/maintenance/': typeof MaintenanceIndexRoute
+  '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
@@ -374,11 +416,17 @@ export interface FileRoutesByTo {
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/automatisations': typeof AutomatisationsIndexRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/connaissances': typeof ConnaissancesIndexRoute
+  '/darva': typeof DarvaIndexRoute
   '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
+  '/maintenance': typeof MaintenanceIndexRoute
+  '/notes-frais': typeof NotesFraisIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
+  '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
@@ -424,11 +472,17 @@ export interface FileRoutesById {
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/connaissances/': typeof ConnaissancesIndexRoute
+  '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/maintenance/': typeof MaintenanceIndexRoute
+  '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
@@ -475,11 +529,17 @@ export interface FileRouteTypes {
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
+    | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
+    | '/connaissances/'
+    | '/darva/'
     | '/emails/'
     | '/magasin/'
+    | '/maintenance/'
+    | '/notes-frais/'
     | '/parametrage/'
+    | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
@@ -524,11 +584,17 @@ export interface FileRouteTypes {
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
+    | '/automatisations'
     | '/base'
     | '/carrosserie'
+    | '/connaissances'
+    | '/darva'
     | '/emails'
     | '/magasin'
+    | '/maintenance'
+    | '/notes-frais'
     | '/parametrage'
+    | '/recuperation'
     | '/statistiques'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
@@ -573,11 +639,17 @@ export interface FileRouteTypes {
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
+    | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
+    | '/connaissances/'
+    | '/darva/'
     | '/emails/'
     | '/magasin/'
+    | '/maintenance/'
+    | '/notes-frais/'
     | '/parametrage/'
+    | '/recuperation/'
     | '/statistiques/'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
@@ -623,11 +695,17 @@ export interface RootRouteChildren {
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
   StatistiquesImportRoute: typeof StatistiquesImportRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
+  AutomatisationsIndexRoute: typeof AutomatisationsIndexRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  ConnaissancesIndexRoute: typeof ConnaissancesIndexRoute
+  DarvaIndexRoute: typeof DarvaIndexRoute
   EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
+  MaintenanceIndexRoute: typeof MaintenanceIndexRoute
+  NotesFraisIndexRoute: typeof NotesFraisIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
+  RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
@@ -708,6 +786,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTestEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/automatisations/': {
+      id: '/automatisations/'
+      path: '/automatisations'
+      fullPath: '/automatisations/'
+      preLoaderRoute: typeof AutomatisationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/base/': {
       id: '/base/'
       path: '/base'
@@ -778,6 +863,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connaissances/': {
+      id: '/connaissances/'
+      path: '/connaissances'
+      fullPath: '/connaissances/'
+      preLoaderRoute: typeof ConnaissancesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/darva/': {
+      id: '/darva/'
+      path: '/darva'
+      fullPath: '/darva/'
+      preLoaderRoute: typeof DarvaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/emails/': {
       id: '/emails/'
       path: '/emails'
@@ -834,6 +933,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MagasinNouveauRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/maintenance/': {
+      id: '/maintenance/'
+      path: '/maintenance'
+      fullPath: '/maintenance/'
+      preLoaderRoute: typeof MaintenanceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notes-frais/': {
+      id: '/notes-frais/'
+      path: '/notes-frais'
+      fullPath: '/notes-frais/'
+      preLoaderRoute: typeof NotesFraisIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/or/$orId': {
       id: '/or/$orId'
       path: '/or/$orId'
@@ -860,6 +973,13 @@ declare module '@tanstack/react-router' {
       path: '/partage/$token'
       fullPath: '/partage/$token'
       preLoaderRoute: typeof PartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recuperation/': {
+      id: '/recuperation/'
+      path: '/recuperation'
+      fullPath: '/recuperation/'
+      preLoaderRoute: typeof RecuperationIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/statistiques/': {
@@ -1007,11 +1127,17 @@ const rootRouteChildren: RootRouteChildren = {
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
   StatistiquesImportRoute: StatistiquesImportRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
+  AutomatisationsIndexRoute: AutomatisationsIndexRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  ConnaissancesIndexRoute: ConnaissancesIndexRoute,
+  DarvaIndexRoute: DarvaIndexRoute,
   EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
+  MaintenanceIndexRoute: MaintenanceIndexRoute,
+  NotesFraisIndexRoute: NotesFraisIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
+  RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,

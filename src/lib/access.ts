@@ -8,6 +8,12 @@ export const MODULES = [
   { key: "magasin", label: "Magasin" },
   { key: "base", label: "Base de données" },
   { key: "emails", label: "Flux emails" },
+  { key: "darva", label: "Gestion DARVA" },
+  { key: "maintenance", label: "Maintenance prédictive" },
+  { key: "connaissances", label: "Base de connaissances" },
+  { key: "recuperation", label: "Récupération / VN / VO" },
+  { key: "notes_frais", label: "Notes de frais" },
+  { key: "automatisations", label: "Automatisations" },
   { key: "stats_equipe", label: "Statistiques équipe" },
   { key: "stats_import", label: "Import statistiques" },
 ] as const;
