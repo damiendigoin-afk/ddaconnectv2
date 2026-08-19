@@ -28,6 +28,7 @@ import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.impo
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
+import { Route as DarvaIndexRouteImport } from './routes/darva.index'
 import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
@@ -36,6 +37,7 @@ import { Route as MagasinIndexRouteImport } from './routes/magasin.index'
 import { Route as MagasinReturnIdRouteImport } from './routes/magasin.$returnId'
 import { Route as MagasinAvoirsRouteImport } from './routes/magasin.avoirs'
 import { Route as MagasinNouveauRouteImport } from './routes/magasin.nouveau'
+import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
@@ -152,6 +154,11 @@ const ClientClientIdRoute = ClientClientIdRouteImport.update({
   path: '/client/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DarvaIndexRoute = DarvaIndexRouteImport.update({
+  id: '/darva/',
+  path: '/darva/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmailsIndexRoute = EmailsIndexRouteImport.update({
   id: '/emails/',
   path: '/emails/',
@@ -190,6 +197,11 @@ const MagasinAvoirsRoute = MagasinAvoirsRouteImport.update({
 const MagasinNouveauRoute = MagasinNouveauRouteImport.update({
   id: '/magasin/nouveau',
   path: '/magasin/nouveau',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
+  id: '/maintenance/',
+  path: '/maintenance/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrOrIdRoute = OrOrIdRouteImport.update({
@@ -327,8 +339,10 @@ export interface FileRoutesByFullPath {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/maintenance/': typeof MaintenanceIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -376,8 +390,10 @@ export interface FileRoutesByTo {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/darva': typeof DarvaIndexRoute
   '/emails': typeof EmailsIndexRoute
   '/magasin': typeof MagasinIndexRoute
+  '/maintenance': typeof MaintenanceIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -426,8 +442,10 @@ export interface FileRoutesById {
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/magasin/': typeof MagasinIndexRoute
+  '/maintenance/': typeof MaintenanceIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
@@ -477,8 +495,10 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/darva/'
     | '/emails/'
     | '/magasin/'
+    | '/maintenance/'
     | '/parametrage/'
     | '/statistiques/'
     | '/base/corrections/$importId'
@@ -526,8 +546,10 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base'
     | '/carrosserie'
+    | '/darva'
     | '/emails'
     | '/magasin'
+    | '/maintenance'
     | '/parametrage'
     | '/statistiques'
     | '/base/corrections/$importId'
@@ -575,8 +597,10 @@ export interface FileRouteTypes {
     | '/vehicule/$vehId'
     | '/base/'
     | '/carrosserie/'
+    | '/darva/'
     | '/emails/'
     | '/magasin/'
+    | '/maintenance/'
     | '/parametrage/'
     | '/statistiques/'
     | '/base/corrections/$importId'
@@ -625,8 +649,10 @@ export interface RootRouteChildren {
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  DarvaIndexRoute: typeof DarvaIndexRoute
   EmailsIndexRoute: typeof EmailsIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
+  MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
@@ -778,6 +804,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/darva/': {
+      id: '/darva/'
+      path: '/darva'
+      fullPath: '/darva/'
+      preLoaderRoute: typeof DarvaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/emails/': {
       id: '/emails/'
       path: '/emails'
@@ -832,6 +865,13 @@ declare module '@tanstack/react-router' {
       path: '/magasin/nouveau'
       fullPath: '/magasin/nouveau'
       preLoaderRoute: typeof MagasinNouveauRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/maintenance/': {
+      id: '/maintenance/'
+      path: '/maintenance'
+      fullPath: '/maintenance/'
+      preLoaderRoute: typeof MaintenanceIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/or/$orId': {
@@ -1009,8 +1049,10 @@ const rootRouteChildren: RootRouteChildren = {
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  DarvaIndexRoute: DarvaIndexRoute,
   EmailsIndexRoute: EmailsIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
+  MaintenanceIndexRoute: MaintenanceIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
