@@ -65,6 +65,7 @@ import { Route as TourTourIdPdfRouteImport } from './routes/tour.$tourId.pdf'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
 import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/emails.ingest'
+import { Route as ApiPublicGmailCallbackRouteImport } from './routes/api/public/gmail/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -348,6 +349,11 @@ const ApiPublicEmailsIngestRoute = ApiPublicEmailsIngestRouteImport.update({
   path: '/api/public/emails/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicGmailCallbackRoute = ApiPublicGmailCallbackRouteImport.update({
+  id: '/api/public/gmail/callback',
+  path: '/api/public/gmail/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -406,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
+  '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -464,6 +471,7 @@ export interface FileRoutesByTo {
   '/parametrage/fournisseurs': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
+  '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -523,6 +531,7 @@ export interface FileRoutesById {
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
+  '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -583,6 +592,7 @@ export interface FileRouteTypes {
     | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
     | '/api/public/emails/ingest'
+    | '/api/public/gmail/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -641,6 +651,7 @@ export interface FileRouteTypes {
     | '/parametrage/fournisseurs'
     | '/tour/$tourId'
     | '/api/public/emails/ingest'
+    | '/api/public/gmail/callback'
   id:
     | '__root__'
     | '/'
@@ -699,6 +710,7 @@ export interface FileRouteTypes {
     | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
     | '/api/public/emails/ingest'
+    | '/api/public/gmail/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -758,6 +770,7 @@ export interface RootRouteChildren {
   ParametrageFournisseursIndexRoute: typeof ParametrageFournisseursIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
   ApiPublicEmailsIngestRoute: typeof ApiPublicEmailsIngestRoute
+  ApiPublicGmailCallbackRoute: typeof ApiPublicGmailCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1154,6 +1167,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicEmailsIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/gmail/callback': {
+      id: '/api/public/gmail/callback'
+      path: '/api/public/gmail/callback'
+      fullPath: '/api/public/gmail/callback'
+      preLoaderRoute: typeof ApiPublicGmailCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1215,6 +1235,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageFournisseursIndexRoute: ParametrageFournisseursIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
   ApiPublicEmailsIngestRoute: ApiPublicEmailsIngestRoute,
+  ApiPublicGmailCallbackRoute: ApiPublicGmailCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
