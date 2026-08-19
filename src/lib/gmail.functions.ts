@@ -59,8 +59,8 @@ export const syncGmailAccount = createServerFn({ method: "POST" })
       await supabaseAdmin
         .from("email_oauth_tokens")
         .update({
-          access_token: newTokens.access_token,
-          expires_at: newTokens.expires_at,
+          access_token: newTokens.access_token ?? null,
+          expires_at: newTokens.expires_at ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq("account_id", data.accountId);

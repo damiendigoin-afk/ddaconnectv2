@@ -164,7 +164,7 @@ function decodeBase64Url(b64: string): string {
 
 /** Extract text body from a Gmail message payload (handles multipart). */
 function extractBody(
-  payload: { body?: { data?: string }; parts?: any[] },
+  payload: { body?: { data?: string }; parts?: any[]; mimeType?: string } | undefined,
   mimeType: "text/plain" | "text/html",
 ): string | null {
   if (!payload) return null;
@@ -220,8 +220,8 @@ function splitFrom(fromValue: string | null): { from: string; fromName: string |
   if (!fromValue) return { from: "", fromName: null };
   const match = fromValue.match(/^(.*?)\s*<([^>]+)>$/);
   if (match) {
-    const name = match[1].trim().replace(/^["']|["']$/g, "");
-    return { from: match[2].trim(), fromName: name || null };
+    const name = (match[1] ?? "").trim().replace(/^["']|["']$/g, "");
+    return { from: (match[2] ?? "").trim(), fromName: name || null };
   }
   return { from: fromValue.trim(), fromName: null };
 }
