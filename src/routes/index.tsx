@@ -12,6 +12,7 @@ import {
   Gauge,
   Hammer,
   Inbox,
+  Headphones,
   LogOut,
   PackageOpen,
   ShieldCheck,
