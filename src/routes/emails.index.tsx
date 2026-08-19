@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Inbox, Mail, Paperclip, Plug, RefreshCw, Users } from "lucide-react";
+import { Inbox, Link2, Mail, Paperclip, Plug, RefreshCw, Unlink, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -15,8 +15,14 @@ import {
   receivedByLabel,
   setAccountStatus,
   upsertEmailAccount,
+  type EmailAccount,
   type EmailRow,
 } from "@/lib/emails";
+import {
+  disconnectGmail,
+  getGmailAuthUrl,
+  syncGmailAccount,
+} from "@/lib/gmail.functions";
 
 export const Route = createFileRoute("/emails/")({
   head: () => ({
