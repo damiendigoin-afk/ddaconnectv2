@@ -67,16 +67,16 @@ export async function listReceivables(siteId?: string | null): Promise<Receivabl
     const received = parts.reduce((s, p) => s + p.received, 0);
     const outstanding = parts.reduce((s, p) => s + p.outstanding, 0);
     if (outstanding <= 0.5) continue;
-    const ref = (c.closed_at as string | null) || (c.mission_date as string | null) || (c.created_at as string);
+    const ref = (c['closed_at'] as string | null) || (c['mission_date'] as string | null) || (c['created_at'] as string);
     const days = Math.max(0, Math.floor((now - new Date(ref).getTime()) / 86_400_000));
     rows.push({
-      case_id: c.id as string,
-      site_id: (c.site_id as string | null) ?? null,
-      plate: (c.plate as string | null) ?? null,
-      customer_name: (c.customer_name as string | null) ?? null,
-      or_number: (c.or_number as string | null) ?? null,
-      claim_number: (c.claim_number as string | null) ?? null,
-      case_state: (c.case_state as string) ?? "",
+      case_id: c['id'] as string,
+      site_id: (c['site_id'] as string | null) ?? null,
+      plate: (c['plate'] as string | null) ?? null,
+      customer_name: (c['customer_name'] as string | null) ?? null,
+      or_number: (c['or_number'] as string | null) ?? null,
+      claim_number: (c['claim_number'] as string | null) ?? null,
+      case_state: (c['case_state'] as string) ?? "",
       reference_at: ref,
       days,
       bucket: bucketOf(days),
@@ -168,6 +168,7 @@ export async function fetchPilotage(year: number, siteId?: string | null): Promi
     const d = new Date(r.created_at);
     const amount = num(r.amount_total_ttc);
     const slot = monthly[d.getUTCMonth()];
+    if (!slot) continue;
     if (d.getUTCFullYear() === year) {
       caCur += amount;
       slot.current += amount;
