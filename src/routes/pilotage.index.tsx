@@ -306,6 +306,7 @@ function ReceivableCard({
 }: {
   row: Receivable;
   info: DunningInfo | undefined;
+  info: DunningInfo | undefined;
   busy: boolean;
   onRelance: (to: string) => void;
 }) {
