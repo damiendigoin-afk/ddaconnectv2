@@ -19,8 +19,6 @@ import {
   needsDunning,
   eur,
   fetchPilotage,
-  fetchPlatformHealth,
-  healthTone,
   listReceivables,
   variation,
   type DunningInfo,
@@ -30,13 +28,13 @@ import {
 export const Route = createFileRoute("/pilotage/")({
   head: () => ({
     meta: [
-      { title: "Pilotage & recouvrement — DDA Connect" },
+      { title: "Gestion — DDA Connect" },
       {
         name: "description",
         content:
           "Balance âgée des créances carrosserie, comparaison Groupe année en cours vs N-1 et santé de la plateforme (volumes emails, stockage, automatisations).",
       },
-      { property: "og:title", content: "Pilotage & recouvrement — DDA Connect" },
+      { property: "og:title", content: "Gestion — DDA Connect" },
       { property: "og:description", content: "Créances par ancienneté, indicateurs N/N-1 et quotas plateforme." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -45,7 +43,7 @@ export const Route = createFileRoute("/pilotage/")({
   component: PilotageHub,
 });
 
-type Tab = "recouvrement" | "groupe" | "sante";
+type Tab = "recouvrement" | "groupe";
 type Compare = "n1" | "n2" | "ytd";
 
 function PilotageHub() {
@@ -68,7 +66,6 @@ function PilotageHub() {
     enabled: tab === "groupe",
   });
   const objectives = useQuery({ queryKey: ["pilotage", "objectifs", siteId], queryFn: () => fetchObjectives(siteId), enabled: tab === "groupe" });
-  const health = useQuery({ queryKey: ["pilotage", "sante"], queryFn: fetchPlatformHealth, enabled: tab === "sante" });
 
   const rows = receivables.data ?? [];
   const caseIds = useMemo(() => rows.map((r) => r.case_id), [rows]);
@@ -110,11 +107,10 @@ function PilotageHub() {
   }
 
   return (
-    <AppShell title="Pilotage & recouvrement" subtitle={isGroup ? `Vue Groupe — ${label}` : (site?.name ?? "Site")} back={{ to: "/" }}>
+    <AppShell title="Gestion" subtitle={isGroup ? `Vue Groupe — ${label}` : (site?.name ?? "Site")} back={{ to: "/" }}>
       <div className="grid grid-cols-3 gap-2">
         <Counter label="Encours" value={eur(totals.total)} active={tab === "recouvrement"} onClick={() => setTab("recouvrement")} />
         <Counter label={`Groupe ${year}/${year - 1}`} value="N/N-1" active={tab === "groupe"} onClick={() => setTab("groupe")} />
-        <Counter label="Santé" value={health.data ? health.data.metrics.filter((m) => healthTone(m) !== "ok").length : "—"} active={tab === "sante"} onClick={() => setTab("sante")} />
       </div>
 
       {tab === "recouvrement" ? (
@@ -249,51 +245,6 @@ function PilotageHub() {
         </Section>
       ) : null}
 
-      {tab === "sante" ? (
-        <Section title="Santé de la plateforme">
-          {health.isLoading ? <p className="text-sm text-muted-foreground">Analyse en cours…</p> : null}
-          <div className="space-y-2">
-            {(health.data?.metrics ?? []).map((m) => {
-              const tone = healthTone(m);
-              const pct = m.quota ? Math.min(100, (m.value / m.quota) * 100) : 0;
-              return (
-                <div key={m.key} className="rounded-xl border-2 border-border bg-card p-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-extrabold uppercase tracking-wide">{m.label}</span>
-                    <Badge
-                      tone={
-                        tone === "critique"
-                          ? "bg-status-alert-soft text-status-alert"
-                          : tone === "alerte"
-                            ? "bg-status-watch-soft text-status-watch"
-                            : "bg-secondary text-foreground"
-                      }
-                    >
-                      {m.unit === "mo" ? fmtSize(m.value) : m.value}
-                      {m.quota ? ` / ${m.unit === "mo" ? fmtSize(m.quota) : m.quota}` : ""}
-                      {m.quota ? ` · ${Math.round((m.value / m.quota) * 100)} %` : ""}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 h-2 rounded bg-secondary">
-                    <div
-                      className={`h-2 rounded ${tone === "critique" ? "bg-status-alert" : tone === "alerte" ? "bg-status-watch" : "bg-brand"}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{m.hint}</p>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-3 rounded-xl border-2 border-border bg-card p-3 text-xs text-muted-foreground">
-            Automatisations (30 j) : {health.data?.failedRuns ?? 0} exécution(s) en erreur
-            {health.data?.lastRunAt ? ` · dernière le ${new Date(health.data.lastRunAt).toLocaleString("fr-FR")}` : ""}.{" "}
-            <Link to="/automatisations" className="font-bold text-brand underline">
-              Voir le détail
-            </Link>
-          </div>
-        </Section>
-      ) : null}
     </AppShell>
   );
 }
