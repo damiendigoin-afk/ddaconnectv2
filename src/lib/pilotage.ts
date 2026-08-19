@@ -238,27 +238,55 @@ export const HEALTH_QUOTAS = {
   resend_month: 3000,
   storage_mo: 5000,
   inbox_pending: 50,
+  /** Quotas plan Pro : 8 Go de fichiers et 8 Go de base. */
+  bucket_mo: 8192,
+  db_mo: 8192,
 };
 
-export async function fetchPlatformHealth(): Promise<{ metrics: HealthMetric[]; failedRuns: number; lastRunAt: string | null }> {
+export async function fetchPlatformHealth(): Promise<{ metrics: HealthMetric[]; failedRuns: number; lastRunAt: string | null; files: number }> {
   const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
-  const [emails, receipts, docs, runs] = await Promise.all([
+  const [emails, receipts, docs, runs, storage] = await Promise.all([
     supabase.from("emails").select("id", { count: "exact", head: true }).gte("sent_at", from),
     supabase.from("email_logs").select("id", { count: "exact", head: true }).gte("created_at", from),
     supabase.from("inbox_documents").select("file_size, status").limit(5000),
     supabase.from("automation_runs").select("status, started_at").gte("started_at", from).order("started_at", { ascending: false }).limit(500),
+    supabase.rpc("platform_storage_stats"),
   ]);
 
   const docRows = (docs.data ?? []) as { file_size: number | null; status: string }[];
   const storageMo = docRows.reduce((s, d) => s + num(d.file_size), 0) / MB;
   const pending = docRows.filter((d) => d.status === "a_classer").length;
   const runRows = (runs.data ?? []) as { status: string; started_at: string }[];
+  const st = (Array.isArray(storage.data) ? storage.data[0] : storage.data) as
+    | { bucket_bytes: number | string | null; bucket_files: number | string | null; db_bytes: number | string | null }
+    | null
+    | undefined;
+  const bucketMo = num(st?.bucket_bytes) / MB;
+  const dbMo = num(st?.db_bytes) / MB;
+  const files = num(st?.bucket_files);
 
   return {
     failedRuns: runRows.filter((r) => r.status === "erreur" || r.status === "error" || r.status === "echec").length,
     lastRunAt: runRows[0]?.started_at ?? null,
+    files,
     metrics: [
+      {
+        key: "bucket",
+        label: "Stockage fichiers (photos, PDF)",
+        value: Math.round(bucketMo),
+        quota: HEALTH_QUOTAS.bucket_mo,
+        unit: "mo",
+        hint: `${files} fichier(s) stockés · quota inclus 8 Go`,
+      },
+      {
+        key: "db",
+        label: "Base de données",
+        value: Math.round(dbMo),
+        quota: HEALTH_QUOTAS.db_mo,
+        unit: "mo",
+        hint: "Taille totale de la base · quota inclus 8 Go",
+      },
       {
         key: "emails",
         label: "Emails reçus (30 j)",
