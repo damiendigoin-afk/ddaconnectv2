@@ -54,6 +54,7 @@ import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index
 import { Route as TourTourIdPdfRouteImport } from './routes/tour.$tourId.pdf'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
+import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/emails.ingest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -282,6 +283,11 @@ const TourTourIdRapportRoute = TourTourIdRapportRouteImport.update({
   path: '/tour/$tourId/rapport',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicEmailsIngestRoute = ApiPublicEmailsIngestRouteImport.update({
+  id: '/api/public/emails/ingest',
+  path: '/api/public/emails/ingest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
+  '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -376,6 +383,7 @@ export interface FileRoutesByTo {
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
+  '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -424,6 +432,7 @@ export interface FileRoutesById {
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
+  '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -473,6 +482,7 @@ export interface FileRouteTypes {
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
+    | '/api/public/emails/ingest'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -520,6 +530,7 @@ export interface FileRouteTypes {
     | '/expertise/$exId'
     | '/parametrage/fournisseurs'
     | '/tour/$tourId'
+    | '/api/public/emails/ingest'
   id:
     | '__root__'
     | '/'
@@ -567,6 +578,7 @@ export interface FileRouteTypes {
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
     | '/tour/$tourId/'
+    | '/api/public/emails/ingest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -615,6 +627,7 @@ export interface RootRouteChildren {
   ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
   ParametrageFournisseursIndexRoute: typeof ParametrageFournisseursIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
+  ApiPublicEmailsIngestRoute: typeof ApiPublicEmailsIngestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -934,6 +947,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TourTourIdRapportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/emails/ingest': {
+      id: '/api/public/emails/ingest'
+      path: '/api/public/emails/ingest'
+      fullPath: '/api/public/emails/ingest'
+      preLoaderRoute: typeof ApiPublicEmailsIngestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -984,6 +1004,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
   ParametrageFournisseursIndexRoute: ParametrageFournisseursIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
+  ApiPublicEmailsIngestRoute: ApiPublicEmailsIngestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
