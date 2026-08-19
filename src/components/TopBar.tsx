@@ -1,5 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Home } from "lucide-react";
+import type { ReactNode } from "react";
+
+/** Décale le contenu sous la barre haute fixe quand elle est affichée. */
+export function TopBarSpacer({ children }: { children: ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const hidden = pathname === "/" || pathname.startsWith("/auth");
+  return <div className={hidden ? undefined : "pt-10"}>{children}</div>;
+}
 
 /** Barre haute persistante : accès direct à l'accueil depuis n'importe quel écran. */
 export function TopBar() {
