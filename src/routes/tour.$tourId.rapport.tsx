@@ -9,6 +9,8 @@ import { formatPlate } from "@/lib/plate";
 import { fetchReport } from "@/lib/report";
 import { commStatus, COMM_LABELS } from "@/lib/queries";
 import { sendTourReport } from "@/lib/report-email.functions";
+import { notifyTourFrontOffice } from "@/lib/tour-notify.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ReportBody, Summary } from "@/components/ReportView";
 
@@ -30,7 +32,7 @@ export const Route = createFileRoute("/tour/$tourId/rapport")({
 function ReportPage() {
   const { tourId } = Route.useParams();
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, isManager } = useAuth();
   const [detailed, setDetailed] = useState(true);
   const [sendOpen, setSendOpen] = useState(false);
 
@@ -168,6 +170,8 @@ function ReportPage() {
             <FileDown className="h-4 w-4" /> Exporter PDF
           </a>
         </div>
+
+        <FrontOfficeBlock tourId={tourId} isManager={isManager} />
 
         <div className="card-surface space-y-3 p-4">
           <div className="flex items-center justify-between gap-2">
