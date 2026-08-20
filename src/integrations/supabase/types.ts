@@ -1559,12 +1559,15 @@ export type Database = {
       email_accounts: {
         Row: {
           address: string
+          backfill_complete: boolean
+          backfill_page_token: string | null
           created_at: string
           gmail_connected: boolean
           history_id: string | null
           id: string
           label: string | null
           last_error: string | null
+          last_message_at: string | null
           last_sync_at: string | null
           last_sync_count: number
           provider: string
@@ -1576,12 +1579,15 @@ export type Database = {
         }
         Insert: {
           address: string
+          backfill_complete?: boolean
+          backfill_page_token?: string | null
           created_at?: string
           gmail_connected?: boolean
           history_id?: string | null
           id?: string
           label?: string | null
           last_error?: string | null
+          last_message_at?: string | null
           last_sync_at?: string | null
           last_sync_count?: number
           provider?: string
@@ -1593,12 +1599,15 @@ export type Database = {
         }
         Update: {
           address?: string
+          backfill_complete?: boolean
+          backfill_page_token?: string | null
           created_at?: string
           gmail_connected?: boolean
           history_id?: string | null
           id?: string
           label?: string | null
           last_error?: string | null
+          last_message_at?: string | null
           last_sync_at?: string | null
           last_sync_count?: number
           provider?: string
