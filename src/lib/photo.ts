@@ -2,22 +2,64 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const BUCKET = "dda-media";
 
+type Decoded = { source: CanvasImageSource; width: number; height: number; close?: () => void };
+
+async function decodeImage(file: Blob): Promise<Decoded | null> {
+  // createImageBitmap échoue sur certains iPhone (HEIC, images très lourdes) :
+  // on retombe alors sur un <img> + objectURL.
+  try {
+    const bitmap = await createImageBitmap(file);
+    return {
+      source: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      close: () => bitmap.close?.(),
+    };
+  } catch {
+    // ignore, fallback ci-dessous
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("decode"));
+      el.src = url;
+    });
+    return {
+      source: img,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      close: () => URL.revokeObjectURL(url),
+    };
+  } catch {
+    URL.revokeObjectURL(url);
+    return null;
+  }
+}
+
 export async function compressImage(file: Blob, maxSide = 1500, quality = 0.82): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const width = Math.round(bitmap.width * scale);
-  const height = Math.round(bitmap.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return file;
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close?.();
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", quality),
-  );
-  return blob ?? file;
+  const decoded = await decodeImage(file);
+  if (!decoded || !decoded.width || !decoded.height) return file;
+  try {
+    const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height));
+    const width = Math.max(1, Math.round(decoded.width * scale));
+    const height = Math.max(1, Math.round(decoded.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(decoded.source, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality),
+    );
+    return blob ?? file;
+  } catch {
+    return file;
+  } finally {
+    decoded.close?.();
+  }
 }
 
 export function blobToDataUrl(blob: Blob): Promise<string> {
