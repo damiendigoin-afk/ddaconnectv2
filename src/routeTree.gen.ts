@@ -53,6 +53,7 @@ import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
 import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
+import { Route as RetourFournisseurTokenRouteImport } from './routes/retour-fournisseur.$token'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
 import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
@@ -293,6 +294,11 @@ const RecuperationIndexRoute = RecuperationIndexRouteImport.update({
   path: '/recuperation/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RetourFournisseurTokenRoute = RetourFournisseurTokenRouteImport.update({
+  id: '/retour-fournisseur/$token',
+  path: '/retour-fournisseur/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StatistiquesIndexRoute = StatistiquesIndexRouteImport.update({
   id: '/statistiques/',
   path: '/statistiques/',
@@ -417,6 +423,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
@@ -481,6 +488,7 @@ export interface FileRoutesByTo {
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
@@ -546,6 +554,7 @@ export interface FileRoutesById {
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
@@ -612,6 +621,7 @@ export interface FileRouteTypes {
     | '/parametrage/notifications'
     | '/parametrage/sante'
     | '/partage/$token'
+    | '/retour-fournisseur/$token'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
@@ -676,6 +686,7 @@ export interface FileRouteTypes {
     | '/parametrage/notifications'
     | '/parametrage/sante'
     | '/partage/$token'
+    | '/retour-fournisseur/$token'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
@@ -740,6 +751,7 @@ export interface FileRouteTypes {
     | '/parametrage/notifications'
     | '/parametrage/sante'
     | '/partage/$token'
+    | '/retour-fournisseur/$token'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
@@ -805,6 +817,7 @@ export interface RootRouteChildren {
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
   ParametrageSanteRoute: typeof ParametrageSanteRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
   StatistiquesImportRoute: typeof StatistiquesImportRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
@@ -1149,6 +1162,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecuperationIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/retour-fournisseur/$token': {
+      id: '/retour-fournisseur/$token'
+      path: '/retour-fournisseur/$token'
+      fullPath: '/retour-fournisseur/$token'
+      preLoaderRoute: typeof RetourFournisseurTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/statistiques/': {
       id: '/statistiques/'
       path: '/statistiques'
@@ -1309,6 +1329,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,
   ParametrageSanteRoute: ParametrageSanteRoute,
   PartageTokenRoute: PartageTokenRoute,
+  RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
   StatistiquesImportRoute: StatistiquesImportRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,

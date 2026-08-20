@@ -56,18 +56,25 @@ export async function analyzeScan(dataUrl: string, filename?: string) {
 
 const RETURN_BATCH_PROMPT = `Tu analyses une SÉRIE DE PHOTOS prises en rafale par un magasinier pour préparer un RETOUR DE PIÈCE AUTOMOBILE
 chez un fournisseur. Les photos peuvent montrer, dans n'importe quel ordre : une plaque d'immatriculation, un ordre de
-réparation (OR), une pièce détachée, son étiquette, un bon de livraison (BL) fournisseur (éventuellement multi-lignes),
-un document fournisseur, un bon de retour, un bordereau de transport ou une preuve d'expédition. Croise les informations
-entre TOUTES les photos pour reconstituer un dossier de retour cohérent. N'invente jamais une valeur : si tu n'es pas
-certain, mets null et liste le champ dans "uncertain". Réponds STRICTEMENT en JSON, sans commentaire :
-{"photos":[{"index":0,"type":"plate|or|part|label|bl|supplier_doc|return_form|shipping_proof|other"}],
-"plate":null,"or_number":null,"supplier_name":null,"client_name":null,"site_name":null,
-"bl_number":null,"bl_date":null,
-"lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"amount":null}],
-"expected_amount":null,"consigne":null,
+réparation (OR), une pièce détachée, son étiquette, un bon de livraison (BL) ou une FACTURE fournisseur (éventuellement
+multi-lignes), un document fournisseur, un bon de retour, un bordereau de transport ou une preuve d'expédition.
+TRÈS IMPORTANT : sur un BL ou une facture multi-lignes, le magasinier ENTOURE, COCHE, SOULIGNE, SURLIGNE ou marque d'une
+croix à la main les lignes concernées par le retour. Détecte ces annotations manuscrites et ne retiens QUE les lignes
+annotées quand il y en a. Indique pour chaque ligne le type d'annotation détecté et ton niveau de confiance.
+Si aucune annotation n'est visible, remonte toutes les lignes lisibles avec "selected": false.
+Croise les informations entre TOUTES les photos. N'invente jamais une valeur : si tu n'es pas certain, mets null et liste
+le champ dans "uncertain". Réponds STRICTEMENT en JSON, sans commentaire :
+{"photos":[{"index":0,"type":"plate|or|part|label|bl|facture|supplier_doc|return_form|shipping_proof|other"}],
+"document_kind":"bl|facture|autre","plate":null,"or_number":null,"supplier_name":null,"client_name":null,"site_name":null,
+"bl_number":null,"invoice_number":null,"bl_date":null,
+"lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"amount":null,"discount":null,
+"selected":true,"annotation":"entoure|coche|souligne|surligne|croix|aucune","confidence":"haute|moyenne|faible",
+"item_type":"piece|consigne"}],
+"expected_amount":null,"deposit_amount":null,"consigne":null,
 "uncertain":["chemins des champs peu fiables"]}
 Montants en nombres décimaux (point décimal), dates ISO YYYY-MM-DD. "photos" doit contenir une entrée par photo fournie,
 dans l'ordre où elles sont données (index 0, 1, 2…).`;
+
 
 export async function analyzeReturnBatch(images: { dataUrl: string; filename?: string }[]) {
   const { askVisionMulti } = await import("./ocr.server");

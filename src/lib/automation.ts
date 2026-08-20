@@ -80,6 +80,14 @@ export async function runJob(job: AutomationJob): Promise<string> {
     } else if (job.job_key === "dunning_reminders") {
       const n = await runDunningReminders();
       message = `${n.sent} relance(s) envoyée(s) sur ${n.due} créance(s) éligible(s).`;
+    } else if (job.job_key === "returns_followup") {
+      const { runReturnFollowupsFn } = await import("@/lib/returns.functions");
+      const res = await runReturnFollowupsFn();
+      if (res.errors.length) status = "partiel";
+      message =
+        `${res.scanned} retour(s) analysé(s) · ${res.reminders} relance(s), ${res.escalations} escalade(s)` +
+        (res.errors.length ? ` — ${res.errors.join(" ; ")}` : "");
+
     } else {
       status = "ignore";
       message = "Automatisation inconnue.";

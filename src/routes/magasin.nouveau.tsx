@@ -13,7 +13,7 @@ import { BUCKET } from "@/lib/photo";
 import { normalizePlate } from "@/lib/plate";
 import { listSuppliers, partsEmailFor } from "@/lib/suppliers";
 import { refPrefill } from "@/lib/refbase";
-import { deadlineFrom } from "@/lib/returns";
+import { RETURN_TYPES, deadlineFrom } from "@/lib/returns";
 
 export const Route = createFileRoute("/magasin/nouveau")({
   head: () => ({
@@ -38,7 +38,16 @@ const REASONS = [
   { key: "autre", label: "Autre" },
 ] as const;
 
-type Line = { reference: string; label: string; quantity: string; unitPrice: string; checked: boolean };
+type Line = {
+  reference: string;
+  label: string;
+  quantity: string;
+  unitPrice: string;
+  checked: boolean;
+  annotation?: string;
+  confidence?: string;
+  itemType?: string;
+};
 
 type BatchAnalysis = {
   photos?: { index: number; type: string }[];
@@ -47,10 +56,23 @@ type BatchAnalysis = {
   supplier_name?: string | null;
   client_name?: string | null;
   site_name?: string | null;
+  document_kind?: string | null;
   bl_number?: string | null;
+  invoice_number?: string | null;
   bl_date?: string | null;
-  lines?: { reference?: string | null; label?: string | null; quantity?: number | null; unit_price?: number | null; amount?: number | null }[];
+  lines?: {
+    reference?: string | null;
+    label?: string | null;
+    quantity?: number | null;
+    unit_price?: number | null;
+    amount?: number | null;
+    selected?: boolean | null;
+    annotation?: string | null;
+    confidence?: string | null;
+    item_type?: string | null;
+  }[];
   expected_amount?: number | null;
+  deposit_amount?: number | null;
   consigne?: string | null;
 };
 
@@ -70,6 +92,9 @@ function NewReturn() {
   const [plate, setPlate] = useState("");
   const [orNumber, setOrNumber] = useState("");
   const [blNumber, setBlNumber] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [documentKind, setDocumentKind] = useState("bl");
+  const [returnType, setReturnType] = useState("classique");
   const [blDate, setBlDate] = useState("");
   const [clientName, setClientName] = useState("");
   const [reason, setReason] = useState("piece_non_utilisee");
@@ -128,10 +153,13 @@ function NewReturn() {
       supplier_name: prev.supplier_name ?? next.supplier_name ?? null,
       client_name: prev.client_name ?? next.client_name ?? null,
       site_name: prev.site_name ?? next.site_name ?? null,
+      document_kind: prev.document_kind ?? next.document_kind ?? null,
       bl_number: prev.bl_number ?? next.bl_number ?? null,
+      invoice_number: prev.invoice_number ?? next.invoice_number ?? null,
       bl_date: prev.bl_date ?? next.bl_date ?? null,
       lines: (prev.lines?.length ? prev.lines : next.lines) ?? [],
       expected_amount: prev.expected_amount ?? next.expected_amount ?? null,
+      deposit_amount: prev.deposit_amount ?? next.deposit_amount ?? null,
       consigne: prev.consigne ?? next.consigne ?? null,
     };
   }
@@ -148,9 +176,14 @@ function NewReturn() {
     }
     if (a.or_number && !orNumber) setOrNumber(a.or_number);
     if (a.bl_number && !blNumber) setBlNumber(a.bl_number);
+    if (a.invoice_number && !invoiceNumber) setInvoiceNumber(a.invoice_number);
+    if (a.document_kind) setDocumentKind(a.document_kind === "facture" ? "facture" : a.document_kind === "bl" ? "bl" : "autre");
     if (a.bl_date && !blDate) setBlDate(a.bl_date);
     if (a.client_name && !clientName) setClientName(a.client_name);
-    if (a.consigne && reason === "piece_non_utilisee") setReason("consigne");
+    if (a.consigne && reason === "piece_non_utilisee") {
+      setReason("consigne");
+      setReturnType("consigne");
+    }
 
     if (a.supplier_name && !supplierId) {
       const needle = a.supplier_name.toLowerCase();
@@ -161,15 +194,22 @@ function NewReturn() {
     }
 
     if (a.lines?.length) {
+      // Les lignes annotées à la main par le magasinier sont cochées d'office ;
+      // les autres restent visibles mais décochées pour contrôle.
+      const anyAnnotated = a.lines.some((l) => l.selected || (l.annotation && l.annotation !== "aucune"));
       setLines(
         a.lines.map((l) => ({
           reference: l.reference ?? "",
           label: l.label ?? "",
           quantity: l.quantity ? String(l.quantity) : "1",
           unitPrice: l.unit_price ? String(l.unit_price) : "",
-          checked: true,
+          checked: anyAnnotated ? Boolean(l.selected || (l.annotation && l.annotation !== "aucune")) : true,
+          annotation: l.annotation && l.annotation !== "aucune" ? l.annotation : "",
+          confidence: l.confidence ?? "",
+          itemType: l.item_type ?? "",
         })),
       );
+      if (anyAnnotated) setMsg("Lignes annotées détectées : vérifie la sélection avant de valider.");
     }
   }
 
@@ -209,6 +249,12 @@ function NewReturn() {
           plate: plate ? normalizePlate(plate) : null,
           or_number: orNumber || null,
           status,
+          return_type: returnType,
+          document_kind: documentKind,
+          bl_number: blNumber || null,
+          invoice_number: invoiceNumber || null,
+          document_date: /^\d{4}-\d{2}-\d{2}$/.test(blDate) ? blDate : null,
+          reason,
           deadline_date: status === "demande_creee" ? deadlineFrom(supplier?.max_return_days) : null,
           expected_amount: expected || null,
           comments: [comments, blNumber ? `BL ${blNumber}${blDate ? ` du ${blDate}` : ""}` : "", clientName ? `Client : ${clientName}` : ""]
@@ -233,7 +279,10 @@ function NewReturn() {
           reference: l.reference || null,
           quantity: qty,
           unit_price: unit,
-          item_type: reason === "consigne" ? "consigne" : "piece",
+          item_type: l.itemType === "consigne" || reason === "consigne" ? "consigne" : "piece",
+          confidence: l.confidence || null,
+          annotation_hint: l.annotation || null,
+          suggested: Boolean(l.annotation),
           notes: REASONS.find((r) => r.key === reason)?.label ?? reason,
         });
       }
@@ -306,8 +355,29 @@ function NewReturn() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Field label="N° BL fournisseur" value={blNumber} onChange={setBlNumber} />
-                <Field label="Date BL" value={blDate} onChange={setBlDate} placeholder="AAAA-MM-JJ" />
+                <Field label="N° facture" value={invoiceNumber} onChange={setInvoiceNumber} />
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Date document" value={blDate} onChange={setBlDate} placeholder="AAAA-MM-JJ" />
+                <Select
+                  label="Document source"
+                  value={documentKind}
+                  onChange={setDocumentKind}
+                  options={[
+                    { key: "bl", label: "Bon de livraison" },
+                    { key: "facture", label: "Facture" },
+                    { key: "autre", label: "Autre" },
+                  ]}
+                  allowEmpty={false}
+                />
+              </div>
+              <Select
+                label="Type de retour"
+                value={returnType}
+                onChange={setReturnType}
+                options={RETURN_TYPES.map((t) => ({ key: t.key, label: t.label }))}
+                allowEmpty={false}
+              />
               <Field label="Client" value={clientName} onChange={setClientName} />
               <Select label="Motif" value={reason} onChange={setReason} options={REASONS.map((r) => ({ key: r.key, label: r.label }))} allowEmpty={false} />
             </Section>
@@ -323,6 +393,16 @@ function NewReturn() {
                       className="mt-3 h-5 w-5 shrink-0"
                     />
                     <div className="flex-1 space-y-2">
+                      {l.annotation || l.confidence === "faible" ? (
+                        <div className="flex flex-wrap gap-1 text-[11px] font-bold uppercase">
+                          {l.annotation ? (
+                            <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-900">Annotée ({l.annotation})</span>
+                          ) : null}
+                          {l.confidence === "faible" ? (
+                            <span className="rounded bg-amber-200 px-2 py-0.5 text-amber-950">À vérifier</span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="grid grid-cols-2 gap-2">
                         <Field label="Référence" value={l.reference} onChange={(v) => updateLine(i, { reference: v })} />
                         <Field label="Désignation" value={l.label} onChange={(v) => updateLine(i, { label: v })} />
