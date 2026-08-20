@@ -334,6 +334,7 @@ const NOTIF_LABEL: Record<string, string> = {
 function FrontOfficeBlock({ tourId, isManager }: { tourId: string; isManager: boolean }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const [lastError, setLastError] = useState("");
   const notifs = useQuery({
     queryKey: ["tour-notifications", tourId],
     queryFn: async () => {
@@ -350,22 +351,31 @@ function FrontOfficeBlock({ tourId, isManager }: { tourId: string; isManager: bo
 
   const resend = async () => {
     setBusy(true);
+    setLastError("");
     try {
       const res = await notifyTourFrontOffice({
         data: { inspectionId: tourId, origin: window.location.origin },
       });
-      if (res.ok) toast.success(`Notification renvoyée (${res.recipients.length} destinataire(s))`);
-      else toast.error(res.error || "Envoi impossible");
+      if (res.ok) {
+        toast.success(`Notification renvoyée (${res.recipients.length} destinataire(s))`);
+      } else {
+        const msg = res.error || "Envoi impossible (raison inconnue)";
+        setLastError(msg);
+        toast.error(msg);
+      }
       await qc.invalidateQueries({ queryKey: ["tour-notifications", tourId] });
     } catch (e) {
       console.error(e);
-      toast.error("Envoi impossible");
+      const msg = `Envoi impossible : ${e instanceof Error ? e.message : String(e)}`;
+      setLastError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
   };
 
   const last = notifs.data?.[0];
+  const noRecipient = /destinataire front office configur/i.test(lastError);
 
   return (
     <div className="card-surface space-y-2 p-4">
@@ -383,13 +393,26 @@ function FrontOfficeBlock({ tourId, isManager }: { tourId: string; isManager: bo
         <p className="text-xs text-muted-foreground">Aucune notification enregistrée pour ce tour.</p>
       )}
       {isManager ? (
+        <>
+        {lastError ? (
+          <p className="text-xs font-bold text-destructive">{lastError}</p>
+        ) : null}
+        {noRecipient ? (
+          <Link
+            to="/parametrage/notifications"
+            className="block text-xs font-bold uppercase underline"
+          >
+            Configurer les destinataires Front Office
+          </Link>
+        ) : null}
         <button
           onClick={() => void resend()}
           disabled={busy}
           className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase disabled:opacity-50"
         >
-          <Send className="h-4 w-4" /> Renvoyer au Front Office
+          <Send className="h-4 w-4" /> {busy ? "Envoi en cours…" : "Renvoyer au Front Office"}
         </button>
+        </>
       ) : null}
     </div>
   );

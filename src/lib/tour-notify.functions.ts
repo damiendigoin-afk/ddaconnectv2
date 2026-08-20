@@ -13,12 +13,22 @@ export const notifyTourFrontOffice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => input.parse(data))
   .handler(async ({ data }) => {
-    const { notifyTourCompleted } = await import("./tour-notify.server");
-    const res = await notifyTourCompleted(data);
-    return {
-      ok: res.ok,
-      error: res.error ?? "",
-      recipients: res.recipients,
-      photoCount: res.photoCount,
-    };
+    try {
+      const { notifyTourCompleted } = await import("./tour-notify.server");
+      const res = await notifyTourCompleted(data);
+      return {
+        ok: res.ok,
+        error: res.ok ? "" : (res.error ?? "Envoi impossible (raison inconnue)"),
+        recipients: res.recipients,
+        photoCount: res.photoCount,
+      };
+    } catch (e) {
+      console.error("[tour-notify] erreur serveur", e);
+      return {
+        ok: false,
+        error: `Erreur serveur : ${e instanceof Error ? e.message : String(e)}`,
+        recipients: [] as string[],
+        photoCount: 0,
+      };
+    }
   });
