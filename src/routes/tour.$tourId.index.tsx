@@ -260,6 +260,9 @@ function Guided(props: SharedProps) {
       .eq("id", props.tourId);
   }
 
+  const uploads = useUploadState();
+  const blockClose = uploads.pending > 0 || uploads.failed.length > 0;
+
   async function finish() {
     if (!user) return;
     const ok = await finishTour({
