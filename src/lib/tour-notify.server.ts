@@ -170,7 +170,8 @@ export async function notifyTourCompleted(args: {
     console.error("[tour-notify] génération PDF impossible", e);
   }
 
-  const origin = args.origin.replace(/\/$/, "");
+  const { publicOrigin } = await import("./public-url.server");
+  const origin = publicOrigin(args.origin);
   const tourLink = `${origin}/tour/${args.inspectionId}/rapport`;
   const expLink = expertiseId ? `${origin}/expertise/${expertiseId}` : "";
 
