@@ -3,7 +3,8 @@ import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PhotoManager } from "@/components/PhotoManager";
-import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
+import { blobToDataUrl, compressImage, uploadPhotoOriginal } from "@/lib/photo";
+import { ocrStoredOdometer } from "@/lib/mileage-ocr.functions";
 import { ocrOdometer } from "@/lib/ocr.functions";
 import { saveMileage } from "@/lib/tour";
 
@@ -33,36 +34,30 @@ export function MileageCard({
   async function analyse(file: File) {
     if (busy) return;
     setBusy(true);
-    // La photo est toujours conservée en pleine qualité, même si l'OCR échoue.
-    let base: Blob = file;
-    try {
-      // Une seule et unique réduction : la même image sert à l'upload, à la
-      // miniature et à l'OCR (crash mémoire constaté sur Pixel 7 / 50 Mpx).
-      base = await compressImage(file, 1400, 0.82);
-    } catch (e) {
-      console.error(e);
-    }
     try {
       if (inspectionId) {
-        try {
-          const media = await uploadPhoto(
-            base,
-            `inspections/${inspectionId}`,
-            {
-              inspection_id: inspectionId,
-              ...(pointId ? { inspection_point_id: pointId } : {}),
-              label: "Compteur",
-            },
-            { alreadyCompressed: true },
-          );
-          setLastMediaId(media.id as string);
-        } catch (e) {
-          console.error(e);
-          toast.error("Photo du compteur non enregistrée. Reprenez la photo.");
+        // Ne jamais décoder localement la photo 50 Mpx : l'upload direct reste
+        // stable sur Pixel 7, puis l'OCR lit le fichier côté serveur.
+        const media = await uploadPhotoOriginal(file, `inspections/${inspectionId}`, {
+          inspection_id: inspectionId,
+          ...(pointId ? { inspection_point_id: pointId } : {}),
+          label: "Compteur",
+        });
+        setLastMediaId(media.id as string);
+        const res = await ocrStoredOdometer({ data: { path: media.storage_path as string } });
+        if (res.ok) {
+          setDetected(res.mileage);
+          setValue(String(res.mileage));
+        } else {
+          toast.error(`${res.error} Saisissez le kilométrage manuellement.`);
         }
+        return;
       }
+
+      // Mise à jour hors tour : conserver le parcours historique allégé.
+      const base = await compressImage(file, 1400, 0.82);
       const dataUrl = await blobToDataUrl(base);
-      const res = await ocrOdometer({ data: { dataUrl } });
+      const res = await ocrOdometer({ data: { dataUrl, filename: file.name } });
       if (res.ok) {
         setDetected(res.mileage);
         setValue(String(res.mileage));

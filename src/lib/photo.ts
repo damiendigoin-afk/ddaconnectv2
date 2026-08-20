@@ -127,6 +127,37 @@ export async function uploadPhoto(
   return data;
 }
 
+/**
+ * Envoie directement une photo issue de l'appareil, sans la décoder dans le
+ * navigateur. Ce parcours évite les dépassements mémoire des capteurs 50 Mpx.
+ */
+export async function uploadPhotoOriginal(file: Blob, folder: string, links: MediaLinks) {
+  const id = crypto.randomUUID();
+  const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `${folder}/${id}.${extension}`;
+  const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
+    contentType: file.type || "image/jpeg",
+    upsert: false,
+  });
+  if (upErr) throw upErr;
+
+  const { data, error } = await supabase
+    .from("media")
+    .insert({
+      ...links,
+      media_type: "photo",
+      storage_path: path,
+      thumb_path: null,
+    })
+    .select()
+    .single();
+  if (error) {
+    await supabase.storage.from(BUCKET).remove([path]);
+    throw error;
+  }
+  return data;
+}
+
 const urlCache = new Map<string, string>();
 
 export async function mediaUrl(path: string): Promise<string> {
