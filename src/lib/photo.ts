@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { trackUpload } from "@/lib/upload-tracker";
 
 export const BUCKET = "dda-media";
 
@@ -95,6 +96,15 @@ export async function uploadPhoto(
   links: MediaLinks,
   opts?: { alreadyCompressed?: boolean },
 ) {
+  return trackUpload(() => uploadPhotoInner(file, folder, links, opts));
+}
+
+async function uploadPhotoInner(
+  file: Blob,
+  folder: string,
+  links: MediaLinks,
+  opts?: { alreadyCompressed?: boolean },
+) {
   // Deux représentations : haute définition conservée pour consultation détaillée,
   // miniature légère pour les listes et rapports.
   const hd = opts?.alreadyCompressed ? file : await compressImage(file, 2000, 0.9);
@@ -132,6 +142,10 @@ export async function uploadPhoto(
  * navigateur. Ce parcours évite les dépassements mémoire des capteurs 50 Mpx.
  */
 export async function uploadPhotoOriginal(file: Blob, folder: string, links: MediaLinks) {
+  return trackUpload(() => uploadPhotoOriginalInner(file, folder, links));
+}
+
+async function uploadPhotoOriginalInner(file: Blob, folder: string, links: MediaLinks) {
   const id = crypto.randomUUID();
   const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const path = `${folder}/${id}.${extension}`;
