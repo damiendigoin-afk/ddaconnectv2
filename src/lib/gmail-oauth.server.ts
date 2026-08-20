@@ -299,6 +299,41 @@ export async function fetchRecentMessages(
   return results;
 }
 
+
+/** Liste une page d'IDs de messages Gmail (pagination via nextPageToken). */
+export async function listMessageIds(
+  accessToken: string,
+  opts: { pageToken?: string | undefined; maxResults?: number; query?: string } = {},
+): Promise<{ ids: string[]; nextPageToken?: string }> {
+  const params = new URLSearchParams({ maxResults: String(opts.maxResults ?? 100) });
+  if (opts.pageToken) params.set("pageToken", opts.pageToken);
+  if (opts.query) params.set("q", opts.query);
+  const res = await fetch(`${GMAIL_API}/messages?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Gmail list failed [${res.status}]: ${await res.text()}`);
+  }
+  const data = await res.json();
+  const out: { ids: string[]; nextPageToken?: string } = {
+    ids: (data.messages ?? []).map((m: any) => m.id as string),
+  };
+  if (data.nextPageToken) out.nextPageToken = data.nextPageToken as string;
+  return out;
+}
+
+/** Récupère un message Gmail complet (null si l'appel échoue). */
+export async function getMessage(accessToken: string, id: string): Promise<any | null> {
+  const res = await fetch(`${GMAIL_API}/messages/${id}?format=full`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    console.error(`Gmail get ${id} failed [${res.status}]`);
+    return null;
+  }
+  return res.json();
+}
+
 /** Get the Gmail profile (email address of the connected account). */
 export async function getGmailProfile(accessToken: string): Promise<{ emailAddress: string }> {
   const res = await fetch(`${GMAIL_API}/profile`, {
