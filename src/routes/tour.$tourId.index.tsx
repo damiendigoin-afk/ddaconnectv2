@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { MileageCard } from "@/components/MileageCard";
+import { PendingUploadsGuard } from "@/components/PendingUploadsGuard";
 import { PhotoManager } from "@/components/PhotoManager";
 import { PointCard, type PointRow } from "@/components/PointCard";
 import { TechnicalControlCard } from "@/components/TechnicalControlCard";
@@ -14,6 +15,8 @@ import { StatusBadge, StatusPicker, type PointStatus } from "@/components/Status
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
+import { finishTour } from "@/lib/tour-finish";
+import { useUploadState } from "@/lib/upload-tracker";
 import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/tour/$tourId/")({
