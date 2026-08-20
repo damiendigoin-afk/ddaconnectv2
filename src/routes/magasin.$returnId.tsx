@@ -1,26 +1,44 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Camera, CheckCircle2, Send } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, Copy, Loader2, Send, Truck } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
-import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { Area, Badge, Field, Section, Select } from "@/components/bits";
 import { supabase } from "@/integrations/supabase/client";
-import { analyzeReturnBatchFn } from "@/lib/bodyshop-ai.functions";
-import { sendModuleEmailFn } from "@/lib/module-email.functions";
-import { BUCKET, compressImage } from "@/lib/photo";
-import { formatPlate, normalizePlate } from "@/lib/plate";
-import { listSuppliers, partsEmailFor } from "@/lib/suppliers";
-import { refPrefill } from "@/lib/refbase";
-import { deadlineFrom, getReturn, refreshReturnCredit, RETURN_STATUSES, returnStatusLabel, returnStatusTone } from "@/lib/returns";
+import { BUCKET, compressImage, mediaUrl } from "@/lib/photo";
+import { formatPlate } from "@/lib/plate";
+import { listSuppliers } from "@/lib/suppliers";
+import { sendReturnMailFn } from "@/lib/returns.functions";
+import {
+  CLOSURE_REASONS,
+  DOCUMENT_KINDS,
+  HANDOVER_MODES,
+  RECEPTION_ANSWERS,
+  SUPPLIER_ANSWERS,
+  addDocument,
+  ageDays,
+  documentKindLabel,
+  getReturn,
+  handoverLabel,
+  isConsigne,
+  listDocuments,
+  listEvents,
+  logEvent,
+  pendingAmount,
+  reasonLabel,
+  returnStatusLabel,
+  returnStatusTone,
+  returnTypeLabel,
+  type ReturnWithLines,
+} from "@/lib/returns";
 
 export const Route = createFileRoute("/magasin/$returnId")({
   head: () => ({
     meta: [
-      { title: "Retour pièce — DDA Connect" },
-      { name: "description", content: "Préparation, expédition, suivi de l'avoir et relance fournisseur pour un retour de pièce." },
-      { property: "og:title", content: "Retour pièce — DDA Connect" },
+      { title: "Dossier de retour — DDA Connect" },
+      { name: "description", content: "Accord fournisseur, expédition, réception, avoir et litige d'un retour de pièce." },
+      { property: "og:title", content: "Dossier de retour — DDA Connect" },
       { property: "og:description", content: "Suivi complet d'un retour de pièce jusqu'à l'avoir." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -28,16 +46,6 @@ export const Route = createFileRoute("/magasin/$returnId")({
   }),
   component: ReturnView,
 });
-
-type BatchAnalysis = {
-  plate?: string | null;
-  or_number?: string | null;
-  supplier_name?: string | null;
-  bl_number?: string | null;
-  bl_date?: string | null;
-  lines?: { reference?: string | null; label?: string | null; quantity?: number | null; unit_price?: number | null }[];
-  expected_amount?: number | null;
-};
 
 function ReturnView() {
   const { returnId } = Route.useParams();
@@ -52,309 +60,422 @@ function ReturnView() {
   return <ReturnDetail row={r.data} returnId={returnId} />;
 }
 
-type ReturnRow = NonNullable<Awaited<ReturnType<typeof getReturn>>>;
-
-function ReturnDetail({ row, returnId }: { row: ReturnRow; returnId: string }) {
+function ReturnDetail({ row, returnId }: { row: ReturnWithLines; returnId: string }) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const suppliers = useQuery({ queryKey: ["suppliers"], queryFn: listSuppliers });
-  const [carrier, setCarrier] = useState("");
-  const [tracking, setTracking] = useState("");
-  const [note, setNote] = useState("");
-  const [msg, setMsg] = useState("");
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const events = useQuery({ queryKey: ["return-events", returnId], queryFn: () => listEvents(returnId) });
+  const docs = useQuery({ queryKey: ["return-docs", returnId], queryFn: () => listDocuments(returnId) });
 
-  const isDraft = row.status === "brouillon";
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [docKind, setDocKind] = useState("photo_piece");
+
+  // Remise / expédition
+  const [mode, setMode] = useState(row.handover_mode ?? "transporteur");
+  const [person, setPerson] = useState(row.handover_person ?? "");
+  const [company, setCompany] = useState(row.handover_company ?? "");
+  const [place, setPlace] = useState(row.handover_place ?? "");
+  const [carrier, setCarrier] = useState(row.carrier ?? "");
+  const [tracking, setTracking] = useState(row.tracking_number ?? "");
+
+  // Réponses manuelles
+  const [accord, setAccord] = useState("accepte");
+  const [accordNote, setAccordNote] = useState("");
+  const [reception, setReception] = useState("recu");
+  const [receptionNote, setReceptionNote] = useState("");
+
+  // Avoir
+  const [creditNumber, setCreditNumber] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+
+  // Clôture
+  const [closureReason, setClosureReason] = useState("avoir_recu");
+  const [closureComment, setClosureComment] = useState("");
+
+  const supplier = suppliers.data?.find((s) => s.id === row.supplier_id);
+  const expected = Number(row.expected_amount ?? 0) + Number(row.deposit_amount ?? 0);
 
   const reload = () => {
     void qc.invalidateQueries({ queryKey: ["return", returnId] });
+    void qc.invalidateQueries({ queryKey: ["return-events", returnId] });
+    void qc.invalidateQueries({ queryKey: ["return-docs", returnId] });
     void qc.invalidateQueries({ queryKey: ["returns"] });
   };
 
-  const supplier = suppliers.data?.find((s) => s.id === row.supplier_id);
-
-  async function setStatus(status: string) {
-    await supabase.from("part_returns").update({ status }).eq("id", returnId);
-    reload();
-  }
-
-  async function rescan(shots: BurstShot[]) {
-    setCameraOpen(false);
-    if (!shots.length) return;
+  async function patch(values: Record<string, unknown>, event?: { kind: string; detail: string }) {
     setBusy(true);
-    setMsg("Analyse en cours…");
+    setMsg("");
     try {
-      const newPaths: string[] = [];
-      for (const shot of shots) {
-        const path = `magasin/${returnId}/${crypto.randomUUID()}.jpg`;
-        await supabase.storage.from(BUCKET).upload(path, shot.blob, { contentType: "image/jpeg" });
-        newPaths.push(path);
-      }
-
-      const res = await analyzeReturnBatchFn({
-        data: { images: shots.map((s) => ({ dataUrl: s.dataUrl, filename: `${s.key}.jpg` })) },
-      });
-
-      const updates: Record<string, unknown> = { photos: [...(row.photos ?? []), ...newPaths] };
-      const prevAnalysis = (row.analysis as Record<string, unknown> | null) ?? {};
-
-      if (res.ok) {
-        const a = JSON.parse(res.json) as BatchAnalysis;
-        updates['analysis'] = { ...prevAnalysis, ...a };
-
-        if (a.plate && !row.plate) {
-          let plateValue = a.plate;
-          try {
-            const pf = await refPrefill(a.plate);
-            if (pf?.fields['plate']) plateValue = pf.fields['plate'];
-          } catch {
-            // conservé tel quel si le référentiel ne répond pas
-          }
-          updates['plate'] = normalizePlate(plateValue);
-        }
-        if (a.or_number && !row.or_number) updates['or_number'] = a.or_number;
-        if (a.supplier_name && !row.supplier_id) {
-          const needle = a.supplier_name.toLowerCase();
-          const found = (suppliers.data ?? []).find(
-            (s) => s.name.toLowerCase().includes(needle) || needle.includes(s.name.toLowerCase()),
-          );
-          if (found) updates['supplier_id'] = found.id;
-        }
-        if (a.expected_amount && !row.expected_amount) updates['expected_amount'] = a.expected_amount;
-
-        if (a.lines?.length) {
-          const existingRefs = new Set(row.lines.map((l) => (l.reference || l.label || "").toLowerCase()));
-          for (const l of a.lines) {
-            const key = (l.reference || l.label || "").toLowerCase();
-            if (!key || existingRefs.has(key)) continue;
-            await supabase.from("part_return_lines").insert({
-              return_id: returnId,
-              label: l.label || l.reference || "Pièce",
-              reference: l.reference || null,
-              quantity: l.quantity || 1,
-              unit_price: l.unit_price || null,
-              item_type: "piece",
-            });
-            existingRefs.add(key);
-          }
-        }
-        setMsg("Nouvelles informations fusionnées avec le brouillon.");
-      } else {
-        setMsg(res.error || "Analyse impossible, photos conservées.");
-      }
-
-      await supabase.from("part_returns").update(updates as never).eq("id", returnId);
+      const { error } = await supabase.from("part_returns").update(values).eq("id", returnId);
+      if (error) throw error;
+      if (event) await logEvent(returnId, event.kind, event.detail);
       reload();
     } catch {
-      setMsg("Analyse impossible.");
+      setMsg("Enregistrement impossible.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function validateDraft() {
-    if (!row.supplier_id) {
-      setMsg("Choisis un fournisseur avant de valider.");
-      return;
-    }
+  async function mail(kind: "accord" | "expedition" | "reception" | "relance" | "escalade") {
     setBusy(true);
+    setMsg("Envoi en cours…");
     try {
-      await supabase
-        .from("part_returns")
-        .update({ status: "demande_creee", deadline_date: deadlineFrom(supplier?.max_return_days) })
-        .eq("id", returnId);
+      const res = await sendReturnMailFn({ data: { returnId, kind } });
+      setMsg(res.ok ? `E-mail envoyé à ${res.to}.` : res.error || "Envoi impossible.");
+      reload();
+    } catch {
+      setMsg("Envoi impossible (service e-mail indisponible).");
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      const to = await partsEmailFor(supplier?.id, supplier);
-      if (to) {
-        const res = await sendModuleEmailFn({
-          data: {
-            to,
-            subject: `Préavis de retour ${row.reference}`,
-            body: `Bonjour,\n\nNous souhaitons retourner ${row.lines.length > 1 ? "les pièces suivantes" : "la pièce suivante"} :\n${row.lines
-              .map((l) => `- ${l.reference || "—"} — ${l.label || "—"} × ${Number(l.quantity)}`)
-              .join("\n")}\n${row.plate ? `- Véhicule : ${formatPlate(row.plate)}\n` : ""}${row.or_number ? `- N° OR : ${row.or_number}\n` : ""}\nMerci de nous confirmer l'accord de retour et la procédure à suivre.\n\nRéférence interne : ${row.reference}\n\nCordialement,`,
-            kind: "preavis_retour",
-          },
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setBusy(true);
+    setMsg("Ajout du document…");
+    try {
+      for (const file of Array.from(files)) {
+        const isImage = file.type.startsWith("image/");
+        const blob = isImage ? await compressImage(file) : file;
+        const ext = isImage ? "jpg" : (file.name.split(".").pop() ?? "bin");
+        const path = `returns/${returnId}/${crypto.randomUUID()}.${ext}`;
+        const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
+          contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
         });
-        if (res.ok) await supabase.from("part_returns").update({ notice_sent_at: new Date().toISOString() }).eq("id", returnId);
+        if (error) throw error;
+        await addDocument(returnId, { kind: docKind, storagePath: path, filename: file.name, mimeType: file.type, source: "interne" });
       }
-      setMsg("Retour validé, préavis envoyé au fournisseur.");
+      setMsg("Document ajouté.");
       reload();
     } catch {
-      setMsg("Validation impossible.");
+      setMsg("Ajout du document impossible.");
     } finally {
       setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
-  async function ship() {
-    await supabase
-      .from("part_returns")
-      .update({ status: "expedie", carrier: carrier || null, tracking_number: tracking || null, shipment_note: note || null, shipped_at: new Date().toISOString() })
-      .eq("id", returnId);
-    const to = await partsEmailFor(supplier?.id, supplier);
-    if (to) {
-      await sendModuleEmailFn({
-        data: {
-          to,
-          subject: `Expédition du retour ${row.reference}`,
-          body: `Bonjour,\n\nLe retour ${row.reference} vous a été expédié${carrier ? ` via ${carrier}` : ""}${tracking ? ` (suivi ${tracking})` : ""}.\n\nMerci d'établir l'avoir correspondant.\n\nCordialement,`,
-          kind: "expedition_retour",
-        },
-      });
-    }
-    setMsg("Expédition enregistrée.");
-    reload();
-  }
-
-  async function shipPhoto(file: File) {
-    const blob = await compressImage(file, 1600, 0.8);
-    const path = `magasin/${returnId}/exp-${crypto.randomUUID()}.jpg`;
-    await supabase.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg" });
-    await supabase.from("part_returns").update({ shipment_photo: path }).eq("id", returnId);
-    setMsg("Photo du colis enregistrée.");
-    reload();
-  }
-
-  async function remind() {
-    const to = await partsEmailFor(supplier?.id, supplier);
-    if (!to) {
-      setMsg("Aucune adresse fournisseur.");
+  async function saveCredit() {
+    const amount = Number(creditAmount.replace(",", "."));
+    if (!amount) {
+      setMsg("Montant d'avoir invalide.");
       return;
     }
-    const res = await sendModuleEmailFn({
-      data: {
-        to,
-        subject: `Relance avoir — retour ${row.reference}`,
-        body: `Bonjour,\n\nNous n'avons pas reçu l'avoir correspondant au retour ${row.reference}${row.shipped_at ? ` expédié le ${new Date(row.shipped_at).toLocaleDateString("fr-FR")}` : ""}.\nMontant attendu : ${Number(row.expected_amount ?? 0).toFixed(2)} €.\n\nMerci de régulariser.\n\nCordialement,`,
-        kind: "relance_avoir",
+    const credited = Number(row.credited_amount ?? 0) + amount;
+    await patch(
+      {
+        credited_amount: credited,
+        status: credited + 0.01 >= expected ? "totalement_avoire" : "partiellement_avoire",
       },
-    });
-    await supabase.from("return_reminders").insert({
-      supplier_id: row.supplier_id,
-      return_ids: [returnId],
-      level: 1,
-      recipient: to,
-      subject: `Relance avoir — retour ${row.reference}`,
-      body: "Relance automatique",
-      status: res.ok ? "sent" : "error",
-      error_message: res.ok ? null : res.error || null,
-      ...(res.ok ? { sent_at: new Date().toISOString() } : {}),
-    });
-    setMsg(res.ok ? "Relance envoyée." : res.error || "Envoi impossible.");
+      { kind: "avoir", detail: `Avoir ${creditNumber || "sans numéro"} : ${amount.toFixed(2)} € (cumul ${credited.toFixed(2)} € / ${expected.toFixed(2)} €)` },
+    );
+    setCreditAmount("");
+    setCreditNumber("");
   }
+
+  const shareLink = row.share_token ? `${typeof window !== "undefined" ? window.location.origin : ""}/retour-fournisseur/${row.share_token}` : "";
 
   return (
-    <AppShell title={row.reference} subtitle={supplier?.name ?? ""} back={{ to: "/magasin" }}>
-      {cameraOpen ? (
-        <BurstCamera
-          steps={[]}
-          title="Compléter le brouillon"
-          onFinish={(shots) => void rescan(shots)}
-          onCancel={() => setCameraOpen(false)}
-        />
-      ) : null}
+    <AppShell
+      title={row.reference}
+      subtitle={`${supplier?.name ?? "Fournisseur ?"} · ${returnTypeLabel(row.return_type)}`}
+      back={{ to: "/magasin" }}
+      right={<Badge tone={returnStatusTone(row.status)}>{returnStatusLabel(row.status)}</Badge>}
+    >
+      {msg ? <p className="mb-3 rounded-lg bg-secondary px-3 py-2 text-sm">{msg}</p> : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={returnStatusTone(row.status)}>{returnStatusLabel(row.status)}</Badge>
-        {row.plate ? <span className="plate-badge text-base">{formatPlate(row.plate)}</span> : null}
-        {row.deadline_date ? <span className="text-xs text-muted-foreground">Limite {new Date(row.deadline_date).toLocaleDateString("fr-FR")}</span> : null}
-      </div>
-      {msg ? <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-sm">{msg}</p> : null}
+      <Section title="Synthèse">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <Info label="Ouvert depuis" value={`${ageDays(row.created_at)} jours`} />
+          <Info label="Motif" value={reasonLabel(row.reason)} />
+          <Info label="BL" value={row.bl_number ?? "—"} />
+          <Info label="Facture" value={row.invoice_number ?? "—"} />
+          <Info label="OR" value={row.or_number ?? "—"} />
+          <Info label="Date document" value={row.document_date ?? "—"} />
+          <Info label="Montant attendu" value={`${expected.toFixed(2)} €`} />
+          <Info label="Avoir reçu" value={`${Number(row.credited_amount ?? 0).toFixed(2)} €`} />
+          <Info label="Reste dû" value={`${pendingAmount(row).toFixed(2)} €`} />
+          <Info label="Échéance" value={row.deadline_date ?? "—"} />
+        </div>
+        {row.plate ? <div className="mt-2 plate-badge text-lg">{formatPlate(row.plate)}</div> : null}
+        {isConsigne(row) ? <div className="mt-2"><Badge tone="bg-orange-200 text-orange-950">Consigne</Badge></div> : null}
+      </Section>
 
-      {isDraft ? (
-        <Section title="Brouillon">
-          <div className="space-y-2 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
-            <p className="text-xs text-amber-900">
-              Ce retour est incomplet. Complète-le en scannant de nouvelles photos, puis valide-le pour déclencher le préavis fournisseur.
-            </p>
-            <button
-              onClick={() => setCameraOpen(true)}
-              disabled={busy}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
-            >
-              <Camera className="h-5 w-5" /> Scan / Photo
-            </button>
-            <Select
-              label="Fournisseur"
-              value={row.supplier_id ?? ""}
-              onChange={(v) => void supabase.from("part_returns").update({ supplier_id: v || null }).eq("id", returnId).then(reload)}
-              options={(suppliers.data ?? []).map((s) => ({ key: s.id, label: s.name }))}
-            />
-            <button
-              onClick={() => void validateDraft()}
-              disabled={busy || !row.lines.length}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-brand py-3 text-sm font-extrabold uppercase text-brand disabled:opacity-40"
-            >
-              <CheckCircle2 className="h-5 w-5" /> Valider le retour
-            </button>
-            {!row.lines.length ? <p className="text-xs text-amber-900">Ajoute au moins une pièce avant de valider.</p> : null}
-          </div>
-        </Section>
-      ) : null}
-
-      <Section title="Lignes">
+      <Section title={`Pièces (${row.lines.length})`}>
         <ul className="space-y-2">
           {row.lines.map((l) => (
-            <li key={l.id} className="card-surface p-3 text-sm">
+            <li key={l.id} className="rounded-lg border border-border p-3 text-sm">
               <div className="flex justify-between gap-2">
-                <span className="font-bold">{l.label}</span>
-                <span>{Number(l.quantity)} × {l.unit_price ? `${Number(l.unit_price).toFixed(2)} €` : "—"}</span>
+                <span className="font-bold">{l.reference || "Sans référence"}</span>
+                <span>{Number(l.quantity ?? 0)} × {l.unit_price != null ? `${Number(l.unit_price).toFixed(2)} €` : "—"}</span>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {l.reference ?? "—"} · {l.item_type} · avoiré {Number(l.credited_quantity ?? 0)} ({Number(l.credited_amount ?? 0).toFixed(2)} €)
+              <div className="text-xs text-muted-foreground">{l.label || "—"}</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {l.item_type === "consigne" ? <Badge tone="bg-orange-200 text-orange-950">Consigne</Badge> : null}
+                {l.confidence === "faible" ? <Badge tone="bg-amber-200 text-amber-950">À vérifier</Badge> : null}
+                {l.annotation_hint ? <Badge>Annotation : {l.annotation_hint}</Badge> : null}
+                {Number(l.credited_quantity ?? 0) > 0 ? (
+                  <Badge tone="bg-emerald-100 text-emerald-900">Avoiré {Number(l.credited_amount ?? 0).toFixed(2)} €</Badge>
+                ) : null}
               </div>
             </li>
           ))}
-          {!row.lines.length ? <p className="text-sm text-muted-foreground">Aucune ligne pour l'instant.</p> : null}
         </ul>
       </Section>
 
-      {!isDraft ? (
-        <Section title="Statut">
-          <Select label="Changer le statut" value={row.status} onChange={(v) => void setStatus(v)} options={RETURN_STATUSES.map((s) => ({ key: s.key, label: s.label }))} allowEmpty={false} />
-        </Section>
-      ) : null}
-
-      <Section title="Expédition">
-        <div className="space-y-2 rounded-xl border-2 border-border bg-card p-3">
-          <Field label="Transporteur" value={carrier} onChange={setCarrier} />
-          <Field label="N° de suivi" value={tracking} onChange={setTracking} />
-          <Area label="Note" value={note} onChange={setNote} rows={2} />
-          <button onClick={() => fileRef.current?.click()} className="flex w-full items-center gap-2 rounded-lg bg-secondary px-3 py-3 text-sm font-bold uppercase">
-            <Camera className="h-4 w-4" /> Photo du colis
+      <Section title="Accord fournisseur">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => void mail("accord")}
+            disabled={busy}
+            className="flex items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Demander l'accord
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void shipPhoto(f);
-              e.target.value = "";
-            }}
-          />
-          <button onClick={() => void ship()} className="w-full rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground">
-            Marquer expédié
+          <button
+            onClick={() => void mail("relance")}
+            disabled={busy}
+            className="rounded-xl border-2 border-border py-3 text-sm font-extrabold uppercase disabled:opacity-50"
+          >
+            Relancer ({row.reminder_count})
+          </button>
+        </div>
+        <Select label="Réponse reçue (saisie manuelle)" value={accord} onChange={setAccord} options={SUPPLIER_ANSWERS.map((a) => ({ key: a.key, label: a.label }))} allowEmpty={false} />
+        <Area label="Commentaire fournisseur" value={accordNote} onChange={setAccordNote} />
+        <button
+          onClick={() =>
+            void patch(
+              {
+                accord_status: accord,
+                accord_response_at: new Date().toISOString(),
+                accord_comment: accordNote || null,
+                status:
+                  accord === "accepte" ? "accord_accepte" : accord === "refuse" ? "refus" : accord === "info" ? "info_requise" : accord === "non_concerne" ? "non_concerne" : "accord_attendu",
+              },
+              { kind: "accord", detail: `Réponse fournisseur enregistrée : ${accord}${accordNote ? ` — ${accordNote}` : ""}` },
+            )
+          }
+          disabled={busy}
+          className="w-full rounded-xl border-2 border-border py-3 text-sm font-extrabold uppercase disabled:opacity-50"
+        >
+          Enregistrer la réponse
+        </button>
+        {row.accord_status ? (
+          <p className="text-xs text-muted-foreground">
+            Dernière réponse : {row.accord_status} {row.accord_response_at ? `le ${new Date(row.accord_response_at).toLocaleDateString("fr-FR")}` : ""}
+          </p>
+        ) : null}
+      </Section>
+
+      <Section title="Remise / expédition">
+        <Select label="Mode" value={mode} onChange={setMode} options={HANDOVER_MODES.map((m) => ({ key: m.key, label: m.label }))} allowEmpty={false} />
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Personne" value={person} onChange={setPerson} />
+          <Field label="Société" value={company} onChange={setCompany} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Lieu" value={place} onChange={setPlace} />
+          <Field label="Transporteur" value={carrier} onChange={setCarrier} />
+        </div>
+        <Field label="N° de suivi" value={tracking} onChange={setTracking} />
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() =>
+              void patch(
+                {
+                  handover_mode: mode,
+                  handover_person: person || null,
+                  handover_company: company || null,
+                  handover_place: place || null,
+                  handover_at: new Date().toISOString(),
+                  carrier: carrier || null,
+                  tracking_number: tracking || null,
+                  shipped_at: new Date().toISOString(),
+                  status: "expedie",
+                },
+                { kind: "expedition", detail: `Retour remis (${handoverLabel(mode)})${person ? ` à ${person}` : ""}${tracking ? ` — suivi ${tracking}` : ""}` },
+              )
+            }
+            disabled={busy}
+            className="flex items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
+          >
+            <Truck className="h-4 w-4" /> Enregistrer le départ
+          </button>
+          <button
+            onClick={() => void mail("expedition")}
+            disabled={busy}
+            className="rounded-xl border-2 border-border py-3 text-sm font-extrabold uppercase disabled:opacity-50"
+          >
+            Prévenir le fournisseur
           </button>
         </div>
       </Section>
 
-      <Section title="Avoir">
-        <div className="space-y-2 rounded-xl border-2 border-border bg-card p-3 text-sm">
-          <div className="flex justify-between"><span>Montant attendu</span><span className="font-bold">{Number(row.expected_amount ?? 0).toFixed(2)} €</span></div>
-          <div className="flex justify-between"><span>Montant avoiré</span><span className="font-bold">{Number(row.credited_amount ?? 0).toFixed(2)} €</span></div>
-          <button onClick={() => void refreshReturnCredit(returnId).then(reload)} className="w-full rounded-lg border-2 border-border py-2 text-sm font-bold">
-            Recalculer
+      <Section title="Réception fournisseur">
+        <button
+          onClick={() => void mail("reception")}
+          disabled={busy}
+          className="w-full rounded-xl border-2 border-border py-3 text-sm font-extrabold uppercase disabled:opacity-50"
+        >
+          Demander la confirmation de réception
+        </button>
+        <Select label="Réponse réception" value={reception} onChange={setReception} options={RECEPTION_ANSWERS.map((a) => ({ key: a.key, label: a.label }))} allowEmpty={false} />
+        <Area label="Commentaire" value={receptionNote} onChange={setReceptionNote} />
+        <button
+          onClick={() =>
+            void patch(
+              {
+                reception_status: reception,
+                reception_confirmed_at: new Date().toISOString(),
+                reception_comment: receptionNote || null,
+                status:
+                  reception === "recu" ? "reception_confirmee" : reception === "non_recu" ? "non_recu" : reception === "partiel" ? "reception_partielle" : reception === "probleme" ? "litige" : "non_concerne",
+              },
+              { kind: "reception", detail: `Réception : ${reception}${receptionNote ? ` — ${receptionNote}` : ""}` },
+            )
+          }
+          disabled={busy}
+          className="w-full rounded-xl border-2 border-border py-3 text-sm font-extrabold uppercase disabled:opacity-50"
+        >
+          Enregistrer la réception
+        </button>
+      </Section>
+
+      <Section title="Avoir / consigne">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="N° d'avoir" value={creditNumber} onChange={setCreditNumber} />
+          <Field label="Montant (€)" value={creditAmount} onChange={setCreditAmount} />
+        </div>
+        <button
+          onClick={() => void saveCredit()}
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
+        >
+          <CheckCircle2 className="h-4 w-4" /> Enregistrer l'avoir
+        </button>
+        {pendingAmount(row) > 0 ? (
+          <p className="text-xs text-muted-foreground">Écart restant : {pendingAmount(row).toFixed(2)} €</p>
+        ) : (
+          <p className="text-xs text-emerald-700">Montant intégralement avoiré.</p>
+        )}
+      </Section>
+
+      <Section title="Litige et escalade">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => void patch({ status: "litige" }, { kind: "litige", detail: "Dossier passé en litige" })}
+            disabled={busy}
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-red-300 py-3 text-sm font-extrabold uppercase text-red-700 disabled:opacity-50"
+          >
+            <AlertTriangle className="h-4 w-4" /> Déclarer un litige
           </button>
-          <button onClick={() => void remind()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-brand-foreground">
-            <Send className="h-4 w-4" /> Relancer le fournisseur
+          <button
+            onClick={() => void mail("escalade")}
+            disabled={busy}
+            className="rounded-xl border-2 border-border py-3 text-sm font-extrabold uppercase disabled:opacity-50"
+          >
+            Escalader
           </button>
         </div>
+      </Section>
+
+      <Section title="Documents">
+        <Select label="Type de document" value={docKind} onChange={setDocKind} options={DOCUMENT_KINDS.map((d) => ({ key: d.key, label: d.label }))} allowEmpty={false} />
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple capture="environment" onChange={(e) => void upload(e.target.files)} className="hidden" />
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-sm font-extrabold uppercase disabled:opacity-50"
+        >
+          <Camera className="h-5 w-5" /> Ajouter photo / document
+        </button>
+        <ul className="space-y-2">
+          {(docs.data ?? []).map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-border p-2 text-sm">
+              <div className="min-w-0">
+                <div className="truncate font-bold">{documentKindLabel(d.kind)}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {d.source === "fournisseur" ? "Déposé par le fournisseur" : d.uploaded_by_name || "Interne"} ·{" "}
+                  {new Date(d.created_at).toLocaleDateString("fr-FR")}
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const url = await mediaUrl(d.storage_path);
+                  if (url) window.open(url, "_blank", "noopener");
+                }}
+                className="shrink-0 rounded-lg border border-border px-3 py-1 text-xs font-bold uppercase"
+              >
+                Ouvrir
+              </button>
+            </li>
+          ))}
+          {docs.data?.length ? null : <p className="text-xs text-muted-foreground">Aucun document.</p>}
+        </ul>
+      </Section>
+
+      <Section title="Lien fournisseur">
+        {shareLink ? (
+          <button
+            onClick={() => void navigator.clipboard?.writeText(shareLink)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border py-3 text-sm font-extrabold uppercase"
+          >
+            <Copy className="h-4 w-4" /> Copier le lien de réponse
+          </button>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Le lien sécurisé est créé automatiquement au premier e-mail envoyé au fournisseur.
+          </p>
+        )}
+      </Section>
+
+      <Section title="Clôture">
+        <Select label="Motif" value={closureReason} onChange={setClosureReason} options={CLOSURE_REASONS.map((c) => ({ key: c.key, label: c.label }))} allowEmpty={false} />
+        <Area label="Commentaire" value={closureComment} onChange={setClosureComment} />
+        <button
+          onClick={() =>
+            void patch(
+              {
+                status: "cloture",
+                closed_at: new Date().toISOString(),
+                closure_reason: closureReason,
+                closure_comment: closureComment || null,
+              },
+              { kind: "cloture", detail: `Dossier clôturé (${closureReason})${closureComment ? ` — ${closureComment}` : ""}` },
+            )
+          }
+          disabled={busy}
+          className="w-full rounded-xl bg-foreground py-3 text-sm font-extrabold uppercase text-background disabled:opacity-50"
+        >
+          Clôturer le dossier
+        </button>
+      </Section>
+
+      <Section title="Chronologie">
+        <ul className="space-y-2">
+          {(events.data ?? []).map((e) => (
+            <li key={e.id} className="rounded-lg border border-border p-2 text-sm">
+              <div className="text-xs text-muted-foreground">
+                {new Date(e.created_at).toLocaleString("fr-FR")} · {e.actor_name || "—"}
+              </div>
+              <div>{e.detail || e.kind}</div>
+            </li>
+          ))}
+          {events.data?.length ? null : <p className="text-xs text-muted-foreground">Aucun événement.</p>}
+        </ul>
       </Section>
     </AppShell>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border p-2">
+      <div className="text-[11px] font-bold uppercase text-muted-foreground">{label}</div>
+      <div className="text-sm font-bold">{value}</div>
+    </div>
   );
 }
