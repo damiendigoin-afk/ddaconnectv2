@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLightbox } from "@/components/PhotoLightbox";
 import { deleteMedia, mediaUrl, uploadPhoto, type MediaLinks } from "@/lib/photo";
+import { addFailedUpload } from "@/lib/upload-tracker";
 
 export type MediaRow = { id: string; storage_path: string };
 
@@ -84,15 +85,32 @@ export function PhotoManager({
     setBusy(true);
     try {
       for (const file of Array.from(files)) {
-        const row = await uploadPhoto(file, folder, links);
-        setItems((prev) => [...prev, row as MediaRow]);
+        await sendOne(file);
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Un échec d'envoi est mémorisé globalement : la clôture du Tour reste
+   * bloquée tant que l'utilisateur n'a pas réessayé ou abandonné la photo.
+   */
+  async function sendOne(file: File) {
+    try {
+      const row = await uploadPhoto(file, folder, links);
+      setItems((prev) => [...prev, row as MediaRow]);
       toast.success("Photo enregistrée");
     } catch (e) {
       console.error(e);
-      toast.error("Échec de l'envoi de la photo");
-    } finally {
-      setBusy(false);
+      toast.error("Échec de l'envoi de la photo — vous pourrez réessayer avant de terminer le tour.");
+      addFailedUpload({
+        name: file.name || "photo.jpg",
+        retry: async () => {
+          const row = await uploadPhoto(file, folder, links);
+          setItems((prev) => [...prev, row as MediaRow]);
+        },
+      });
     }
   }
 
