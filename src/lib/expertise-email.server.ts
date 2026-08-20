@@ -50,7 +50,8 @@ export async function sendExpertiseReportEmail(args: {
   const pending = (damages ?? []).filter((d) => d.cost_pending || d.estimated_cost == null).length;
 
   const vehicleLine = [exp.brand, exp.model, exp.version].filter(Boolean).join(" ");
-  const shareUrl = `${args.origin.replace(/\/$/, "")}/expertise-partage/${exp.share_token}`;
+  const { publicOrigin } = await import("./public-url.server");
+  const shareUrl = `${publicOrigin(args.origin)}/expertise-partage/${exp.share_token}`;
 
   const infoRows = [
     ["Immatriculation", exp.plate],
