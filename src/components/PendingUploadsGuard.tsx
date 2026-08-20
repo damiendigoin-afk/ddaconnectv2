@@ -1,4 +1,3 @@
-<<<<<<< placeholder
 import { AlertTriangle, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
