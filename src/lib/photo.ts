@@ -4,11 +4,37 @@ export const BUCKET = "dda-media";
 
 type Decoded = { source: CanvasImageSource; width: number; height: number; close?: () => void };
 
-async function decodeImage(file: Blob): Promise<Decoded | null> {
+async function decodeImage(file: Blob, maxSide?: number): Promise<Decoded | null> {
   // createImageBitmap échoue sur certains iPhone (HEIC, images très lourdes) :
   // on retombe alors sur un <img> + objectURL.
+  // Sur Android (Pixel : capteurs 50 Mpx), on demande directement un
+  // redimensionnement au décodage pour ne jamais allouer le bitmap plein format
+  // (cause de crash mémoire de l'onglet).
   try {
-    const bitmap = await createImageBitmap(file);
+    const opts: ImageBitmapOptions | undefined = maxSide
+      ? { resizeWidth: maxSide, resizeQuality: "medium" }
+      : undefined;
+    let bitmap: ImageBitmap;
+    if (maxSide) {
+      // On teste d'abord l'orientation via un décodage "header" léger impossible :
+      // on décode donc avec contrainte sur la plus grande dimension côté largeur,
+      // puis on corrige si la photo est en portrait.
+      const probe = await createImageBitmap(file, opts!);
+      if (probe.height > maxSide) {
+        const ratio = maxSide / probe.height;
+        const resized = await createImageBitmap(probe, {
+          resizeWidth: Math.max(1, Math.round(probe.width * ratio)),
+          resizeHeight: maxSide,
+          resizeQuality: "medium",
+        });
+        probe.close?.();
+        bitmap = resized;
+      } else {
+        bitmap = probe;
+      }
+    } else {
+      bitmap = await createImageBitmap(file);
+    }
     return {
       source: bitmap,
       width: bitmap.width,
@@ -39,7 +65,7 @@ async function decodeImage(file: Blob): Promise<Decoded | null> {
 }
 
 export async function compressImage(file: Blob, maxSide = 1500, quality = 0.82): Promise<Blob> {
-  const decoded = await decodeImage(file);
+  const decoded = await decodeImage(file, maxSide);
   if (!decoded || !decoded.width || !decoded.height) return file;
   try {
     const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height));
