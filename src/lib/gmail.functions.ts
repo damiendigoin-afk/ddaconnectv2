@@ -28,95 +28,38 @@ export const getGmailAuthUrl = createServerFn({ method: "GET" })
 export const syncGmailAccount = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ accountId: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { getValidAccessToken, fetchRecentMessages } = await import("@/lib/gmail-oauth.server");
-    const { ingestEmailServer } = await import("@/lib/emails-ingest.server");
-
-    // Load stored tokens
-    const { data: tokenRow, error: tokenError } = await supabaseAdmin
-      .from("email_oauth_tokens")
-      .select("access_token, refresh_token, expires_at, scope")
-      .eq("account_id", data.accountId)
-      .maybeSingle();
-
-    if (tokenError) throw tokenError;
-    if (!tokenRow || !tokenRow.access_token) {
-      throw new Error("Aucun token Gmail pour cette boîte. Connectez Gmail d'abord.");
-    }
-
-    const tokens = {
-      access_token: tokenRow.access_token,
-      refresh_token: tokenRow.refresh_token,
-      expires_at: tokenRow.expires_at,
-      scope: tokenRow.scope,
-    };
-
-    // Get valid access token (refresh if needed)
-    const { accessToken, refreshed, newTokens } = await getValidAccessToken(tokens);
-
-    // Persist refreshed token if applicable
-    if (refreshed && newTokens) {
-      await supabaseAdmin
-        .from("email_oauth_tokens")
-        .update({
-          access_token: newTokens.access_token ?? null,
-          expires_at: newTokens.expires_at ?? null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("account_id", data.accountId);
-    }
-
-    // Get account info for mailbox address
-    const { data: account } = await supabaseAdmin
-      .from("email_accounts")
-      .select("id, address")
-      .eq("id", data.accountId)
-      .maybeSingle();
-
-    if (!account) throw new Error("Boîte introuvable");
-
-    // Fetch and ingest recent messages
-    const messages = await fetchRecentMessages(accessToken, 25);
-    let ingested = 0;
-    let duplicates = 0;
-
-    for (const msg of messages) {
-      const result = await ingestEmailServer({
-        rfcMessageId: msg.rfcMessageId,
-        gmailMessageId: msg.gmailMessageId,
-        gmailThreadId: msg.gmailThreadId,
-        sentAt: msg.sentAt,
-        from: msg.from,
-        fromName: msg.fromName,
-        to: msg.to,
-        cc: msg.cc,
-        subject: msg.subject,
-        bodyText: msg.bodyText,
-        bodyHtml: msg.bodyHtml,
-        mailbox: account.address,
-        accountId: account.id,
-        attachments: msg.attachments,
-      });
-      if (result.duplicate) duplicates++;
-      else ingested++;
-    }
-
-    // Update account sync status
-    await supabaseAdmin
-      .from("email_accounts")
-      .update({
-        status: "connected",
-        last_sync_at: new Date().toISOString(),
-        last_sync_count: messages.length,
-        last_error: null,
-      })
-      .eq("id", data.accountId);
-
+    const { syncGmailAccountServer } = await import("@/lib/gmail-sync.server");
+    const res = await syncGmailAccountServer(data.accountId);
+    if (res.error) throw new Error(res.error);
     return {
       ok: true,
-      fetched: messages.length,
-      ingested,
-      duplicates,
+      fetched: res.fetched,
+      ingested: res.ingested,
+      duplicates: res.duplicates,
+      backfillRemaining: res.backfillRemaining,
+    };
+  });
+
+/** Synchronise toutes les boîtes Gmail connectées (bouton manager + automatisation). */
+export const syncAllGmailAccounts = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const { syncAllGmailAccountsServer } = await import("@/lib/gmail-sync.server");
+    const res = await syncAllGmailAccountsServer();
+    return {
+      ok: true,
+      accounts: res.accounts,
+      fetched: res.fetched,
+      ingested: res.ingested,
+      duplicates: res.duplicates,
+      errors: res.errors,
+      backfillRemaining: res.backfillRemaining,
+      details: res.details.map((d) => ({
+        address: d.address,
+        fetched: d.fetched,
+        ingested: d.ingested,
+        duplicates: d.duplicates,
+        error: d.error,
+      })),
     };
   });
 
