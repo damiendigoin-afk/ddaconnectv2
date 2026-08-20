@@ -57,7 +57,6 @@ import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.ind
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
 import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
-import { Route as ApiPublicDebugTourNotifyRouteImport } from './routes/api/public/debug-tour-notify'
 import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
@@ -313,12 +312,6 @@ const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
   path: '/vehicule/$vehId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicDebugTourNotifyRoute =
-  ApiPublicDebugTourNotifyRouteImport.update({
-    id: '/api/public/debug-tour-notify',
-    path: '/api/public/debug-tour-notify',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const BaseCorrectionsImportIdRoute = BaseCorrectionsImportIdRouteImport.update({
   id: '/base/corrections/$importId',
   path: '/base/corrections/$importId',
@@ -436,7 +429,6 @@ export interface FileRoutesByFullPath {
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
-  '/api/public/debug-tour-notify': typeof ApiPublicDebugTourNotifyRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -500,7 +492,6 @@ export interface FileRoutesByTo {
   '/qualite': typeof QualiteIndexRoute
   '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
-  '/api/public/debug-tour-notify': typeof ApiPublicDebugTourNotifyRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -565,7 +556,6 @@ export interface FileRoutesById {
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
-  '/api/public/debug-tour-notify': typeof ApiPublicDebugTourNotifyRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -631,7 +621,6 @@ export interface FileRouteTypes {
     | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
-    | '/api/public/debug-tour-notify'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -695,7 +684,6 @@ export interface FileRouteTypes {
     | '/qualite'
     | '/recuperation'
     | '/statistiques'
-    | '/api/public/debug-tour-notify'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -759,7 +747,6 @@ export interface FileRouteTypes {
     | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
-    | '/api/public/debug-tour-notify'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -824,7 +811,6 @@ export interface RootRouteChildren {
   QualiteIndexRoute: typeof QualiteIndexRoute
   RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
-  ApiPublicDebugTourNotifyRoute: typeof ApiPublicDebugTourNotifyRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
@@ -1178,13 +1164,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VehiculeVehIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/debug-tour-notify': {
-      id: '/api/public/debug-tour-notify'
-      path: '/api/public/debug-tour-notify'
-      fullPath: '/api/public/debug-tour-notify'
-      preLoaderRoute: typeof ApiPublicDebugTourNotifyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/base/corrections/$importId': {
       id: '/base/corrections/$importId'
       path: '/base/corrections/$importId'
@@ -1328,7 +1307,6 @@ const rootRouteChildren: RootRouteChildren = {
   QualiteIndexRoute: QualiteIndexRoute,
   RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
-  ApiPublicDebugTourNotifyRoute: ApiPublicDebugTourNotifyRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
