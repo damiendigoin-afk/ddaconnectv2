@@ -70,6 +70,7 @@ import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourI
 import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rapport'
 import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/emails.ingest'
 import { Route as ApiPublicGmailCallbackRouteImport } from './routes/api/public/gmail/callback'
+import { Route as ApiPublicHooksGmailSyncRouteImport } from './routes/api/public/hooks/gmail-sync'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -379,6 +380,11 @@ const ApiPublicGmailCallbackRoute = ApiPublicGmailCallbackRouteImport.update({
   path: '/api/public/gmail/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksGmailSyncRoute = ApiPublicHooksGmailSyncRouteImport.update({
+  id: '/api/public/hooks/gmail-sync',
+  path: '/api/public/hooks/gmail-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -442,6 +448,7 @@ export interface FileRoutesByFullPath {
   '/tour/$tourId/': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
+  '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -505,6 +512,7 @@ export interface FileRoutesByTo {
   '/tour/$tourId': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
+  '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -569,6 +577,7 @@ export interface FileRoutesById {
   '/tour/$tourId/': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
+  '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -634,6 +643,7 @@ export interface FileRouteTypes {
     | '/tour/$tourId/'
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
+    | '/api/public/hooks/gmail-sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -697,6 +707,7 @@ export interface FileRouteTypes {
     | '/tour/$tourId'
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
+    | '/api/public/hooks/gmail-sync'
   id:
     | '__root__'
     | '/'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/tour/$tourId/'
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
+    | '/api/public/hooks/gmail-sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -824,6 +836,7 @@ export interface RootRouteChildren {
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
   ApiPublicEmailsIngestRoute: typeof ApiPublicEmailsIngestRoute
   ApiPublicGmailCallbackRoute: typeof ApiPublicGmailCallbackRoute
+  ApiPublicHooksGmailSyncRoute: typeof ApiPublicHooksGmailSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1255,6 +1268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGmailCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/gmail-sync': {
+      id: '/api/public/hooks/gmail-sync'
+      path: '/api/public/hooks/gmail-sync'
+      fullPath: '/api/public/hooks/gmail-sync'
+      preLoaderRoute: typeof ApiPublicHooksGmailSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1321,6 +1341,7 @@ const rootRouteChildren: RootRouteChildren = {
   TourTourIdIndexRoute: TourTourIdIndexRoute,
   ApiPublicEmailsIngestRoute: ApiPublicEmailsIngestRoute,
   ApiPublicGmailCallbackRoute: ApiPublicGmailCallbackRoute,
+  ApiPublicHooksGmailSyncRoute: ApiPublicHooksGmailSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

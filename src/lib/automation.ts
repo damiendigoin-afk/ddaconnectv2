@@ -61,7 +61,18 @@ export async function runJob(job: AutomationJob): Promise<string> {
       const n = await rebuildPredictions();
       message = `${n} échéance(s) recalculée(s).`;
     } else if (job.job_key === "emails_sync") {
-      message = "Relève déclenchée : les nouveaux messages seront classés à la prochaine collecte.";
+      const { syncAllGmailAccounts } = await import("@/lib/gmail.functions");
+      const res = await syncAllGmailAccounts();
+      const parts = res.details.map((d) =>
+        d.error ? `${d.address} : échec (${d.error})` : `${d.address} : ${d.ingested} importé(s), ${d.duplicates} doublon(s)`,
+      );
+      if (res.errors > 0) status = "partiel";
+      message =
+        `${res.accounts} boîte(s) · ${res.fetched} message(s) lus, ${res.ingested} importé(s), ` +
+        `${res.duplicates} doublon(s), ${res.errors} erreur(s)` +
+        (res.backfillRemaining ? " · historique en cours de rattrapage" : "") +
+        (parts.length ? ` — ${parts.join(" ; ")}` : "");
+
     } else if (job.job_key === "crm_escalation") {
       const { escalateStale } = await import("@/lib/crm");
       const n = await escalateStale();
