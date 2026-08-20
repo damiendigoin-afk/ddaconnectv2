@@ -36,27 +36,32 @@ export function MileageCard({
     // La photo est toujours conservée en pleine qualité, même si l'OCR échoue.
     let base: Blob = file;
     try {
-      // Une seule réduction en amont : évite de décoder plusieurs fois une photo
-      // très lourde (crash mémoire constaté sur mobile).
-      base = await compressImage(file, 1600, 0.88);
+      // Une seule et unique réduction : la même image sert à l'upload, à la
+      // miniature et à l'OCR (crash mémoire constaté sur Pixel 7 / 50 Mpx).
+      base = await compressImage(file, 1400, 0.82);
     } catch (e) {
       console.error(e);
     }
     try {
       if (inspectionId) {
         try {
-          const media = await uploadPhoto(base, `inspections/${inspectionId}`, {
-            inspection_id: inspectionId,
-            ...(pointId ? { inspection_point_id: pointId } : {}),
-            label: "Compteur",
-          });
+          const media = await uploadPhoto(
+            base,
+            `inspections/${inspectionId}`,
+            {
+              inspection_id: inspectionId,
+              ...(pointId ? { inspection_point_id: pointId } : {}),
+              label: "Compteur",
+            },
+            { alreadyCompressed: true },
+          );
           setLastMediaId(media.id as string);
         } catch (e) {
           console.error(e);
           toast.error("Photo du compteur non enregistrée. Reprenez la photo.");
         }
       }
-      const dataUrl = await blobToDataUrl(await compressImage(base, 1200, 0.8));
+      const dataUrl = await blobToDataUrl(base);
       const res = await ocrOdometer({ data: { dataUrl } });
       if (res.ok) {
         setDetected(res.mileage);
