@@ -50,14 +50,24 @@ export async function notifyTourCompleted(args: {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const sb = supabaseAdmin;
 
-  const { data: insp } = await sb
+  const { data: insp, error: inspError } = await sb
     .from("vehicle_inspections")
     .select(
       "id, site_id, status, mileage, started_at, finished_at, completed_at, duration_seconds, completed_by_name, vehicle_id, vehicle:vehicles(id, plate, brand, model), repair_order:repair_orders(id, or_number, client:clients(first_name, last_name))",
     )
     .eq("id", args.inspectionId)
     .single();
-  if (!insp) return { ok: false, error: "Tour introuvable", recipients: [], photoCount: 0 };
+  if (inspError || !insp) {
+    console.error("[tour-notify] lecture du tour impossible", inspError);
+    return {
+      ok: false,
+      error: inspError
+        ? `Lecture du tour impossible : ${inspError.message}`
+        : "Tour introuvable",
+      recipients: [],
+      photoCount: 0,
+    };
+  }
   if (s((insp as Row)["status"]) !== "completed") {
     return { ok: false, error: "Le tour n'est pas terminé", recipients: [], photoCount: 0 };
   }
@@ -67,18 +77,29 @@ export async function notifyTourCompleted(args: {
     .from("tour_notification_recipients")
     .select("email, site_id")
     .eq("active", true);
+  // Tour rattaché à un établissement : destinataires du site + destinataires globaux.
+  // Tour sans établissement : on retombe sur l'ensemble des destinataires actifs.
   if (siteId) recipientsQuery = recipientsQuery.or(`site_id.eq.${siteId},site_id.is.null`);
-  else recipientsQuery = recipientsQuery.is("site_id", null);
-  const { data: recRows } = await recipientsQuery;
+  const { data: recRows, error: recError } = await recipientsQuery;
+  if (recError) console.error("[tour-notify] lecture des destinataires impossible", recError);
   const recipients = Array.from(
     new Set(((recRows ?? []) as Row[]).map((r) => s(r["email"]).trim().toLowerCase()).filter(Boolean)),
   );
+  if (recError && !recipients.length) {
+    return {
+      ok: false,
+      error: `Lecture des destinataires impossible : ${recError.message}`,
+      recipients: [],
+      photoCount: 0,
+    };
+  }
 
-  const { data: logRow } = await sb
+  const { data: logRow, error: logError } = await sb
     .from("tour_notifications")
     .insert({ inspection_id: args.inspectionId, recipients, status: "pending" })
     .select("id")
     .single();
+  if (logError) console.error("[tour-notify] journalisation impossible", logError);
   const logId = logRow?.id as string | undefined;
 
   const fail = async (error: string): Promise<TourNotifyResult> => {
