@@ -262,15 +262,12 @@ function Guided(props: SharedProps) {
 
   async function finish() {
     if (!user) return;
-    const { error } = await supabase.rpc("finish_vehicle_inspection", {
-      _inspection_id: props.tourId,
-      _user_id: user.id,
-      _user_name: displayName || "Utilisateur",
+    const ok = await finishTour({
+      tourId: props.tourId,
+      userId: user.id,
+      userName: displayName || "Utilisateur",
     });
-    if (error) {
-      toast.error("Le tour n’a pas pu être clôturé.");
-      return;
-    }
+    if (!ok) return;
     toast.success("Tour véhicule terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
@@ -307,6 +304,7 @@ function Guided(props: SharedProps) {
             ) : null}
           </section>
           <div className="grid gap-2">
+            <PendingUploadsGuard />
             <button
               onClick={() => setShowSummary(false)}
               className="rounded-xl border-2 border-border bg-card px-4 py-4 font-bold uppercase"
@@ -315,7 +313,8 @@ function Guided(props: SharedProps) {
             </button>
             <button
               onClick={() => void finish()}
-              className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground"
+              disabled={blockClose}
+              className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground disabled:opacity-50"
             >
               Valider et terminer le tour
             </button>
