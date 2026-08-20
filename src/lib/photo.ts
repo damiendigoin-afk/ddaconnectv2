@@ -49,14 +49,15 @@ export async function compressImage(file: Blob, maxSide = 1500, quality = 0.82):
     const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height));
     const width = Math.max(1, Math.round(decoded.width * scale));
     const height = Math.max(1, Math.round(decoded.height * scale));
-    canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
+    const cv = document.createElement("canvas");
+    canvas = cv;
+    cv.width = width;
+    cv.height = height;
+    const ctx = cv.getContext("2d");
     if (!ctx) return file;
     ctx.drawImage(decoded.source, 0, 0, width, height);
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", quality),
+      cv.toBlob(resolve, "image/jpeg", quality),
     );
     return blob ?? file;
   } catch {
