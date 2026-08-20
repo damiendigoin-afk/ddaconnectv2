@@ -38,7 +38,7 @@ export function MileageCard({
     try {
       // Une seule réduction en amont : évite de décoder plusieurs fois une photo
       // très lourde (crash mémoire constaté sur mobile).
-      base = await compressImage(file, 2000, 0.9);
+      base = await compressImage(file, 1600, 0.88);
     } catch (e) {
       console.error(e);
     }
