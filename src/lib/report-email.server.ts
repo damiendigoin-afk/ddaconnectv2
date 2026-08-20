@@ -106,7 +106,8 @@ export async function sendTourReportEmail(args: {
   const hello = client
     ? `Bonjour ${esc([s(client["first_name"]), s(client["last_name"])].filter(Boolean).join(" "))},`
     : "Bonjour,";
-  const link = `${args.origin.replace(/\/$/, "")}/partage/${s((insp as Row)["share_token"])}`;
+  const { publicOrigin } = await import("./public-url.server");
+  const link = `${publicOrigin(args.origin)}/partage/${s((insp as Row)["share_token"])}`;
   const defects = items.filter((i) => i.status === "defect").length;
   const watches = items.filter((i) => i.status === "watch").length;
 
