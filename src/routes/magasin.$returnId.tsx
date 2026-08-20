@@ -107,7 +107,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnWithLines; returnId: strin
     setBusy(true);
     setMsg("");
     try {
-      const { error } = await supabase.from("part_returns").update(values).eq("id", returnId);
+      const { error } = await supabase.from("part_returns").update(values as never).eq("id", returnId);
       if (error) throw error;
       if (event) await logEvent(returnId, event.kind, event.detail);
       reload();

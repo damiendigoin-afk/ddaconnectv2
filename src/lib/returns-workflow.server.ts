@@ -64,7 +64,7 @@ async function ensureToken(row: Row): Promise<string> {
 
 export type ReturnMailKind = "accord" | "expedition" | "reception" | "relance" | "escalade";
 
-export async function runReturnMail(input: { returnId: string; kind: ReturnMailKind; to?: string; extra?: string }) {
+export async function runReturnMail(input: { returnId: string; kind: ReturnMailKind; to?: string | undefined; extra?: string | undefined }) {
   const db = await admin();
   const { data: row } = await db
     .from("part_returns")
@@ -132,7 +132,7 @@ export async function runReturnMail(input: { returnId: string; kind: ReturnMailK
     patch["escalated_at"] = now;
     patch["status"] = "escalade";
   }
-  await db.from("part_returns").update(patch).eq("id", input.returnId);
+  await db.from("part_returns").update(patch as never).eq("id", input.returnId);
   await logEvent(input.returnId, "email", `E-mail « ${input.kind} » envoyé à ${to}`, { subject: res.subject });
   return { ok: true, error: "", to };
 }
@@ -184,10 +184,10 @@ const ACCORD_ANSWERS = ["accepte", "refuse", "info", "non_concerne", "en_cours"]
 export async function submitSharedAnswer(input: {
   token: string;
   answer: string;
-  comment?: string;
-  creditNumber?: string;
-  creditAmount?: number;
-  file?: { name: string; mimeType: string; dataBase64: string };
+  comment?: string | undefined;
+  creditNumber?: string | undefined;
+  creditAmount?: number | undefined;
+  file?: { name: string; mimeType: string; dataBase64: string } | undefined;
 }) {
   const db = await admin();
   const { data } = await db
@@ -236,10 +236,10 @@ export async function submitSharedAnswer(input: {
   if (input.creditAmount != null && input.creditAmount > 0) {
     patch["credited_amount"] = n(r["credited_amount"]) + input.creditAmount;
     patch["status"] =
-      patch["credited_amount"] >= n(r["expected_amount"]) + n(r["deposit_amount"]) ? "totalement_avoire" : "partiellement_avoire";
+      n(patch["credited_amount"]) >= n(r["expected_amount"]) + n(r["deposit_amount"]) ? "totalement_avoire" : "partiellement_avoire";
   }
 
-  await db.from("part_returns").update(patch).eq("id", id);
+  await db.from("part_returns").update(patch as never).eq("id", id);
 
   if (input.file) {
     const bytes = Uint8Array.from(atob(input.file.dataBase64), (c) => c.charCodeAt(0));
