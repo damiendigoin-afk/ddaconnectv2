@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Database,
   Inbox,
+  MailCheck,
   ShieldCheck,
   SlidersHorizontal,
   Users,
@@ -75,6 +76,12 @@ const ENTRIES: { to: string; label: string; hint: string; icon: LucideIcon }[] =
     label: "Santé plateforme",
     hint: "Stockage, base de données, emails envoyés, quotas, erreurs et alertes",
     icon: Activity,
+  },
+  {
+    to: "/parametrage/notifications",
+    label: "Notifications Front Office",
+    hint: "Destinataires prévenus automatiquement à la fin d'un Tour Véhicule, par établissement",
+    icon: MailCheck,
   },
   {
     to: "/parametrage/global",
