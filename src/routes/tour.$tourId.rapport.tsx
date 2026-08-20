@@ -312,3 +312,85 @@ function ReportPage() {
     </AppShell>
   );
 }
+
+type NotifRow = {
+  id: string;
+  recipients: string[];
+  status: string;
+  error_message: string | null;
+  sent_at: string | null;
+  photo_count: number;
+  created_at: string;
+};
+
+const NOTIF_LABEL: Record<string, string> = {
+  sent: "Envoyée",
+  partial: "Partiellement envoyée",
+  failed: "En erreur",
+  pending: "En cours",
+};
+
+/** Traçabilité de la notification Front Office + renvoi manuel (manager). */
+function FrontOfficeBlock({ tourId, isManager }: { tourId: string; isManager: boolean }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const notifs = useQuery({
+    queryKey: ["tour-notifications", tourId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tour_notifications")
+        .select("id, recipients, status, error_message, sent_at, photo_count, created_at")
+        .eq("inspection_id", tourId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []) as NotifRow[];
+    },
+  });
+
+  const resend = async () => {
+    setBusy(true);
+    try {
+      const res = await notifyTourFrontOffice({
+        data: { inspectionId: tourId, origin: window.location.origin },
+      });
+      if (res.ok) toast.success(`Notification renvoyée (${res.recipients.length} destinataire(s))`);
+      else toast.error(res.error || "Envoi impossible");
+      await qc.invalidateQueries({ queryKey: ["tour-notifications", tourId] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Envoi impossible");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const last = notifs.data?.[0];
+
+  return (
+    <div className="card-surface space-y-2 p-4">
+      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        Notification Front Office
+      </span>
+      {last ? (
+        <p className="text-xs text-muted-foreground">
+          {NOTIF_LABEL[last.status] ?? last.status} ·{" "}
+          {new Date(last.sent_at ?? last.created_at).toLocaleString("fr-FR")} ·{" "}
+          {last.recipients.join(", ") || "aucun destinataire"} · {last.photo_count} photo(s)
+          {last.error_message ? ` · ${last.error_message}` : ""}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">Aucune notification enregistrée pour ce tour.</p>
+      )}
+      {isManager ? (
+        <button
+          onClick={() => void resend()}
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase disabled:opacity-50"
+        >
+          <Send className="h-4 w-4" /> Renvoyer au Front Office
+        </button>
+      ) : null}
+    </div>
+  );
+}
