@@ -512,15 +512,12 @@ function Free(props: SharedProps) {
 
   async function finish() {
     if (!user) return;
-    const { error } = await supabase.rpc("finish_vehicle_inspection", {
-      _inspection_id: props.tourId,
-      _user_id: user.id,
-      _user_name: displayName || "Utilisateur",
+    const ok = await finishTour({
+      tourId: props.tourId,
+      userId: user.id,
+      userName: displayName || "Utilisateur",
     });
-    if (error) {
-      toast.error("Le tour n’a pas pu être clôturé.");
-      return;
-    }
+    if (!ok) return;
     toast.success("Tour libre terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
@@ -582,12 +579,14 @@ function Free(props: SharedProps) {
       </div>
 
       <div className="mt-6 space-y-2">
+        <PendingUploadsGuard />
         <p className="text-center text-sm text-muted-foreground">
           {obs.data?.length ?? 0} défaut(s) signalé(s) · {photos.data ?? 0} photo(s)
         </p>
         <button
           onClick={() => void finish()}
-          className="w-full rounded-xl bg-primary px-4 py-5 text-lg font-extrabold uppercase text-primary-foreground"
+          disabled={freeBlockClose}
+          className="w-full rounded-xl bg-primary px-4 py-5 text-lg font-extrabold uppercase text-primary-foreground disabled:opacity-50"
         >
           Terminer le tour
         </button>
