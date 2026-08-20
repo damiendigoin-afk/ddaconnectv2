@@ -31,12 +31,21 @@ export function MileageCard({
   const camRef = useRef<HTMLInputElement>(null);
 
   async function analyse(file: File) {
+    if (busy) return;
     setBusy(true);
     // La photo est toujours conservée en pleine qualité, même si l'OCR échoue.
+    let base: Blob = file;
+    try {
+      // Une seule réduction en amont : évite de décoder plusieurs fois une photo
+      // très lourde (crash mémoire constaté sur mobile).
+      base = await compressImage(file, 2000, 0.9);
+    } catch (e) {
+      console.error(e);
+    }
     try {
       if (inspectionId) {
         try {
-          const media = await uploadPhoto(file, `inspections/${inspectionId}`, {
+          const media = await uploadPhoto(base, `inspections/${inspectionId}`, {
             inspection_id: inspectionId,
             ...(pointId ? { inspection_point_id: pointId } : {}),
             label: "Compteur",
@@ -47,7 +56,7 @@ export function MileageCard({
           toast.error("Photo du compteur non enregistrée. Reprenez la photo.");
         }
       }
-      const dataUrl = await blobToDataUrl(await compressImage(file, 1500, 0.85));
+      const dataUrl = await blobToDataUrl(await compressImage(base, 1200, 0.8));
       const res = await ocrOdometer({ data: { dataUrl } });
       if (res.ok) {
         setDetected(res.mileage);
