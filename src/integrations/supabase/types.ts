@@ -2992,53 +2992,71 @@ export type Database = {
       }
       part_return_lines: {
         Row: {
+          annotation_hint: string | null
           bodyshop_part_id: string | null
+          confidence: string | null
           created_at: string
           credited_amount: number | null
           credited_quantity: number
+          deposit_amount: number | null
+          discount: number | null
           id: string
           item_type: string
           label: string | null
+          line_total: number | null
           notes: string | null
           photo_path: string | null
           quantity: number
           reference: string | null
           return_id: string
           status: string
+          suggested: boolean
           unit_price: number | null
           updated_at: string
         }
         Insert: {
+          annotation_hint?: string | null
           bodyshop_part_id?: string | null
+          confidence?: string | null
           created_at?: string
           credited_amount?: number | null
           credited_quantity?: number
+          deposit_amount?: number | null
+          discount?: number | null
           id?: string
           item_type?: string
           label?: string | null
+          line_total?: number | null
           notes?: string | null
           photo_path?: string | null
           quantity?: number
           reference?: string | null
           return_id: string
           status?: string
+          suggested?: boolean
           unit_price?: number | null
           updated_at?: string
         }
         Update: {
+          annotation_hint?: string | null
           bodyshop_part_id?: string | null
+          confidence?: string | null
           created_at?: string
           credited_amount?: number | null
           credited_quantity?: number
+          deposit_amount?: number | null
+          discount?: number | null
           id?: string
           item_type?: string
           label?: string | null
+          line_total?: number | null
           notes?: string | null
           photo_path?: string | null
           quantity?: number
           reference?: string | null
           return_id?: string
           status?: string
+          suggested?: boolean
           unit_price?: number | null
           updated_at?: string
         }
@@ -3061,24 +3079,58 @@ export type Database = {
       }
       part_returns: {
         Row: {
+          accord_comment: string | null
+          accord_refusal_reason: string | null
+          accord_requested_at: string | null
+          accord_response_at: string | null
+          accord_status: string | null
           analysis: Json | null
+          bl_number: string | null
           carrier: string | null
           case_id: string | null
+          closed_at: string | null
+          closed_by_name: string | null
+          closure_comment: string | null
+          closure_reason: string | null
           comments: string | null
           created_at: string
           created_by: string | null
           created_by_name: string | null
           credited_amount: number | null
           deadline_date: string | null
+          deposit_amount: number
+          document_date: string | null
+          document_kind: string | null
+          document_path: string | null
+          escalated_at: string | null
+          escalated_reason: string | null
           expected_amount: number | null
+          handover_at: string | null
+          handover_company: string | null
+          handover_mode: string | null
+          handover_note: string | null
+          handover_person: string | null
+          handover_place: string | null
           id: string
+          invoice_number: string | null
+          last_reminder_at: string | null
           notice_sent_at: string | null
           or_number: string | null
           photos: string[]
           plate: string | null
+          reason: string | null
+          reception_comment: string | null
+          reception_confirmed_at: string | null
+          reception_requested_at: string | null
+          reception_status: string | null
           ref_vehicle_id: string | null
           reference: string
+          reminder_count: number
           repair_order_id: string | null
+          return_type: string
+          share_enabled: boolean
+          share_token: string | null
+          shipment_mail_sent_at: string | null
           shipment_note: string | null
           shipment_photo: string | null
           shipped_at: string | null
@@ -3090,24 +3142,58 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accord_comment?: string | null
+          accord_refusal_reason?: string | null
+          accord_requested_at?: string | null
+          accord_response_at?: string | null
+          accord_status?: string | null
           analysis?: Json | null
+          bl_number?: string | null
           carrier?: string | null
           case_id?: string | null
+          closed_at?: string | null
+          closed_by_name?: string | null
+          closure_comment?: string | null
+          closure_reason?: string | null
           comments?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           credited_amount?: number | null
           deadline_date?: string | null
+          deposit_amount?: number
+          document_date?: string | null
+          document_kind?: string | null
+          document_path?: string | null
+          escalated_at?: string | null
+          escalated_reason?: string | null
           expected_amount?: number | null
+          handover_at?: string | null
+          handover_company?: string | null
+          handover_mode?: string | null
+          handover_note?: string | null
+          handover_person?: string | null
+          handover_place?: string | null
           id?: string
+          invoice_number?: string | null
+          last_reminder_at?: string | null
           notice_sent_at?: string | null
           or_number?: string | null
           photos?: string[]
           plate?: string | null
+          reason?: string | null
+          reception_comment?: string | null
+          reception_confirmed_at?: string | null
+          reception_requested_at?: string | null
+          reception_status?: string | null
           ref_vehicle_id?: string | null
           reference?: string
+          reminder_count?: number
           repair_order_id?: string | null
+          return_type?: string
+          share_enabled?: boolean
+          share_token?: string | null
+          shipment_mail_sent_at?: string | null
           shipment_note?: string | null
           shipment_photo?: string | null
           shipped_at?: string | null
@@ -3119,24 +3205,58 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accord_comment?: string | null
+          accord_refusal_reason?: string | null
+          accord_requested_at?: string | null
+          accord_response_at?: string | null
+          accord_status?: string | null
           analysis?: Json | null
+          bl_number?: string | null
           carrier?: string | null
           case_id?: string | null
+          closed_at?: string | null
+          closed_by_name?: string | null
+          closure_comment?: string | null
+          closure_reason?: string | null
           comments?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           credited_amount?: number | null
           deadline_date?: string | null
+          deposit_amount?: number
+          document_date?: string | null
+          document_kind?: string | null
+          document_path?: string | null
+          escalated_at?: string | null
+          escalated_reason?: string | null
           expected_amount?: number | null
+          handover_at?: string | null
+          handover_company?: string | null
+          handover_mode?: string | null
+          handover_note?: string | null
+          handover_person?: string | null
+          handover_place?: string | null
           id?: string
+          invoice_number?: string | null
+          last_reminder_at?: string | null
           notice_sent_at?: string | null
           or_number?: string | null
           photos?: string[]
           plate?: string | null
+          reason?: string | null
+          reception_comment?: string | null
+          reception_confirmed_at?: string | null
+          reception_requested_at?: string | null
+          reception_status?: string | null
           ref_vehicle_id?: string | null
           reference?: string
+          reminder_count?: number
           repair_order_id?: string | null
+          return_type?: string
+          share_enabled?: boolean
+          share_token?: string | null
+          shipment_mail_sent_at?: string | null
           shipment_note?: string | null
           shipment_photo?: string | null
           shipped_at?: string | null
@@ -3690,6 +3810,100 @@ export type Database = {
           },
         ]
       }
+      return_documents: {
+        Row: {
+          created_at: string
+          filename: string | null
+          id: string
+          kind: string
+          meta: Json | null
+          mime_type: string | null
+          return_id: string
+          size_bytes: number | null
+          source: string
+          storage_path: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          filename?: string | null
+          id?: string
+          kind?: string
+          meta?: Json | null
+          mime_type?: string | null
+          return_id: string
+          size_bytes?: number | null
+          source?: string
+          storage_path: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          filename?: string | null
+          id?: string
+          kind?: string
+          meta?: Json | null
+          mime_type?: string | null
+          return_id?: string
+          size_bytes?: number | null
+          source?: string
+          storage_path?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_documents_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "part_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_events: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+          payload: Json | null
+          return_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+          payload?: Json | null
+          return_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+          payload?: Json | null
+          return_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_events_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "part_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       return_reminders: {
         Row: {
           body: string | null
@@ -3865,15 +4079,22 @@ export type Database = {
           category: string | null
           city: string | null
           created_at: string
+          default_carrier: string | null
           email: string | null
+          escalation_email: string | null
+          first_reminder_days: number
           group_name: string | null
           id: string
+          max_reminders: number
           max_return_days: number | null
           name: string
           notes: string | null
           parts_contact: string | null
           phone: string | null
           postal_code: string | null
+          reception_confirm_days: number
+          reminder_interval_days: number
+          reminders_enabled: boolean
           returns_contact: string | null
           returns_email: string | null
           sales_contact: string | null
@@ -3890,15 +4111,22 @@ export type Database = {
           category?: string | null
           city?: string | null
           created_at?: string
+          default_carrier?: string | null
           email?: string | null
+          escalation_email?: string | null
+          first_reminder_days?: number
           group_name?: string | null
           id?: string
+          max_reminders?: number
           max_return_days?: number | null
           name: string
           notes?: string | null
           parts_contact?: string | null
           phone?: string | null
           postal_code?: string | null
+          reception_confirm_days?: number
+          reminder_interval_days?: number
+          reminders_enabled?: boolean
           returns_contact?: string | null
           returns_email?: string | null
           sales_contact?: string | null
@@ -3915,15 +4143,22 @@ export type Database = {
           category?: string | null
           city?: string | null
           created_at?: string
+          default_carrier?: string | null
           email?: string | null
+          escalation_email?: string | null
+          first_reminder_days?: number
           group_name?: string | null
           id?: string
+          max_reminders?: number
           max_return_days?: number | null
           name?: string
           notes?: string | null
           parts_contact?: string | null
           phone?: string | null
           postal_code?: string | null
+          reception_confirm_days?: number
+          reminder_interval_days?: number
+          reminders_enabled?: boolean
           returns_contact?: string | null
           returns_email?: string | null
           sales_contact?: string | null
