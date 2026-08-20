@@ -83,7 +83,9 @@ export async function uploadPhoto(file: Blob, folder: string, links: MediaLinks)
   // Deux représentations : haute définition conservée pour consultation détaillée,
   // miniature légère pour les listes et rapports.
   const hd = await compressImage(file, 2400, 0.92);
-  const thumb = await compressImage(file, 700, 0.72);
+  // La miniature est dérivée du HD (déjà décodé/allégé) pour éviter de re-décoder
+  // une photo d'origine très lourde sur mobile.
+  const thumb = await compressImage(hd, 700, 0.72);
   const id = crypto.randomUUID();
   const path = `${folder}/${id}.jpg`;
   const thumbPath = `${folder}/${id}_thumb.jpg`;
