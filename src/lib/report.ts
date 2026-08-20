@@ -6,6 +6,8 @@ export type ReportMedia = {
   thumb_path: string | null;
   inspection_point_id: string | null;
   observation_id: string | null;
+  label: string | null;
+  created_at: string | null;
 };
 
 export type ReportData = {
@@ -84,8 +86,9 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
       .order("created_at"),
     supabase
       .from("media")
-      .select("id, storage_path, thumb_path, inspection_point_id, observation_id")
-      .eq("inspection_id", insp.id),
+      .select("id, storage_path, thumb_path, inspection_point_id, observation_id, label, created_at")
+      .eq("inspection_id", insp.id)
+      .order("created_at"),
   ]);
 
   return {

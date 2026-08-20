@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { MileageCard } from "@/components/MileageCard";
+import { PendingUploadsGuard } from "@/components/PendingUploadsGuard";
 import { PhotoManager } from "@/components/PhotoManager";
 import { PointCard, type PointRow } from "@/components/PointCard";
 import { TechnicalControlCard } from "@/components/TechnicalControlCard";
@@ -14,6 +15,8 @@ import { StatusBadge, StatusPicker, type PointStatus } from "@/components/Status
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
+import { finishTour } from "@/lib/tour-finish";
+import { useUploadState } from "@/lib/upload-tracker";
 import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/tour/$tourId/")({
@@ -257,17 +260,17 @@ function Guided(props: SharedProps) {
       .eq("id", props.tourId);
   }
 
+  const uploads = useUploadState();
+  const blockClose = uploads.pending > 0 || uploads.failed.length > 0;
+
   async function finish() {
     if (!user) return;
-    const { error } = await supabase.rpc("finish_vehicle_inspection", {
-      _inspection_id: props.tourId,
-      _user_id: user.id,
-      _user_name: displayName || "Utilisateur",
+    const ok = await finishTour({
+      tourId: props.tourId,
+      userId: user.id,
+      userName: displayName || "Utilisateur",
     });
-    if (error) {
-      toast.error("Le tour n’a pas pu être clôturé.");
-      return;
-    }
+    if (!ok) return;
     toast.success("Tour véhicule terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
@@ -304,6 +307,7 @@ function Guided(props: SharedProps) {
             ) : null}
           </section>
           <div className="grid gap-2">
+            <PendingUploadsGuard />
             <button
               onClick={() => setShowSummary(false)}
               className="rounded-xl border-2 border-border bg-card px-4 py-4 font-bold uppercase"
@@ -312,7 +316,8 @@ function Guided(props: SharedProps) {
             </button>
             <button
               onClick={() => void finish()}
-              className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground"
+              disabled={blockClose}
+              className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground disabled:opacity-50"
             >
               Valider et terminer le tour
             </button>
@@ -505,17 +510,17 @@ function Free(props: SharedProps) {
     },
   });
 
+  const freeUploads = useUploadState();
+  const freeBlockClose = freeUploads.pending > 0 || freeUploads.failed.length > 0;
+
   async function finish() {
     if (!user) return;
-    const { error } = await supabase.rpc("finish_vehicle_inspection", {
-      _inspection_id: props.tourId,
-      _user_id: user.id,
-      _user_name: displayName || "Utilisateur",
+    const ok = await finishTour({
+      tourId: props.tourId,
+      userId: user.id,
+      userName: displayName || "Utilisateur",
     });
-    if (error) {
-      toast.error("Le tour n’a pas pu être clôturé.");
-      return;
-    }
+    if (!ok) return;
     toast.success("Tour libre terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
@@ -577,12 +582,14 @@ function Free(props: SharedProps) {
       </div>
 
       <div className="mt-6 space-y-2">
+        <PendingUploadsGuard />
         <p className="text-center text-sm text-muted-foreground">
           {obs.data?.length ?? 0} défaut(s) signalé(s) · {photos.data ?? 0} photo(s)
         </p>
         <button
           onClick={() => void finish()}
-          className="w-full rounded-xl bg-primary px-4 py-5 text-lg font-extrabold uppercase text-primary-foreground"
+          disabled={freeBlockClose}
+          className="w-full rounded-xl bg-primary px-4 py-5 text-lg font-extrabold uppercase text-primary-foreground disabled:opacity-50"
         >
           Terminer le tour
         </button>

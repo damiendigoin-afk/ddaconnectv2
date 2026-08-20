@@ -3925,6 +3925,91 @@ export type Database = {
         }
         Relationships: []
       }
+      tour_notification_recipients: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+          label: string | null
+          site_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          label?: string | null
+          site_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          label?: string | null
+          site_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tour_notification_recipients_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tour_notifications: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          inspection_id: string
+          photo_count: number
+          recipients: string[]
+          sent_at: string | null
+          status: string
+          triggered_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          inspection_id: string
+          photo_count?: number
+          recipients?: string[]
+          sent_at?: string | null
+          status?: string
+          triggered_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          inspection_id?: string
+          photo_count?: number
+          recipients?: string[]
+          sent_at?: string | null
+          status?: string
+          triggered_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tour_notifications_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_module_access: {
         Row: {
           allowed: boolean

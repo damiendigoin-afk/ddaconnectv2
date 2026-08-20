@@ -23,6 +23,12 @@ export interface SendEmailInput {
   idempotencyKey?: string;
 }
 
+/** Pièce jointe Resend : contenu encodé en base64. */
+export interface EmailAttachment {
+  filename: string;
+  content: string;
+}
+
 export interface SendEmailResult {
   ok: boolean;
   id?: string | undefined;
@@ -31,6 +37,12 @@ export interface SendEmailResult {
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
+  return sendEmailWithAttachments({ ...input, attachments: [] });
+}
+
+export async function sendEmailWithAttachments(
+  input: SendEmailInput & { attachments?: EmailAttachment[] },
+): Promise<SendEmailResult> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey) {
     return { ok: false, status: 0, error: "RESEND_API_KEY is not configured" };
@@ -51,6 +63,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     html: input.html,
   };
   if (input.replyTo) body["reply_to"] = input.replyTo;
+  if (input.attachments?.length) body["attachments"] = input.attachments;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
