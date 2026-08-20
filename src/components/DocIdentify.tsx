@@ -73,7 +73,7 @@ export function DocIdentify({
       const analysable = isImage(file) || file.type === "application/pdf";
       let extracted: DocExtract = {};
       if (analysable) {
-        const blob = isImage(file) ? await compressImage(file, 2000, 0.85) : file;
+        const blob = isImage(file) ? await compressImage(file, 1600, 0.82) : file;
         const dataUrl = await blobToDataUrl(blob);
         const res = await ocrAnyDocument({ data: { dataUrl, filename: file.name } });
         if (res.ok) extracted = JSON.parse(res.json) as DocExtract;

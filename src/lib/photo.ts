@@ -5,36 +5,13 @@ export const BUCKET = "dda-media";
 type Decoded = { source: CanvasImageSource; width: number; height: number; close?: () => void };
 
 async function decodeImage(file: Blob, maxSide?: number): Promise<Decoded | null> {
-  // createImageBitmap échoue sur certains iPhone (HEIC, images très lourdes) :
-  // on retombe alors sur un <img> + objectURL.
-  // Sur Android (Pixel : capteurs 50 Mpx), on demande directement un
-  // redimensionnement au décodage pour ne jamais allouer le bitmap plein format
-  // (cause de crash mémoire de l'onglet).
+  // Un seul décodage, directement en taille réduite : sur les capteurs 50 Mpx
+  // (Pixel 7), allouer le bitmap plein format fait planter l'onglet.
   try {
     const opts: ImageBitmapOptions | undefined = maxSide
-      ? { resizeWidth: maxSide, resizeQuality: "medium" }
+      ? { resizeWidth: maxSide, resizeQuality: "low" }
       : undefined;
-    let bitmap: ImageBitmap;
-    if (maxSide) {
-      // On teste d'abord l'orientation via un décodage "header" léger impossible :
-      // on décode donc avec contrainte sur la plus grande dimension côté largeur,
-      // puis on corrige si la photo est en portrait.
-      const probe = await createImageBitmap(file, opts!);
-      if (probe.height > maxSide) {
-        const ratio = maxSide / probe.height;
-        const resized = await createImageBitmap(probe, {
-          resizeWidth: Math.max(1, Math.round(probe.width * ratio)),
-          resizeHeight: maxSide,
-          resizeQuality: "medium",
-        });
-        probe.close?.();
-        bitmap = resized;
-      } else {
-        bitmap = probe;
-      }
-    } else {
-      bitmap = await createImageBitmap(file);
-    }
+    const bitmap = await createImageBitmap(file, opts as ImageBitmapOptions);
     return {
       source: bitmap,
       width: bitmap.width,
@@ -67,24 +44,31 @@ async function decodeImage(file: Blob, maxSide?: number): Promise<Decoded | null
 export async function compressImage(file: Blob, maxSide = 1500, quality = 0.82): Promise<Blob> {
   const decoded = await decodeImage(file, maxSide);
   if (!decoded || !decoded.width || !decoded.height) return file;
+  let canvas: HTMLCanvasElement | null = null;
   try {
     const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height));
     const width = Math.max(1, Math.round(decoded.width * scale));
     const height = Math.max(1, Math.round(decoded.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
+    const cv = document.createElement("canvas");
+    canvas = cv;
+    cv.width = width;
+    cv.height = height;
+    const ctx = cv.getContext("2d");
     if (!ctx) return file;
     ctx.drawImage(decoded.source, 0, 0, width, height);
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", quality),
+      cv.toBlob(resolve, "image/jpeg", quality),
     );
     return blob ?? file;
   } catch {
     return file;
   } finally {
     decoded.close?.();
+    // Libère immédiatement la mémoire du canvas (critique sur mobile).
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
   }
 }
 
@@ -105,10 +89,15 @@ export type MediaLinks = {
   label?: string | null;
 };
 
-export async function uploadPhoto(file: Blob, folder: string, links: MediaLinks) {
+export async function uploadPhoto(
+  file: Blob,
+  folder: string,
+  links: MediaLinks,
+  opts?: { alreadyCompressed?: boolean },
+) {
   // Deux représentations : haute définition conservée pour consultation détaillée,
   // miniature légère pour les listes et rapports.
-  const hd = await compressImage(file, 2000, 0.9);
+  const hd = opts?.alreadyCompressed ? file : await compressImage(file, 2000, 0.9);
   // La miniature est dérivée du HD (déjà décodé/allégé) pour éviter de re-décoder
   // une photo d'origine très lourde sur mobile.
   const thumb = await compressImage(hd, 700, 0.72);
