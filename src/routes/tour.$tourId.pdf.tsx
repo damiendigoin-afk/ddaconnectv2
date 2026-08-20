@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 
-import { fetchReport } from "@/lib/report";
+import { fetchReport, type ReportMedia } from "@/lib/report";
 import { formatPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { GROUP_LABEL, siteHeader } from "@/lib/sites";
-import { supabase } from "@/integrations/supabase/client";
+import { mediaUrl } from "@/lib/photo";
 
 export const Route = createFileRoute("/tour/$tourId/pdf")({
   head: () => ({
@@ -30,8 +30,70 @@ const STATUS_FR: Record<string, string> = {
   unset: "Non renseigné",
 };
 
-function publicUrl(path: string) {
-  return supabase.storage.from("dda-media").getPublicUrl(path).data.publicUrl;
+/** Image de rapport : URL signée (bucket privé) + gestion d'échec non bloquante. */
+function PdfPhoto({
+  media,
+  caption,
+  onSettled,
+}: {
+  media: ReportMedia;
+  caption?: string;
+  onSettled: () => void;
+}) {
+  const [url, setUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+  const settled = useRef(false);
+
+  const settle = useCallback(() => {
+    if (settled.current) return;
+    settled.current = true;
+    onSettled();
+  }, [onSettled]);
+
+  useEffect(() => {
+    let active = true;
+    // La miniature suffit pour l'impression et allège fortement le PDF.
+    void mediaUrl(media.thumb_path ?? media.storage_path)
+      .then((u) => {
+        if (!active) return;
+        if (u) setUrl(u);
+        else {
+          setFailed(true);
+          settle();
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setFailed(true);
+        settle();
+      });
+    return () => {
+      active = false;
+    };
+  }, [media.storage_path, media.thumb_path, settle]);
+
+  return (
+    <figure className="break-inside-avoid">
+      {failed ? (
+        <div className="flex h-40 w-full items-center justify-center border border-neutral-400 text-[8pt] text-neutral-500">
+          Photo indisponible
+        </div>
+      ) : (
+        <img
+          src={url || undefined}
+          alt={caption ? `Photo — ${caption}` : "Photo du tour véhicule"}
+          className="h-40 w-full border border-neutral-400 object-cover"
+          onLoad={settle}
+          onError={() => {
+            console.error("[pdf] photo illisible", media.storage_path);
+            setFailed(true);
+            settle();
+          }}
+        />
+      )}
+      {caption ? <figcaption className="text-[8pt] leading-tight">{caption}</figcaption> : null}
+    </figure>
+  );
 }
 
 function PdfPage() {
@@ -39,13 +101,22 @@ function PdfPage() {
   const { site } = useSite();
   const report = useQuery({ queryKey: ["report", tourId], queryFn: () => fetchReport({ id: tourId }) });
 
+  const media = useMemo(() => report.data?.media ?? [], [report.data]);
+  const totalPhotos = media.length;
+  const [settledCount, setSettledCount] = useState(0);
+  const onSettled = useCallback(() => setSettledCount((n) => n + 1), []);
+
+  // On n'imprime qu'une fois toutes les images chargées (ou après un délai de
+  // sécurité) : sinon le PDF sort avec des cadres vides.
   useEffect(() => {
-    if (report.data) {
-      const t = setTimeout(() => window.print(), 600);
-      return () => clearTimeout(t);
+    if (!report.data) return undefined;
+    if (settledCount < totalPhotos) {
+      const guard = setTimeout(() => window.print(), 15000);
+      return () => clearTimeout(guard);
     }
-    return undefined;
-  }, [report.data]);
+    const t = setTimeout(() => window.print(), 400);
+    return () => clearTimeout(t);
+  }, [report.data, settledCount, totalPhotos]);
 
   if (!report.data) return <p className="p-6 text-sm">Préparation du rapport…</p>;
 
@@ -58,12 +129,21 @@ function PdfPage() {
       ? new Date(d.inspection.completed_at)
       : null;
   const dur = d.inspection.duration_seconds;
-  const alerts = d.points.filter((p) => p.status === "watch" || p.status === "defect");
-  const alertMedia = d.media.filter(
+  // Toutes les photos du tour sont reprises : rattachées à leur point ou
+  // observation quand le lien existe, sinon regroupées en fin de rapport.
+  const linkedMedia = media.filter(
     (m) =>
-      (m.inspection_point_id && alerts.some((p) => p.id === m.inspection_point_id)) ||
+      (m.inspection_point_id && d.points.some((p) => p.id === m.inspection_point_id)) ||
       (m.observation_id && d.observations.some((o) => o.id === m.observation_id)),
   );
+  const otherMedia = media.filter((m) => !linkedMedia.includes(m));
+  const captionFor = (m: ReportMedia) => {
+    const point = d.points.find((p) => p.id === m.inspection_point_id);
+    if (point) return `${point.zone_label} — ${point.point_label}`;
+    const obs = d.observations.find((o) => o.id === m.observation_id);
+    if (obs) return `${obs.category} — ${obs.element}`;
+    return m.label ?? "";
+  };
   const clientName = [d.order?.client?.first_name, d.order?.client?.last_name].filter(Boolean).join(" ");
 
   return (
@@ -161,24 +241,30 @@ function PdfPage() {
         </section>
       ) : null}
 
-      {alertMedia.length ? (
-        <section className="mt-4 break-inside-avoid">
-          <h2 className="mb-2 text-sm font-extrabold uppercase">Photos des anomalies</h2>
+      {linkedMedia.length ? (
+        <section className="mt-4">
+          <h2 className="mb-2 text-sm font-extrabold uppercase">Photos des points contrôlés</h2>
           <div className="grid grid-cols-3 gap-2">
-            {alertMedia.slice(0, 9).map((m) => (
-              <img
-                key={m.id}
-                src={publicUrl(m.storage_path)}
-                alt="Anomalie constatée sur le véhicule"
-                className="h-40 w-full border border-neutral-400 object-cover"
-              />
+            {linkedMedia.map((m) => (
+              <PdfPhoto key={m.id} media={m} caption={captionFor(m)} onSettled={onSettled} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {otherMedia.length ? (
+        <section className="mt-4">
+          <h2 className="mb-2 text-sm font-extrabold uppercase">Autres photos du tour</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {otherMedia.map((m) => (
+              <PdfPhoto key={m.id} media={m} caption={captionFor(m)} onSettled={onSettled} />
             ))}
           </div>
         </section>
       ) : null}
 
       <footer className="mt-6 border-t border-black pt-2 text-[8pt]">
-        Document généré par DDA Connect — {site ? head.title : GROUP_LABEL}
+        Document généré par DDA Connect — {site ? head.title : GROUP_LABEL} · {totalPhotos} photo(s)
       </footer>
     </div>
   );
