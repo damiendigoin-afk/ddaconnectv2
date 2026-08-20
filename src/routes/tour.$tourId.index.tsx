@@ -510,6 +510,9 @@ function Free(props: SharedProps) {
     },
   });
 
+  const freeUploads = useUploadState();
+  const freeBlockClose = freeUploads.pending > 0 || freeUploads.failed.length > 0;
+
   async function finish() {
     if (!user) return;
     const ok = await finishTour({
