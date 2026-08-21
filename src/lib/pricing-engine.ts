@@ -414,7 +414,11 @@ export function priceBodywork(ctx: EngineContext, req: BodyRequest): PricedItem 
     needsContact: false,
     message: "",
     label,
-    detail: `${rule.element_size === "gros" ? "Gros élément" : rule.element_size === "moyen" ? "Élément moyen" : "Petit élément"} · réparation ${repairHours} h · peinture ${paintHours} h`,
+    detail: `${rule.element_size === "gros" ? "Gros élément" : rule.element_size === "moyen" ? "Élément moyen" : "Petit élément"} · réparation ${repairHours} h · peinture ${paintHours} h${
+      pendingDr.length
+        ? ` · à paramétrer : ${pendingDr.map((o) => o.label).join(", ")} (temps non renseigné)`
+        : ""
+    }`,
     block: "carrosserie",
     priority,
     quantity: 1,
@@ -423,7 +427,7 @@ export function priceBodywork(ctx: EngineContext, req: BodyRequest): PricedItem 
     totalHt,
     totalTtc,
     source: "calcul_carrosserie",
-    confidence: req.severity === "leger" ? "elevee" : "moyenne",
+    confidence: pendingDr.length ? "moyenne" : req.severity === "leger" ? "elevee" : "moyenne",
     computation: {
       element_key: rule.element_key,
       element_size: rule.element_size,
@@ -431,11 +435,13 @@ export function priceBodywork(ctx: EngineContext, req: BodyRequest): PricedItem 
       paint_hours: paintHours,
       colorimetry_hours: colorimetryHours,
       dr: selectedDr,
+      dr_pending: pendingDr.map((o) => o.code),
       igp_hours: igpHours,
       labor_rate_ht: labor.ht,
       igp_rate_ht: igp.ht,
       paint_type: req.paintType,
     },
+
   };
 }
 
