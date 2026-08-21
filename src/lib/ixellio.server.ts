@@ -135,6 +135,35 @@ function isLoginPath(p: string): boolean {
   return /login|error|denied|logout|j_spring/i.test(p);
 }
 
+/** En-têtes « navigateur » raisonnables (aucun secret). */
+const BROWSER_HEADERS: Record<string, string> = {
+  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "accept-language": "fr-FR,fr;q=0.9,en;q=0.8",
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+};
+
+/**
+ * Champs cachés du formulaire de login (CSRF Spring, execution, etc.).
+ * Les VALEURS ne sont jamais tracées ni renvoyées : seuls les NOMS le sont.
+ */
+function extractHiddenFields(html: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  const formRe = /<form[^>]*j_spring_security_check[^>]*>([\s\S]*?)<\/form>/i;
+  const scope = formRe.exec(html)?.[1] ?? html;
+  const inputRe = /<input\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = inputRe.exec(scope))) {
+    const tag = m[0];
+    if (!/type\s*=\s*["']?hidden/i.test(tag)) continue;
+    const name = /name\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+    const value = /value\s*=\s*["']([^"']*)["']/i.exec(tag)?.[1] ?? "";
+    if (!name || /^j_(username|password)$/i.test(name)) continue;
+    fields[name] = value;
+  }
+  return fields;
+}
+
 type FollowResult = { status: number; html: string; finalPath: string; hops: string[] };
 
 /** Suit jusqu'à MAX_REDIRECTS redirections GET en conservant le cookie jar. */
@@ -142,6 +171,7 @@ async function followRedirects(
   res: Response,
   jar: Map<string, string>,
   trace: string[],
+  referer?: string,
 ): Promise<FollowResult> {
   let current = res;
   let html = "";
@@ -162,7 +192,11 @@ async function followRedirects(
       const next = await fetch(new URL(loc, BASE).toString(), {
         method: "GET",
         redirect: "manual",
-        headers: { ...(jar.size ? { cookie: cookieHeader(jar) } : {}) },
+        headers: {
+          ...BROWSER_HEADERS,
+          ...(referer ? { referer } : {}),
+          ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
+        },
       });
       mergeCookies(jar, next);
       finalPath = path;
@@ -170,12 +204,13 @@ async function followRedirects(
       continue;
     }
     html = await current.text();
-    trace.push(`→ ${current.status} (${html.length} o)`);
+    trace.push(`→ ${current.status} (${html.length} o, ${jar.size} cookie(s))`);
     return { status: current.status, html, finalPath, hops };
   }
 
   return { status: current.status, html, finalPath, hops };
 }
+
 
 export async function runIxellioAuthTest(input: {
   username: string;
