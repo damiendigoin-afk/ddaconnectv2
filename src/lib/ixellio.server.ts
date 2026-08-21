@@ -8,7 +8,7 @@
  *    durée, champs véhicule) sortent.
  */
 
-import { parseIxellioHtml, stripTags, type IxellioVehicle } from "./ixellio-parse";
+import { parseIxellioHtml, type IxellioVehicle } from "./ixellio-parse";
 
 const BASE = "https://www.ixellio.fr";
 const LOGIN_URL = `${BASE}/j_spring_security_check`;
