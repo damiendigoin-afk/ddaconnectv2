@@ -135,6 +135,35 @@ function isLoginPath(p: string): boolean {
   return /login|error|denied|logout|j_spring/i.test(p);
 }
 
+/** En-têtes « navigateur » raisonnables (aucun secret). */
+const BROWSER_HEADERS: Record<string, string> = {
+  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "accept-language": "fr-FR,fr;q=0.9,en;q=0.8",
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+};
+
+/**
+ * Champs cachés du formulaire de login (CSRF Spring, execution, etc.).
+ * Les VALEURS ne sont jamais tracées ni renvoyées : seuls les NOMS le sont.
+ */
+function extractHiddenFields(html: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  const formRe = /<form[^>]*j_spring_security_check[^>]*>([\s\S]*?)<\/form>/i;
+  const scope = formRe.exec(html)?.[1] ?? html;
+  const inputRe = /<input\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = inputRe.exec(scope))) {
+    const tag = m[0];
+    if (!/type\s*=\s*["']?hidden/i.test(tag)) continue;
+    const name = /name\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+    const value = /value\s*=\s*["']([^"']*)["']/i.exec(tag)?.[1] ?? "";
+    if (!name || /^j_(username|password)$/i.test(name)) continue;
+    fields[name] = value;
+  }
+  return fields;
+}
+
 type FollowResult = { status: number; html: string; finalPath: string; hops: string[] };
 
 /** Suit jusqu'à MAX_REDIRECTS redirections GET en conservant le cookie jar. */
@@ -142,6 +171,7 @@ async function followRedirects(
   res: Response,
   jar: Map<string, string>,
   trace: string[],
+  referer?: string,
 ): Promise<FollowResult> {
   let current = res;
   let html = "";
@@ -162,7 +192,11 @@ async function followRedirects(
       const next = await fetch(new URL(loc, BASE).toString(), {
         method: "GET",
         redirect: "manual",
-        headers: { ...(jar.size ? { cookie: cookieHeader(jar) } : {}) },
+        headers: {
+          ...BROWSER_HEADERS,
+          ...(referer ? { referer } : {}),
+          ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
+        },
       });
       mergeCookies(jar, next);
       finalPath = path;
@@ -170,12 +204,13 @@ async function followRedirects(
       continue;
     }
     html = await current.text();
-    trace.push(`→ ${current.status} (${html.length} o)`);
+    trace.push(`→ ${current.status} (${html.length} o, ${jar.size} cookie(s))`);
     return { status: current.status, html, finalPath, hops };
   }
 
   return { status: current.status, html, finalPath, hops };
 }
+
 
 export async function runIxellioAuthTest(input: {
   username: string;
@@ -207,37 +242,58 @@ export async function runIxellioAuthTest(input: {
   });
 
   try {
-    // 1) Session anonyme (JSESSIONID) avant le login.
+    // 1) Amorçage : GET de la page de login réelle, redirections suivies, cookies conservés.
+    let loginPageHtml = "";
+    let loginPageUrl = `${BASE}/index.html`;
     try {
-      const seed = await fetch(`${BASE}/`, { redirect: "manual" });
+      const seed = await fetch(loginPageUrl, { redirect: "manual", headers: BROWSER_HEADERS });
       mergeCookies(jar, seed);
-      await seed.text();
-      trace.push(`GET / ${seed.status}`);
+      trace.push(`GET /index.html ${seed.status} (${jar.size} cookie(s))`);
+      const seeded = await followRedirects(seed, jar, trace, `${BASE}/`);
+      loginPageHtml = seeded.html;
+      if (seeded.finalPath) loginPageUrl = new URL(seeded.finalPath, BASE).toString();
     } catch {
       /* non bloquant */
     }
 
-    // 2) Authentification Spring Security.
+    // 2) Champs cachés éventuels du formulaire (noms seulement dans la trace).
+    const hidden = extractHiddenFields(loginPageHtml);
+    const hiddenNames = Object.keys(hidden);
+    trace.push(
+      hiddenNames.length
+        ? `champs cachés détectés : ${hiddenNames.join(", ")}`
+        : "aucun champ caché détecté sur la page de login",
+    );
+
+    // 3) Authentification Spring Security avec en-têtes navigateur.
+    const form = new URLSearchParams(hidden);
+    form.set("j_username", input.username);
+    form.set("j_password", input.password);
+
     const login = await fetch(LOGIN_URL, {
       method: "POST",
       redirect: "manual",
       headers: {
+        ...BROWSER_HEADERS,
         "content-type": "application/x-www-form-urlencoded",
+        origin: BASE,
+        referer: loginPageUrl,
         ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
       },
-      body: new URLSearchParams({
-        j_username: input.username,
-        j_password: input.password,
-      }).toString(),
+      body: form.toString(),
     });
     mergeCookies(jar, login);
     base.loginStatus = login.status;
     const loginLoc = safePath(login.headers.get("location") ?? "");
     base.loginRedirect = loginLoc || null;
-    trace.push(`POST /j_spring_security_check ${login.status}${loginLoc ? ` → ${loginLoc}` : ""}`);
+    trace.push(
+      `POST /j_spring_security_check ${login.status}${loginLoc ? ` → ${loginLoc}` : ""} (${jar.size} cookie(s))`,
+    );
 
-    // 3) Suivre jusqu'à 3 redirections GET.
-    const afterLogin = await followRedirects(login, jar, trace);
+
+    // 4) Suivre jusqu'à 3 redirections GET avec le même cookie jar.
+    const afterLogin = await followRedirects(login, jar, trace, loginPageUrl);
+
     const loginPathChain = [loginLoc, ...afterLogin.hops].filter(Boolean);
     const reachedMain = loginPathChain.some((p) => /mainMenu\.html/i.test(p));
     const bouncedToLogin =
@@ -269,23 +325,27 @@ export async function runIxellioAuthTest(input: {
       });
     }
 
-    // 4) Recherche par immatriculation dans la même session.
+    // 5) Recherche par immatriculation dans la même session.
     const search = await fetch(SEARCH_URL, {
       method: "POST",
       redirect: "manual",
       headers: {
+        ...BROWSER_HEADERS,
         "content-type": "application/x-www-form-urlencoded",
+        origin: BASE,
+        referer: `${BASE}/mainMenu.html?method=index`,
         ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
       },
       body: new URLSearchParams({ immat: input.plate }).toString(),
     });
+
     mergeCookies(jar, search);
     base.searchStatus = search.status;
     const searchLoc = safePath(search.headers.get("location") ?? "");
     base.searchRedirect = searchLoc || null;
     trace.push(`POST /ident.html?method=searchByImmat ${search.status}${searchLoc ? ` → ${searchLoc}` : ""}`);
 
-    const afterSearch = await followRedirects(search, jar, trace);
+    const afterSearch = await followRedirects(search, jar, trace, `${BASE}/mainMenu.html?method=index`);
     const searchChain = [searchLoc, ...afterSearch.hops].filter(Boolean);
     const html = afterSearch.html;
     base.bytes = html.length;
