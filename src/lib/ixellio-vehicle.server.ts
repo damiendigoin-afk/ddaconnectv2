@@ -14,6 +14,27 @@ function display(plate: string): string {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : plate;
 }
 
+/** Premier entier trouvé dans une valeur texte (« 1 490 kg », « 115 g/km »…). */
+function int(v?: string): number | null {
+  if (!v) return null;
+  const m = /-?\d[\d\s.,]*/.exec(v);
+  if (!m) return null;
+  const n = Number.parseInt(m[0].replace(/[\s.,]/g, ""), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Champs bruts conservés tels que renvoyés par IXELLIO (valeurs ambiguës / unités). */
+const RAW_KEYS = [
+  "puissanceFiscale",
+  "puissanceCh",
+  "puissanceKw",
+  "poids",
+  "ptac",
+  "masseVide",
+  "co2",
+  "cylindree",
+] as const;
+
 export async function saveVehicleFromIxellio(
   plate: string,
   v: Record<string, string | undefined>,
@@ -23,6 +44,9 @@ export async function saveVehicleFromIxellio(
     .select("id")
     .eq("registration_normalized", plate)
     .maybeSingle();
+
+  const raw: Record<string, string> = {};
+  for (const k of RAW_KEYS) if (v[k]) raw[k] = v[k]!;
 
   const row = {
     registration_display: display(plate),
@@ -34,21 +58,37 @@ export async function saveVehicleFromIxellio(
     vin_normalized: v["vin"]?.toUpperCase() ?? null,
     cnit: v["cnit"] ?? null,
     type_mine: v["typeMine"] ?? null,
+    tvv: v["tvv"] ?? null,
     engine_code: v["codeMoteur"] ?? null,
     engine_size: v["cylindree"] ?? null,
     energy: v["carburant"] ?? null,
     gearbox: v["boite"] ?? null,
+    gearbox_code: v["codeBoite"] ?? null,
+    color: v["couleur"] ?? null,
+    // Puissances : jamais de confusion CV fiscaux / ch / kW.
     power_hp: v["puissanceCh"] ?? null,
-    power_kw: v["puissanceFiscale"] ?? null,
+    power_kw: v["puissanceKw"] ?? null,
+    fiscal_power: int(v["puissanceFiscale"]),
     body_type: v["carrosserie"] ?? null,
-    doors: v["portes"] ? Number.parseInt(v["portes"], 10) || null : null,
-    seats: v["places"] ? Number.parseInt(v["places"], 10) || null : null,
+    vehicle_type: v["genre"] ?? null,
+    doors: int(v["portes"]),
+    seats: int(v["places"]),
+    weight_kg: int(v["poids"]),
+    gvw_kg: int(v["ptac"]),
+    curb_weight_kg: int(v["masseVide"]),
+    co2_g_km: int(v["co2"]),
     first_registration_date: isoDate(v["dateMec"]),
     source_system: "ixellio",
+    source_raw: Object.keys(raw).length ? raw : null,
   };
 
+  // On n'écrase jamais une valeur existante avec un null (résultat IXELLIO partiel).
+  const patch = Object.fromEntries(
+    Object.entries(row).filter(([, val]) => val !== null && val !== undefined),
+  );
+
   if (existing) {
-    await supabaseAdmin.from("ref_vehicles").update(row).eq("id", existing.id);
+    await supabaseAdmin.from("ref_vehicles").update(patch).eq("id", existing.id);
     return { id: existing.id, created: false };
   }
 
