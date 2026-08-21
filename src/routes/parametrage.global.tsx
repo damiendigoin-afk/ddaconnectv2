@@ -49,19 +49,48 @@ const OUTCOME_LABEL: Record<string, string> = {
 
 function IxellioSettings() {
   const run = useServerFn(testIxellioAuth);
+  const loadStatus = useServerFn(getIxellioSettings);
+  const saveCreds = useServerFn(saveIxellioSettings);
+
+  const [status, setStatus] = useState<{ configured: boolean; updatedAt: string | null } | null>(null);
+  const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [plate, setPlate] = useState("AA123AA");
   const [loading, setLoading] = useState(false);
+  const [savingCreds, setSavingCreds] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    void loadStatus({}).then(setStatus).catch(() => setStatus({ configured: false, updatedAt: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function saveCredentials() {
+    setSavingCreds(true);
+    setError("");
+    try {
+      const next = await saveCreds({ data: { username, password } });
+      setStatus(next);
+      setEditing(false);
+      setUsername("");
+      setPassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Enregistrement impossible");
+    } finally {
+      setSavingCreds(false);
+    }
+  }
 
   async function submit() {
     setLoading(true);
     setError("");
     setResult(null);
     try {
-      const res = await run({ data: { username, password, plate } });
+      const payload =
+        editing && username && password ? { username, password, plate } : { plate };
+      const res = await run({ data: payload });
       setResult(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
@@ -88,20 +117,57 @@ function IxellioSettings() {
         <div className="flex-1">
           <div className="text-base font-extrabold uppercase tracking-wide">Connexion IXELLIO</div>
           <div className="text-xs text-muted-foreground">
-            Test temporaire — identifiants non enregistrés, utilisés uniquement le temps de la requête serveur.
+            {status?.configured
+              ? `Identifiants IXELLIO enregistrés (chiffrés)${
+                  status.updatedAt ? ` · maj ${new Date(status.updatedAt).toLocaleDateString("fr-FR")}` : ""
+                }`
+              : "Aucun identifiant enregistré."}
           </div>
         </div>
       </div>
 
-      <div className="mt-3 space-y-3">
-        <Field label="Utilisateur IXELLIO" value={username} onChange={setUsername} placeholder="identifiant" />
-        <Field label="Mot de passe IXELLIO" value={password} onChange={setPassword} type="password" />
+      {editing || !status?.configured ? (
+        <div className="mt-3 space-y-3">
+          <Field label="Utilisateur IXELLIO" value={username} onChange={setUsername} placeholder="identifiant" />
+          <Field label="Mot de passe IXELLIO" value={password} onChange={setPassword} type="password" />
+          <div className="flex gap-2">
+            <button
+              onClick={() => void saveCredentials()}
+              disabled={savingCreds || !username || !password}
+              className="rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60"
+            >
+              {savingCreds ? "Enregistrement…" : "Enregistrer les identifiants"}
+            </button>
+            {status?.configured ? (
+              <button
+                onClick={() => {
+                  setEditing(false);
+                  setUsername("");
+                  setPassword("");
+                }}
+                className="rounded-lg border-2 border-border px-3 py-2 text-xs font-extrabold uppercase"
+              >
+                Annuler
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="mt-3 rounded-lg border-2 border-border px-3 py-2 text-xs font-extrabold uppercase"
+        >
+          Modifier les identifiants
+        </button>
+      )}
+
+      <div className="mt-3">
         <Field label="Immatriculation de test" value={plate} onChange={setPlate} placeholder="AA123AA" />
       </div>
 
       <button
         onClick={() => void submit()}
-        disabled={loading || !username || !password || plate.trim().length < 4}
+        disabled={loading || plate.trim().length < 4 || (!status?.configured && (!username || !password))}
         className="mt-3 rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60"
       >
         {loading ? "Test en cours…" : "Tester la connexion IXELLIO"}
@@ -148,6 +214,7 @@ function IxellioSettings() {
     </div>
   );
 }
+
 
 
 function GlobalSettings() {
