@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Building2, ChevronRight, MessageSquareText, Plug, Truck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { Field } from "@/components/bits";
-import { testIxellioAuth } from "@/lib/ixellio.functions";
+import { getIxellioSettings, saveIxellioSettings, testIxellioAuth } from "@/lib/ixellio.functions";
 
 import { useAuth } from "@/lib/auth";
 
