@@ -50,6 +50,7 @@ import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.glob
 import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.messages'
 import { Route as ParametrageNotificationsRouteImport } from './routes/parametrage.notifications'
 import { Route as ParametrageSanteRouteImport } from './routes/parametrage.sante'
+import { Route as ParametrageTarifsRouteImport } from './routes/parametrage.tarifs'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
 import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
@@ -280,6 +281,11 @@ const ParametrageSanteRoute = ParametrageSanteRouteImport.update({
   path: '/parametrage/sante',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageTarifsRoute = ParametrageTarifsRouteImport.update({
+  id: '/parametrage/tarifs',
+  path: '/parametrage/tarifs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
@@ -429,6 +435,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
+  '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -495,6 +502,7 @@ export interface FileRoutesByTo {
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
+  '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -562,6 +570,7 @@ export interface FileRoutesById {
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
+  '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -630,6 +639,7 @@ export interface FileRouteTypes {
     | '/parametrage/messages'
     | '/parametrage/notifications'
     | '/parametrage/sante'
+    | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
     | '/statistiques/equipe'
@@ -696,6 +706,7 @@ export interface FileRouteTypes {
     | '/parametrage/messages'
     | '/parametrage/notifications'
     | '/parametrage/sante'
+    | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
     | '/statistiques/equipe'
@@ -762,6 +773,7 @@ export interface FileRouteTypes {
     | '/parametrage/messages'
     | '/parametrage/notifications'
     | '/parametrage/sante'
+    | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
     | '/statistiques/equipe'
@@ -829,6 +841,7 @@ export interface RootRouteChildren {
   ParametrageMessagesRoute: typeof ParametrageMessagesRoute
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
   ParametrageSanteRoute: typeof ParametrageSanteRoute
+  ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
   RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
@@ -1154,6 +1167,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageSanteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/tarifs': {
+      id: '/parametrage/tarifs'
+      path: '/parametrage/tarifs'
+      fullPath: '/parametrage/tarifs'
+      preLoaderRoute: typeof ParametrageTarifsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/partage/$token': {
       id: '/partage/$token'
       path: '/partage/$token'
@@ -1349,6 +1369,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageMessagesRoute: ParametrageMessagesRoute,
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,
   ParametrageSanteRoute: ParametrageSanteRoute,
+  ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,
   RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,

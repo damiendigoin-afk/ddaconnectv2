@@ -249,6 +249,14 @@ function GlobalSettings() {
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
+        <Link to="/parametrage/tarifs" className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]">
+          <Euro className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Tarifs atelier</div>
+            <div className="text-xs text-muted-foreground">Taux horaires, ingrédients peinture (IGP) et forfaits du garage</div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
         <Link to="/parametrage/messages" className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]">
           <MessageSquareText className="h-6 w-6 shrink-0 text-brand" />
           <div className="flex-1">
@@ -257,6 +265,7 @@ function GlobalSettings() {
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
+
         <IxellioSettings />
 
       </div>
