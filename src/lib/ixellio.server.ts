@@ -291,8 +291,9 @@ export async function runIxellioAuthTest(input: {
     );
 
 
-    // 3) Suivre jusqu'à 3 redirections GET.
-    const afterLogin = await followRedirects(login, jar, trace);
+    // 4) Suivre jusqu'à 3 redirections GET avec le même cookie jar.
+    const afterLogin = await followRedirects(login, jar, trace, loginPageUrl);
+
     const loginPathChain = [loginLoc, ...afterLogin.hops].filter(Boolean);
     const reachedMain = loginPathChain.some((p) => /mainMenu\.html/i.test(p));
     const bouncedToLogin =
