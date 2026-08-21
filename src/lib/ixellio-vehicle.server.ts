@@ -87,12 +87,27 @@ export async function saveVehicleFromIxellio(
     Object.entries(row).filter(([, val]) => val !== null && val !== undefined),
   );
 
+  let id: string;
+  let created: boolean;
+
   if (existing) {
     await supabaseAdmin.from("ref_vehicles").update(patch).eq("id", existing.id);
-    return { id: existing.id, created: false };
+    id = existing.id;
+    created = false;
+  } else {
+    const { data, error } = await supabaseAdmin.from("ref_vehicles").insert(row).select("id").single();
+    if (error || !data) throw new Error("Enregistrement du véhicule impossible.");
+    id = data.id;
+    created = true;
   }
 
-  const { data, error } = await supabaseAdmin.from("ref_vehicles").insert(row).select("id").single();
-  if (error || !data) throw new Error("Enregistrement du véhicule impossible.");
-  return { id: data.id, created: true };
+  // Relecture de contrôle : on vérifie que chaque champ envoyé est bien mémorisé.
+  const { data: saved } = await supabaseAdmin.from("ref_vehicles").select("*").eq("id", id).single();
+  const stored = saved as Record<string, unknown> | null;
+  const missing = stored
+    ? Object.keys(patch).filter((k) => stored[k] === null || stored[k] === undefined)
+    : Object.keys(patch);
+
+  return { id, created, storedFields: Object.keys(patch).length - missing.length, missing };
 }
+
