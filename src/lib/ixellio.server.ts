@@ -8,6 +8,8 @@
  *    durée, champs véhicule) sortent.
  */
 
+import { parseIxellioHtml, stripTags, type IxellioVehicle } from "./ixellio-parse";
+
 const BASE = "https://www.ixellio.fr";
 const LOGIN_URL = `${BASE}/j_spring_security_check`;
 const SEARCH_URL = `${BASE}/ident.html?method=searchByImmat`;
@@ -21,35 +23,7 @@ export type IxellioTestOutcome =
   | "network_error"
   | "unexpected_response";
 
-export type IxellioVehicle = {
-  marque?: string;
-  modele?: string;
-  version?: string;
-  vin?: string;
-  cnit?: string;
-  typeMine?: string;
-  codeMoteur?: string;
-  cylindree?: string;
-  carburant?: string;
-  boite?: string;
-  dateMec?: string;
-  puissanceFiscale?: string;
-  puissanceCh?: string;
-  puissanceKw?: string;
-  portes?: string;
-  places?: string;
-  carrosserie?: string;
-  poids?: string;
-  ptac?: string;
-  masseVide?: string;
-  co2?: string;
-  couleur?: string;
-  codeBoite?: string;
-  tvv?: string;
-  genre?: string;
-};
-
-
+export type { IxellioVehicle } from "./ixellio-parse";
 
 export type IxellioTestResult = {
   outcome: IxellioTestOutcome;
@@ -62,6 +36,11 @@ export type IxellioTestResult = {
   durationMs: number;
   bytes: number;
   vehicle: IxellioVehicle;
+  /** Diagnostic non sensible : noms des champs détectés (jamais les valeurs). */
+  detectedFields: string[];
+  fieldCount: number;
+  pairCount: number;
+  isVersionList: boolean;
   message: string;
 };
 
@@ -96,72 +75,6 @@ function mergeCookies(jar: Map<string, string>, res: Response) {
 
 function cookieHeader(jar: Map<string, string>): string {
   return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
-}
-
-function stripTags(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Extraction best-effort des champs véhicule, sans dépendance à une structure figée. */
-function parseVehicle(html: string): IxellioVehicle {
-  const text = stripTags(html);
-  const v: IxellioVehicle = {};
-
-  const grab = (labels: string[], max = 60): string | undefined => {
-    for (const label of labels) {
-      const re = new RegExp(`${label}\\s*:?\\s*([^:]{2,${max}}?)(?=\\s{2,}|\\s[A-ZÉÈ][a-zéèêà]+\\s*:|$)`, "i");
-      const m = re.exec(text);
-      const val = m?.[1]?.trim();
-      if (val && val.length > 1) return val;
-    }
-    return undefined;
-  };
-
-  const vin = /\b[A-HJ-NPR-Z0-9]{17}\b/.exec(text)?.[0];
-  if (vin) v.vin = vin;
-
-  const set = (field: keyof IxellioVehicle, labels: string[], max = 60) => {
-    const val = grab(labels, max);
-    if (val) v[field] = val;
-  };
-
-  set("marque", ["Marque", "Constructeur"]);
-  set("modele", ["Mod[eè]le"]);
-  set("version", ["Version", "Finition"]);
-  set("cnit", ["CNIT", "Code national d'identification"], 25);
-  set("typeMine", ["Type\\s*Mine", "Type mines"], 30);
-  set("tvv", ["Type variante version", "TVV"], 30);
-  set("codeMoteur", ["Code moteur", "Type moteur"], 30);
-  set("cylindree", ["Cylindr[ée]e"], 20);
-  set("carburant", ["Carburant", "[ÉE]nergie"], 25);
-  set("boite", ["Bo[iî]te de vitesses", "Bo[iî]te", "Transmission"], 30);
-  set("codeBoite", ["Code bo[iî]te", "Type de bo[iî]te"], 20);
-  set("puissanceFiscale", ["Puissance fiscale", "Puiss\\. fiscale", "CV fiscaux"], 15);
-  set("puissanceCh", ["Puissance ch", "Puissance \\(ch\\)", "Puissance r[ée]elle", "Puissance"], 15);
-  set("puissanceKw", ["Puissance kW", "Puissance \\(kW\\)", "Puiss\\. kW"], 15);
-  set("portes", ["Nombre de portes", "Portes"], 10);
-  set("places", ["Nombre de places", "Places"], 10);
-  set("carrosserie", ["Carrosserie"], 30);
-  set("genre", ["Genre"], 20);
-  set("couleur", ["Couleur", "Teinte"], 30);
-  set("ptac", ["PTAC", "Poids total autoris[ée]"], 15);
-  set("masseVide", ["Masse [àa] vide", "Poids [àa] vide"], 15);
-  set("poids", ["Poids", "Masse"], 15);
-  set("co2", ["CO2", "[ÉE]missions"], 15);
-
-
-  const mec = grab(["Date de 1re mise en circulation", "1re mise en circulation", "Date MEC", "Mise en circulation"], 20);
-  const mecDate = mec ? /\d{2}[/-]\d{2}[/-]\d{2,4}/.exec(mec)?.[0] : undefined;
-  if (mecDate) v.dateMec = mecDate;
-
-
-  return v;
 }
 
 function looksLikeLoginPage(html: string): boolean {
@@ -275,6 +188,10 @@ export async function runIxellioAuthTest(input: {
     durationMs: 0,
     bytes: 0,
     vehicle: {},
+    detectedFields: [],
+    fieldCount: 0,
+    pairCount: 0,
+    isVersionList: false,
     message: "",
   };
   const done = (patch: Partial<IxellioTestResult>): IxellioTestResult => ({
@@ -414,17 +331,31 @@ export async function runIxellioAuthTest(input: {
       });
     }
 
-    const vehicle = parseVehicle(html);
-    const found = Boolean(vehicle.vin ?? vehicle.marque ?? vehicle.codeMoteur ?? vehicle.modele);
+    const parsed = parseIxellioHtml(html);
+    const vehicle = parsed.vehicle;
+    const found = parsed.fieldCount > 0;
+    trace.push(
+      `parsing : ${parsed.pairCount} couple(s) libellé/valeur, ${parsed.fieldCount} champ(s) reconnu(s)` +
+        (parsed.detectedFields.length ? ` (${parsed.detectedFields.join(", ")})` : ""),
+    );
+    if (parsed.isVersionList) trace.push(`page de choix de version détectée (${parsed.versionCount} options)`);
 
     return done({
       authenticated: true,
       vehicle,
+      detectedFields: parsed.detectedFields,
+      fieldCount: parsed.fieldCount,
+      pairCount: parsed.pairCount,
+      isVersionList: parsed.isVersionList,
       bytes: html.length,
       outcome: found ? "auth_ok_vehicle_found" : "auth_ok_no_vehicle",
-      message: found
-        ? "Connexion réussie et véhicule identifié."
-        : "Connexion réussie, mais aucune donnée véhicule exploitable pour cette plaque de test.",
+      message: parsed.isVersionList
+        ? "IXELLIO a renvoyé une liste de versions : sélection manuelle nécessaire, aucune fiche unique exploitable."
+        : parsed.fieldCount > 1
+          ? "Connexion réussie et véhicule identifié."
+          : found
+            ? "IXELLIO a répondu mais l'extraction des détails est incomplète."
+            : "Connexion réussie, mais aucune donnée véhicule exploitable pour cette plaque de test.",
     });
   } catch (e) {
     return done({
