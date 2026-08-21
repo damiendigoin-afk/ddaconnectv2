@@ -17,6 +17,7 @@ import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
 import { Route as TourVehiculeRouteImport } from './routes/tour-vehicule'
 import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
+import { Route as ApiIxellioTestRouteImport } from './routes/api/ixellio-test'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
 import { Route as AutomatisationsIndexRouteImport } from './routes/automatisations.index'
 import { Route as BaseIndexRouteImport } from './routes/base.index'
@@ -111,6 +112,11 @@ const ToursRoute = ToursRouteImport.update({
 const UtilisateursRoute = UtilisateursRouteImport.update({
   id: '/utilisateurs',
   path: '/utilisateurs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiIxellioTestRoute = ApiIxellioTestRouteImport.update({
+  id: '/api/ixellio-test',
+  path: '/api/ixellio-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
@@ -401,6 +407,7 @@ export interface FileRoutesByFullPath {
   '/tour-vehicule': typeof TourVehiculeRoute
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
+  '/api/ixellio-test': typeof ApiIxellioTestRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
@@ -466,6 +473,7 @@ export interface FileRoutesByTo {
   '/tour-vehicule': typeof TourVehiculeRoute
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
+  '/api/ixellio-test': typeof ApiIxellioTestRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
@@ -532,6 +540,7 @@ export interface FileRoutesById {
   '/tour-vehicule': typeof TourVehiculeRoute
   '/tours': typeof ToursRoute
   '/utilisateurs': typeof UtilisateursRoute
+  '/api/ixellio-test': typeof ApiIxellioTestRoute
   '/api/test-email': typeof ApiTestEmailRoute
   '/base/clients': typeof BaseClientsRoute
   '/base/import': typeof BaseImportRoute
@@ -599,6 +608,7 @@ export interface FileRouteTypes {
     | '/tour-vehicule'
     | '/tours'
     | '/utilisateurs'
+    | '/api/ixellio-test'
     | '/api/test-email'
     | '/base/clients'
     | '/base/import'
@@ -664,6 +674,7 @@ export interface FileRouteTypes {
     | '/tour-vehicule'
     | '/tours'
     | '/utilisateurs'
+    | '/api/ixellio-test'
     | '/api/test-email'
     | '/base/clients'
     | '/base/import'
@@ -729,6 +740,7 @@ export interface FileRouteTypes {
     | '/tour-vehicule'
     | '/tours'
     | '/utilisateurs'
+    | '/api/ixellio-test'
     | '/api/test-email'
     | '/base/clients'
     | '/base/import'
@@ -795,6 +807,7 @@ export interface RootRouteChildren {
   TourVehiculeRoute: typeof TourVehiculeRoute
   ToursRoute: typeof ToursRoute
   UtilisateursRoute: typeof UtilisateursRoute
+  ApiIxellioTestRoute: typeof ApiIxellioTestRoute
   ApiTestEmailRoute: typeof ApiTestEmailRoute
   BaseClientsRoute: typeof BaseClientsRoute
   BaseImportRoute: typeof BaseImportRoute
@@ -908,6 +921,13 @@ declare module '@tanstack/react-router' {
       path: '/utilisateurs'
       fullPath: '/utilisateurs'
       preLoaderRoute: typeof UtilisateursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ixellio-test': {
+      id: '/api/ixellio-test'
+      path: '/api/ixellio-test'
+      fullPath: '/api/ixellio-test'
+      preLoaderRoute: typeof ApiIxellioTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/test-email': {
@@ -1307,6 +1327,7 @@ const rootRouteChildren: RootRouteChildren = {
   TourVehiculeRoute: TourVehiculeRoute,
   ToursRoute: ToursRoute,
   UtilisateursRoute: UtilisateursRoute,
+  ApiIxellioTestRoute: ApiIxellioTestRoute,
   ApiTestEmailRoute: ApiTestEmailRoute,
   BaseClientsRoute: BaseClientsRoute,
   BaseImportRoute: BaseImportRoute,

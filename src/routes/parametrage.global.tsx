@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, ChevronRight, MessageSquareText, Truck } from "lucide-react";
+import { Building2, ChevronRight, MessageSquareText, Plug, Truck } from "lucide-react";
+import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
+
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/parametrage/global")({
@@ -22,8 +24,49 @@ export const Route = createFileRoute("/parametrage/global")({
   component: GlobalSettings,
 });
 
+function IxellioTest() {
+  const [state, setState] = useState<{ loading: boolean; result?: string }>({ loading: false });
+
+  async function run() {
+    setState({ loading: true });
+    try {
+      const res = await fetch("/api/ixellio-test");
+      const json = (await res.json()) as unknown;
+      setState({ loading: false, result: JSON.stringify(json, null, 2) });
+    } catch (e) {
+      setState({ loading: false, result: e instanceof Error ? e.message : "Erreur inconnue" });
+    }
+  }
+
+  return (
+    <div className="rounded-xl border-2 border-dashed border-border bg-card px-4 py-4">
+      <div className="flex items-center gap-3">
+        <Plug className="h-6 w-6 shrink-0 text-brand" />
+        <div className="flex-1">
+          <div className="text-base font-extrabold uppercase tracking-wide">Diagnostic technique (temporaire)</div>
+          <div className="text-xs text-muted-foreground">Vérifie si le serveur peut joindre IXELLIO. Aucun identifiant utilisé.</div>
+        </div>
+      </div>
+      <button
+        onClick={() => void run()}
+        disabled={state.loading}
+        className="mt-3 rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60"
+      >
+        {state.loading ? "Test en cours…" : "Tester connexion IXELLIO"}
+      </button>
+      {state.result ? (
+        <pre className="mt-3 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-[11px] text-muted-foreground">
+          {state.result}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
 function GlobalSettings() {
   const { isManager } = useAuth();
+
+
 
   if (!isManager) {
     return (
@@ -60,6 +103,8 @@ function GlobalSettings() {
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
+        <IxellioTest />
+
       </div>
     </AppShell>
   );
