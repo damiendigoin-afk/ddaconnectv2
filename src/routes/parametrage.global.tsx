@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, ChevronRight, MessageSquareText, Truck } from "lucide-react";
+import { Building2, ChevronRight, MessageSquareText, Plug, Truck } from "lucide-react";
+import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
+
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/parametrage/global")({
