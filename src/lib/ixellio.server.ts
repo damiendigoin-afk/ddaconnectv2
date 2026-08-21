@@ -118,18 +118,32 @@ function parseVehicle(html: string): IxellioVehicle {
   const vin = /\b[A-HJ-NPR-Z0-9]{17}\b/.exec(text)?.[0];
   if (vin) v.vin = vin;
 
-  const marque = grab(["Marque", "Constructeur"]);
-  if (marque) v.marque = marque;
-  const modele = grab(["Mod[eè]le"]);
-  if (modele) v.modele = modele;
-  const version = grab(["Version", "Finition"]);
-  if (version) v.version = version;
-  const codeMoteur = grab(["Code moteur", "Type moteur"], 30);
-  if (codeMoteur) v.codeMoteur = codeMoteur;
+  const set = (field: keyof IxellioVehicle, labels: string[], max = 60) => {
+    const val = grab(labels, max);
+    if (val) v[field] = val;
+  };
+
+  set("marque", ["Marque", "Constructeur"]);
+  set("modele", ["Mod[eè]le"]);
+  set("version", ["Version", "Finition"]);
+  set("cnit", ["CNIT", "Code national d'identification"], 25);
+  set("typeMine", ["Type\\s*Mine", "Type mines", "Type variante version", "TVV"], 30);
+  set("codeMoteur", ["Code moteur", "Type moteur"], 30);
+  set("cylindree", ["Cylindr[ée]e"], 20);
+  set("carburant", ["Carburant", "[ÉE]nergie"], 25);
+  set("boite", ["Bo[iî]te de vitesses", "Bo[iî]te", "Transmission"], 30);
+  set("puissanceFiscale", ["Puissance fiscale", "Puiss\\. fiscale", "CV fiscaux"], 15);
+  set("puissanceCh", ["Puissance ch", "Puissance \\(ch\\)", "Puissance r[ée]elle", "Puissance"], 15);
+  set("portes", ["Nombre de portes", "Portes"], 10);
+  set("places", ["Nombre de places", "Places"], 10);
+  set("carrosserie", ["Carrosserie", "Genre"], 30);
+  set("poids", ["Poids", "PTAC", "Masse"], 15);
+  set("co2", ["CO2", "[ÉE]missions"], 15);
 
   const mec = grab(["Date de 1re mise en circulation", "1re mise en circulation", "Date MEC", "Mise en circulation"], 20);
   const mecDate = mec ? /\d{2}[/-]\d{2}[/-]\d{2,4}/.exec(mec)?.[0] : undefined;
   if (mecDate) v.dateMec = mecDate;
+
 
   return v;
 }
