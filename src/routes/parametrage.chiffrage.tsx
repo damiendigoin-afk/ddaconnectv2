@@ -135,12 +135,20 @@ function PricingSettings() {
           <h2 className="text-sm font-bold uppercase tracking-widest">Politique commerciale</h2>
           <p className="text-xs text-muted-foreground">
             Marge appliquée = MAX(prix d'achat × pourcentage ; marge minimale fixe HT). Règle
-            réutilisée pour les pneus, batteries, accessoires et tout produit revendu.
+            réutilisée pour les pneus, batteries, accessoires et tout produit revendu. Aucune valeur
+            n'est imposée : renseignez le pourcentage et la marge minimale retenus par le garage.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Pourcentage de marge (%)" value={pct} onChange={setPct} />
             <Field label="Marge minimale fixe (€ HT)" value={minHt} onChange={setMinHt} />
           </div>
+          {Number(pct) === 0 && Number(minHt) === 0 ? (
+            <p className="text-xs text-amber-700">
+              Politique commerciale non renseignée : les prix de revente sont affichés au prix
+              d'achat tant qu'aucune marge n'est validée.
+            </p>
+          ) : null}
+
           <p className="text-xs text-muted-foreground">
             Exemple : achat 100 € HT → marge {example.marginHt.toFixed(2)} € → vente{" "}
             {example.sellHt.toFixed(2)} € HT.
