@@ -257,6 +257,16 @@ function GlobalSettings() {
           </div>
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Link>
+        <Link to="/parametrage/chiffrage" className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]">
+          <Euro className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-base font-extrabold uppercase tracking-wide">Chiffrage & pneumatiques</div>
+            <div className="text-xs text-muted-foreground">
+              Marge commerciale, forfaits mécaniques, règles peinture et tarifs pneus
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0" />
+        </Link>
         <Link to="/parametrage/messages" className="flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]">
           <MessageSquareText className="h-6 w-6 shrink-0 text-brand" />
           <div className="flex-1">
