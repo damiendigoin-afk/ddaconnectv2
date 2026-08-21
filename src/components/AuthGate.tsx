@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 
 /** Routes accessibles sans compte DDA Connect (lien client partagé, connexion). */
-const PUBLIC_PREFIXES = ["/partage", "/expertise-partage", "/auth", "/api"];
+const PUBLIC_PREFIXES = ["/partage", "/expertise-partage", "/devis", "/auth", "/api"];
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
