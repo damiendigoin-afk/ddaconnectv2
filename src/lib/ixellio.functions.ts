@@ -91,6 +91,10 @@ export const lookupIxellioVehicle = createServerFn({ method: "POST" })
       notConfigured: Boolean((res as { notConfigured?: boolean }).notConfigured),
       message: res.message,
       vehicle: res.vehicle as Record<string, string | undefined>,
+      // Diagnostic non sensible : noms de champs uniquement.
+      detectedFields: (res as { detectedFields?: string[] }).detectedFields ?? [],
+      fieldCount: (res as { fieldCount?: number }).fieldCount ?? 0,
+      isVersionList: Boolean((res as { isVersionList?: boolean }).isVersionList),
     };
   });
 
