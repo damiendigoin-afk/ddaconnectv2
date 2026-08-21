@@ -161,7 +161,14 @@ function ScanPlate() {
           </Link>
         ) : null}
 
-        {results !== null ? (
+        {results !== null && !refVehicle ? (
+          <IxellioVehicleLookup
+            plate={plate}
+            onSaved={(vehId) => navigate({ to: "/vehicule/$vehId", params: { vehId } })}
+          />
+        ) : null}
+
+
           results.length > 0 ? (
             <div className="space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
