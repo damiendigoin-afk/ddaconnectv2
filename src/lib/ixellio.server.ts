@@ -26,9 +26,22 @@ export type IxellioVehicle = {
   modele?: string;
   version?: string;
   vin?: string;
+  cnit?: string;
+  typeMine?: string;
   codeMoteur?: string;
+  cylindree?: string;
+  carburant?: string;
+  boite?: string;
   dateMec?: string;
+  puissanceFiscale?: string;
+  puissanceCh?: string;
+  portes?: string;
+  places?: string;
+  carrosserie?: string;
+  poids?: string;
+  co2?: string;
 };
+
 
 export type IxellioTestResult = {
   outcome: IxellioTestOutcome;
