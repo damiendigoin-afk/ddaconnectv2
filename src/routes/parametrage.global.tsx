@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Building2, ChevronRight, MessageSquareText, Plug, Truck } from "lucide-react";
+import { Building2, ChevronRight, Euro, MessageSquareText, Plug, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
