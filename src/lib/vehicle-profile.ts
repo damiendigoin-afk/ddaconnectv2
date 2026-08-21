@@ -36,7 +36,10 @@ const ENERGY_RULES: [RegExp, Energy][] = [
 ];
 
 export function normalizeEnergy(raw: string | null | undefined): Energy {
-  const v = (raw ?? "").trim();
+  const v = (raw ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
   if (!v) return "inconnu";
   for (const [re, energy] of ENERGY_RULES) if (re.test(v)) return energy;
   return "inconnu";
