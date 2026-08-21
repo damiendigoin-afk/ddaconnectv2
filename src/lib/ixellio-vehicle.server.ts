@@ -85,7 +85,7 @@ export async function saveVehicleFromIxellio(
   // On n'écrase jamais une valeur existante avec un null (résultat IXELLIO partiel).
   const patch = Object.fromEntries(
     Object.entries(row).filter(([, val]) => val !== null && val !== undefined),
-  );
+  ) as Partial<typeof row>;
 
   let id: string;
   let created: boolean;
