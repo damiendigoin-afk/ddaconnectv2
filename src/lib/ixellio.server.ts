@@ -325,16 +325,20 @@ export async function runIxellioAuthTest(input: {
       });
     }
 
-    // 4) Recherche par immatriculation dans la même session.
+    // 5) Recherche par immatriculation dans la même session.
     const search = await fetch(SEARCH_URL, {
       method: "POST",
       redirect: "manual",
       headers: {
+        ...BROWSER_HEADERS,
         "content-type": "application/x-www-form-urlencoded",
+        origin: BASE,
+        referer: `${BASE}/mainMenu.html?method=index`,
         ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
       },
       body: new URLSearchParams({ immat: input.plate }).toString(),
     });
+
     mergeCookies(jar, search);
     base.searchStatus = search.status;
     const searchLoc = safePath(search.headers.get("location") ?? "");
