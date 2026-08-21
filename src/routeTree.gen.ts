@@ -33,6 +33,7 @@ import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
 import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.index'
 import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as DarvaIndexRouteImport } from './routes/darva.index'
+import { Route as DevisTokenRouteImport } from './routes/devis.$token'
 import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
@@ -46,6 +47,7 @@ import { Route as NotesFraisIndexRouteImport } from './routes/notes-frais.index'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
+import { Route as ParametrageChiffrageRouteImport } from './routes/parametrage.chiffrage'
 import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.global'
 import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.messages'
 import { Route as ParametrageNotificationsRouteImport } from './routes/parametrage.notifications'
@@ -195,6 +197,11 @@ const DarvaIndexRoute = DarvaIndexRouteImport.update({
   path: '/darva/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevisTokenRoute = DevisTokenRouteImport.update({
+  id: '/devis/$token',
+  path: '/devis/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmailsIndexRoute = EmailsIndexRouteImport.update({
   id: '/emails/',
   path: '/emails/',
@@ -258,6 +265,11 @@ const OrNouveauRoute = OrNouveauRouteImport.update({
 const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
   id: '/parametrage/',
   path: '/parametrage/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParametrageChiffrageRoute = ParametrageChiffrageRouteImport.update({
+  id: '/parametrage/chiffrage',
+  path: '/parametrage/chiffrage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ParametrageGlobalRoute = ParametrageGlobalRouteImport.update({
@@ -423,6 +435,7 @@ export interface FileRoutesByFullPath {
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
+  '/devis/$token': typeof DevisTokenRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -431,6 +444,7 @@ export interface FileRoutesByFullPath {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -490,6 +504,7 @@ export interface FileRoutesByTo {
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
+  '/devis/$token': typeof DevisTokenRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -498,6 +513,7 @@ export interface FileRoutesByTo {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -558,6 +574,7 @@ export interface FileRoutesById {
   '/carrosserie/nouvelle': typeof CarrosserieNouvelleRoute
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
+  '/devis/$token': typeof DevisTokenRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -566,6 +583,7 @@ export interface FileRoutesById {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -627,6 +645,7 @@ export interface FileRouteTypes {
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
+    | '/devis/$token'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -635,6 +654,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/chiffrage'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -694,6 +714,7 @@ export interface FileRouteTypes {
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
+    | '/devis/$token'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -702,6 +723,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/chiffrage'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -761,6 +783,7 @@ export interface FileRouteTypes {
     | '/carrosserie/nouvelle'
     | '/carrosserie/referentiels'
     | '/client/$clientId'
+    | '/devis/$token'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -769,6 +792,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/chiffrage'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -829,6 +853,7 @@ export interface RootRouteChildren {
   CarrosserieNouvelleRoute: typeof CarrosserieNouvelleRoute
   CarrosserieReferentielsRoute: typeof CarrosserieReferentielsRoute
   ClientClientIdRoute: typeof ClientClientIdRoute
+  DevisTokenRoute: typeof DevisTokenRoute
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
@@ -837,6 +862,7 @@ export interface RootRouteChildren {
   MagasinNouveauRoute: typeof MagasinNouveauRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
+  ParametrageChiffrageRoute: typeof ParametrageChiffrageRoute
   ParametrageGlobalRoute: typeof ParametrageGlobalRoute
   ParametrageMessagesRoute: typeof ParametrageMessagesRoute
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
@@ -1048,6 +1074,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DarvaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/devis/$token': {
+      id: '/devis/$token'
+      path: '/devis/$token'
+      fullPath: '/devis/$token'
+      preLoaderRoute: typeof DevisTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/emails/': {
       id: '/emails/'
       path: '/emails'
@@ -1137,6 +1170,13 @@ declare module '@tanstack/react-router' {
       path: '/parametrage'
       fullPath: '/parametrage/'
       preLoaderRoute: typeof ParametrageIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametrage/chiffrage': {
+      id: '/parametrage/chiffrage'
+      path: '/parametrage/chiffrage'
+      fullPath: '/parametrage/chiffrage'
+      preLoaderRoute: typeof ParametrageChiffrageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/parametrage/global': {
@@ -1357,6 +1397,7 @@ const rootRouteChildren: RootRouteChildren = {
   CarrosserieNouvelleRoute: CarrosserieNouvelleRoute,
   CarrosserieReferentielsRoute: CarrosserieReferentielsRoute,
   ClientClientIdRoute: ClientClientIdRoute,
+  DevisTokenRoute: DevisTokenRoute,
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
@@ -1365,6 +1406,7 @@ const rootRouteChildren: RootRouteChildren = {
   MagasinNouveauRoute: MagasinNouveauRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
+  ParametrageChiffrageRoute: ParametrageChiffrageRoute,
   ParametrageGlobalRoute: ParametrageGlobalRoute,
   ParametrageMessagesRoute: ParametrageMessagesRoute,
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,
