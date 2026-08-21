@@ -168,6 +168,7 @@ function ScanPlate() {
           />
         ) : null}
 
+        {results !== null ? (
 
           results.length > 0 ? (
             <div className="space-y-2">
