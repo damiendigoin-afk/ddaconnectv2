@@ -242,34 +242,54 @@ export async function runIxellioAuthTest(input: {
   });
 
   try {
-    // 1) Session anonyme (JSESSIONID) avant le login.
+    // 1) Amorçage : GET de la page de login réelle, redirections suivies, cookies conservés.
+    let loginPageHtml = "";
+    let loginPageUrl = `${BASE}/index.html`;
     try {
-      const seed = await fetch(`${BASE}/`, { redirect: "manual" });
+      const seed = await fetch(loginPageUrl, { redirect: "manual", headers: BROWSER_HEADERS });
       mergeCookies(jar, seed);
-      await seed.text();
-      trace.push(`GET / ${seed.status}`);
+      trace.push(`GET /index.html ${seed.status} (${jar.size} cookie(s))`);
+      const seeded = await followRedirects(seed, jar, trace, `${BASE}/`);
+      loginPageHtml = seeded.html;
+      if (seeded.finalPath) loginPageUrl = new URL(seeded.finalPath, BASE).toString();
     } catch {
       /* non bloquant */
     }
 
-    // 2) Authentification Spring Security.
+    // 2) Champs cachés éventuels du formulaire (noms seulement dans la trace).
+    const hidden = extractHiddenFields(loginPageHtml);
+    const hiddenNames = Object.keys(hidden);
+    trace.push(
+      hiddenNames.length
+        ? `champs cachés détectés : ${hiddenNames.join(", ")}`
+        : "aucun champ caché détecté sur la page de login",
+    );
+
+    // 3) Authentification Spring Security avec en-têtes navigateur.
+    const form = new URLSearchParams(hidden);
+    form.set("j_username", input.username);
+    form.set("j_password", input.password);
+
     const login = await fetch(LOGIN_URL, {
       method: "POST",
       redirect: "manual",
       headers: {
+        ...BROWSER_HEADERS,
         "content-type": "application/x-www-form-urlencoded",
+        origin: BASE,
+        referer: loginPageUrl,
         ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
       },
-      body: new URLSearchParams({
-        j_username: input.username,
-        j_password: input.password,
-      }).toString(),
+      body: form.toString(),
     });
     mergeCookies(jar, login);
     base.loginStatus = login.status;
     const loginLoc = safePath(login.headers.get("location") ?? "");
     base.loginRedirect = loginLoc || null;
-    trace.push(`POST /j_spring_security_check ${login.status}${loginLoc ? ` → ${loginLoc}` : ""}`);
+    trace.push(
+      `POST /j_spring_security_check ${login.status}${loginLoc ? ` → ${loginLoc}` : ""} (${jar.size} cookie(s))`,
+    );
+
 
     // 3) Suivre jusqu'à 3 redirections GET.
     const afterLogin = await followRedirects(login, jar, trace);
