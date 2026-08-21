@@ -3332,6 +3332,83 @@ export type Database = {
           },
         ]
       }
+      pricing_grids: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pricing_rates: {
+        Row: {
+          amount_ht: number | null
+          amount_ttc: number | null
+          category: string
+          code: string
+          created_at: string
+          grid_id: string
+          id: string
+          label: string
+          sort_order: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          amount_ht?: number | null
+          amount_ttc?: number | null
+          category: string
+          code: string
+          created_at?: string
+          grid_id: string
+          id?: string
+          label: string
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_ht?: number | null
+          amount_ttc?: number | null
+          category?: string
+          code?: string
+          created_at?: string
+          grid_id?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rates_grid_id_fkey"
+            columns: ["grid_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_grids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       productivity_entries: {
         Row: {
           created_at: string
@@ -4373,6 +4450,8 @@ export type Database = {
           model: string | null
           owner_name: string | null
           plate: string | null
+          pricing_grid_id: string | null
+          pricing_snapshot: Json | null
           ref_vehicle_id: string | null
           registration_doc: string
           repair_order_id: string | null
@@ -4411,6 +4490,8 @@ export type Database = {
           model?: string | null
           owner_name?: string | null
           plate?: string | null
+          pricing_grid_id?: string | null
+          pricing_snapshot?: Json | null
           ref_vehicle_id?: string | null
           registration_doc?: string
           repair_order_id?: string | null
@@ -4449,6 +4530,8 @@ export type Database = {
           model?: string | null
           owner_name?: string | null
           plate?: string | null
+          pricing_grid_id?: string | null
+          pricing_snapshot?: Json | null
           ref_vehicle_id?: string | null
           registration_doc?: string
           repair_order_id?: string | null
@@ -4475,6 +4558,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expertises_pricing_grid_id_fkey"
+            columns: ["pricing_grid_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_grids"
             referencedColumns: ["id"]
           },
           {
