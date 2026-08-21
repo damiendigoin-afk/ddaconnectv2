@@ -94,6 +94,8 @@ function NewOrder() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [refHit, setRefHit] = useState<RefPrefill | null>(null);
+  const [unknownPlate, setUnknownPlate] = useState("");
+
 
   const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const flagged = (path: string) => uncertain.includes(path);
