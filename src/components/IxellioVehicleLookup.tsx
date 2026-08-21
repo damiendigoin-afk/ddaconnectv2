@@ -18,19 +18,27 @@ const FIELDS: [string, string][] = [
   ["vin", "VIN"],
   ["cnit", "CNIT"],
   ["typeMine", "Type Mine"],
+  ["tvv", "TVV"],
   ["codeMoteur", "Code moteur"],
   ["cylindree", "Cylindrée"],
   ["carburant", "Carburant"],
   ["boite", "Boîte de vitesses"],
+  ["codeBoite", "Code boîte"],
   ["dateMec", "1re mise en circulation"],
-  ["puissanceFiscale", "Puissance fiscale"],
+  ["puissanceFiscale", "Puissance fiscale (CV)"],
   ["puissanceCh", "Puissance (ch)"],
+  ["puissanceKw", "Puissance (kW)"],
   ["portes", "Portes"],
   ["places", "Places"],
   ["carrosserie", "Carrosserie"],
+  ["genre", "Genre"],
+  ["couleur", "Couleur"],
   ["poids", "Poids"],
+  ["ptac", "PTAC"],
+  ["masseVide", "Masse à vide"],
   ["co2", "CO2"],
 ];
+
 
 export function IxellioVehicleLookup({
   plate,

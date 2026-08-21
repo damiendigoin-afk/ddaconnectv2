@@ -38,7 +38,7 @@ const RAW_KEYS = [
 export async function saveVehicleFromIxellio(
   plate: string,
   v: Record<string, string | undefined>,
-): Promise<{ id: string; created: boolean }> {
+): Promise<{ id: string; created: boolean; storedFields: number; missing: string[] }> {
   const { data: existing } = await supabaseAdmin
     .from("ref_vehicles")
     .select("id")
