@@ -56,11 +56,11 @@ function VehiclePage() {
                 <Row label="1re mise en circ." value={fr(v.first_registration_date)} />
                 <Row label="Énergie" value={v.energy ?? "—"} />
                 <Row label="Couleur" value={v.color ?? "—"} />
-                <Row label="Puissance fiscale" value={v.fiscal_power ? `${v.fiscal_power} CV` : "—"} />
-                <Row label="Puissance" value={v.power_hp ? `${v.power_hp} ch` : v.power_kw ? `${v.power_kw} kW` : "—"} />
-                <Row label="CO2" value={v.co2_g_km ? `${v.co2_g_km} g/km` : "—"} />
-                <Row label="Masse" value={v.weight_kg ? `${v.weight_kg} kg` : v.curb_weight_kg ? `${v.curb_weight_kg} kg` : "—"} />
-                <Row label="PTAC" value={v.gvw_kg ? `${v.gvw_kg} kg` : "—"} />
+                <Row label="Puissance fiscale" value={v["fiscal_power"] ? `${v["fiscal_power"]} CV` : "—"} />
+                <Row label="Puissance" value={v["power_hp"] ? `${v["power_hp"]} ch` : v["power_kw"] ? `${v["power_kw"]} kW` : "—"} />
+                <Row label="CO2" value={v["co2_g_km"] ? `${v["co2_g_km"]} g/km` : "—"} />
+                <Row label="Masse" value={v["weight_kg"] ? `${v["weight_kg"]} kg` : v["curb_weight_kg"] ? `${v["curb_weight_kg"]} kg` : "—"} />
+                <Row label="PTAC" value={v["gvw_kg"] ? `${v["gvw_kg"]} kg` : "—"} />
 
                 <Row label="Dernier km" value={v.last_mileage ? `${v.last_mileage.toLocaleString("fr-FR")} km` : "—"} />
                 <Row label="Date du km" value={fr(v.last_mileage_at)} />
