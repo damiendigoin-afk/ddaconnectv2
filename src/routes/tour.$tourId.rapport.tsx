@@ -13,6 +13,7 @@ import { notifyTourFrontOffice } from "@/lib/tour-notify.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ReportBody, Summary } from "@/components/ReportView";
+import { TourQuoteSection } from "@/components/TourQuoteSection";
 
 export const Route = createFileRoute("/tour/$tourId/rapport")({
   head: () => ({
@@ -170,6 +171,14 @@ function ReportPage() {
             <FileDown className="h-4 w-4" /> Exporter PDF
           </a>
         </div>
+
+        <TourQuoteSection
+          inspectionId={d.inspection.id}
+          plate={d.vehicle?.plate ?? null}
+          brand={d.vehicle?.brand ?? null}
+          model={d.vehicle?.model ?? null}
+          repairOrderId={d.order?.id ?? null}
+        />
 
         <FrontOfficeBlock tourId={tourId} isManager={isManager} />
 
