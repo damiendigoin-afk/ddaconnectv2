@@ -2596,6 +2596,33 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_credentials: {
+        Row: {
+          created_at: string
+          password_enc: string
+          provider: string
+          updated_at: string
+          updated_by: string | null
+          username_enc: string
+        }
+        Insert: {
+          created_at?: string
+          password_enc: string
+          provider: string
+          updated_at?: string
+          updated_by?: string | null
+          username_enc: string
+        }
+        Update: {
+          created_at?: string
+          password_enc?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          username_enc?: string
+        }
+        Relationships: []
+      }
       knowledge_articles: {
         Row: {
           author_id: string | null
