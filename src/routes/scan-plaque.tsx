@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { Camera, Car, Images, Loader2, Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
+
 import { supabase } from "@/integrations/supabase/client";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 import { compressImage, blobToDataUrl } from "@/lib/photo";
