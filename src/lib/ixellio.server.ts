@@ -35,12 +35,20 @@ export type IxellioVehicle = {
   dateMec?: string;
   puissanceFiscale?: string;
   puissanceCh?: string;
+  puissanceKw?: string;
   portes?: string;
   places?: string;
   carrosserie?: string;
   poids?: string;
+  ptac?: string;
+  masseVide?: string;
   co2?: string;
+  couleur?: string;
+  codeBoite?: string;
+  tvv?: string;
+  genre?: string;
 };
+
 
 
 export type IxellioTestResult = {
