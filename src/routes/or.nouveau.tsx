@@ -4,6 +4,7 @@ import { Camera, CheckCircle2, FileText, Images, Loader2, PencilLine } from "luc
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
@@ -94,6 +95,8 @@ function NewOrder() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [refHit, setRefHit] = useState<RefPrefill | null>(null);
+  const [unknownPlate, setUnknownPlate] = useState("");
+
 
   const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const flagged = (path: string) => uncertain.includes(path);
@@ -103,7 +106,12 @@ function NewOrder() {
     if (!normalizePlate(plate)) return;
     try {
       const hit = await refPrefill(plate);
-      if (!hit) return;
+      if (!hit) {
+        setRefHit(null);
+        setUnknownPlate(normalizePlate(plate));
+        return;
+      }
+      setUnknownPlate("");
       setRefHit(hit);
       setForm((f) => {
         const next = { ...f };
@@ -112,6 +120,7 @@ function NewOrder() {
         }
         return next;
       });
+
     } catch (e) {
       console.error(e);
     }
@@ -397,6 +406,9 @@ function NewOrder() {
   return (
     <AppShell title="Vérifier les informations" subtitle="Tous les champs sont modifiables" back={{ to: "/tour-vehicule" }}>
       <div className="space-y-4 pb-4">
+        {!refHit && unknownPlate ? (
+          <IxellioVehicleLookup plate={unknownPlate} onSaved={() => void applyRef(unknownPlate)} />
+        ) : null}
         {refHit ? (
           <div className="flex items-start gap-2 rounded-xl border-2 border-status-ok bg-card p-3 text-sm">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-ok" />

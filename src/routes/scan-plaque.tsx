@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { Camera, Car, Images, Loader2, Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
+
 import { supabase } from "@/integrations/supabase/client";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 import { compressImage, blobToDataUrl } from "@/lib/photo";
@@ -161,7 +163,15 @@ function ScanPlate() {
           </Link>
         ) : null}
 
+        {results !== null && !refVehicle ? (
+          <IxellioVehicleLookup
+            plate={plate}
+            onSaved={(vehId) => navigate({ to: "/vehicule/$vehId", params: { vehId } })}
+          />
+        ) : null}
+
         {results !== null ? (
+
           results.length > 0 ? (
             <div className="space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
