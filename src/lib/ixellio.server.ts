@@ -345,7 +345,7 @@ export async function runIxellioAuthTest(input: {
     base.searchRedirect = searchLoc || null;
     trace.push(`POST /ident.html?method=searchByImmat ${search.status}${searchLoc ? ` → ${searchLoc}` : ""}`);
 
-    const afterSearch = await followRedirects(search, jar, trace);
+    const afterSearch = await followRedirects(search, jar, trace, `${BASE}/mainMenu.html?method=index`);
     const searchChain = [searchLoc, ...afterSearch.hops].filter(Boolean);
     const html = afterSearch.html;
     base.bytes = html.length;
