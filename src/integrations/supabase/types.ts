@@ -4969,6 +4969,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      storage_object_owned: {
+        Args: { _name: string; _user_id: string }
+        Returns: boolean
+      }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
