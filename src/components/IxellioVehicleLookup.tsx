@@ -53,7 +53,7 @@ export function IxellioVehicleLookup({
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<{ fields: number } | null>(null);
 
   const norm = normalizePlate(plate);
   if (norm.length < 4) return null;
@@ -80,7 +80,7 @@ export function IxellioVehicleLookup({
       const clean: Record<string, string> = {};
       for (const [k, v] of Object.entries(vehicle)) if (v) clean[k] = v;
       const res = await save({ data: { plate: norm, vehicle: clean } });
-      setSaved(true);
+      setSaved({ fields: res.storedFields });
       onSaved?.(res.id);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Enregistrement impossible.");
@@ -154,7 +154,7 @@ export function IxellioVehicleLookup({
           </dl>
           {saved ? (
             <p className="rounded-lg bg-status-ok-soft px-3 py-2 text-xs font-bold">
-              Véhicule enregistré dans DDA Connect.
+              Véhicule enregistré dans DDA Connect ({saved.fields} champs mémorisés et vérifiés).
             </p>
           ) : (
             <button
