@@ -114,7 +114,7 @@ function PricingSettings() {
 
   if (!isManager) {
     return (
-      <AppShell title="Chiffrage & pneumatiques" back="/parametrage">
+      <AppShell title="Chiffrage & pneumatiques" back={{ to: "/parametrage" }}>
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           Réservé aux managers du garage.
         </p>
@@ -129,7 +129,7 @@ function PricingSettings() {
   const supplierDef = TIRE_SUPPLIERS.find((s) => s.key === supplier);
 
   return (
-    <AppShell title="Chiffrage & pneumatiques" back="/parametrage">
+    <AppShell title="Chiffrage & pneumatiques" back={{ to: "/parametrage" }}>
       <div className="space-y-6">
         <section className="card-surface space-y-3 p-4">
           <h2 className="text-sm font-bold uppercase tracking-widest">Politique commerciale</h2>

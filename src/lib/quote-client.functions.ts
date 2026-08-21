@@ -18,4 +18,11 @@ export const respondQuoteLine = createServerFn({ method: "POST" })
       })
       .parse(d),
   )
-  .handler(async ({ data }) => respondPublicLine(data));
+  .handler(async ({ data }) =>
+    respondPublicLine({
+      token: data.token,
+      lineId: data.lineId,
+      response: data.response,
+      ...(data.comment ? { comment: data.comment } : {}),
+    }),
+  );
