@@ -1,16 +1,17 @@
 /**
- * Test d'authentification IXELLIO côté serveur.
+ * Test d'authentification IXELLIO côté serveur (Spring Security).
  *
  * Règles de sécurité strictes :
  *  - les identifiants ne sont JAMAIS journalisés, persistés ni renvoyés au client ;
- *  - les cookies de session (Set-Cookie) restent en mémoire du serveur le temps
- *    de la requête et ne sont jamais exposés ;
- *  - seules des données non sensibles (statut, durée, champs véhicule) sortent.
+ *  - les cookies de session restent en mémoire du serveur le temps de la requête ;
+ *  - seules des données non sensibles (statut, chemins de redirection nettoyés,
+ *    durée, champs véhicule) sortent.
  */
 
 const BASE = "https://www.ixellio.fr";
 const LOGIN_URL = `${BASE}/j_spring_security_check`;
 const SEARCH_URL = `${BASE}/ident.html?method=searchByImmat`;
+const MAX_REDIRECTS = 3;
 
 export type IxellioTestOutcome =
   | "auth_ok_vehicle_found"
@@ -34,11 +35,27 @@ export type IxellioTestResult = {
   authenticated: boolean;
   loginStatus: number | null;
   searchStatus: number | null;
+  loginRedirect: string | null;
+  searchRedirect: string | null;
+  trace: string[];
   durationMs: number;
   bytes: number;
   vehicle: IxellioVehicle;
   message: string;
 };
+
+/** Ne conserve que chemin + `method=` : supprime tout query param potentiellement sensible. */
+function safePath(location: string): string {
+  if (!location) return "";
+  try {
+    const u = new URL(location, BASE);
+    const method = u.searchParams.get("method");
+    const err = u.searchParams.has("error") || u.searchParams.has("login_error");
+    return `${u.pathname}${method ? `?method=${method}` : ""}${err ? "?error" : ""}`;
+  } catch {
+    return location.split("?")[0] ?? "";
+  }
+}
 
 /** Fusionne les cookies renvoyés par le serveur distant (jar minimaliste, en mémoire). */
 function mergeCookies(jar: Map<string, string>, res: Response) {
@@ -104,15 +121,60 @@ function parseVehicle(html: string): IxellioVehicle {
   return v;
 }
 
-function looksLikeLogin(html: string): boolean {
+function looksLikeLoginPage(html: string): boolean {
   const l = html.toLowerCase();
   return (
     l.includes("j_username") ||
     l.includes("j_password") ||
-    l.includes("mot de passe") ||
-    l.includes("identifiant") ||
-    l.includes("authentification")
+    l.includes("j_spring_security_check") ||
+    (l.includes("mot de passe") && l.includes("identifiant"))
   );
+}
+
+function isLoginPath(p: string): boolean {
+  return /login|error|denied|logout|j_spring/i.test(p);
+}
+
+type FollowResult = { status: number; html: string; finalPath: string; hops: string[] };
+
+/** Suit jusqu'à MAX_REDIRECTS redirections GET en conservant le cookie jar. */
+async function followRedirects(
+  res: Response,
+  jar: Map<string, string>,
+  trace: string[],
+): Promise<FollowResult> {
+  let current = res;
+  let html = "";
+  let finalPath = "";
+  const hops: string[] = [];
+
+  for (let i = 0; i <= MAX_REDIRECTS; i++) {
+    if (current.status >= 300 && current.status < 400) {
+      const loc = current.headers.get("location") ?? "";
+      const path = safePath(loc);
+      hops.push(path || "(vide)");
+      trace.push(`→ ${current.status} ${path || "(vide)"}`);
+      await current.text();
+      if (!loc || i === MAX_REDIRECTS) {
+        finalPath = path;
+        return { status: current.status, html: "", finalPath, hops };
+      }
+      const next = await fetch(new URL(loc, BASE).toString(), {
+        method: "GET",
+        redirect: "manual",
+        headers: { ...(jar.size ? { cookie: cookieHeader(jar) } : {}) },
+      });
+      mergeCookies(jar, next);
+      finalPath = path;
+      current = next;
+      continue;
+    }
+    html = await current.text();
+    trace.push(`→ ${current.status} (${html.length} o)`);
+    return { status: current.status, html, finalPath, hops };
+  }
+
+  return { status: current.status, html, finalPath, hops };
 }
 
 export async function runIxellioAuthTest(input: {
@@ -121,34 +183,41 @@ export async function runIxellioAuthTest(input: {
   plate: string;
 }): Promise<IxellioTestResult> {
   const started = Date.now();
+  // 5) Nouveau cookie jar à chaque test.
   const jar = new Map<string, string>();
+  const trace: string[] = [];
   const base: IxellioTestResult = {
     outcome: "unexpected_response",
     authenticated: false,
     loginStatus: null,
     searchStatus: null,
+    loginRedirect: null,
+    searchRedirect: null,
+    trace,
     durationMs: 0,
     bytes: 0,
     vehicle: {},
     message: "",
   };
+  const done = (patch: Partial<IxellioTestResult>): IxellioTestResult => ({
+    ...base,
+    ...patch,
+    trace,
+    durationMs: Date.now() - started,
+  });
 
   try {
-    // 1) Récupération d'une session anonyme (JSESSIONID) avant le login.
+    // 1) Session anonyme (JSESSIONID) avant le login.
     try {
       const seed = await fetch(`${BASE}/`, { redirect: "manual" });
       mergeCookies(jar, seed);
       await seed.text();
+      trace.push(`GET / ${seed.status}`);
     } catch {
       /* non bloquant */
     }
 
-    // 2) Authentification.
-    const body = new URLSearchParams({
-      j_username: input.username,
-      j_password: input.password,
-    }).toString();
-
+    // 2) Authentification Spring Security.
     const login = await fetch(LOGIN_URL, {
       method: "POST",
       redirect: "manual",
@@ -156,36 +225,51 @@ export async function runIxellioAuthTest(input: {
         "content-type": "application/x-www-form-urlencoded",
         ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
       },
-      body,
+      body: new URLSearchParams({
+        j_username: input.username,
+        j_password: input.password,
+      }).toString(),
     });
     mergeCookies(jar, login);
-    const loginBody = await login.text();
-    const location = login.headers.get("location") ?? "";
     base.loginStatus = login.status;
+    const loginLoc = safePath(login.headers.get("location") ?? "");
+    base.loginRedirect = loginLoc || null;
+    trace.push(`POST /j_spring_security_check ${login.status}${loginLoc ? ` → ${loginLoc}` : ""}`);
 
-    const failedLogin =
-      /error|login|authentification|denied/i.test(location) ||
-      (login.status === 200 && looksLikeLogin(loginBody));
+    // 3) Suivre jusqu'à 3 redirections GET.
+    const afterLogin = await followRedirects(login, jar, trace);
+    const loginPathChain = [loginLoc, ...afterLogin.hops].filter(Boolean);
+    const reachedMain = loginPathChain.some((p) => /mainMenu\.html/i.test(p));
+    const bouncedToLogin =
+      loginPathChain.some(isLoginPath) ||
+      (afterLogin.html.length > 0 && looksLikeLoginPage(afterLogin.html));
 
-    if (failedLogin) {
-      return {
-        ...base,
+    if (!reachedMain && bouncedToLogin) {
+      return done({
         outcome: "auth_refused",
-        durationMs: Date.now() - started,
-        message: "Identifiants refusés par IXELLIO (retour vers la page de connexion).",
-      };
+        message: `Identifiants refusés par IXELLIO (redirection finale : ${
+          loginPathChain[loginPathChain.length - 1] ?? "inconnue"
+        }).`,
+      });
     }
 
     if (login.status >= 400) {
-      return {
-        ...base,
+      return done({
         outcome: "unexpected_response",
-        durationMs: Date.now() - started,
         message: `Réponse inattendue du serveur IXELLIO lors du login (HTTP ${login.status}).`,
-      };
+      });
     }
 
-    // 3) Recherche par immatriculation dans la même session.
+    if (!reachedMain && afterLogin.html.length === 0 && afterLogin.status >= 300) {
+      return done({
+        outcome: "unexpected_response",
+        message: `Login : chaîne de redirection non résolue (HTTP ${afterLogin.status}, dernier chemin ${
+          afterLogin.finalPath || "inconnu"
+        }).`,
+      });
+    }
+
+    // 4) Recherche par immatriculation dans la même session.
     const search = await fetch(SEARCH_URL, {
       method: "POST",
       redirect: "manual",
@@ -196,56 +280,53 @@ export async function runIxellioAuthTest(input: {
       body: new URLSearchParams({ immat: input.plate }).toString(),
     });
     mergeCookies(jar, search);
-    const html = await search.text();
     base.searchStatus = search.status;
+    const searchLoc = safePath(search.headers.get("location") ?? "");
+    base.searchRedirect = searchLoc || null;
+    trace.push(`POST /ident.html?method=searchByImmat ${search.status}${searchLoc ? ` → ${searchLoc}` : ""}`);
+
+    const afterSearch = await followRedirects(search, jar, trace);
+    const searchChain = [searchLoc, ...afterSearch.hops].filter(Boolean);
+    const html = afterSearch.html;
     base.bytes = html.length;
 
-    if (search.status >= 300 && search.status < 400) {
-      const loc = search.headers.get("location") ?? "";
-      if (/login|ident|auth/i.test(loc) || loc === "") {
-        return {
-          ...base,
-          outcome: "redirect_to_login",
-          durationMs: Date.now() - started,
-          message: "La session n'a pas été conservée : IXELLIO redirige vers l'authentification.",
-        };
-      }
-      return {
-        ...base,
-        outcome: "unexpected_response",
-        durationMs: Date.now() - started,
-        message: `Redirection inattendue après la recherche (HTTP ${search.status}).`,
-      };
+    const backToLogin = searchChain.some(isLoginPath) || (html.length > 0 && looksLikeLoginPage(html));
+    if (backToLogin) {
+      return done({
+        searchRedirect: base.searchRedirect,
+        outcome: "redirect_to_login",
+        message: `La session n'a pas été conservée : retour à l'authentification (${
+          searchChain[searchChain.length - 1] ?? "page de connexion"
+        }).`,
+      });
     }
 
-    if (looksLikeLogin(html) && !/carte grise|code moteur|vin/i.test(html)) {
-      return {
-        ...base,
-        outcome: "redirect_to_login",
-        durationMs: Date.now() - started,
-        message: "Page de connexion renvoyée : la session serveur n'est pas authentifiée.",
-      };
+    if (html.length === 0) {
+      return done({
+        authenticated: reachedMain,
+        outcome: "unexpected_response",
+        message: `Recherche : aucune page finale exploitable (HTTP ${afterSearch.status}, dernier chemin ${
+          afterSearch.finalPath || searchLoc || "inconnu"
+        }).`,
+      });
     }
 
     const vehicle = parseVehicle(html);
     const found = Boolean(vehicle.vin ?? vehicle.marque ?? vehicle.codeMoteur ?? vehicle.modele);
 
-    return {
-      ...base,
+    return done({
       authenticated: true,
       vehicle,
+      bytes: html.length,
       outcome: found ? "auth_ok_vehicle_found" : "auth_ok_no_vehicle",
-      durationMs: Date.now() - started,
       message: found
         ? "Connexion réussie et véhicule identifié."
         : "Connexion réussie, mais aucune donnée véhicule exploitable pour cette plaque de test.",
-    };
+    });
   } catch (e) {
-    return {
-      ...base,
+    return done({
       outcome: "network_error",
-      durationMs: Date.now() - started,
       message: `Erreur réseau côté serveur : ${e instanceof Error ? e.message : "inconnue"}`,
-    };
+    });
   }
 }
