@@ -47,7 +47,7 @@ export function TourQuoteSection({
   model?: string | null;
   repairOrderId?: string | null;
 }) {
-  const { user, profile } = useAuth();
+  const { user, displayName } = useAuth();
   const [busy, setBusy] = useState(false);
 
   const quote = useQuery({
@@ -77,7 +77,7 @@ export function TourQuoteSection({
         refVehicleId: vehicle.refVehicleId ?? null,
         plate: plate ?? null,
         createdBy: user?.id ?? null,
-        createdByName: profile?.full_name ?? null,
+        createdByName: displayName || null,
       });
       await quote.refetch();
       toast.success("Proposition chiffrée générée");
