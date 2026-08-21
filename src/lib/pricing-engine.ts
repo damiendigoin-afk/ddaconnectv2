@@ -390,11 +390,19 @@ export function priceBodywork(ctx: EngineContext, req: BodyRequest): PricedItem 
   const repairHours = req.repairHours ?? Number(rule.repair_hours_default);
   const interventions = req.interventions ?? 1;
   const colorimetryHours = COLORIMETRY_HOURS * interventions;
-  const drOps = (rule.dr_operations as { code: string; label: string; hours: number }[] | null) ?? [];
+  const drOps =
+    (rule.dr_operations as { code: string; label: string; hours: number | null }[] | null) ?? [];
   const selectedDr = req.drCodes
     ? drOps.filter((o) => req.drCodes?.includes(o.code))
     : drOps;
-  const drHours = selectedDr.reduce((s, o) => s + Number(o.hours || 0), 0);
+  // Temps D/R non figés : tant qu'aucun barème n'est validé, les heures restent nulles
+  // et n'entrent pas dans le calcul ; l'opération reste listée comme à paramétrer.
+  const pendingDr = selectedDr.filter((o) => o.hours == null || Number.isNaN(Number(o.hours)));
+  const drHours = selectedDr.reduce(
+    (s, o) => s + (o.hours == null ? 0 : Number(o.hours) || 0),
+    0,
+  );
+
 
   const laborHours = repairHours + paintHours + colorimetryHours + drHours;
   const igpHours = paintHours + colorimetryHours;
