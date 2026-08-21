@@ -81,6 +81,10 @@ export async function runIxellioWithStoredCredentials(
       durationMs: 0,
       bytes: 0,
       vehicle: {},
+      detectedFields: [],
+      fieldCount: 0,
+      pairCount: 0,
+      isVersionList: false,
       message: NOT_CONFIGURED,
       notConfigured: true,
     };

@@ -51,6 +51,7 @@ export function IxellioVehicleLookup({
   const save = useServerFn(saveIxellioVehicle);
   const [state, setState] = useState<"ask" | "loading" | "done" | "declined">("ask");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [diag, setDiag] = useState<{ fields: string[]; count: number; versionList: boolean } | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<{ fields: number } | null>(null);
@@ -64,10 +65,16 @@ export function IxellioVehicleLookup({
     try {
       const res = await lookup({ data: { plate: norm } });
       setVehicle(res.ok ? res.vehicle : null);
+      setDiag({
+        fields: res.detectedFields ?? [],
+        count: res.fieldCount ?? 0,
+        versionList: Boolean(res.isVersionList),
+      });
       setMessage(res.message);
       setState("done");
     } catch (e) {
       setVehicle(null);
+      setDiag(null);
       setMessage(e instanceof Error ? e.message : "Interrogation IXELLIO impossible.");
       setState("done");
     }
@@ -144,6 +151,22 @@ export function IxellioVehicleLookup({
 
       {state === "done" && vehicle ? (
         <div className="mt-3 space-y-3">
+          <p className="text-[11px] font-bold uppercase text-muted-foreground">
+            {diag?.count ?? 0} champ(s) récupéré(s)
+            {diag?.fields.length ? ` : ${diag.fields.join(", ")}` : ""}
+          </p>
+          {diag && diag.versionList ? (
+            <p className="rounded-lg bg-status-watch-soft px-3 py-2 text-xs font-bold">
+              IXELLIO propose plusieurs versions pour cette immatriculation : aucune variante n'a été
+              choisie automatiquement.
+            </p>
+          ) : null}
+          {diag && diag.count > 0 && diag.count <= 1 ? (
+            <p className="rounded-lg bg-status-watch-soft px-3 py-2 text-xs font-bold">
+              IXELLIO a répondu mais l'extraction des détails est incomplète (seul le VIN a été
+              identifié).
+            </p>
+          ) : null}
           <dl className="grid grid-cols-2 gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
             {FIELDS.filter(([k]) => vehicle[k]).map(([k, label]) => (
               <div key={k}>
