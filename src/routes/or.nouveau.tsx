@@ -103,7 +103,12 @@ function NewOrder() {
     if (!normalizePlate(plate)) return;
     try {
       const hit = await refPrefill(plate);
-      if (!hit) return;
+      if (!hit) {
+        setRefHit(null);
+        setUnknownPlate(normalizePlate(plate));
+        return;
+      }
+      setUnknownPlate("");
       setRefHit(hit);
       setForm((f) => {
         const next = { ...f };
@@ -112,6 +117,7 @@ function NewOrder() {
         }
         return next;
       });
+
     } catch (e) {
       console.error(e);
     }
