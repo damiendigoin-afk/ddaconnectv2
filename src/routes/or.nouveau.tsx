@@ -4,6 +4,7 @@ import { Camera, CheckCircle2, FileText, Images, Loader2, PencilLine } from "luc
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
@@ -405,6 +406,9 @@ function NewOrder() {
   return (
     <AppShell title="Vérifier les informations" subtitle="Tous les champs sont modifiables" back={{ to: "/tour-vehicule" }}>
       <div className="space-y-4 pb-4">
+        {!refHit && unknownPlate ? (
+          <IxellioVehicleLookup plate={unknownPlate} onSaved={() => void applyRef(unknownPlate)} />
+        ) : null}
         {refHit ? (
           <div className="flex items-start gap-2 rounded-xl border-2 border-status-ok bg-card p-3 text-sm">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-ok" />
