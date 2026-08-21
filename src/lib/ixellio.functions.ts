@@ -31,12 +31,16 @@ export const testIxellioAuth = createServerFn({ method: "POST" })
         authenticated: false,
         loginStatus: null,
         searchStatus: null,
+        loginRedirect: null,
+        searchRedirect: null,
+        trace: [] as string[],
         durationMs: 0,
         bytes: 0,
         vehicle: {},
         message: "Accès réservé aux managers.",
       };
     }
+
 
     const { runIxellioAuthTest } = await import("./ixellio.server");
     return runIxellioAuthTest(data);

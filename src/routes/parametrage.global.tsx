@@ -117,9 +117,20 @@ function IxellioSettings() {
             {OUTCOME_LABEL[result.outcome] ?? result.outcome} — {result.message}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            Login : HTTP {result.loginStatus ?? "—"} · Recherche : HTTP {result.searchStatus ?? "—"} · Durée{" "}
-            {result.durationMs} ms · {result.bytes} octets
+            Login : HTTP {result.loginStatus ?? "—"}
+            {result.loginRedirect ? ` → ${result.loginRedirect}` : ""} · Recherche : HTTP{" "}
+            {result.searchStatus ?? "—"}
+            {result.searchRedirect ? ` → ${result.searchRedirect}` : ""} · Durée {result.durationMs} ms ·{" "}
+            {result.bytes} octets
           </div>
+          {result.trace?.length ? (
+            <ol className="space-y-1 rounded-lg bg-muted px-3 py-2 font-mono text-[10px] text-muted-foreground">
+              {result.trace.map((step, i) => (
+                <li key={`${i}-${step}`}>{step}</li>
+              ))}
+            </ol>
+          ) : null}
+
           {rows.some(([, val]) => val) ? (
             <dl className="grid grid-cols-2 gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
               {rows
