@@ -3525,6 +3525,7 @@ export type Database = {
           body_type: string | null
           brand: string | null
           cnit: string | null
+          co2_g_km: number | null
           color: string | null
           created_at: string
           ct_due_date: string | null
@@ -3532,6 +3533,7 @@ export type Database = {
           ct_photo_media_id: string | null
           ct_read_at: string | null
           ct_source: string | null
+          curb_weight_kg: number | null
           d2_code: string | null
           delivery_date: string | null
           doors: number | null
@@ -3539,8 +3541,10 @@ export type Database = {
           engine_code: string | null
           engine_size: string | null
           first_registration_date: string | null
+          fiscal_power: number | null
           gearbox: string | null
           gearbox_code: string | null
+          gvw_kg: number | null
           id: string
           import_id: string | null
           last_ct_date: string | null
@@ -3562,6 +3566,7 @@ export type Database = {
           sale_date: string | null
           seats: number | null
           site_id: string | null
+          source_raw: Json | null
           source_system: string
           source_vehicle_id: string | null
           trim_level: string | null
@@ -3573,11 +3578,13 @@ export type Database = {
           version: string | null
           vin: string | null
           vin_normalized: string | null
+          weight_kg: number | null
         }
         Insert: {
           body_type?: string | null
           brand?: string | null
           cnit?: string | null
+          co2_g_km?: number | null
           color?: string | null
           created_at?: string
           ct_due_date?: string | null
@@ -3585,6 +3592,7 @@ export type Database = {
           ct_photo_media_id?: string | null
           ct_read_at?: string | null
           ct_source?: string | null
+          curb_weight_kg?: number | null
           d2_code?: string | null
           delivery_date?: string | null
           doors?: number | null
@@ -3592,8 +3600,10 @@ export type Database = {
           engine_code?: string | null
           engine_size?: string | null
           first_registration_date?: string | null
+          fiscal_power?: number | null
           gearbox?: string | null
           gearbox_code?: string | null
+          gvw_kg?: number | null
           id?: string
           import_id?: string | null
           last_ct_date?: string | null
@@ -3615,6 +3625,7 @@ export type Database = {
           sale_date?: string | null
           seats?: number | null
           site_id?: string | null
+          source_raw?: Json | null
           source_system?: string
           source_vehicle_id?: string | null
           trim_level?: string | null
@@ -3626,11 +3637,13 @@ export type Database = {
           version?: string | null
           vin?: string | null
           vin_normalized?: string | null
+          weight_kg?: number | null
         }
         Update: {
           body_type?: string | null
           brand?: string | null
           cnit?: string | null
+          co2_g_km?: number | null
           color?: string | null
           created_at?: string
           ct_due_date?: string | null
@@ -3638,6 +3651,7 @@ export type Database = {
           ct_photo_media_id?: string | null
           ct_read_at?: string | null
           ct_source?: string | null
+          curb_weight_kg?: number | null
           d2_code?: string | null
           delivery_date?: string | null
           doors?: number | null
@@ -3645,8 +3659,10 @@ export type Database = {
           engine_code?: string | null
           engine_size?: string | null
           first_registration_date?: string | null
+          fiscal_power?: number | null
           gearbox?: string | null
           gearbox_code?: string | null
+          gvw_kg?: number | null
           id?: string
           import_id?: string | null
           last_ct_date?: string | null
@@ -3668,6 +3684,7 @@ export type Database = {
           sale_date?: string | null
           seats?: number | null
           site_id?: string | null
+          source_raw?: Json | null
           source_system?: string
           source_vehicle_id?: string | null
           trim_level?: string | null
@@ -3679,6 +3696,7 @@ export type Database = {
           version?: string | null
           vin?: string | null
           vin_normalized?: string | null
+          weight_kg?: number | null
         }
         Relationships: [
           {
