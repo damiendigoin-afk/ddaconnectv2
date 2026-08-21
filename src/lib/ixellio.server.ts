@@ -35,12 +35,20 @@ export type IxellioVehicle = {
   dateMec?: string;
   puissanceFiscale?: string;
   puissanceCh?: string;
+  puissanceKw?: string;
   portes?: string;
   places?: string;
   carrosserie?: string;
   poids?: string;
+  ptac?: string;
+  masseVide?: string;
   co2?: string;
+  couleur?: string;
+  codeBoite?: string;
+  tvv?: string;
+  genre?: string;
 };
+
 
 
 export type IxellioTestResult = {
@@ -127,18 +135,26 @@ function parseVehicle(html: string): IxellioVehicle {
   set("modele", ["Mod[eè]le"]);
   set("version", ["Version", "Finition"]);
   set("cnit", ["CNIT", "Code national d'identification"], 25);
-  set("typeMine", ["Type\\s*Mine", "Type mines", "Type variante version", "TVV"], 30);
+  set("typeMine", ["Type\\s*Mine", "Type mines"], 30);
+  set("tvv", ["Type variante version", "TVV"], 30);
   set("codeMoteur", ["Code moteur", "Type moteur"], 30);
   set("cylindree", ["Cylindr[ée]e"], 20);
   set("carburant", ["Carburant", "[ÉE]nergie"], 25);
   set("boite", ["Bo[iî]te de vitesses", "Bo[iî]te", "Transmission"], 30);
+  set("codeBoite", ["Code bo[iî]te", "Type de bo[iî]te"], 20);
   set("puissanceFiscale", ["Puissance fiscale", "Puiss\\. fiscale", "CV fiscaux"], 15);
   set("puissanceCh", ["Puissance ch", "Puissance \\(ch\\)", "Puissance r[ée]elle", "Puissance"], 15);
+  set("puissanceKw", ["Puissance kW", "Puissance \\(kW\\)", "Puiss\\. kW"], 15);
   set("portes", ["Nombre de portes", "Portes"], 10);
   set("places", ["Nombre de places", "Places"], 10);
-  set("carrosserie", ["Carrosserie", "Genre"], 30);
-  set("poids", ["Poids", "PTAC", "Masse"], 15);
+  set("carrosserie", ["Carrosserie"], 30);
+  set("genre", ["Genre"], 20);
+  set("couleur", ["Couleur", "Teinte"], 30);
+  set("ptac", ["PTAC", "Poids total autoris[ée]"], 15);
+  set("masseVide", ["Masse [àa] vide", "Poids [àa] vide"], 15);
+  set("poids", ["Poids", "Masse"], 15);
   set("co2", ["CO2", "[ÉE]missions"], 15);
+
 
   const mec = grab(["Date de 1re mise en circulation", "1re mise en circulation", "Date MEC", "Mise en circulation"], 20);
   const mecDate = mec ? /\d{2}[/-]\d{2}[/-]\d{2,4}/.exec(mec)?.[0] : undefined;

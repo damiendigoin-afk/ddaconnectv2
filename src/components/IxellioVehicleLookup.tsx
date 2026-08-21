@@ -18,19 +18,27 @@ const FIELDS: [string, string][] = [
   ["vin", "VIN"],
   ["cnit", "CNIT"],
   ["typeMine", "Type Mine"],
+  ["tvv", "TVV"],
   ["codeMoteur", "Code moteur"],
   ["cylindree", "Cylindrée"],
   ["carburant", "Carburant"],
   ["boite", "Boîte de vitesses"],
+  ["codeBoite", "Code boîte"],
   ["dateMec", "1re mise en circulation"],
-  ["puissanceFiscale", "Puissance fiscale"],
+  ["puissanceFiscale", "Puissance fiscale (CV)"],
   ["puissanceCh", "Puissance (ch)"],
+  ["puissanceKw", "Puissance (kW)"],
   ["portes", "Portes"],
   ["places", "Places"],
   ["carrosserie", "Carrosserie"],
+  ["genre", "Genre"],
+  ["couleur", "Couleur"],
   ["poids", "Poids"],
+  ["ptac", "PTAC"],
+  ["masseVide", "Masse à vide"],
   ["co2", "CO2"],
 ];
+
 
 export function IxellioVehicleLookup({
   plate,
@@ -45,7 +53,7 @@ export function IxellioVehicleLookup({
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<{ fields: number } | null>(null);
 
   const norm = normalizePlate(plate);
   if (norm.length < 4) return null;
@@ -72,7 +80,7 @@ export function IxellioVehicleLookup({
       const clean: Record<string, string> = {};
       for (const [k, v] of Object.entries(vehicle)) if (v) clean[k] = v;
       const res = await save({ data: { plate: norm, vehicle: clean } });
-      setSaved(true);
+      setSaved({ fields: res.storedFields });
       onSaved?.(res.id);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Enregistrement impossible.");
@@ -146,7 +154,7 @@ export function IxellioVehicleLookup({
           </dl>
           {saved ? (
             <p className="rounded-lg bg-status-ok-soft px-3 py-2 text-xs font-bold">
-              Véhicule enregistré dans DDA Connect.
+              Véhicule enregistré dans DDA Connect ({saved.fields} champs mémorisés et vérifiés).
             </p>
           ) : (
             <button
