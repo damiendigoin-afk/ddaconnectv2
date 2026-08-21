@@ -135,12 +135,20 @@ function PricingSettings() {
           <h2 className="text-sm font-bold uppercase tracking-widest">Politique commerciale</h2>
           <p className="text-xs text-muted-foreground">
             Marge appliquée = MAX(prix d'achat × pourcentage ; marge minimale fixe HT). Règle
-            réutilisée pour les pneus, batteries, accessoires et tout produit revendu.
+            réutilisée pour les pneus, batteries, accessoires et tout produit revendu. Aucune valeur
+            n'est imposée : renseignez le pourcentage et la marge minimale retenus par le garage.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Pourcentage de marge (%)" value={pct} onChange={setPct} />
             <Field label="Marge minimale fixe (€ HT)" value={minHt} onChange={setMinHt} />
           </div>
+          {Number(pct) === 0 && Number(minHt) === 0 ? (
+            <p className="text-xs text-amber-700">
+              Politique commerciale non renseignée : les prix de revente sont affichés au prix
+              d'achat tant qu'aucune marge n'est validée.
+            </p>
+          ) : null}
+
           <p className="text-xs text-muted-foreground">
             Exemple : achat 100 € HT → marge {example.marginHt.toFixed(2)} € → vente{" "}
             {example.sellHt.toFixed(2)} € HT.
@@ -179,30 +187,58 @@ function PricingSettings() {
           <h2 className="text-sm font-bold uppercase tracking-widest">Règles peinture par élément</h2>
           <p className="text-xs text-muted-foreground">
             Temps de peinture et temps de réparation distincts et modifiables. Colorimétrie : 1 h par
-            intervention peinture (pas par élément). IGP = heures peinture + heures colorimétrie.
+            intervention peinture (pas par élément). IGP = heures peinture + heures colorimétrie. Les
+            temps de dépose/repose restent vides tant qu'un barème n'est pas validé : ils ne sont pas
+            chiffrés automatiquement.
           </p>
           <div className="space-y-2">
-            {(paint.data ?? []).map((r) => (
-              <div key={r.id} className="rounded-xl border border-border p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold">{r.label}</span>
-                  <span className="text-xs uppercase text-muted-foreground">{r.element_size}</span>
+            {(paint.data ?? []).map((r) => {
+              const drOps =
+                (r.dr_operations as { code: string; label: string; hours: number | null }[] | null) ??
+                [];
+              return (
+                <div key={r.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold">{r.label}</span>
+                    <span className="text-xs uppercase text-muted-foreground">{r.element_size}</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Field
+                      label="Peinture (h)"
+                      value={String(r.paint_hours)}
+                      onChange={(v) => void savePaint(r, { paint_hours: Number(v) || 0 })}
+                    />
+                    <Field
+                      label="Réparation (h)"
+                      value={String(r.repair_hours_default)}
+                      onChange={(v) => void savePaint(r, { repair_hours_default: Number(v) || 0 })}
+                    />
+                  </div>
+                  {drOps.length ? (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        Dépose / repose associées
+                      </p>
+                      {drOps.map((op, i) => (
+                        <Field
+                          key={op.code}
+                          label={`${op.label} (h)${op.hours == null ? " — non renseigné" : ""}`}
+                          value={op.hours == null ? "" : String(op.hours)}
+                          onChange={(v) => {
+                            const next = drOps.map((o, j) =>
+                              j === i ? { ...o, hours: v.trim() === "" ? null : Number(v) || 0 } : o,
+                            );
+                            void savePaint(r, { dr_operations: next as never });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Field
-                    label="Peinture (h)"
-                    value={String(r.paint_hours)}
-                    onChange={(v) => void savePaint(r, { paint_hours: Number(v) || 0 })}
-                  />
-                  <Field
-                    label="Réparation (h)"
-                    value={String(r.repair_hours_default)}
-                    onChange={(v) => void savePaint(r, { repair_hours_default: Number(v) || 0 })}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
         </section>
 
         <section className="card-surface space-y-3 p-4">
