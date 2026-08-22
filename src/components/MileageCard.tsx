@@ -25,11 +25,19 @@ export function MileageCard({
   current: number | null;
   onSaved: (value: number) => void;
 }) {
+  // §36 — aucune valeur arbitraire préremplie : le champ part vide tant que rien n'est saisi.
   const [value, setValue] = useState(current ? String(current) : "");
   const [detected, setDetected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastMediaId, setLastMediaId] = useState<string | null>(null);
   const camRef = useRef<HTMLInputElement>(null);
+  const fieldRef = useRef<HTMLInputElement>(null);
+
+  // §35 — à l'ouverture, le curseur se place dans le champ (clavier numérique).
+  useEffect(() => {
+    fieldRef.current?.focus();
+  }, []);
+
 
   async function analyse(file: File) {
     if (busy) return;
