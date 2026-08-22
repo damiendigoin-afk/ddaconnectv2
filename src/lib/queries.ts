@@ -120,6 +120,7 @@ export type RecentTour = {
   model: string | null;
   or_id: string | null;
   or_number: string | null;
+  internal_ref: string | null;
   client_name: string;
 };
 
@@ -149,6 +150,7 @@ export async function fetchRecentTours(
     const o = (i.repair_order ?? null) as {
       id?: string;
       or_number?: string;
+      internal_ref?: string;
       client?: { first_name?: string; last_name?: string } | null;
     } | null;
     return {
@@ -176,6 +178,7 @@ export async function fetchRecentTours(
       model: v?.model ?? null,
       or_id: o?.id ?? null,
       or_number: o?.or_number ?? null,
+      internal_ref: o?.internal_ref ?? null,
       client_name: [o?.client?.first_name, o?.client?.last_name].filter(Boolean).join(" "),
     };
   });
