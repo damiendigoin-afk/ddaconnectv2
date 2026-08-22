@@ -99,7 +99,10 @@ type Rule = {
 
 /**
  * Règles issues des cas métier validés (§6 à §24).
- * Aucun barème inventé : les délais proviennent explicitement du §25.
+ * Aucun barème inventé : seuls trois délais explicitement validés sont appliqués
+ * (prospect VO < 1 h, suivi commercial J+1, partenariat J+7). Partout ailleurs,
+ * seule l'urgence qualitative est posée et `due_at` / `expires_at` restent nuls
+ * tant qu'aucune date réelle n'est extraite ou paramétrée.
  */
 const RULES: Rule[] = [
   {
@@ -129,12 +132,12 @@ const RULES: Rule[] = [
       actionRequired: true,
       humanRequired: true,
       services: ["admin", "compta"],
-      dueInMinutes: 30 * DAY,
+      dueInMinutes: null,
       expiresInDays: null,
       confidence: "moyenne",
       status: "a_traiter",
     },
-    reason: "Conformité facturation électronique : action obligatoire, urgence croissante à l'approche de l'échéance.",
+    reason: "Conformité facturation électronique : action obligatoire. Échéance renseignée uniquement si une date réelle est extraite du message ou paramétrée.",
   },
   {
     // §17 / §23 — carrosserie ou VO avec règlement / facturation bloqué
@@ -146,12 +149,12 @@ const RULES: Rule[] = [
       actionRequired: true,
       humanRequired: true,
       services: ["compta", "vente_vo", "carrosserie"],
-      dueInMinutes: 2 * DAY,
+      dueInMinutes: null,
       expiresInDays: null,
       confidence: "moyenne",
       status: "a_traiter",
     },
-    reason: "Dossier bloqué en facturation / règlement : reste ouvert jusqu'à régularisation humaine.",
+    reason: "Dossier bloqué en facturation / règlement : reste ouvert jusqu'à régularisation humaine, sans échéance arbitraire.",
   },
   {
     // §20 / §21 — bon de commande achat VO
@@ -163,7 +166,7 @@ const RULES: Rule[] = [
       actionRequired: true,
       humanRequired: true,
       services: ["vente_vo", "compta", "tresorerie", "secretariat_vo"],
-      dueInMinutes: 2 * DAY,
+      dueInMinutes: null,
       expiresInDays: null,
       confidence: "moyenne",
       status: "a_traiter",
@@ -180,7 +183,7 @@ const RULES: Rule[] = [
       actionRequired: true,
       humanRequired: true,
       services: ["carrosserie"],
-      dueInMinutes: 2 * DAY,
+      dueInMinutes: null,
       expiresInDays: null,
       confidence: "moyenne",
       status: "a_traiter",
@@ -197,7 +200,7 @@ const RULES: Rule[] = [
       actionRequired: true,
       humanRequired: true,
       services: ["atelier"],
-      dueInMinutes: 1 * DAY,
+      dueInMinutes: null,
       expiresInDays: null,
       confidence: "moyenne",
       status: "a_traiter",
@@ -264,12 +267,12 @@ const RULES: Rule[] = [
       actionRequired: true,
       humanRequired: true,
       services: ["rh", "admin"],
-      dueInMinutes: 5 * DAY,
+      dueInMinutes: null,
       expiresInDays: null,
       confidence: "moyenne",
       status: "a_traiter",
     },
-    reason: "RH administratif / conformité : délai moyen, obligations et échéances à contrôler humainement.",
+    reason: "RH administratif / conformité : urgence moyenne, échéance réelle à saisir humainement le cas échéant.",
   },
   {
     // §6 — info technique atelier
@@ -316,11 +319,11 @@ const RULES: Rule[] = [
       humanRequired: false,
       services: ["atelier", "admin"],
       dueInMinutes: null,
-      expiresInDays: 30,
+      expiresInDays: null,
       confidence: "faible",
       status: "a_qualifier",
     },
-    reason: "Information temporaire fournisseur : priorité faible, disparaît de la vue active à expiration.",
+    reason: "Information temporaire fournisseur : priorité faible. Date d'expiration renseignée seulement si une date réelle de retour / fin est connue.",
   },
   {
     // §8 — publicité pure
@@ -333,7 +336,7 @@ const RULES: Rule[] = [
       humanRequired: false,
       services: [],
       dueInMinutes: null,
-      expiresInDays: 15,
+      expiresInDays: null,
       confidence: "faible",
       status: "sans_suite",
     },
