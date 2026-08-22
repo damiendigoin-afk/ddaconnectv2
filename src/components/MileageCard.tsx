@@ -138,10 +138,15 @@ export function MileageCard({
       ) : null}
       <div className="flex items-center gap-2">
         <input
+          ref={fieldRef}
+          autoFocus
+          type="text"
           inputMode="numeric"
+          pattern="[0-9]*"
+          aria-label="Kilométrage compteur"
           value={value}
           onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
-          placeholder="78452"
+          placeholder="Kilométrage relevé"
           className="flex-1 rounded-lg border-2 border-border px-3 py-3 text-xl font-bold outline-none focus:border-brand"
         />
         <span className="font-bold">km</span>
@@ -153,13 +158,7 @@ export function MileageCard({
       >
         Confirmer le kilométrage
       </button>
-      {inspectionId ? (
-        <PhotoManager
-          compact
-          folder={`inspections/${inspectionId}`}
-          links={{ inspection_id: inspectionId, ...(pointId ? { inspection_point_id: pointId } : {}) }}
-        />
-      ) : null}
     </div>
   );
+
 }
