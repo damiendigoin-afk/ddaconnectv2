@@ -1,12 +1,12 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { PhotoManager } from "@/components/PhotoManager";
 import { blobToDataUrl, compressImage, uploadPhotoOriginal } from "@/lib/photo";
 import { ocrStoredOdometer } from "@/lib/mileage-ocr.functions";
 import { ocrOdometer } from "@/lib/ocr.functions";
 import { saveMileage } from "@/lib/tour";
+
 
 export function MileageCard({
   inspectionId,
