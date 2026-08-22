@@ -263,3 +263,12 @@ export function computeStats(rows: EmailRow[]): EmailStats {
     classifiedRate: rows.length ? Math.round((classified / rows.length) * 100) : 0,
   };
 }
+
+/**
+ * §4 — validation humaine : un sujet ne devient « traité » que par une action humaine
+ * explicite, jamais automatiquement.
+ */
+export async function setTriageStatus(id: string, status: string) {
+  const { error } = await supabase.from("emails").update({ triage_status: status }).eq("id", id);
+  if (error) throw error;
+}
