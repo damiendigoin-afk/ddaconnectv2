@@ -6,6 +6,8 @@ import {
   threadKeyOf,
   type EmailCategory,
 } from "@/lib/emails-core";
+import { dueAtFrom, expiresAtFrom, triageIncoming } from "@/lib/triage-core";
+
 
 export type EmailAccount = {
   id: string;
@@ -37,6 +39,16 @@ export type EmailRow = {
   gmail_thread_id: string | null;
   has_attachments: boolean;
   site_id: string | null;
+  importance: string;
+  urgency: string;
+  action_required: boolean;
+  human_required: boolean;
+  services: string[];
+  due_at: string | null;
+  expires_at: string | null;
+  triage_status: string;
+  triage_confidence: string;
+  triage_reason: string | null;
   receipts: { mailbox_address: string; person_name: string | null }[];
 };
 
@@ -77,16 +89,25 @@ export async function fetchEmails(opts: {
   category?: string;
   mailbox?: string;
   siteId?: string | null;
+  /** Filtre sur l'état de traitement (§4, §29). */
+  triage?: string;
+  /** §5 — les informations temporaires expirées sortent de la vue active. */
+  includeExpired?: boolean;
   limit?: number;
 }): Promise<EmailRow[]> {
   let q = supabase
     .from("emails")
     .select(
-      "id, sent_at, from_address, from_name, to_addresses, cc_addresses, subject, snippet, body_text, kind, category, category_confidence, thread_key, gmail_thread_id, has_attachments, site_id, receipts:email_receipts(mailbox_address, person_name)",
+      "id, sent_at, from_address, from_name, to_addresses, cc_addresses, subject, snippet, body_text, kind, category, category_confidence, thread_key, gmail_thread_id, has_attachments, site_id, importance, urgency, action_required, human_required, services, due_at, expires_at, triage_status, triage_confidence, triage_reason, receipts:email_receipts(mailbox_address, person_name)",
     )
     .order("sent_at", { ascending: false })
     .limit(opts.limit ?? 200);
   if (opts.category && opts.category !== "all") q = q.eq("category", opts.category);
+  if (opts.triage && opts.triage !== "all") {
+    if (opts.triage === "a_faire") q = q.eq("action_required", true).in("triage_status", ["a_qualifier", "a_traiter", "en_cours"]);
+    else q = q.eq("triage_status", opts.triage);
+  }
+  if (!opts.includeExpired) q = q.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
   if (opts.siteId) q = q.eq("site_id", opts.siteId);
   if (opts.search && opts.search.trim().length > 1) {
     const s = `%${opts.search.trim()}%`;
@@ -139,6 +160,13 @@ export async function ingestEmail(e: IncomingEmail): Promise<{ emailId: string; 
 
   if (!emailId) {
     const cat = categorizeEmail({ subject: e.subject, body: e.bodyText ?? e.bodyHtml, from: e.from });
+    const tri = triageIncoming({
+      subject: e.subject,
+      body: e.bodyText ?? e.bodyHtml,
+      from: e.from,
+      hasAttachments: !!e.attachments?.length,
+    });
+
     const { data, error } = await supabase
       .from("emails")
       .insert({
@@ -158,6 +186,16 @@ export async function ingestEmail(e: IncomingEmail): Promise<{ emailId: string; 
         kind: messageKind(e.subject),
         category: cat.category,
         category_confidence: cat.confidence,
+        importance: tri.importance,
+        urgency: tri.urgency,
+        action_required: tri.actionRequired,
+        human_required: tri.humanRequired,
+        services: tri.services,
+        due_at: dueAtFrom(e.sentAt, tri.dueInMinutes),
+        expires_at: expiresAtFrom(e.sentAt, tri.expiresInDays),
+        triage_status: tri.status,
+        triage_confidence: tri.confidence,
+        triage_reason: tri.reason,
         site_id: e.siteId ?? null,
         has_attachments: !!e.attachments?.length,
       })
@@ -224,4 +262,13 @@ export function computeStats(rows: EmailRow[]): EmailStats {
     byMailbox: [...box.entries()].map(([mailbox, count]) => ({ mailbox, count })).sort((a, b) => b.count - a.count),
     classifiedRate: rows.length ? Math.round((classified / rows.length) * 100) : 0,
   };
+}
+
+/**
+ * §4 — validation humaine : un sujet ne devient « traité » que par une action humaine
+ * explicite, jamais automatiquement.
+ */
+export async function setTriageStatus(id: string, status: string) {
+  const { error } = await supabase.from("emails").update({ triage_status: status }).eq("id", id);
+  if (error) throw error;
 }

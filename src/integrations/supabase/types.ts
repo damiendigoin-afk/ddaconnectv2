@@ -1890,6 +1890,7 @@ export type Database = {
       }
       emails: {
         Row: {
+          action_required: boolean
           body_html: string | null
           body_text: string | null
           category: string
@@ -1897,23 +1898,33 @@ export type Database = {
           category_source: string
           cc_addresses: string[]
           created_at: string
+          due_at: string | null
+          expires_at: string | null
           fingerprint: string
           from_address: string
           from_name: string | null
           gmail_thread_id: string | null
           has_attachments: boolean
+          human_required: boolean
           id: string
+          importance: string
           kind: string
           rfc_message_id: string | null
           sent_at: string
+          services: string[]
           site_id: string | null
           snippet: string | null
           subject: string | null
           thread_key: string | null
           to_addresses: string[]
+          triage_confidence: string
+          triage_reason: string | null
+          triage_status: string
           updated_at: string
+          urgency: string
         }
         Insert: {
+          action_required?: boolean
           body_html?: string | null
           body_text?: string | null
           category?: string
@@ -1921,23 +1932,33 @@ export type Database = {
           category_source?: string
           cc_addresses?: string[]
           created_at?: string
+          due_at?: string | null
+          expires_at?: string | null
           fingerprint: string
           from_address: string
           from_name?: string | null
           gmail_thread_id?: string | null
           has_attachments?: boolean
+          human_required?: boolean
           id?: string
+          importance?: string
           kind?: string
           rfc_message_id?: string | null
           sent_at: string
+          services?: string[]
           site_id?: string | null
           snippet?: string | null
           subject?: string | null
           thread_key?: string | null
           to_addresses?: string[]
+          triage_confidence?: string
+          triage_reason?: string | null
+          triage_status?: string
           updated_at?: string
+          urgency?: string
         }
         Update: {
+          action_required?: boolean
           body_html?: string | null
           body_text?: string | null
           category?: string
@@ -1945,21 +1966,30 @@ export type Database = {
           category_source?: string
           cc_addresses?: string[]
           created_at?: string
+          due_at?: string | null
+          expires_at?: string | null
           fingerprint?: string
           from_address?: string
           from_name?: string | null
           gmail_thread_id?: string | null
           has_attachments?: boolean
+          human_required?: boolean
           id?: string
+          importance?: string
           kind?: string
           rfc_message_id?: string | null
           sent_at?: string
+          services?: string[]
           site_id?: string | null
           snippet?: string | null
           subject?: string | null
           thread_key?: string | null
           to_addresses?: string[]
+          triage_confidence?: string
+          triage_reason?: string | null
+          triage_status?: string
           updated_at?: string
+          urgency?: string
         }
         Relationships: [
           {
@@ -4106,9 +4136,11 @@ export type Database = {
           delivery_at: string | null
           entry_at: string | null
           id: string
+          internal_ref: string | null
           mileage_in: number | null
           or_date: string | null
           or_number: string | null
+          or_status: string
           requested_work: string | null
           site_id: string | null
           status: string
@@ -4123,9 +4155,11 @@ export type Database = {
           delivery_at?: string | null
           entry_at?: string | null
           id?: string
+          internal_ref?: string | null
           mileage_in?: number | null
           or_date?: string | null
           or_number?: string | null
+          or_status?: string
           requested_work?: string | null
           site_id?: string | null
           status?: string
@@ -4140,9 +4174,11 @@ export type Database = {
           delivery_at?: string | null
           entry_at?: string | null
           id?: string
+          internal_ref?: string | null
           mileage_in?: number | null
           or_date?: string | null
           or_number?: string | null
+          or_status?: string
           requested_work?: string | null
           site_id?: string | null
           status?: string
@@ -5417,6 +5453,7 @@ export type Database = {
         Returns: boolean
       }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
+      next_dda_order_ref: { Args: never; Returns: string }
       next_part_return_ref: { Args: never; Returns: string }
       norm_person: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }

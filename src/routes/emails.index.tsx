@@ -14,10 +14,21 @@ import {
   fetchEmails,
   receivedByLabel,
   setAccountStatus,
+  setTriageStatus,
   upsertEmailAccount,
   type EmailAccount,
   type EmailRow,
 } from "@/lib/emails";
+import {
+  IMPORTANCE_LABELS,
+  SERVICE_LABELS,
+  TRIAGE_STATUS_LABELS,
+  URGENCY_LABELS,
+  type Importance,
+  type Service,
+  type TriageStatus,
+  type Urgency,
+} from "@/lib/triage-core";
 import {
   disconnectGmail,
   getGmailAuthUrl,
@@ -48,6 +59,7 @@ function EmailsPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [mailbox, setMailbox] = useState("all");
+  const [triage, setTriage] = useState("all");
   const [tab, setTab] = useState<"flux" | "boites">("flux");
   const [open, setOpen] = useState<string | null>(null);
   const [newBox, setNewBox] = useState("");
@@ -67,8 +79,8 @@ function EmailsPage() {
 
   const accounts = useQuery({ queryKey: ["email-accounts"], queryFn: fetchEmailAccounts });
   const emails = useQuery({
-    queryKey: ["emails", search, category, mailbox],
-    queryFn: () => fetchEmails({ search, category, mailbox }),
+    queryKey: ["emails", search, category, mailbox, triage],
+    queryFn: () => fetchEmails({ search, category, mailbox, triage }),
   });
 
   const stats = useMemo(() => computeStats(emails.data ?? []), [emails.data]);
@@ -105,6 +117,15 @@ function EmailsPage() {
       await qc.invalidateQueries({ queryKey: ["email-accounts"] });
     },
     onError: (e) => toastError(e, "Synchronisation Gmail impossible"),
+  });
+
+  const markTriage = useMutation({
+    mutationFn: (a: { id: string; status: TriageStatus }) => setTriageStatus(a.id, a.status),
+    onSuccess: async () => {
+      toast.success("Suivi mis à jour");
+      await qc.invalidateQueries({ queryKey: ["emails"] });
+    },
+    onError: (e) => toastError(e, "Mise à jour du suivi impossible"),
   });
 
   const disconnectGmailMut = useMutation({
@@ -154,6 +175,14 @@ function EmailsPage() {
             />
 
             <div className="flex gap-2 overflow-x-auto pb-1">
+              <Chip active={triage === "all"} onClick={() => setTriage("all")} label="Tout le flux" />
+              <Chip active={triage === "a_faire"} onClick={() => setTriage("a_faire")} label="À traiter / action" />
+              {(Object.keys(TRIAGE_STATUS_LABELS) as TriageStatus[]).map((st) => (
+                <Chip key={st} active={triage === st} onClick={() => setTriage(st)} label={TRIAGE_STATUS_LABELS[st]} />
+              ))}
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1">
               <Chip active={category === "all"} onClick={() => setCategory("all")} label="Toutes" />
               {EMAIL_CATEGORIES.map((c) => (
                 <Chip key={c} active={category === c} onClick={() => setCategory(c)} label={CATEGORY_LABELS[c]} />
@@ -176,7 +205,13 @@ function EmailsPage() {
 
             <div className="space-y-2">
               {(emails.data ?? []).map((m) => (
-                <EmailCard key={m.id} row={m} open={open === m.id} onToggle={() => setOpen((v) => (v === m.id ? null : m.id))} />
+                <EmailCard
+                  key={m.id}
+                  row={m}
+                  open={open === m.id}
+                  onToggle={() => setOpen((v) => (v === m.id ? null : m.id))}
+                  onStatus={(status) => markTriage.mutate({ id: m.id, status })}
+                />
               ))}
               {emails.data && !emails.data.length ? (
                 <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -290,10 +325,23 @@ function EmailsPage() {
   );
 }
 
-function EmailCard({ row, open, onToggle }: { row: EmailRow; open: boolean; onToggle: () => void }) {
+function EmailCard({
+  row,
+  open,
+  onToggle,
+  onStatus,
+}: {
+  row: EmailRow;
+  open: boolean;
+  onToggle: () => void;
+  onStatus: (status: TriageStatus) => void;
+}) {
   const received = receivedByLabel(row);
+  const services = (row.services ?? []) as Service[];
+  const late = row.due_at ? new Date(row.due_at).getTime() < Date.now() : false;
   return (
-    <button onClick={onToggle} className="card-surface w-full space-y-1 p-4 text-left">
+    <div className="card-surface w-full space-y-1 p-4 text-left">
+      <button type="button" onClick={onToggle} className="w-full space-y-1 text-left">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold">{row.subject || "(sans objet)"}</div>
@@ -320,14 +368,57 @@ function EmailCard({ row, open, onToggle }: { row: EmailRow; open: boolean; onTo
           </span>
         ) : null}
       </div>
+      <div className="flex flex-wrap items-center gap-1 pt-1">
+        <Tag label={IMPORTANCE_LABELS[row.importance as Importance] ?? row.importance} />
+        <Tag label={URGENCY_LABELS[row.urgency as Urgency] ?? row.urgency} />
+        <Tag label={TRIAGE_STATUS_LABELS[row.triage_status as TriageStatus] ?? row.triage_status} />
+        {row.action_required ? <Tag label="Action requise" /> : null}
+        {row.human_required ? <Tag label="Traitement humain" /> : null}
+        <Tag label={`Confiance ${row.triage_confidence}`} />
+        {services.map((sv) => (
+          <Tag key={sv} label={SERVICE_LABELS[sv] ?? sv} />
+        ))}
+        {row.due_at ? (
+          <Tag label={`${late ? "En retard depuis" : "À traiter avant"} ${new Date(row.due_at).toLocaleString("fr-FR")}`} />
+        ) : null}
+        {row.expires_at ? (
+          <Tag label={`Expire le ${new Date(row.expires_at).toLocaleDateString("fr-FR")}`} />
+        ) : null}
+      </div>
+        {open ? (
+          <p className="whitespace-pre-wrap border-t border-border pt-2 text-xs">
+            {row.body_text || row.snippet || "Contenu non disponible."}
+          </p>
+        ) : row.snippet ? (
+          <p className="line-clamp-2 text-xs text-muted-foreground">{row.snippet}</p>
+        ) : null}
+      </button>
       {open ? (
-        <p className="whitespace-pre-wrap border-t border-border pt-2 text-xs">
-          {row.body_text || row.snippet || "Contenu non disponible."}
-        </p>
-      ) : row.snippet ? (
-        <p className="line-clamp-2 text-xs text-muted-foreground">{row.snippet}</p>
+        <div className="space-y-2 border-t border-border pt-2">
+          {row.triage_reason ? <p className="text-[11px] text-muted-foreground">{row.triage_reason}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            {(["a_traiter", "en_cours", "traite", "sans_suite"] as TriageStatus[]).map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => onStatus(st)}
+                className="rounded-lg border-2 border-border px-3 py-2 text-[11px] font-bold uppercase"
+              >
+                {TRIAGE_STATUS_LABELS[st]}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
-    </button>
+    </div>
+  );
+}
+
+function Tag({ label }: { label: string }) {
+  return (
+    <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+      {label}
+    </span>
   );
 }
 

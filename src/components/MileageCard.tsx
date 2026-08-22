@@ -1,12 +1,12 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { PhotoManager } from "@/components/PhotoManager";
 import { blobToDataUrl, compressImage, uploadPhotoOriginal } from "@/lib/photo";
 import { ocrStoredOdometer } from "@/lib/mileage-ocr.functions";
 import { ocrOdometer } from "@/lib/ocr.functions";
 import { saveMileage } from "@/lib/tour";
+
 
 export function MileageCard({
   inspectionId,
@@ -25,11 +25,19 @@ export function MileageCard({
   current: number | null;
   onSaved: (value: number) => void;
 }) {
+  // §36 — aucune valeur arbitraire préremplie : le champ part vide tant que rien n'est saisi.
   const [value, setValue] = useState(current ? String(current) : "");
   const [detected, setDetected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastMediaId, setLastMediaId] = useState<string | null>(null);
   const camRef = useRef<HTMLInputElement>(null);
+  const fieldRef = useRef<HTMLInputElement>(null);
+
+  // §35 — à l'ouverture, le curseur se place dans le champ (clavier numérique).
+  useEffect(() => {
+    fieldRef.current?.focus();
+  }, []);
+
 
   async function analyse(file: File) {
     if (busy) return;
@@ -99,8 +107,10 @@ export function MileageCard({
     <div className="card-surface space-y-3 border-2 border-brand p-4">
       <h3 className="font-bold uppercase">{title ?? "Kilométrage compteur"}</h3>
       <p className="text-xs text-muted-foreground">
-        Dernier kilométrage connu : {previous ? `${previous.toLocaleString("fr-FR")} km` : "—"}
+        Dernier kilométrage connu : {(previous ?? 0).toLocaleString("fr-FR")} km
+        <span className="block">Référence uniquement — le kilométrage actuel doit être confirmé.</span>
       </p>
+
       <button
         type="button"
         onClick={() => camRef.current?.click()}
@@ -128,10 +138,15 @@ export function MileageCard({
       ) : null}
       <div className="flex items-center gap-2">
         <input
+          ref={fieldRef}
+          autoFocus
+          type="text"
           inputMode="numeric"
+          pattern="[0-9]*"
+          aria-label="Kilométrage compteur"
           value={value}
           onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
-          placeholder="78452"
+          placeholder="Kilométrage relevé"
           className="flex-1 rounded-lg border-2 border-border px-3 py-3 text-xl font-bold outline-none focus:border-brand"
         />
         <span className="font-bold">km</span>
@@ -143,13 +158,7 @@ export function MileageCard({
       >
         Confirmer le kilométrage
       </button>
-      {inspectionId ? (
-        <PhotoManager
-          compact
-          folder={`inspections/${inspectionId}`}
-          links={{ inspection_id: inspectionId, ...(pointId ? { inspection_point_id: pointId } : {}) }}
-        />
-      ) : null}
     </div>
   );
+
 }

@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
 import { formatPlate } from "@/lib/plate";
 import { createInspection } from "@/lib/tour";
+import { OR_PENDING_LABEL, attachOrNumber, isOrPending, orLabel } from "@/lib/or-ref";
 import { GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/or/$orId")({
@@ -72,7 +73,7 @@ function OrderPage() {
   }
 
   return (
-    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={`OR ${order.data?.or_number ?? "—"}`} back={{ to: "/tour-vehicule" }}>
+    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={orLabel(order.data as { or_number?: string | null; internal_ref?: string | null } | undefined)} back={{ to: "/tour-vehicule" }}>
       {order.isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement…</p>
       ) : editing && order.data ? (
@@ -95,7 +96,8 @@ function OrderPage() {
             <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
               <Info label="Kilométrage connu" value={v?.last_mileage ? `${v.last_mileage.toLocaleString("fr-FR")} km` : "—"} />
               <Info label="Date OR" value={order.data?.or_date ? new Date(order.data.or_date).toLocaleDateString("fr-FR") : "—"} />
-              <Info label="N° OR" value={order.data?.or_number ?? "—"} />
+              <Info label="N° OR WinMotor" value={order.data?.or_number ?? OR_PENDING_LABEL} />
+              <Info label="Référence interne DDA" value={order.data?.internal_ref ?? "—"} />
               <Info label="Client" value={[c?.["first_name"], c?.["last_name"]].filter(Boolean).join(" ") || "—"} />
             </div>
             <button
@@ -119,6 +121,17 @@ function OrderPage() {
               </div>
             ) : null}
           </section>
+
+          {isOrPending(order.data as { or_number?: string | null } | undefined) ? (
+            <OrNumberCompletion
+              orderId={orId}
+              plate={v?.plate ?? ""}
+              onDone={() => {
+                void qc.invalidateQueries({ queryKey: ["order", orId] });
+                void qc.invalidateQueries({ queryKey: ["recent-orders"] });
+              }}
+            />
+          ) : null}
 
           <button
             onClick={() => setEditing(true)}
@@ -280,5 +293,70 @@ function Info({ label, value }: { label: string; value: string }) {
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="font-semibold">{value}</div>
     </div>
+  );
+}
+/**
+ * §33 — rattachement du numéro d'OR WinMotor à un dossier déjà ouvert.
+ * Recherche avant création : en cas de numéro déjà utilisé, aucune fusion automatique.
+ */
+function OrNumberCompletion({
+  orderId,
+  plate,
+  onDone,
+}: {
+  orderId: string;
+  plate: string;
+  onDone: () => void;
+}) {
+  const [num, setNum] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!num.trim() || busy) return;
+    setBusy(true);
+    try {
+      const res = await attachOrNumber({ orderId, orNumber: num, plate });
+      if (res.conflict?.length) {
+        toast.error(
+          `Ce numéro d'OR est déjà utilisé (${res.conflict.map((c) => c.plate || "dossier").join(", ")}) — vérification humaine requise.`,
+        );
+        return;
+      }
+      if (!res.ok) {
+        toast.error(res.error ?? "Rattachement impossible");
+        return;
+      }
+      toast.success("Numéro d'OR WinMotor rattaché");
+      setNum("");
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card-surface space-y-2 border-2 border-status-watch p-4">
+      <h2 className="text-xs font-bold uppercase tracking-widest text-status-watch">{OR_PENDING_LABEL}</h2>
+      <p className="text-xs text-muted-foreground">
+        Le dossier fonctionne normalement sans numéro officiel. Renseignez-le dès que WinMotor l'a généré.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={num}
+          onChange={(e) => setNum(e.target.value)}
+          aria-label="Numéro d'OR WinMotor"
+          placeholder="N° OR WinMotor"
+          className="flex-1 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold outline-none focus:border-brand"
+        />
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={busy || !num.trim()}
+          className="rounded-lg bg-brand px-4 py-3 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-50"
+        >
+          Rattacher
+        </button>
+      </div>
+    </section>
   );
 }

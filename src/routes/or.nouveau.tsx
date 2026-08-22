@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
+import { nextInternalRef } from "@/lib/or-ref";
+
 import { refPrefill, type RefPrefill } from "@/lib/refbase";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
@@ -192,10 +194,8 @@ function NewOrder() {
       toast.error("L'immatriculation est obligatoire");
       return;
     }
-    if (!form.or_number.trim()) {
-      toast.error("Le n° d'OR est obligatoire");
-      return;
-    }
+    // §33 — le n° d'OR WinMotor est facultatif : il peut ne pas exister à l'accueil.
+
     if (!form.last_name.trim()) {
       toast.error("Le nom du client est obligatoire");
       return;
@@ -286,12 +286,19 @@ function NewOrder() {
         vehicleId = data.id;
       }
 
+      // §33 — sans n° WinMotor, le dossier reçoit une référence interne DDA unique.
+      const hasOrNumber = !!form.or_number.trim();
+      const internalRef = hasOrNumber ? null : await nextInternalRef();
+
       const { data: order, error: orErr } = await supabase
         .from("repair_orders")
         .insert({
           vehicle_id: vehicleId,
           client_id: clientId,
           or_number: form.or_number || null,
+          internal_ref: internalRef,
+          or_status: hasOrNumber ? "or_complet" : "or_manquant",
+
           or_date: form.or_date || null,
           client_remarks: form.client_remarks || null,
           requested_work: form.requested_work || null,
@@ -435,7 +442,12 @@ function NewOrder() {
         </Section>
 
         <Section title="Ordre de réparation">
-          <Field label="N° OR" value={form.or_number} onChange={(v) => set("or_number", v)} warn={flagged("order.or_number")} />
+          <Field label="N° OR WinMotor (facultatif)" value={form.or_number} onChange={(v) => set("or_number", v)} warn={flagged("order.or_number")} />
+          <p className="text-xs text-muted-foreground">
+            Laissez vide si WinMotor n'a pas encore généré le numéro : une référence interne DDA est créée et le
+            dossier reste « en attente du numéro d'OR ».
+          </p>
+
           <Field label="Date OR" value={form.or_date} onChange={(v) => set("or_date", v)} type="date" />
           <Field label="Remarques client" value={form.client_remarks} onChange={(v) => set("client_remarks", v)} textarea />
           <Field label="Travaux à prévoir" value={form.requested_work} onChange={(v) => set("requested_work", v)} textarea />
