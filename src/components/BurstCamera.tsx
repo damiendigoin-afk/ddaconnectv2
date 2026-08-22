@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 
 import { blobToDataUrl } from "@/lib/photo";
 
-export type BurstStep = { key: string; label: string; mask?: MaskKind };
+export type BurstStep = { key: string; label: string; mask?: MaskKind; hint?: string };
 export type BurstShot = { key: string; label: string; blob: Blob; dataUrl: string };
 
 export type MaskKind =
@@ -20,6 +20,7 @@ export type MaskKind =
   | "odometer"
   | "wheel"
   | "tread"
+  | "tire-label"
   | "document"
   | "plate"
   | "free";
@@ -35,12 +36,15 @@ export function BurstCamera({
   onFinish,
   onCancel,
   allowFree = true,
+  autoFinish = false,
 }: {
   steps: BurstStep[];
   title?: string;
   onFinish: (shots: BurstShot[]) => void;
   onCancel: () => void;
   allowFree?: boolean;
+  /** Séquence guidée : la dernière prise clôture la caméra, sans écran de validation. */
+  autoFinish?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -104,12 +108,14 @@ export function BurstCamera({
       const dataUrl = await blobToDataUrl(blob);
       const key = step?.key ?? `libre_${Date.now()}`;
       const label = step?.label ?? "Photo complémentaire";
+      let merged: BurstShot[] = [];
       setShots((s) => {
         const i = step ? s.findIndex((x) => x.key === key) : -1;
         const next = [...s];
         const item = { key, label, blob, dataUrl };
         if (i >= 0) next[i] = item;
         else next.push(item);
+        merged = next;
         return next;
       });
       setFlash(true);
@@ -118,13 +124,17 @@ export function BurstCamera({
       setIndex((i) => {
         const next = i + 1;
         if (steps[i] && next >= steps.length) {
+          if (autoFinish) {
+            setTimeout(() => onFinish(merged), 160);
+            return i;
+          }
           setRecap(true);
           return i;
         }
         return steps[i] ? next : i;
       });
     },
-    [step, steps],
+    [step, steps, autoFinish, onFinish],
   );
 
   async function capture() {
@@ -317,6 +327,9 @@ export function BurstCamera({
           <span className="ml-2 text-xs font-bold opacity-80">
             {total ? `${Math.min(index + 1, total)}/${total}` : `${shots.length}`}
           </span>
+          {step?.hint ? (
+            <div className="mt-1 max-w-[70vw] text-[11px] font-semibold normal-case opacity-90">{step.hint}</div>
+          ) : null}
         </div>
         <span className="w-10" />
       </div>
@@ -439,19 +452,25 @@ const MASKS: Record<MaskKind, ReactElement> = {
       <circle cx="62" cy="51" r="10" />
     </>
   ),
-  /* Roue de profil : pneu complet + jante. */
+  /* Roue complète : grand masque circulaire, roue + flanc + jante à l'intérieur. */
   wheel: (
     <>
-      <circle cx="50" cy="52" r="30" />
-      <circle cx="50" cy="52" r="19" />
-      <path d="M20 52 H12 M80 52 H88 M50 22 V14 M50 82 V90" />
+      <circle cx="50" cy="50" r="46" strokeWidth="1" />
+      <circle cx="50" cy="50" r="24" strokeDasharray="2 5" />
     </>
   ),
-  /* Bande de roulement : cadre allongé sur la sculpture, au plus près. */
+  /* Bande de roulement : masque en U, largeur maximale visible. */
   tread: (
     <>
-      <rect x="16" y="34" width="68" height="36" rx="6" />
-      <path d="M28 34 V70 M40 34 V70 M52 34 V70 M64 34 V70 M76 34 V70" strokeDasharray="2 4" />
+      <path d="M14 12 V58 Q14 84 50 84 Q86 84 86 58 V12" strokeWidth="1" />
+      <path d="M30 22 V70 M50 22 V76 M70 22 V70" strokeDasharray="2 5" />
+    </>
+  ),
+  /* Étiquette dimensions / pressions : petit cadre paysage. */
+  "tire-label": (
+    <>
+      <rect x="10" y="34" width="80" height="34" rx="3" strokeWidth="1" />
+      <path d="M18 46 H60 M18 56 H72" strokeDasharray="2 4" />
     </>
   ),
   plate: <rect x="14" y="42" width="72" height="18" rx="2" />,

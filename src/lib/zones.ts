@@ -2,7 +2,7 @@ export type PointDef = {
   key: string;
   label: string;
   measure?: { unit: string; label: string };
-  special?: "mileage" | "ct";
+  special?: "mileage" | "ct" | "tire" | "tire_label";
   /** Défauts fréquents proposés en un tap (renseignent le commentaire). */
   quickDefects?: string[];
 };
@@ -19,6 +19,7 @@ const wheel = (side: string, code: string): PointDef[] => [
     key: `pneu_${code}`,
     label: `Pneu ${side}`,
     measure: { unit: "mm", label: "Profondeur" },
+    special: "tire",
   },
   { key: `jante_${code}`, label: `Jante / enjoliveur ${side}` },
   {
@@ -52,6 +53,11 @@ export const GUIDED_ZONES: ZoneDef[] = [
     points: [
       { key: "aspect_general", label: "Aspect général du véhicule" },
       { key: "porte_avg", label: "Portière conducteur / serrure" },
+      {
+        key: "etiquette_pneus",
+        label: "Étiquette dimensions et pressions pneumatiques",
+        special: "tire_label",
+      },
       { key: "retroviseur_g", label: "Rétroviseur gauche" },
       { key: "proprete", label: "Propreté / état extérieur" },
     ],

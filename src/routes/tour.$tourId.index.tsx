@@ -11,6 +11,9 @@ import { PendingUploadsGuard } from "@/components/PendingUploadsGuard";
 import { PhotoManager } from "@/components/PhotoManager";
 import { PointCard, type PointRow } from "@/components/PointCard";
 import { TechnicalControlCard } from "@/components/TechnicalControlCard";
+import { TireLabelCard } from "@/components/TireLabelCard";
+import { TireWheelCard } from "@/components/TireWheelCard";
+import type { TireLabelAi } from "@/lib/tire-types";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -157,6 +160,9 @@ function Guided(props: SharedProps) {
   const [zone, setZone] = useState(Math.min(props.zoneIndex, GUIDED_ZONES.length));
   const [mileage, setMileage] = useState(props.mileage);
   const [showSummary, setShowSummary] = useState(false);
+  // Étiquette pneumatiques lue côté conducteur : sert de dimension homologuée
+  // de référence pour les quatre roues du tour en cours.
+  const [tireLabel, setTireLabel] = useState<TireLabelAi | null>(null);
 
   const points = useQuery({
     queryKey: ["points", props.tourId],
@@ -393,6 +399,29 @@ function Guided(props: SharedProps) {
                   setMileage(v);
                   void supabase.from("inspection_points").update({ status: "ok", measure_value: String(v), measure_unit: "km" }).eq("id", p.id);
                 }}
+              />
+            );
+          }
+          if (def?.special === "tire_label") {
+            return (
+              <TireLabelCard
+                key={p.id}
+                point={p}
+                inspectionId={props.tourId}
+                onLabel={setTireLabel}
+              />
+            );
+          }
+          if (def?.special === "tire") {
+            const rear = p.point_key.includes("ar");
+            return (
+              <TireWheelCard
+                key={p.id}
+                point={p}
+                inspectionId={props.tourId}
+                requiredSize={(rear ? tireLabel?.size_rear : tireLabel?.size_front) ?? tireLabel?.size_front ?? null}
+                requiredLoad={(rear ? tireLabel?.load_index_rear : tireLabel?.load_index_front) ?? null}
+                requiredSpeed={(rear ? tireLabel?.speed_index_rear : tireLabel?.speed_index_front) ?? null}
               />
             );
           }

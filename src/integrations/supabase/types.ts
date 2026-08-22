@@ -938,25 +938,37 @@ export type Database = {
       }
       commercial_settings: {
         Row: {
+          ai_severity_level: string
           id: string
           margin_pct: number
           min_margin_ht: number
+          tire_depth_good_mm: number
+          tire_depth_legal_mm: number
+          tire_depth_soon_mm: number
           tire_supplier: string
           tire_supplier_configured: boolean
           updated_at: string
         }
         Insert: {
+          ai_severity_level?: string
           id?: string
           margin_pct?: number
           min_margin_ht?: number
+          tire_depth_good_mm?: number
+          tire_depth_legal_mm?: number
+          tire_depth_soon_mm?: number
           tire_supplier?: string
           tire_supplier_configured?: boolean
           updated_at?: string
         }
         Update: {
+          ai_severity_level?: string
           id?: string
           margin_pct?: number
           min_margin_ht?: number
+          tire_depth_good_mm?: number
+          tire_depth_legal_mm?: number
+          tire_depth_soon_mm?: number
           tire_supplier?: string
           tire_supplier_configured?: boolean
           updated_at?: string
@@ -2620,6 +2632,7 @@ export type Database = {
           pollution_due_date: string | null
           status: string
           tire_analysis: Json | null
+          tire_label: Json | null
           tire_sidewall: Json | null
           updated_at: string
           zone_index: number
@@ -2645,6 +2658,7 @@ export type Database = {
           pollution_due_date?: string | null
           status?: string
           tire_analysis?: Json | null
+          tire_label?: Json | null
           tire_sidewall?: Json | null
           updated_at?: string
           zone_index: number
@@ -2670,6 +2684,7 @@ export type Database = {
           pollution_due_date?: string | null
           status?: string
           tire_analysis?: Json | null
+          tire_label?: Json | null
           tire_sidewall?: Json | null
           updated_at?: string
           zone_index?: number
@@ -4677,19 +4692,15 @@ export type Database = {
         }
         Relationships: []
       }
-      tire_offers: {
+      tire_brand_tiers: {
         Row: {
           active: boolean
           brand: string
           created_at: string
           id: string
-          model: string
-          mount_price_ttc: number
-          price_date: string
-          purchase_price_ht: number
-          season: string
-          size: string | null
-          source: string
+          is_default: boolean
+          site_id: string | null
+          sort_order: number
           tier: string
           updated_at: string
         }
@@ -4698,13 +4709,9 @@ export type Database = {
           brand: string
           created_at?: string
           id?: string
-          model: string
-          mount_price_ttc?: number
-          price_date?: string
-          purchase_price_ht: number
-          season: string
-          size?: string | null
-          source?: string
+          is_default?: boolean
+          site_id?: string | null
+          sort_order?: number
           tier: string
           updated_at?: string
         }
@@ -4713,6 +4720,70 @@ export type Database = {
           brand?: string
           created_at?: string
           id?: string
+          is_default?: boolean
+          site_id?: string | null
+          sort_order?: number
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_brand_tiers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tire_offers: {
+        Row: {
+          active: boolean
+          availability: string | null
+          brand: string
+          created_at: string
+          id: string
+          load_index: string | null
+          model: string
+          mount_price_ttc: number
+          price_date: string
+          purchase_price_ht: number
+          season: string
+          size: string | null
+          source: string
+          speed_index: string | null
+          supplier_key: string | null
+          supplier_ref: string | null
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          availability?: string | null
+          brand: string
+          created_at?: string
+          id?: string
+          load_index?: string | null
+          model: string
+          mount_price_ttc?: number
+          price_date?: string
+          purchase_price_ht: number
+          season: string
+          size?: string | null
+          source?: string
+          speed_index?: string | null
+          supplier_key?: string | null
+          supplier_ref?: string | null
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          availability?: string | null
+          brand?: string
+          created_at?: string
+          id?: string
+          load_index?: string | null
           model?: string
           mount_price_ttc?: number
           price_date?: string
@@ -4720,10 +4791,133 @@ export type Database = {
           season?: string
           size?: string | null
           source?: string
+          speed_index?: string | null
+          supplier_key?: string | null
+          supplier_ref?: string | null
           tier?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      tire_quote_offers: {
+        Row: {
+          availability: string | null
+          brand: string | null
+          compatibility: string | null
+          consulted_at: string
+          created_at: string
+          final_payload: Json | null
+          id: string
+          initial_payload: Json | null
+          inspection_id: string | null
+          inspection_point_id: string | null
+          kind: string
+          load_index: string | null
+          margin_ht: number | null
+          model: string | null
+          mount_package: string | null
+          mount_total_ttc: number | null
+          quantity: number
+          season: string | null
+          selected: boolean
+          sell_price_ht: number | null
+          size: string | null
+          source_price_ht: number | null
+          source_price_ttc: number | null
+          speed_index: string | null
+          supplier: string | null
+          supplier_ref: string | null
+          tier: string | null
+          total_ht: number | null
+          total_ttc: number | null
+          total_vat: number | null
+          updated_at: string
+          wheel_code: string | null
+        }
+        Insert: {
+          availability?: string | null
+          brand?: string | null
+          compatibility?: string | null
+          consulted_at?: string
+          created_at?: string
+          final_payload?: Json | null
+          id?: string
+          initial_payload?: Json | null
+          inspection_id?: string | null
+          inspection_point_id?: string | null
+          kind: string
+          load_index?: string | null
+          margin_ht?: number | null
+          model?: string | null
+          mount_package?: string | null
+          mount_total_ttc?: number | null
+          quantity?: number
+          season?: string | null
+          selected?: boolean
+          sell_price_ht?: number | null
+          size?: string | null
+          source_price_ht?: number | null
+          source_price_ttc?: number | null
+          speed_index?: string | null
+          supplier?: string | null
+          supplier_ref?: string | null
+          tier?: string | null
+          total_ht?: number | null
+          total_ttc?: number | null
+          total_vat?: number | null
+          updated_at?: string
+          wheel_code?: string | null
+        }
+        Update: {
+          availability?: string | null
+          brand?: string | null
+          compatibility?: string | null
+          consulted_at?: string
+          created_at?: string
+          final_payload?: Json | null
+          id?: string
+          initial_payload?: Json | null
+          inspection_id?: string | null
+          inspection_point_id?: string | null
+          kind?: string
+          load_index?: string | null
+          margin_ht?: number | null
+          model?: string | null
+          mount_package?: string | null
+          mount_total_ttc?: number | null
+          quantity?: number
+          season?: string | null
+          selected?: boolean
+          sell_price_ht?: number | null
+          size?: string | null
+          source_price_ht?: number | null
+          source_price_ttc?: number | null
+          speed_index?: string | null
+          supplier?: string | null
+          supplier_ref?: string | null
+          tier?: string | null
+          total_ht?: number | null
+          total_ttc?: number | null
+          total_vat?: number | null
+          updated_at?: string
+          wheel_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_quote_offers_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_quote_offers_inspection_point_id_fkey"
+            columns: ["inspection_point_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_points"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tour_notification_recipients: {
         Row: {

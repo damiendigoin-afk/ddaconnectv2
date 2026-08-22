@@ -9,11 +9,17 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { CommercialSettings, PaintElementRule, ServicePackage } from "@/lib/pricing-engine";
 import {
+  GRADE_LABEL,
   SEASON_LABEL,
+  SEVERITY_LABEL,
   TIER_LABEL,
   TIRE_SUPPLIERS,
   applyMargin,
+  fetchBrandTiers,
+  type BrandTierRow,
+  type SeverityLevel,
   type TireOffer,
+  type TireTier,
 } from "@/lib/tires";
 
 export const Route = createFileRoute("/parametrage/chiffrage")({
@@ -70,9 +76,17 @@ function PricingSettings() {
     },
   });
 
+  const brands = useQuery({ queryKey: ["tire-brand-tiers"], queryFn: fetchBrandTiers });
+
   const [pct, setPct] = useState("");
   const [minHt, setMinHt] = useState("");
   const [supplier, setSupplier] = useState("catalogue_local");
+  const [severity, setSeverity] = useState<SeverityLevel>("standard");
+  const [good, setGood] = useState("4");
+  const [soon, setSoon] = useState("3");
+  const [legal, setLegal] = useState("1.6");
+  const [newBrand, setNewBrand] = useState("");
+  const [newTier, setNewTier] = useState<TireTier>("entree");
 
   useEffect(() => {
     const s = settings.data;
@@ -80,6 +94,10 @@ function PricingSettings() {
     setPct(String(s.margin_pct));
     setMinHt(String(s.min_margin_ht));
     setSupplier(s.tire_supplier);
+    setSeverity((s.ai_severity_level as SeverityLevel) ?? "standard");
+    setGood(String(s.tire_depth_good_mm));
+    setSoon(String(s.tire_depth_soon_mm));
+    setLegal(String(s.tire_depth_legal_mm));
   }, [settings.data]);
 
   async function saveSettings() {
@@ -92,6 +110,10 @@ function PricingSettings() {
         min_margin_ht: Number(minHt) || 0,
         tire_supplier: supplier,
         tire_supplier_configured: supplier === "catalogue_local",
+        ai_severity_level: severity,
+        tire_depth_good_mm: Number(good.replace(",", ".")) || 4,
+        tire_depth_soon_mm: Number(soon.replace(",", ".")) || 3,
+        tire_depth_legal_mm: Number(legal.replace(",", ".")) || 1.6,
         updated_at: new Date().toISOString(),
       })
       .eq("id", s.id);
@@ -110,6 +132,36 @@ function PricingSettings() {
       return;
     }
     await paint.refetch();
+  }
+
+  async function saveBrand(row: BrandTierRow, patch: Partial<BrandTierRow>) {
+    const { error } = await supabase.from("tire_brand_tiers").update(patch as never).eq("id", row.id);
+    if (error) {
+      toast.error("Modification impossible");
+      return;
+    }
+    await brands.refetch();
+  }
+
+  async function setDefaultBrand(row: BrandTierRow) {
+    await supabase.from("tire_brand_tiers").update({ is_default: false }).eq("tier", row.tier);
+    await saveBrand(row, { is_default: true, active: true });
+  }
+
+  async function addBrand() {
+    const brand = newBrand.trim();
+    if (!brand) return;
+    const max = Math.max(0, ...(brands.data ?? []).filter((b) => b.tier === newTier).map((b) => b.sort_order));
+    const { error } = await supabase
+      .from("tire_brand_tiers")
+      .insert({ tier: newTier, brand, sort_order: max + 1 });
+    if (error) {
+      toast.error("Marque déjà présente dans cette gamme");
+      return;
+    }
+    setNewBrand("");
+    await brands.refetch();
+    toast.success("Marque ajoutée");
   }
 
   if (!isManager) {
@@ -175,12 +227,125 @@ function PricingSettings() {
               </p>
             ) : null}
           </div>
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Niveau de sévérité de l'analyse visuelle
+            </label>
+            <select
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-3 text-sm"
+            >
+              {(Object.keys(SEVERITY_LABEL) as SeverityLevel[]).map((k) => (
+                <option key={k} value={k}>
+                  {SEVERITY_LABEL[k]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Réglage unique et réversible, partagé par tous les modules d'analyse visuelle. Il ne
+              modifie que les appréciations subjectives (craquelures, vieillissement, usure
+              irrégulière, formulation) : jamais la limite légale, la grille objective ni un danger
+              manifeste.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Grille d'usure pneumatique
+            </h3>
+            <div className="mt-1 grid gap-3 sm:grid-cols-3">
+              <Field label="Bon état au-dessus de (mm)" value={good} onChange={setGood} />
+              <Field label="Remplacement rapide en dessous de (mm)" value={soon} onChange={setSoon} />
+              <Field label="Limite légale (mm)" value={legal} onChange={setLegal} />
+            </div>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <li>&gt; {good} mm : {GRADE_LABEL.correct}</li>
+              <li>de {soon} à {good} mm inclus : {GRADE_LABEL.a_prevoir}</li>
+              <li>&gt; {legal} mm et &lt; {soon} mm : {GRADE_LABEL.rapide}</li>
+              <li>&le; {legal} mm : {GRADE_LABEL.imperatif}</li>
+            </ul>
+            <p className="mt-1 text-xs text-muted-foreground">
+              La profondeur ne suffit pas : hernie, coupure grave, toile visible, fortes craquelures
+              ou usure très irrégulière aggravent le jugement. Les règles légales et les dangers
+              manifestes restent prioritaires.
+            </p>
+          </div>
+
           <button
             onClick={() => void saveSettings()}
             className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-bold uppercase text-brand-foreground"
           >
             Enregistrer
           </button>
+        </section>
+
+        <section className="card-surface space-y-3 p-4">
+          <h2 className="text-sm font-bold uppercase tracking-widest">Marques par gamme</h2>
+          <p className="text-xs text-muted-foreground">
+            Marque retenue par défaut pour chaque gamme lors de la préparation des sept propositions
+            pneumatiques. Aucune substitution silencieuse : si la marque par défaut n'a pas d'offre,
+            la proposition affiche « Offre indisponible dans cette marque ».
+          </p>
+          {(["entree", "milieu", "haut"] as TireTier[]).map((tier) => (
+            <div key={tier} className="rounded-xl border border-border p-3">
+              <div className="text-xs font-bold uppercase tracking-widest">{TIER_LABEL[tier]}</div>
+              <ul className="mt-2 space-y-1">
+                {(brands.data ?? [])
+                  .filter((b) => b.tier === tier)
+                  .map((b) => (
+                    <li key={b.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className={b.active ? "" : "text-muted-foreground line-through"}>{b.brand}</span>
+                      <span className="flex items-center gap-2">
+                        <button
+                          onClick={() => void setDefaultBrand(b)}
+                          className={`rounded-lg border-2 px-2 py-1 text-[10px] font-bold uppercase ${
+                            b.is_default ? "border-brand bg-brand/10" : "border-border"
+                          }`}
+                        >
+                          {b.is_default ? "Par défaut" : "Définir par défaut"}
+                        </button>
+                        <button
+                          onClick={() => void saveBrand(b, { active: !b.active })}
+                          className="rounded-lg border-2 border-border px-2 py-1 text-[10px] font-bold uppercase"
+                        >
+                          {b.active ? "Désactiver" : "Activer"}
+                        </button>
+                        <select
+                          value={b.tier}
+                          onChange={(e) => void saveBrand(b, { tier: e.target.value })}
+                          className="rounded-lg border border-border bg-background px-1 py-1 text-[10px]"
+                        >
+                          <option value="entree">Entrée</option>
+                          <option value="milieu">Milieu</option>
+                          <option value="haut">Haut</option>
+                        </select>
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field label="Ajouter une marque" value={newBrand} onChange={setNewBrand} />
+            </div>
+            <select
+              value={newTier}
+              onChange={(e) => setNewTier(e.target.value as TireTier)}
+              className="rounded-lg border border-border bg-background px-2 py-3 text-sm"
+            >
+              <option value="entree">Entrée</option>
+              <option value="milieu">Milieu</option>
+              <option value="haut">Haut</option>
+            </select>
+            <button
+              onClick={() => void addBrand()}
+              className="rounded-lg bg-brand px-3 py-3 text-xs font-bold uppercase text-brand-foreground"
+            >
+              Ajouter
+            </button>
+          </div>
         </section>
 
         <section className="card-surface space-y-3 p-4">
