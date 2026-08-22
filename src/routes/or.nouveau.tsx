@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
+import { nextInternalRef } from "@/lib/or-ref";
+
 import { refPrefill, type RefPrefill } from "@/lib/refbase";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
