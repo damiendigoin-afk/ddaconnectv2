@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { normalizePlate } from "./plate";
 
 export const OR_SELECT =
-  "id, or_number, or_date, client_remarks, requested_work, entry_at, delivery_at, mileage_in, created_at, vehicle:vehicles(*), client:clients(*)";
+  "id, or_number, internal_ref, or_status, or_date, client_remarks, requested_work, entry_at, delivery_at, mileage_in, created_at, vehicle:vehicles(*), client:clients(*)";
 
 export async function fetchRecentOrders(limit = 20) {
   const { data, error } = await supabase
@@ -27,6 +27,7 @@ export async function searchOrders(term: string) {
     return (
       (plate && v?.plate_normalized?.includes(plate)) ||
       o.or_number?.toLowerCase().includes(lower) ||
+      o.internal_ref?.toLowerCase().includes(lower) ||
       `${c?.first_name ?? ""} ${c?.last_name ?? ""}`.toLowerCase().includes(lower) ||
       `${v?.brand ?? ""} ${v?.model ?? ""}`.toLowerCase().includes(lower)
     );
@@ -133,7 +134,7 @@ export async function fetchRecentTours(
   let query = supabase
     .from("vehicle_inspections")
     .select(
-      "id, inspection_type, status, started_at, completed_at, finished_at, duration_seconds, started_by_name, completed_by_name, created_by_name, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, brand, model), repair_order:repair_orders(id, or_number, client:clients(first_name, last_name))",
+      "id, inspection_type, status, started_at, completed_at, finished_at, duration_seconds, started_by_name, completed_by_name, created_by_name, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, brand, model), repair_order:repair_orders(id, or_number, internal_ref, client:clients(first_name, last_name))",
     );
   if (scope === "completed") query = query.eq("status", "completed");
   if (scope === "open") query = query.neq("status", "completed");
