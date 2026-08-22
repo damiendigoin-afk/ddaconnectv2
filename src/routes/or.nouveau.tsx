@@ -284,12 +284,19 @@ function NewOrder() {
         vehicleId = data.id;
       }
 
+      // §33 — sans n° WinMotor, le dossier reçoit une référence interne DDA unique.
+      const hasOrNumber = !!form.or_number.trim();
+      const internalRef = hasOrNumber ? null : await nextInternalRef();
+
       const { data: order, error: orErr } = await supabase
         .from("repair_orders")
         .insert({
           vehicle_id: vehicleId,
           client_id: clientId,
           or_number: form.or_number || null,
+          internal_ref: internalRef,
+          or_status: hasOrNumber ? "or_complet" : "or_manquant",
+
           or_date: form.or_date || null,
           client_remarks: form.client_remarks || null,
           requested_work: form.requested_work || null,
