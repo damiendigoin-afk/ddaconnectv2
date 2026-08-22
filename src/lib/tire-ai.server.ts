@@ -5,6 +5,10 @@
  * ce qu'il ne peut pas lire. La grille d'usure, la sévérité et la validation
  * humaine sont appliquées côté application.
  */
+import type { TireLabelAi, TireWheelAi } from "./tire-types";
+
+export type { TireLabelAi, TireWheelAi };
+
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 /** Modèle visuel OpenAI utilisé pour l'analyse pneumatique. */
@@ -88,32 +92,6 @@ Réponds STRICTEMENT en JSON :
 - client_comment : une phrase compréhensible par un client, sans diagnostic péremptoire.
 - N'énonce aucun kilométrage restant et aucune durée de vie.`;
 
-export type TireWheelAi = {
-  brand: string | null;
-  model: string | null;
-  size: string | null;
-  load_index: string | null;
-  speed_index: string | null;
-  season: string | null;
-  dot: string | null;
-  depth_mm: number | null;
-  depth_kind: "mesure" | "estimation" | null;
-  wear: "reguliere" | "irreguliere" | null;
-  wear_zone: string | null;
-  cracks: boolean;
-  cuts: boolean;
-  bulges: boolean;
-  foreign_objects: boolean;
-  sidewall_damage: boolean;
-  rim_damage: boolean;
-  photo_quality: "bonne" | "moyenne" | "insuffisante";
-  confidence: Record<string, string>;
-  observations: string[];
-  client_comment: string | null;
-  unreadable: string[];
-  model_used: string;
-};
-
 function bool(v: unknown) {
   return v === true;
 }
@@ -174,24 +152,6 @@ Réponds STRICTEMENT en JSON :
  "readable":true,"unreadable":[]}
 Dimensions au format 205/55R16. Pressions en bar avec un point décimal (ex 2.4).
 readable = false si l'étiquette est présente mais illisible.`;
-
-export type TireLabelAi = {
-  size_front: string | null;
-  size_rear: string | null;
-  load_index_front: string | null;
-  speed_index_front: string | null;
-  load_index_rear: string | null;
-  speed_index_rear: string | null;
-  pressure_front: number | null;
-  pressure_rear: number | null;
-  pressure_front_loaded: number | null;
-  pressure_rear_loaded: number | null;
-  spare_size: string | null;
-  spare_pressure: number | null;
-  readable: boolean;
-  unreadable: string[];
-  model_used: string;
-};
 
 function num(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;

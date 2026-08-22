@@ -8,7 +8,8 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import type { CommercialSettings, PricedItem, Priority } from "./pricing-engine";
+import type { CommercialSettings, PricedItem, Priority, ServicePackage } from "./pricing-engine";
+import type { TireWheelAi } from "./tire-types";
 
 export type TireOffer = Database["public"]["Tables"]["tire_offers"]["Row"];
 
@@ -326,9 +327,6 @@ export function tireQuantity(scope: "avant" | "arriere" | "quatre" | "unite"): n
 /* ========================================================================== */
 /*  MODULE PNEUMATIQUES — grille d'usure, sévérité, marques et 7 propositions  */
 /* ========================================================================== */
-
-import type { ServicePackage } from "./pricing-engine";
-import type { TireWheelAi } from "./tire-ai.server";
 
 export type BrandTierRow = Database["public"]["Tables"]["tire_brand_tiers"]["Row"];
 export type TireQuoteOffer = Database["public"]["Tables"]["tire_quote_offers"]["Row"];
