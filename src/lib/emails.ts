@@ -39,6 +39,16 @@ export type EmailRow = {
   gmail_thread_id: string | null;
   has_attachments: boolean;
   site_id: string | null;
+  importance: string;
+  urgency: string;
+  action_required: boolean;
+  human_required: boolean;
+  services: string[];
+  due_at: string | null;
+  expires_at: string | null;
+  triage_status: string;
+  triage_confidence: string;
+  triage_reason: string | null;
   receipts: { mailbox_address: string; person_name: string | null }[];
 };
 
@@ -79,16 +89,25 @@ export async function fetchEmails(opts: {
   category?: string;
   mailbox?: string;
   siteId?: string | null;
+  /** Filtre sur l'état de traitement (§4, §29). */
+  triage?: string;
+  /** §5 — les informations temporaires expirées sortent de la vue active. */
+  includeExpired?: boolean;
   limit?: number;
 }): Promise<EmailRow[]> {
   let q = supabase
     .from("emails")
     .select(
-      "id, sent_at, from_address, from_name, to_addresses, cc_addresses, subject, snippet, body_text, kind, category, category_confidence, thread_key, gmail_thread_id, has_attachments, site_id, receipts:email_receipts(mailbox_address, person_name)",
+      "id, sent_at, from_address, from_name, to_addresses, cc_addresses, subject, snippet, body_text, kind, category, category_confidence, thread_key, gmail_thread_id, has_attachments, site_id, importance, urgency, action_required, human_required, services, due_at, expires_at, triage_status, triage_confidence, triage_reason, receipts:email_receipts(mailbox_address, person_name)",
     )
     .order("sent_at", { ascending: false })
     .limit(opts.limit ?? 200);
   if (opts.category && opts.category !== "all") q = q.eq("category", opts.category);
+  if (opts.triage && opts.triage !== "all") {
+    if (opts.triage === "a_faire") q = q.eq("action_required", true).in("triage_status", ["a_qualifier", "a_traiter", "en_cours"]);
+    else q = q.eq("triage_status", opts.triage);
+  }
+  if (!opts.includeExpired) q = q.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
   if (opts.siteId) q = q.eq("site_id", opts.siteId);
   if (opts.search && opts.search.trim().length > 1) {
     const s = `%${opts.search.trim()}%`;
