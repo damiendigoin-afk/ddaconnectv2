@@ -6,6 +6,8 @@ import {
   threadKeyOf,
   type EmailCategory,
 } from "@/lib/emails-core";
+import { dueAtFrom, expiresAtFrom, triageIncoming } from "@/lib/triage-core";
+
 
 export type EmailAccount = {
   id: string;
@@ -139,6 +141,13 @@ export async function ingestEmail(e: IncomingEmail): Promise<{ emailId: string; 
 
   if (!emailId) {
     const cat = categorizeEmail({ subject: e.subject, body: e.bodyText ?? e.bodyHtml, from: e.from });
+    const tri = triageIncoming({
+      subject: e.subject,
+      body: e.bodyText ?? e.bodyHtml,
+      from: e.from,
+      hasAttachments: !!e.attachments?.length,
+    });
+
     const { data, error } = await supabase
       .from("emails")
       .insert({
@@ -158,6 +167,16 @@ export async function ingestEmail(e: IncomingEmail): Promise<{ emailId: string; 
         kind: messageKind(e.subject),
         category: cat.category,
         category_confidence: cat.confidence,
+        importance: tri.importance,
+        urgency: tri.urgency,
+        action_required: tri.actionRequired,
+        human_required: tri.humanRequired,
+        services: tri.services,
+        due_at: dueAtFrom(e.sentAt, tri.dueInMinutes),
+        expires_at: expiresAtFrom(e.sentAt, tri.expiresInDays),
+        triage_status: tri.status,
+        triage_confidence: tri.confidence,
+        triage_reason: tri.reason,
         site_id: e.siteId ?? null,
         has_attachments: !!e.attachments?.length,
       })
