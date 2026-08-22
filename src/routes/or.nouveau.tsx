@@ -192,10 +192,8 @@ function NewOrder() {
       toast.error("L'immatriculation est obligatoire");
       return;
     }
-    if (!form.or_number.trim()) {
-      toast.error("Le n° d'OR est obligatoire");
-      return;
-    }
+    // §33 — le n° d'OR WinMotor est facultatif : il peut ne pas exister à l'accueil.
+
     if (!form.last_name.trim()) {
       toast.error("Le nom du client est obligatoire");
       return;
