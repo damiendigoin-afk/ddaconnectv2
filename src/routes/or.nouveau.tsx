@@ -442,7 +442,12 @@ function NewOrder() {
         </Section>
 
         <Section title="Ordre de réparation">
-          <Field label="N° OR" value={form.or_number} onChange={(v) => set("or_number", v)} warn={flagged("order.or_number")} />
+          <Field label="N° OR WinMotor (facultatif)" value={form.or_number} onChange={(v) => set("or_number", v)} warn={flagged("order.or_number")} />
+          <p className="text-xs text-muted-foreground">
+            Laissez vide si WinMotor n'a pas encore généré le numéro : une référence interne DDA est créée et le
+            dossier reste « en attente du numéro d'OR ».
+          </p>
+
           <Field label="Date OR" value={form.or_date} onChange={(v) => set("or_date", v)} type="date" />
           <Field label="Remarques client" value={form.client_remarks} onChange={(v) => set("client_remarks", v)} textarea />
           <Field label="Travaux à prévoir" value={form.requested_work} onChange={(v) => set("requested_work", v)} textarea />
