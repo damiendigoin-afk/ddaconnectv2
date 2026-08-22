@@ -107,8 +107,10 @@ export function MileageCard({
     <div className="card-surface space-y-3 border-2 border-brand p-4">
       <h3 className="font-bold uppercase">{title ?? "Kilométrage compteur"}</h3>
       <p className="text-xs text-muted-foreground">
-        Dernier kilométrage connu : {previous ? `${previous.toLocaleString("fr-FR")} km` : "—"}
+        Dernier kilométrage connu : {(previous ?? 0).toLocaleString("fr-FR")} km
+        <span className="block">Référence uniquement — le kilométrage actuel doit être confirmé.</span>
       </p>
+
       <button
         type="button"
         onClick={() => camRef.current?.click()}
