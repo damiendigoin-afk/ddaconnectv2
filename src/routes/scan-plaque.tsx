@@ -187,7 +187,7 @@ function ScanPlate() {
                   >
                     <div className="plate-badge text-xl">{formatPlate(v?.plate ?? "")}</div>
                     <div className="text-sm text-muted-foreground">
-                      OR {o.or_number || "—"} ·{" "}
+                      {o.or_number ? `OR WinMotor ${o.or_number}` : "Intervention DDA"} ·{" "}
                       {o.or_date ? new Date(o.or_date).toLocaleDateString("fr-FR") : "—"}
                     </div>
                   </button>
