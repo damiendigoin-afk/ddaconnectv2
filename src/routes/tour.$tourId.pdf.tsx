@@ -173,7 +173,7 @@ function PdfPage() {
             {finished ? finished.toLocaleDateString("fr-FR") : ""}
             {finished ? ` · ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}
           </div>
-          {d.order?.or_number ? <div className="text-[9pt]">OR {d.order.or_number}</div> : null}
+          {d.order?.or_number ? <div className="text-[9pt]">OR WinMotor {d.order.or_number}</div> : null}
         </div>
       </header>
 
