@@ -7,6 +7,7 @@
  *  réseau/Supabase) elle est enregistrée avec processing_status='error' et la
  *  liste précise des erreurs, puis le traitement continue normalement. */
 import { supabase } from "@/integrations/supabase/client";
+import { findConfirmedRef, upsertRef, type MatchCriterion } from "../external-refs";
 import { buildHeaderIndex, errorMessages, isValidVin, mapRow, type FieldError, type RawRow } from "./mapping";
 
 export type IngestCounters = {
@@ -117,6 +118,9 @@ async function processMapped(opts: {
     const phones = [...new Set(usable.flatMap((x) => x.m.contacts.filter((c) => c.type !== "EMAIL").map((c) => c.normalized_value)))];
 
     if (custSourceIds.length) {
+      // Liaisons WinMotor déjà confirmées : réutilisées telles quelles (pas de re-matching).
+      const known = await findConfirmedRef("customer", custSourceIds);
+      for (const [ext, id] of known) bySource.set(ext, id);
       for (const part of chunk(custSourceIds, 300)) {
         const { data } = await supabase
           .from("customers")
@@ -143,6 +147,8 @@ async function processMapped(opts: {
     const vins = [...new Set(usable.map((x) => String(x.m.vehicle["vin_normalized"] ?? "")).filter((v) => v && isValidVin(v)))];
     const regs = [...new Set(usable.map((x) => String(x.m.vehicle["registration_normalized"] ?? "")).filter(Boolean))];
     const sel = "id, source_vehicle_id, vin_normalized, registration_normalized, last_mileage";
+    const knownV = await findConfirmedRef("ref_vehicle", vehSourceIds);
+    for (const [ext, id] of knownV) vBySource.set(ext, { id, last_mileage: null });
     for (const part of chunk(vehSourceIds, 300)) {
       const { data } = await supabase.from("ref_vehicles").select(sel).eq("source_system", "winmotor").in("source_vehicle_id", part);
       for (const v of data ?? []) if (v.source_vehicle_id) vBySource.set(v.source_vehicle_id, v);
@@ -167,6 +173,9 @@ async function processMapped(opts: {
   const consentRows: Record<string, unknown>[] = [];
   const relationRows: Record<string, unknown>[] = [];
   const mileageRows: Record<string, unknown>[] = [];
+  type RefRow = { entityType: "customer" | "ref_vehicle"; entityId: string; externalId: string; status: "confirmed" | "suggested"; criteria: MatchCriterion[] };
+  const customerRefs: RefRow[] = [];
+  const vehicleRefs: RefRow[] = [];
   const seenCustomers = new Map<string, string>();
   const seenVehicles = new Map<string, string>();
 
@@ -184,10 +193,26 @@ async function processMapped(opts: {
           customerId = cached;
           counters.duplicatesAvoided++;
         } else {
-          const existing =
-            (m.sourceCustomerId ? bySource.get(m.sourceCustomerId) : undefined) ??
-            m.contacts.map((c) => byContact.get(c.normalized_value)).find(Boolean);
+          const byWinmotorId = m.sourceCustomerId ? bySource.get(m.sourceCustomerId) : undefined;
+          const byContactHit = m.contacts.map((c) => byContact.get(c.normalized_value)).find(Boolean);
+          const existing = byWinmotorId ?? byContactHit;
           customerId = existing ?? uuid();
+          if (m.sourceCustomerId) {
+            // Identifiant WinMotor connu → rattachement certain ; sinon rapprochement
+            // suggéré sur un critère fiable (email/téléphone), soumis à décision humaine.
+            const criteria: MatchCriterion[] = byWinmotorId
+              ? ["winmotor_id"]
+              : m.contacts.some((c) => c.type === "EMAIL")
+                ? ["email"]
+                : ["phone"];
+            customerRefs.push({
+              entityType: "customer",
+              entityId: customerId,
+              externalId: m.sourceCustomerId,
+              status: byWinmotorId || !existing ? "confirmed" : "suggested",
+              criteria,
+            });
+          }
           if (existing) counters.customersUpdated++;
           else counters.customersCreated++;
           seenCustomers.set(key, customerId);
@@ -228,11 +253,21 @@ async function processMapped(opts: {
         counters.duplicatesAvoided++;
         isDuplicateInBatch = true;
       } else {
-        const existing =
-          (m.sourceVehicleId ? vBySource.get(m.sourceVehicleId) : undefined) ??
-          (vin && isValidVin(vin) ? vByVin.get(vin) : undefined) ??
-          (reg ? vByReg.get(reg) : undefined);
+        const byWinmotorId = m.sourceVehicleId ? vBySource.get(m.sourceVehicleId) : undefined;
+        const byVin = vin && isValidVin(vin) ? vByVin.get(vin) : undefined;
+        const byReg = reg ? vByReg.get(reg) : undefined;
+        const existing = byWinmotorId ?? byVin ?? byReg;
         vehicleId = existing?.id ?? uuid();
+        if (m.sourceVehicleId) {
+          const criteria: MatchCriterion[] = byWinmotorId ? ["winmotor_id"] : byVin ? ["vin"] : ["registration"];
+          vehicleRefs.push({
+            entityType: "ref_vehicle",
+            entityId: vehicleId,
+            externalId: m.sourceVehicleId,
+            status: byWinmotorId || !existing ? "confirmed" : "suggested",
+            criteria,
+          });
+        }
         if (existing) counters.vehiclesUpdated++;
         else counters.vehiclesCreated++;
         seenVehicles.set(vkey, vehicleId);
@@ -282,6 +317,15 @@ async function processMapped(opts: {
   // 3. Écriture des entités, par lots avec repli ligne à ligne en cas d'échec réseau.
   await writeWithFallback(customerRows, (part) => supabase.from("customers").upsert(part as never, { onConflict: "id" }));
   await writeWithFallback(vehicleRows, (part) => supabase.from("ref_vehicles").upsert(part as never, { onConflict: "id" }));
+
+  // Mémorisation des correspondances WinMotor (jamais bloquante pour l'import).
+  for (const r of [...customerRefs, ...vehicleRefs]) {
+    try {
+      await upsertRef({ ...r, importId });
+    } catch {
+      // Correspondance non enregistrée : l'import reste valide, le rapprochement sera reproposé.
+    }
+  }
   const contactsOk = await writeWithFallback(contactRows, (part) =>
     supabase.from("customer_contacts").upsert(part as never, { onConflict: "customer_id,type,normalized_value", ignoreDuplicates: true }),
   );
