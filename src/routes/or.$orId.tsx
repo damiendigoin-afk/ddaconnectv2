@@ -11,19 +11,19 @@ import { useAuth } from "@/lib/auth";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
 import { formatPlate } from "@/lib/plate";
 import { createInspection } from "@/lib/tour";
-import { OR_PENDING_LABEL, attachOrNumber, isOrPending, orLabel } from "@/lib/or-ref";
+import { OR_PENDING_LABEL, attachOrNumber, interventionLabel, isOrPending } from "@/lib/or-ref";
 import { GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/or/$orId")({
   head: () => ({
     meta: [
-      { title: "Fiche OR — DDA Connect" },
+      { title: "Fiche intervention — DDA Connect" },
       {
         name: "description",
-        content: "Détail de l'ordre de réparation, historique des tours véhicule et rapports.",
+        content: "Détail de l'intervention DDA, historique des tours véhicule et rapports.",
       },
-      { property: "og:title", content: "Fiche OR — DDA Connect" },
-      { property: "og:description", content: "Ordre de réparation et tours véhicule associés." },
+      { property: "og:title", content: "Fiche intervention — DDA Connect" },
+      { property: "og:description", content: "Intervention DDA et tours véhicule associés." },
     ],
   }),
   component: OrderPage,
@@ -73,7 +73,7 @@ function OrderPage() {
   }
 
   return (
-    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={orLabel(order.data as { or_number?: string | null; internal_ref?: string | null } | undefined)} back={{ to: "/tour-vehicule" }}>
+    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={interventionLabel(order.data as { or_number?: string | null; internal_ref?: string | null } | undefined)} back={{ to: "/tour-vehicule" }}>
       {order.isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement…</p>
       ) : editing && order.data ? (
@@ -95,9 +95,9 @@ function OrderPage() {
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
               <Info label="Kilométrage connu" value={v?.last_mileage ? `${v.last_mileage.toLocaleString("fr-FR")} km` : "—"} />
-              <Info label="Date OR" value={order.data?.or_date ? new Date(order.data.or_date).toLocaleDateString("fr-FR") : "—"} />
+              <Info label="Date d'ouverture" value={order.data?.or_date ? new Date(order.data.or_date).toLocaleDateString("fr-FR") : "—"} />
               <Info label="N° OR WinMotor" value={order.data?.or_number ?? OR_PENDING_LABEL} />
-              <Info label="Référence interne DDA" value={order.data?.internal_ref ?? "—"} />
+              <Info label="Référence intervention DDA" value={order.data?.internal_ref ?? "—"} />
               <Info label="Client" value={[c?.["first_name"], c?.["last_name"]].filter(Boolean).join(" ") || "—"} />
             </div>
             <button
@@ -338,7 +338,7 @@ function OrNumberCompletion({
     <section className="card-surface space-y-2 border-2 border-status-watch p-4">
       <h2 className="text-xs font-bold uppercase tracking-widest text-status-watch">{OR_PENDING_LABEL}</h2>
       <p className="text-xs text-muted-foreground">
-        Le dossier fonctionne normalement sans numéro officiel. Renseignez-le dès que WinMotor l'a généré.
+        L'intervention fonctionne normalement sans OR WinMotor. Renseignez-le dès que WinMotor l'a généré.
       </p>
       <div className="flex gap-2">
         <input

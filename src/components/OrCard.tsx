@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { formatPlate } from "@/lib/plate";
-import { OR_PENDING_LABEL, isOrPending, orLabel } from "@/lib/or-ref";
+import { OR_PENDING_LABEL, interventionLabel, winmotorOrLabel } from "@/lib/or-ref";
 
 type Order = {
   id: string;
@@ -75,12 +75,15 @@ export function OrCard({ o }: { o: Order }) {
             </div>
           </div>
           <div className="text-right text-xs text-muted-foreground">
-            <div className="font-bold uppercase text-foreground">{orLabel(o)}</div>
-            {isOrPending(o) ? (
+            <div className="font-bold uppercase text-foreground">{interventionLabel(o)}</div>
+            {winmotorOrLabel(o) ? (
+              <div className="text-[10px] font-bold uppercase text-foreground">{winmotorOrLabel(o)}</div>
+            ) : (
               <div className="text-[10px] font-bold uppercase text-status-watch">{OR_PENDING_LABEL}</div>
-            ) : null}
+            )}
             <div>{o.or_date ? new Date(o.or_date).toLocaleDateString("fr-FR") : "—"}</div>
           </div>
+
         </div>
         <div className="mt-1 text-sm font-semibold text-foreground">
           {[c?.first_name, c?.last_name].filter(Boolean).join(" ") || "Client —"}

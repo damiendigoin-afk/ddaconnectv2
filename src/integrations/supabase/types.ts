@@ -2301,6 +2301,54 @@ export type Database = {
           },
         ]
       }
+      external_refs: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          id: string
+          import_id: string | null
+          match_criteria: Json
+          match_score: number | null
+          match_status: string
+          system: string
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          external_id: string
+          id?: string
+          import_id?: string | null
+          match_criteria?: Json
+          match_score?: number | null
+          match_status?: string
+          system?: string
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          external_id?: string
+          id?: string
+          import_id?: string | null
+          match_criteria?: Json
+          match_score?: number | null
+          match_status?: string
+          system?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       field_changes: {
         Row: {
           changed_by: string | null
@@ -2763,6 +2811,65 @@ export type Database = {
           username_enc?: string
         }
         Relationships: []
+      }
+      intervention_tasks: {
+        Row: {
+          assignee_id: string | null
+          assignee_name: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          description: string | null
+          due_at: string | null
+          id: string
+          intervention_id: string
+          label: string
+          position: number
+          priority: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          assignee_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          intervention_id: string
+          label: string
+          position?: number
+          priority?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          assignee_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          intervention_id?: string
+          label?: string
+          position?: number
+          priority?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervention_tasks_intervention_id_fkey"
+            columns: ["intervention_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       knowledge_articles: {
         Row: {
@@ -4154,8 +4261,11 @@ export type Database = {
           internal_ref: string | null
           mileage_in: number | null
           or_date: string | null
+          or_linked_at: string | null
           or_number: string | null
+          or_source: string | null
           or_status: string
+          record_type: string
           requested_work: string | null
           site_id: string | null
           status: string
@@ -4173,8 +4283,11 @@ export type Database = {
           internal_ref?: string | null
           mileage_in?: number | null
           or_date?: string | null
+          or_linked_at?: string | null
           or_number?: string | null
+          or_source?: string | null
           or_status?: string
+          record_type?: string
           requested_work?: string | null
           site_id?: string | null
           status?: string
@@ -4192,8 +4305,11 @@ export type Database = {
           internal_ref?: string | null
           mileage_in?: number | null
           or_date?: string | null
+          or_linked_at?: string | null
           or_number?: string | null
+          or_source?: string | null
           or_status?: string
+          record_type?: string
           requested_work?: string | null
           site_id?: string | null
           status?: string

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { formatPlate } from "@/lib/plate";
 import { COMM_LABELS, type RecentTour } from "@/lib/queries";
-import { OR_PENDING_LABEL, isOrPending, orLabel } from "@/lib/or-ref";
+import { interventionLabel, winmotorOrLabel } from "@/lib/or-ref";
 
 const COMM_STYLE: Record<string, string> = {
   not_sent: "bg-muted text-muted-foreground",
@@ -62,9 +62,9 @@ export function TourRow({ t, resume }: { t: RecentTour; resume?: boolean }) {
           <div className="text-xs text-muted-foreground">{t.client_name || "Client —"}</div>
         </div>
         <div className="text-right text-xs text-muted-foreground">
-          <div className="font-bold uppercase text-foreground">{orLabel(t)}</div>
-          {isOrPending(t) ? (
-            <div className="text-[10px] font-bold uppercase text-status-watch">{OR_PENDING_LABEL}</div>
+          <div className="font-bold uppercase text-foreground">{interventionLabel(t)}</div>
+          {winmotorOrLabel(t) ? (
+            <div className="text-[10px] font-bold uppercase text-foreground">{winmotorOrLabel(t)}</div>
           ) : null}
           <div>
             {date.toLocaleDateString("fr-FR")} à{" "}

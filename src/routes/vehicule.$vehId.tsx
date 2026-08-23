@@ -105,7 +105,7 @@ function VehiclePage() {
                 search={{ plate: plate }}
                 className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground"
               >
-                <FilePlus2 className="h-5 w-5" /> Créer un OR
+                <FilePlus2 className="h-5 w-5" /> Créer une intervention
               </Link>
               <div className="grid grid-cols-2 gap-2">
                 <Link
@@ -125,7 +125,7 @@ function VehiclePage() {
               </div>
             </div>
 
-            <Section title={`Ordres de réparation (${data?.orders.length ?? 0})`}>
+            <Section title={`Interventions (${data?.orders.length ?? 0})`}>
               {(data?.orders ?? []).map((o) => (
                 <Link
                   key={o.id}
@@ -133,7 +133,7 @@ function VehiclePage() {
                   params={{ orId: o.id }}
                   className="flex items-center justify-between px-4 py-2 text-sm"
                 >
-                  <span className="font-bold">OR {o.or_number ?? "—"}</span>
+                  <span className="font-bold">{o.or_number ? `OR WinMotor ${o.or_number}` : "Intervention DDA"}</span>
                   <span className="text-muted-foreground">{fr(o.or_date ?? o.created_at)}</span>
                 </Link>
               ))}
