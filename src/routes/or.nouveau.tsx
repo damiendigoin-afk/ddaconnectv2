@@ -10,6 +10,7 @@ import { isValidEmail } from "@/lib/validation";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
 import { nextInternalRef } from "@/lib/or-ref";
+import { upsertRef } from "@/lib/external-refs";
 
 import { refPrefill, type RefPrefill } from "@/lib/refbase";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
@@ -21,13 +22,13 @@ export const Route = createFileRoute("/or/nouveau")({
   }),
   head: () => ({
     meta: [
-      { title: "Nouvel ordre de réparation — DDA Connect" },
+      { title: "Nouvelle intervention — DDA Connect" },
       {
         name: "description",
-        content: "Créez un OR en photographiant le document ou par saisie manuelle.",
+        content: "Créez une intervention DDA en photographiant un document ou par saisie manuelle.",
       },
-      { property: "og:title", content: "Nouvel ordre de réparation — DDA Connect" },
-      { property: "og:description", content: "Scan OCR de l'OR ou saisie manuelle rapide." },
+      { property: "og:title", content: "Nouvelle intervention — DDA Connect" },
+      { property: "og:description", content: "Scan OCR d'un OR WinMotor ou saisie manuelle rapide." },
     ],
   }),
   component: NewOrder,
@@ -202,24 +203,24 @@ function NewOrder() {
     }
     if (form.email.trim() && !isValidEmail(form.email)) {
       const ok = window.confirm(
-        `L'adresse email « ${form.email} » semble incorrecte. Créer l'OR quand même ?`,
+        `L'adresse email « ${form.email} » semble incorrecte. Créer l'intervention quand même ?`,
       );
       if (!ok) return;
     }
     setSaving(true);
     try {
-      // Anti-doublon : un même n° OR sur la même immatriculation existe déjà.
+      // Anti-doublon : un même n° OR WinMotor sur la même immatriculation existe déjà.
       const dup = await findDuplicateOrder(form.or_number, form.plate);
       if (dup.exact) {
-        toast.error("Cet OR existe déjà pour ce véhicule — ouverture de la fiche existante.");
+        toast.error("Cet OR WinMotor est déjà rattaché à une intervention — ouverture de la fiche existante.");
         navigate({ to: "/or/$orId", params: { orId: dup.exact.id } });
         return;
       }
       if (dup.sameNumber.length > 0) {
         const ok = window.confirm(
-          `Le n° OR ${form.or_number} est déjà utilisé pour ${dup.sameNumber
+          `Le n° OR WinMotor ${form.or_number} est déjà utilisé pour ${dup.sameNumber
             .map((o) => o.plate)
-            .join(", ")}. Créer quand même un nouvel OR pour ${form.plate.toUpperCase()} ?`,
+            .join(", ")}. Créer quand même une intervention pour ${form.plate.toUpperCase()} ?`,
         );
         if (!ok) return;
       }
@@ -286,18 +287,22 @@ function NewOrder() {
         vehicleId = data.id;
       }
 
-      // §33 — sans n° WinMotor, le dossier reçoit une référence interne DDA unique.
+      // Toute intervention DDA possède sa référence interne ; l'OR WinMotor n'est
+      // qu'une référence externe optionnelle, jamais générée par DDA.
       const hasOrNumber = !!form.or_number.trim();
-      const internalRef = hasOrNumber ? null : await nextInternalRef();
+      const internalRef = await nextInternalRef();
 
       const { data: order, error: orErr } = await supabase
         .from("repair_orders")
         .insert({
           vehicle_id: vehicleId,
           client_id: clientId,
-          or_number: form.or_number || null,
+          or_number: form.or_number.trim() || null,
           internal_ref: internalRef,
-          or_status: hasOrNumber ? "or_complet" : "or_manquant",
+          record_type: hasOrNumber ? "or_winmotor" : "intervention",
+          or_status: hasOrNumber ? "or_complet" : "sans_or",
+          or_source: hasOrNumber ? "saisie_manuelle" : null,
+          or_linked_at: hasOrNumber ? new Date().toISOString() : null,
 
           or_date: form.or_date || null,
           client_remarks: form.client_remarks || null,
@@ -309,6 +314,22 @@ function NewOrder() {
         .select()
         .single();
       if (orErr) throw orErr;
+
+      if (hasOrNumber) {
+        // Mémorisation de la correspondance externe : l'OR WinMotor est un
+        // identifiant du DMS, conservé pour les imports suivants.
+        try {
+          await upsertRef({
+            entityType: "order",
+            entityId: order.id,
+            externalId: form.or_number,
+            status: "confirmed",
+            criteria: ["winmotor_or_number"],
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
       if (docFile) {
         try {
@@ -327,7 +348,7 @@ function NewOrder() {
           .insert({ vehicle_id: vehicleId, mileage, source: "ordre_reparation" });
       }
 
-      toast.success("OR créé");
+      toast.success("Intervention créée");
       navigate({ to: "/or/$orId", params: { orId: order.id } });
     } catch (e) {
       console.error(e);
@@ -339,7 +360,7 @@ function NewOrder() {
 
   if (mode === "choice") {
     return (
-      <AppShell title="Nouvel OR" back={{ to: "/tour-vehicule" }}>
+      <AppShell title="Nouvelle intervention" back={{ to: "/tour-vehicule" }}>
         <div className="space-y-3">
           <button
             onClick={() => cameraRef.current?.click()}
@@ -348,7 +369,7 @@ function NewOrder() {
           >
             {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
             <span>
-              Photographier l'OR
+              Photographier l'OR WinMotor
               <span className="block text-xs font-medium normal-case opacity-80">
                 Analyse automatique du document
               </span>
@@ -441,8 +462,8 @@ function NewOrder() {
           <Field label="1re mise en circulation" value={form.first_registration} onChange={(v) => set("first_registration", v)} type="date" />
         </Section>
 
-        <Section title="Ordre de réparation">
-          <Field label="N° OR WinMotor (facultatif)" value={form.or_number} onChange={(v) => set("or_number", v)} warn={flagged("order.or_number")} />
+        <Section title="Intervention">
+          <Field label="N° OR WinMotor (facultatif, jamais généré par DDA)" value={form.or_number} onChange={(v) => set("or_number", v)} warn={flagged("order.or_number")} />
           <p className="text-xs text-muted-foreground">
             Laissez vide si WinMotor n'a pas encore généré le numéro : une référence interne DDA est créée et le
             dossier reste « en attente du numéro d'OR ».
