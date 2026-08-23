@@ -22,7 +22,7 @@ export const Route = createFileRoute("/tour-vehicule")({
       {
         name: "description",
         content:
-          "Module Tour Véhicule : créez un ordre de réparation, scannez une plaque et suivez les tours récents.",
+          "Module Tour Véhicule : créez une intervention, scannez une plaque et suivez les tours récents.",
       },
       { property: "og:title", content: "Tour Véhicule — DDA Connect" },
       {
@@ -77,7 +77,7 @@ function ModuleHome() {
   function onDocument(r: DocIdentifyResult) {
     const plate = r.prefill?.fields["plate"] ?? r.extracted.plate ?? "";
     if (!plate) {
-      toast.error("Aucune immatriculation lue sur ce document : saisis-la dans le nouvel OR.");
+      toast.error("Aucune immatriculation lue sur ce document : saisis-la dans la nouvelle intervention.");
     }
     navigate({ to: "/or/nouveau", search: { plate } });
   }
@@ -136,10 +136,10 @@ function ModuleHome() {
     <section>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          OR récents
+          Interventions récentes
         </h2>
         <Link to="/ordres" className="text-xs font-bold uppercase tracking-widest text-brand">
-          Voir tous les OR
+          Voir toutes
         </Link>
       </div>
       <div className="space-y-2">
@@ -148,7 +148,7 @@ function ModuleHome() {
         ))}
         {orders.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Aucun OR pour le moment.
+            Aucune intervention pour le moment.
           </p>
         ) : null}
       </div>
@@ -176,7 +176,7 @@ function ModuleHome() {
             search={{ plate: "" }}
             className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase tracking-wide text-brand-foreground shadow-sm active:scale-[0.99]"
           >
-            <Plus className="h-6 w-6" /> Nouvel OR
+            <Plus className="h-6 w-6" /> Nouvelle intervention
           </Link>
           <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
         </div>
@@ -207,7 +207,7 @@ function ModuleHome() {
                 onClick={() => setTab("ors")}
                 className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest ${tab === "ors" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
               >
-                OR récents
+                Interventions récentes
               </button>
             </div>
             {tab === "tours" ? toursCol : tab === "drafts" ? draftsCol : ordersCol}

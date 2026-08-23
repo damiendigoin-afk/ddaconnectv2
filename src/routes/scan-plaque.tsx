@@ -175,7 +175,7 @@ function ScanPlate() {
           results.length > 0 ? (
             <div className="space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                OR correspondants
+                Interventions correspondantes
               </h2>
               {results.map((o) => {
                 const v = o.vehicle as { plate?: string; brand?: string; model?: string } | null;
@@ -196,15 +196,15 @@ function ScanPlate() {
             </div>
           ) : (
             <div className="card-surface space-y-3 p-4">
-              <p className="text-sm font-medium">Aucun OR pour cette plaque.</p>
+              <p className="text-sm font-medium">Aucune intervention pour cette plaque.</p>
               <p className="text-sm text-muted-foreground">
-                Corrigez l'immatriculation ci-dessus, ou créez un nouvel OR.
+                Corrigez l'immatriculation ci-dessus, ou créez une nouvelle intervention.
               </p>
               <button
                 onClick={() => navigate({ to: "/or/nouveau", search: { plate } })}
                 className="w-full rounded-lg bg-brand px-3 py-3 font-bold uppercase text-brand-foreground"
               >
-                Créer un nouvel OR
+                Créer une intervention
               </button>
             </div>
           )

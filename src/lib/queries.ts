@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { normalizePlate } from "./plate";
 
 export const OR_SELECT =
-  "id, or_number, internal_ref, or_status, or_date, client_remarks, requested_work, entry_at, delivery_at, mileage_in, created_at, vehicle:vehicles(*), client:clients(*)";
+  "id, or_number, internal_ref, or_status, record_type, or_source, or_linked_at, or_date, client_remarks, requested_work, entry_at, delivery_at, mileage_in, created_at, vehicle:vehicles(*), client:clients(*)";
 
 export async function fetchRecentOrders(limit = 20) {
   const { data, error } = await supabase
