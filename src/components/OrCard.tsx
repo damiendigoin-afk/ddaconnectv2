@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { formatPlate } from "@/lib/plate";
-import { OR_PENDING_LABEL, isOrPending, orLabel } from "@/lib/or-ref";
+import { OR_PENDING_LABEL, interventionLabel, winmotorOrLabel } from "@/lib/or-ref";
 
 type Order = {
   id: string;
