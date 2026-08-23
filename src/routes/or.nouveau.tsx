@@ -244,6 +244,21 @@ function NewOrder() {
           .single();
         if (error) throw error;
         clientId = data.id;
+        if (form.account_number.trim()) {
+          // Numéro de compte client WinMotor relevé sur le document : conservé
+          // comme correspondance externe, jamais fabriqué par DDA.
+          try {
+            await upsertRef({
+              entityType: "client",
+              entityId: clientId,
+              externalId: form.account_number,
+              status: "confirmed",
+              criteria: ["winmotor_id"],
+            });
+          } catch (e) {
+            console.error(e);
+          }
+        }
       }
 
       const norm = normalizePlate(form.plate);
