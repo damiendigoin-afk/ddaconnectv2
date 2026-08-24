@@ -49,7 +49,7 @@ export function BatteryTestCard({
     const { error } = await supabase
       .from("inspection_points")
       .update({
-        battery_test: next as unknown as Record<string, unknown>,
+        battery_test: JSON.parse(JSON.stringify(next)),
         measure_value: next.cca_measured != null ? `${next.cca_measured} CCA` : null,
         updated_at: new Date().toISOString(),
       })
