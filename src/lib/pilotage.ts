@@ -356,6 +356,7 @@ export async function fetchPlatformHealth(): Promise<{ metrics: HealthMetric[]; 
 }
 
 export function healthTone(m: HealthMetric) {
+  if (m.key === "resend_failed") return m.value > 0 ? ("alerte" as const) : ("ok" as const);
   if (!m.quota) return "ok" as const;
   const ratio = m.value / m.quota;
   if (ratio >= 1) return "critique" as const;
