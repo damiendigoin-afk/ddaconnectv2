@@ -41,6 +41,10 @@ function OrderPage() {
 
   const order = useQuery({ queryKey: ["order", orId], queryFn: () => fetchOrder(orId) });
   const tours = useQuery({ queryKey: ["inspections", orId], queryFn: () => fetchInspections(orId) });
+  // Règle 1 dossier = 1 Tour : aucune action « nouveau tour » quand il en existe déjà un.
+  const existingTour = (tours.data ?? []).find(
+    (t) => !(t as { archived_at?: string | null }).archived_at,
+  ) as { id: string; status: string } | undefined;
 
   const v = order.data?.vehicle as {
     id?: string;
@@ -61,6 +65,7 @@ function OrderPage() {
         userId: user?.id ?? null,
         userName: displayName || null,
         siteId: (profile?.site_id as string | null) ?? null,
+        source: "creation_depuis_intervention",
       });
       await qc.invalidateQueries({ queryKey: ["inspections", orId] });
       navigate({ to: "/tour/$tourId", params: { tourId: insp.id } });
@@ -197,35 +202,62 @@ function OrderPage() {
             )}
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Démarrer un tour véhicule
-            </h2>
-            <button
-              onClick={() => void start("libre")}
-              disabled={starting}
-              className="flex w-full items-center gap-3 rounded-xl border-2 border-primary bg-card px-4 py-4 text-left"
-            >
-              <ListChecks className="h-6 w-6" />
-              <span>
-                <span className="block font-extrabold uppercase">Tour libre</span>
-                <span className="block text-xs text-muted-foreground">
-                  Signaler uniquement les défauts constatés
+          {existingTour ? (
+            <section className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Tour véhicule du dossier
+              </h2>
+              <p className="rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
+                Un seul Tour Véhicule par dossier : le tour existant est repris, aucun second tour
+                n'est créé.
+              </p>
+              <Link
+                to={existingTour.status === "completed" ? "/tour/$tourId/rapport" : "/tour/$tourId"}
+                params={{ tourId: existingTour.id }}
+                className="flex w-full items-center gap-3 rounded-xl bg-brand px-4 py-4 text-left text-brand-foreground"
+              >
+                <RouteIcon className="h-6 w-6" />
+                <span>
+                  <span className="block font-extrabold uppercase">
+                    {existingTour.status === "completed" ? "Consulter / modifier le tour" : "Reprendre le tour"}
+                  </span>
+                  <span className="block text-xs opacity-80">
+                    {existingTour.status === "completed" ? "Tour clôturé" : "Tour en cours"}
+                  </span>
                 </span>
-              </span>
-            </button>
-            <button
-              onClick={() => void start("guide")}
-              disabled={starting}
-              className="flex w-full items-center gap-3 rounded-xl bg-brand px-4 py-4 text-left text-brand-foreground"
-            >
-              {starting ? <Loader2 className="h-6 w-6 animate-spin" /> : <RouteIcon className="h-6 w-6" />}
-              <span>
-                <span className="block font-extrabold uppercase">Tour guidé</span>
-                <span className="block text-xs opacity-80">Effectuer le contrôle étape par étape</span>
-              </span>
-            </button>
-          </section>
+              </Link>
+            </section>
+          ) : (
+            <section className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Démarrer un tour véhicule
+              </h2>
+              <button
+                onClick={() => void start("libre")}
+                disabled={starting}
+                className="flex w-full items-center gap-3 rounded-xl border-2 border-primary bg-card px-4 py-4 text-left"
+              >
+                <ListChecks className="h-6 w-6" />
+                <span>
+                  <span className="block font-extrabold uppercase">Tour libre</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Signaler uniquement les défauts constatés
+                  </span>
+                </span>
+              </button>
+              <button
+                onClick={() => void start("guide")}
+                disabled={starting}
+                className="flex w-full items-center gap-3 rounded-xl bg-brand px-4 py-4 text-left text-brand-foreground"
+              >
+                {starting ? <Loader2 className="h-6 w-6 animate-spin" /> : <RouteIcon className="h-6 w-6" />}
+                <span>
+                  <span className="block font-extrabold uppercase">Tour guidé</span>
+                  <span className="block text-xs opacity-80">Effectuer le contrôle étape par étape</span>
+                </span>
+              </button>
+            </section>
+          )}
 
           <section className="space-y-2">
             <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">

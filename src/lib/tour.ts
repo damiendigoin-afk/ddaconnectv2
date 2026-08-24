@@ -1,12 +1,46 @@
 import { supabase } from "@/integrations/supabase/client";
 import { GUIDED_ZONES } from "./zones";
 
+/**
+ * Règle métier : un dossier (OR / intervention) ne porte qu'un seul Tour Véhicule.
+ * Retourne le tour existant s'il y en a déjà un (actif ou clôturé).
+ */
+export async function findInspectionForOrder(orderId: string) {
+  const { data } = await supabase
+    .from("vehicle_inspections")
+    .select("id, status, archived_at")
+    .eq("repair_order_id", orderId)
+    .is("archived_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
+}
+
 export async function createInspection(
   orderId: string,
   vehicleId: string,
   type: "libre" | "guide",
-  author?: { userId?: string | null; userName?: string | null; siteId?: string | null },
+  author?: {
+    userId?: string | null;
+    userName?: string | null;
+    siteId?: string | null;
+    /** Trace de l'action métier à l'origine du tour (jamais une simple consultation). */
+    source?: string | null;
+  },
 ) {
+  // Anti-doublon / anti double-clic : on reprend le tour existant.
+  const existing = await findInspectionForOrder(orderId);
+  if (existing) {
+    const { data: full, error: e } = await supabase
+      .from("vehicle_inspections")
+      .select("*")
+      .eq("id", existing.id)
+      .single();
+    if (e) throw e;
+    return full;
+  }
+
   const { data, error } = await supabase
     .from("vehicle_inspections")
     .insert({
@@ -16,6 +50,7 @@ export async function createInspection(
       created_by: author?.userId ?? null,
       created_by_name: author?.userName ?? null,
       site_id: author?.siteId ?? null,
+      creation_source: author?.source ?? "action_operateur",
     })
     .select()
     .single();

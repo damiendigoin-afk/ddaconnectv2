@@ -123,7 +123,7 @@ export function proposalFromOffer(
   settings: CommercialSettings | null,
   identical = false,
 ): TireProposal {
-  const { sellHt } = applyMargin(Number(offer.purchase_price_ht), settings);
+  const { sellHt } = applyMargin(sourceHtOf(offer), settings);
   const tiresTtc = Math.round(sellHt * 1.2 * quantity * 100) / 100;
   const mountTtc = Math.round(Number(offer.mount_price_ttc) * quantity * 100) / 100;
   return {
@@ -564,6 +564,17 @@ export type SevenOffer = {
 
 const VAT = 0.2;
 
+/**
+ * Base HT d'une offre : les catalogues publics (ex. prix public TTC d'un
+ * distributeur en ligne) sont ramenés au HT avant application de la marge
+ * paramétrée. Aucun prix n'est inventé.
+ */
+export function sourceHtOf(offer: Pick<TireOffer, "purchase_price_ht" | "price_kind">): number {
+  const raw = Number(offer.purchase_price_ht);
+  if (!Number.isFinite(raw)) return 0;
+  return offer.price_kind === "public_ttc" ? Math.round((raw / 1.2) * 100) / 100 : raw;
+}
+
 function priceOffer(
   offer: TireOffer,
   quantity: number,
@@ -571,7 +582,7 @@ function priceOffer(
   packages: ServicePackage[],
   required: { size: string | null; load: string | null; speed: string | null },
 ) {
-  const sourceHt = Number(offer.purchase_price_ht);
+  const sourceHt = sourceHtOf(offer);
   const { sellHt, marginHt } = applyMargin(sourceHt, settings);
   const tiresHt = Math.round(sellHt * quantity * 100) / 100;
   const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;

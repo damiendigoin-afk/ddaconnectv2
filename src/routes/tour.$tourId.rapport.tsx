@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Copy, ExternalLink, FileDown, Mail, MessageSquareText, Send } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, ExternalLink, FileDown, Mail, MessageSquareText, Pencil, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -12,6 +12,7 @@ import { sendTourReport } from "@/lib/report-email.functions";
 import { notifyTourFrontOffice } from "@/lib/tour-notify.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { archiveTour, deleteTour, unarchiveTour } from "@/lib/tour-admin";
 import { ReportBody, Summary } from "@/components/ReportView";
 import { TourQuoteSection } from "@/components/TourQuoteSection";
 
@@ -33,7 +34,8 @@ export const Route = createFileRoute("/tour/$tourId/rapport")({
 function ReportPage() {
   const { tourId } = Route.useParams();
   const qc = useQueryClient();
-  const { user, isManager } = useAuth();
+  const { user, displayName, isManager } = useAuth();
+  const navigate = Route.useNavigate();
   const [detailed, setDetailed] = useState(true);
   const [sendOpen, setSendOpen] = useState(false);
 
@@ -171,6 +173,21 @@ function ReportPage() {
             <FileDown className="h-4 w-4" /> Exporter PDF
           </a>
         </div>
+
+        <TourManagement
+          tourId={tourId}
+          archivedAt={(d.inspection as { archived_at?: string | null }).archived_at ?? null}
+          lastModifiedAt={(d.inspection as { last_modified_at?: string | null }).last_modified_at ?? null}
+          lastModifiedBy={(d.inspection as { last_modified_by_name?: string | null }).last_modified_by_name ?? null}
+          isManager={isManager}
+          onChanged={async () => {
+            await qc.invalidateQueries({ queryKey: ["report", tourId] });
+            await qc.invalidateQueries({ queryKey: ["all-tours"] });
+            await qc.invalidateQueries({ queryKey: ["recent-tours"] });
+          }}
+          onDeleted={() => navigate({ to: "/tours" })}
+          actor={{ userId: user?.id ?? null, userName: displayName || null }}
+        />
 
         <TourQuoteSection
           inspectionId={d.inspection.id}
@@ -422,6 +439,108 @@ function FrontOfficeBlock({ tourId, isManager }: { tourId: string; isManager: bo
           <Send className="h-4 w-4" /> {busy ? "Envoi en cours…" : "Renvoyer au Front Office"}
         </button>
         </>
+      ) : null}
+    </div>
+  );
+}
+
+/** §3 — modification, archivage et suppression d'un tour terminé. */
+function TourManagement({
+  tourId,
+  archivedAt,
+  lastModifiedAt,
+  lastModifiedBy,
+  isManager,
+  onChanged,
+  onDeleted,
+  actor,
+}: {
+  tourId: string;
+  archivedAt: string | null;
+  lastModifiedAt: string | null;
+  lastModifiedBy: string | null;
+  isManager: boolean;
+  onChanged: () => Promise<void> | void;
+  onDeleted: () => void;
+  actor: { userId: string | null; userName: string | null };
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const run = async (fn: () => Promise<void>, ok: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      toast.success(ok);
+      await onChanged();
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Action impossible");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card-surface space-y-2 p-4">
+      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        Gestion du tour
+      </span>
+      {archivedAt ? (
+        <p className="rounded-lg bg-secondary px-3 py-2 text-xs font-bold uppercase">
+          Tour archivé le {new Date(archivedAt).toLocaleString("fr-FR")}
+        </p>
+      ) : null}
+      {lastModifiedAt ? (
+        <p className="text-xs text-muted-foreground">
+          Dernière modification : {new Date(lastModifiedAt).toLocaleString("fr-FR")}
+          {lastModifiedBy ? ` par ${lastModifiedBy}` : ""}
+        </p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2">
+        <Link
+          to="/tour/$tourId"
+          params={{ tourId }}
+          search={{ edit: true }}
+          className="flex items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase"
+        >
+          <Pencil className="h-4 w-4" /> Modifier le tour
+        </Link>
+        {archivedAt ? (
+          <button
+            disabled={busy}
+            onClick={() => void run(() => unarchiveTour(tourId), "Tour désarchivé")}
+            className="flex items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase disabled:opacity-60"
+          >
+            <ArchiveRestore className="h-4 w-4" /> Désarchiver
+          </button>
+        ) : (
+          <button
+            disabled={busy}
+            onClick={() => {
+              if (!window.confirm("Archiver ce tour ? Il restera consultable via le filtre Archivés.")) return;
+              void run(() => archiveTour(tourId, actor), "Tour archivé");
+            }}
+            className="flex items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase disabled:opacity-60"
+          >
+            <Archive className="h-4 w-4" /> Archiver
+          </button>
+        )}
+      </div>
+      {isManager ? (
+        <button
+          disabled={busy}
+          onClick={() => {
+            if (!window.confirm("Supprimer définitivement ce tour ? Cette action est irréversible.")) return;
+            if (!window.confirm("Confirmer une seconde fois la suppression définitive.")) return;
+            void run(async () => {
+              await deleteTour(tourId);
+              onDeleted();
+            }, "Tour supprimé définitivement");
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-destructive px-3 py-3 text-sm font-bold uppercase text-destructive disabled:opacity-60"
+        >
+          <Trash2 className="h-4 w-4" /> Supprimer définitivement (manager)
+        </button>
       ) : null}
     </div>
   );

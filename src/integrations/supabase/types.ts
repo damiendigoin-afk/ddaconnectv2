@@ -945,6 +945,9 @@ export type Database = {
           tire_depth_good_mm: number
           tire_depth_legal_mm: number
           tire_depth_soon_mm: number
+          tire_provider_last_ok_at: string | null
+          tire_provider_message: string | null
+          tire_provider_status: string | null
           tire_supplier: string
           tire_supplier_configured: boolean
           updated_at: string
@@ -957,6 +960,9 @@ export type Database = {
           tire_depth_good_mm?: number
           tire_depth_legal_mm?: number
           tire_depth_soon_mm?: number
+          tire_provider_last_ok_at?: string | null
+          tire_provider_message?: string | null
+          tire_provider_status?: string | null
           tire_supplier?: string
           tire_supplier_configured?: boolean
           updated_at?: string
@@ -969,6 +975,9 @@ export type Database = {
           tire_depth_good_mm?: number
           tire_depth_legal_mm?: number
           tire_depth_soon_mm?: number
+          tire_provider_last_ok_at?: string | null
+          tire_provider_message?: string | null
+          tire_provider_status?: string | null
           tire_supplier?: string
           tire_supplier_configured?: boolean
           updated_at?: string
@@ -2663,6 +2672,8 @@ export type Database = {
       inspection_points: {
         Row: {
           ai_confidence: string | null
+          battery_media_id: string | null
+          battery_test: Json | null
           client_comment: string | null
           comment: string | null
           created_at: string
@@ -2689,6 +2700,8 @@ export type Database = {
         }
         Insert: {
           ai_confidence?: string | null
+          battery_media_id?: string | null
+          battery_test?: Json | null
           client_comment?: string | null
           comment?: string | null
           created_at?: string
@@ -2715,6 +2728,8 @@ export type Database = {
         }
         Update: {
           ai_confidence?: string | null
+          battery_media_id?: string | null
+          battery_test?: Json | null
           client_comment?: string | null
           comment?: string | null
           created_at?: string
@@ -4863,10 +4878,12 @@ export type Database = {
           model: string
           mount_price_ttc: number
           price_date: string
+          price_kind: string
           purchase_price_ht: number
           season: string
           size: string | null
           source: string
+          source_url: string | null
           speed_index: string | null
           supplier_key: string | null
           supplier_ref: string | null
@@ -4883,10 +4900,12 @@ export type Database = {
           model: string
           mount_price_ttc?: number
           price_date?: string
+          price_kind?: string
           purchase_price_ht: number
           season: string
           size?: string | null
           source?: string
+          source_url?: string | null
           speed_index?: string | null
           supplier_key?: string | null
           supplier_ref?: string | null
@@ -4903,10 +4922,12 @@ export type Database = {
           model?: string
           mount_price_ttc?: number
           price_date?: string
+          price_kind?: string
           purchase_price_ht?: number
           season?: string
           size?: string | null
           source?: string
+          source_url?: string | null
           speed_index?: string | null
           supplier_key?: string | null
           supplier_ref?: string | null
@@ -5411,7 +5432,11 @@ export type Database = {
       }
       vehicle_inspections: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
+          archived_by_name: string | null
           client_content_updated_at: string | null
+          close_source: string | null
           completed_at: string | null
           completed_by: string | null
           completed_by_name: string | null
@@ -5419,11 +5444,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string | null
+          creation_source: string | null
           current_zone_index: number
           duration_seconds: number | null
           finished_at: string | null
           id: string
           inspection_type: string
+          last_modified_at: string | null
+          last_modified_by: string | null
+          last_modified_by_name: string | null
           last_sent_at: string | null
           last_sent_by: string | null
           last_sent_by_name: string | null
@@ -5440,7 +5469,11 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_by_name?: string | null
           client_content_updated_at?: string | null
+          close_source?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completed_by_name?: string | null
@@ -5448,11 +5481,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          creation_source?: string | null
           current_zone_index?: number
           duration_seconds?: number | null
           finished_at?: string | null
           id?: string
           inspection_type: string
+          last_modified_at?: string | null
+          last_modified_by?: string | null
+          last_modified_by_name?: string | null
           last_sent_at?: string | null
           last_sent_by?: string | null
           last_sent_by_name?: string | null
@@ -5469,7 +5506,11 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_by_name?: string | null
           client_content_updated_at?: string | null
+          close_source?: string | null
           completed_at?: string | null
           completed_by?: string | null
           completed_by_name?: string | null
@@ -5477,11 +5518,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          creation_source?: string | null
           current_zone_index?: number
           duration_seconds?: number | null
           finished_at?: string | null
           id?: string
           inspection_type?: string
+          last_modified_at?: string | null
+          last_modified_by?: string | null
+          last_modified_by_name?: string | null
           last_sent_at?: string | null
           last_sent_by?: string | null
           last_sent_by_name?: string | null
@@ -5720,7 +5765,11 @@ export type Database = {
       finish_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          archived_by_name: string | null
           client_content_updated_at: string | null
+          close_source: string | null
           completed_at: string | null
           completed_by: string | null
           completed_by_name: string | null
@@ -5728,11 +5777,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string | null
+          creation_source: string | null
           current_zone_index: number
           duration_seconds: number | null
           finished_at: string | null
           id: string
           inspection_type: string
+          last_modified_at: string | null
+          last_modified_by: string | null
+          last_modified_by_name: string | null
           last_sent_at: string | null
           last_sent_by: string | null
           last_sent_by_name: string | null
@@ -5787,7 +5840,11 @@ export type Database = {
       start_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          archived_by_name: string | null
           client_content_updated_at: string | null
+          close_source: string | null
           completed_at: string | null
           completed_by: string | null
           completed_by_name: string | null
@@ -5795,11 +5852,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string | null
+          creation_source: string | null
           current_zone_index: number
           duration_seconds: number | null
           finished_at: string | null
           id: string
           inspection_type: string
+          last_modified_at: string | null
+          last_modified_by: string | null
+          last_modified_by_name: string | null
           last_sent_at: string | null
           last_sent_by: string | null
           last_sent_by_name: string | null

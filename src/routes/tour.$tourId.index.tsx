@@ -19,10 +19,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
 import { finishTour } from "@/lib/tour-finish";
+import { markTourModified } from "@/lib/tour-admin";
 import { useUploadState } from "@/lib/upload-tracker";
 import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/tour/$tourId/")({
+  // Un tour terminé reste modifiable : ?edit=1 rouvre les contrôles.
+  validateSearch: (search: Record<string, unknown>): { edit?: boolean } =>
+    search["edit"] === "1" || search["edit"] === 1 || search["edit"] === true ? { edit: true } : {},
   head: () => ({
     meta: [
       { title: "Tour véhicule — DDA Connect" },
@@ -46,6 +50,7 @@ async function loadTour(id: string) {
 
 function TourPage() {
   const { tourId } = Route.useParams();
+  const { edit } = Route.useSearch();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, displayName } = useAuth();
@@ -55,9 +60,10 @@ function TourPage() {
   const order = tour.data?.repair_order as { id: string } | null;
 
   const completed = tour.data?.status === "completed";
+  const editingCompleted = completed && edit;
   useEffect(() => {
-    if (completed) navigate({ to: "/tour/$tourId/rapport", params: { tourId } });
-  }, [completed, navigate, tourId]);
+    if (completed && !edit) navigate({ to: "/tour/$tourId/rapport", params: { tourId } });
+  }, [completed, edit, navigate, tourId]);
 
   // V3 : le chronomètre démarre automatiquement en arrière-plan à l'ouverture du tour.
   const notStarted = !!tour.data && !tour.data.started_at && !completed;
@@ -87,7 +93,7 @@ function TourPage() {
     );
   }
 
-  if (completed) return null;
+  if (completed && !edit) return null;
 
   const quit = () => {
     toast.success("Tour sauvegardé en brouillon.");
@@ -103,6 +109,7 @@ function TourPage() {
   };
 
   const shared = {
+    editingCompleted: Boolean(editingCompleted),
     tourId,
     orderId: order.id,
     vehicleId: vehicle.id,
@@ -120,6 +127,8 @@ function TourPage() {
 }
 
 type SharedProps = {
+  /** Reprise d'un tour déjà clôturé : la clôture initiale est préservée. */
+  editingCompleted: boolean;
   tourId: string;
   orderId: string;
   vehicleId: string;
@@ -133,9 +142,23 @@ type SharedProps = {
   deleteDraft: () => void;
 };
 
-function TourNav({ quit, deleteDraft }: { quit: () => void; deleteDraft: () => void }) {
+function TourNav({
+  quit,
+  deleteDraft,
+  editingCompleted,
+}: {
+  quit: () => void;
+  deleteDraft: () => void;
+  editingCompleted?: boolean;
+}) {
   return (
-    <div className="mb-3 flex gap-2">
+    <div className="mb-3 space-y-2">
+      {editingCompleted ? (
+        <p className="rounded-lg bg-status-watch-soft px-3 py-2 text-xs font-bold uppercase text-status-watch">
+          Modification d'un tour terminé — la clôture initiale est conservée
+        </p>
+      ) : null}
+      <div className="flex gap-2">
       <button
         onClick={quit}
         className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-2 text-sm font-semibold"
@@ -148,6 +171,7 @@ function TourNav({ quit, deleteDraft }: { quit: () => void; deleteDraft: () => v
       >
         <Trash2 className="h-4 w-4" /> Supprimer
       </button>
+      </div>
     </div>
   );
 }
@@ -269,15 +293,49 @@ function Guided(props: SharedProps) {
   const uploads = useUploadState();
   const blockClose = uploads.pending > 0 || uploads.failed.length > 0;
 
+  // §15 — contrôle qualité : écarts visibles, jamais bloquants.
+  const qualityIssues = useMemo(() => {
+    const out: { key: string; label: string }[] = [];
+    const all = points.data ?? [];
+    if (mileage == null) out.push({ key: "kilometrage", label: "Kilométrage non enregistré" });
+    for (const p of all) {
+      if ((p.status === "watch" || p.status === "defect") && !(p.comment ?? "").trim()) {
+        out.push({ key: p.point_key, label: `${p.point_label} : anomalie sans commentaire` });
+      }
+      const battery = (p as unknown as { battery_test?: unknown }).battery_test;
+      if (p.point_key === "batterie" && p.status !== "unset" && !battery && !p.measure_value) {
+        out.push({ key: p.point_key, label: "Batterie : aucun résultat de test exploité" });
+      }
+      const tire = (p as unknown as { tire_analysis?: { size?: string | null } | null }).tire_analysis;
+      if (/^pneu_/.test(p.point_key) && (p.status === "watch" || p.status === "defect") && !tire?.size) {
+        out.push({ key: p.point_key, label: `${p.point_label} : dimension pneumatique non exploitable` });
+      }
+    }
+    return out;
+  }, [points.data, mileage]);
+
   async function finish() {
     if (!user) return;
+    if (props.editingCompleted) {
+      // Modification d'un tour déjà clôturé : on ne rejoue pas la clôture.
+      try {
+        await markTourModified(props.tourId, { userId: user.id, userName: displayName || null });
+        toast.success("Modifications enregistrées");
+      } catch (e) {
+        console.error(e);
+        toast.error("Modifications non enregistrées");
+        return;
+      }
+      navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+      return;
+    }
     const ok = await finishTour({
       tourId: props.tourId,
       userId: user.id,
       userName: displayName || "Utilisateur",
+      source: "bouton_terminer",
     });
     if (!ok) return;
-    toast.success("Tour véhicule terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
 
@@ -312,6 +370,24 @@ function Guided(props: SharedProps) {
               <p className="text-sm text-muted-foreground">Aucune anomalie relevée.</p>
             ) : null}
           </section>
+          {qualityIssues.length ? (
+            <section className="rounded-xl border-2 border-status-watch bg-status-watch-soft p-3">
+              <p className="text-sm font-extrabold uppercase text-status-watch">
+                {qualityIssues.length} élément(s) restent à vérifier
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-status-watch">
+                {qualityIssues.map((q, i) => (
+                  <li key={`${q.key}-${i}`}>{q.label}</li>
+                ))}
+              </ul>
+              <button
+                onClick={() => setShowSummary(false)}
+                className="mt-2 text-xs font-bold uppercase underline"
+              >
+                Revenir aux contrôles
+              </button>
+            </section>
+          ) : null}
           <div className="grid gap-2">
             <PendingUploadsGuard />
             <button
@@ -325,7 +401,7 @@ function Guided(props: SharedProps) {
               disabled={blockClose}
               className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground disabled:opacity-50"
             >
-              Valider et terminer le tour
+              {props.editingCompleted ? "Enregistrer les modifications" : "Valider et terminer le tour"}
             </button>
           </div>
         </div>
@@ -339,7 +415,7 @@ function Guided(props: SharedProps) {
       subtitle={current.label.toUpperCase()}
       back={{ to: "/tours" }}
     >
-      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} />
+      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} editingCompleted={props.editingCompleted} />
       <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
         <div
           className="h-full bg-brand transition-all"
@@ -544,13 +620,25 @@ function Free(props: SharedProps) {
 
   async function finish() {
     if (!user) return;
+    if (props.editingCompleted) {
+      try {
+        await markTourModified(props.tourId, { userId: user.id, userName: displayName || null });
+        toast.success("Modifications enregistrées");
+      } catch (e) {
+        console.error(e);
+        toast.error("Modifications non enregistrées");
+        return;
+      }
+      navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+      return;
+    }
     const ok = await finishTour({
       tourId: props.tourId,
       userId: user.id,
       userName: displayName || "Utilisateur",
+      source: "bouton_terminer",
     });
     if (!ok) return;
-    toast.success("Tour libre terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
 
@@ -575,7 +663,7 @@ function Free(props: SharedProps) {
       subtitle={props.plate}
       back={{ to: "/tours" }}
     >
-      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} />
+      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} editingCompleted={props.editingCompleted} />
       <button
         onClick={() => setCreating(true)}
         className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground"
