@@ -7,7 +7,9 @@ import { AppShell } from "@/components/AppShell";
 import { Field } from "@/components/bits";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import type { CommercialSettings, PaintElementRule, ServicePackage } from "@/lib/pricing-engine";
+import type { CommercialSettings, PaintElementRule } from "@/lib/pricing-engine";
+import { PackagesSection } from "@/components/PackagesSection";
+import type { PackageRow } from "@/lib/packages-import";
 import {
   GRADE_LABEL,
   SEASON_LABEL,
@@ -56,7 +58,7 @@ function PricingSettings() {
     queryFn: async () => {
       const { data, error } = await supabase.from("service_packages").select("*").order("operation_code");
       if (error) throw error;
-      return (data ?? []) as ServicePackage[];
+      return (data ?? []) as PackageRow[];
     },
   });
   const paint = useQuery({
