@@ -621,13 +621,25 @@ function Free(props: SharedProps) {
 
   async function finish() {
     if (!user) return;
+    if (props.editingCompleted) {
+      try {
+        await markTourModified(props.tourId, { userId: user.id, userName: displayName || null });
+        toast.success("Modifications enregistrées");
+      } catch (e) {
+        console.error(e);
+        toast.error("Modifications non enregistrées");
+        return;
+      }
+      navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+      return;
+    }
     const ok = await finishTour({
       tourId: props.tourId,
       userId: user.id,
       userName: displayName || "Utilisateur",
+      source: "bouton_terminer",
     });
     if (!ok) return;
-    toast.success("Tour libre terminé");
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
   }
 
