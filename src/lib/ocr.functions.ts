@@ -138,3 +138,22 @@ Règles impératives :
     if (!parsed) return { ok: false as const, error: "Rapport Winmotor illisible.", json: "" };
     return { ok: true as const, error: "", json: JSON.stringify(parsed) };
   });
+
+/**
+ * Lecture d'un ticket de testeur de batterie (Midtronics, Bosch, GYS…).
+ * Aucune valeur n'est déduite : ce qui n'est pas lisible reste null.
+ */
+export const ocrBatteryTest = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Tu lis le ticket ou l'écran d'un testeur de batterie automobile.
+Réponds STRICTEMENT en JSON :
+{"verdict":"bonne|a_surveiller|a_remplacer|null","voltage":null,"cca_measured":null,"cca_rated":null,"soh_pct":null,"soc_pct":null}
+verdict : "bonne" (GOOD / BON), "a_surveiller" (GOOD-RECHARGE / RECHARGE / MARGINAL), "a_remplacer" (REPLACE / BAD / REMPLACER).
+Nombres uniquement, sans unité. Mets null pour toute valeur non lisible. N'invente rien.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename);
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    const parsed = parseJsonBlock(result.content);
+    if (!parsed) return { ok: false as const, error: "Ticket batterie illisible.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+  });
