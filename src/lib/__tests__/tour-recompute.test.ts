@@ -60,16 +60,22 @@ describe("recalcul d'un ancien tour", () => {
     expect(requiredFromLabel(null, "avg")).toEqual({ size: null, load: null, speed: null });
   });
 
-  it("déduit le diamètre de jante et le forfait montage niveau 0", () => {
+  it("retient le forfait montage Renault niveau 0 correspondant au nombre de pneus", () => {
     expect(rimDiameterOf("215/65 R16")).toBe(16);
     const packages = [
-      { operation_code: "RTPNE0", label: "Montage pneu ≤15", price_ttc: 20, active: true },
-      { operation_code: "RTPNF0", label: "Montage pneu 16-17", price_ttc: 26, active: true },
-      { operation_code: "RTPNG0", label: "Montage pneu ≥18", price_ttc: 32, active: true },
+      { operation_code: "RTPNE0", label: "Montage 1 pneu SSPP (niveau 0)", price_ttc: 39, active: true },
+      { operation_code: "RTPNF0", label: "Montage 2 pneus SSPP (niveau 0)", price_ttc: 69, active: true },
+      { operation_code: "RTPNG0", label: "Montage 4 pneus SSPP (niveau 0)", price_ttc: 129, active: true },
     ] as unknown as ServicePackage[];
-    const mount = mountPackageForSize(packages, 2, "215/65 R16");
-    expect(mount).toEqual({ label: "Montage pneu 16-17", unitTtc: 26, totalTtc: 52 });
+    expect(mountPackageLevel0(packages, 2)).toEqual({
+      label: "Montage 2 pneus SSPP (niveau 0)",
+      unitTtc: 34.5,
+      totalTtc: 69,
+    });
+    expect(mountPackageLevel0(packages, 1)?.totalTtc).toBe(39);
+    expect(mountPackageLevel0(packages, 4)?.totalTtc).toBe(129);
   });
+
 
   it("retient l'offre identique, sinon la moins chère disponible", () => {
     const list = [offer("identique", "identique", 480, true), offer("entree_ete", "gamme", 320, true)];
