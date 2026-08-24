@@ -90,7 +90,7 @@ function ModuleHome() {
     <section>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Brouillons / tours en cours
+          Tours en cours
         </h2>
         <Link to="/tours" className="text-xs font-bold uppercase tracking-widest text-brand">
           Tout voir
@@ -113,7 +113,7 @@ function ModuleHome() {
     <section>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Tours Véhicule clôturés
+          Derniers Tours clôturés
         </h2>
         <Link to="/tours" className="text-xs font-bold uppercase tracking-widest text-brand">
           Voir tous les Tours
