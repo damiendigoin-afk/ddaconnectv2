@@ -170,7 +170,7 @@ export async function fetchRecentTours(
     const { data: clients } = await supabase
       .from("clients")
       .select("id")
-      .or(`first_name.ilike.${like},last_name.ilike.${like},company.ilike.${like}`)
+      .or(`first_name.ilike.${like},last_name.ilike.${like}`)
       .limit(300);
     let orderIds = (orders.data ?? []).map((o) => o.id as string);
     if ((clients ?? []).length) {
