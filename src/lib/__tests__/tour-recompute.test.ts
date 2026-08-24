@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { pickBestOffer } from "../tour-recompute";
-import { mountPackageForSize, requiredFromLabel, rimDiameterOf } from "../tires";
+import { mountPackageLevel0, requiredFromLabel, rimDiameterOf } from "../tires";
 import type { ServicePackage } from "../pricing-engine";
 import type { SevenOffer } from "../tires";
 
