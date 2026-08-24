@@ -4551,22 +4551,121 @@ export type Database = {
           },
         ]
       }
+      service_package_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          dedupe_key: string | null
+          id: string
+          import_id: string | null
+          package_id: string | null
+          previous: Json
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          dedupe_key?: string | null
+          id?: string
+          import_id?: string | null
+          package_id?: string | null
+          previous: Json
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          dedupe_key?: string | null
+          id?: string
+          import_id?: string | null
+          package_id?: string | null
+          previous?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_package_history_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "service_package_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_package_history_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "service_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_package_imports: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          imported_by: string | null
+          imported_by_name: string | null
+          lines_detected: number
+          lines_imported: number
+          lines_updated: number
+          source_kind: string
+          updated_at: string
+          version_label: string | null
+          warnings: Json
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          imported_by?: string | null
+          imported_by_name?: string | null
+          lines_detected?: number
+          lines_imported?: number
+          lines_updated?: number
+          source_kind: string
+          updated_at?: string
+          version_label?: string | null
+          warnings?: Json
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          imported_by?: string | null
+          imported_by_name?: string | null
+          lines_detected?: number
+          lines_imported?: number
+          lines_updated?: number
+          source_kind?: string
+          updated_at?: string
+          version_label?: string | null
+          warnings?: Json
+        }
+        Relationships: []
+      }
       service_packages: {
         Row: {
           active: boolean
           brand: string
           created_at: string
+          dedupe_key: string | null
           energies: string[]
           hours: number | null
           id: string
+          imported_at: string | null
+          imported_by: string | null
           label: string
           model: string | null
           notes: string | null
           operation_code: string
           parts_ht: number | null
+          price_basis: string
+          price_ht: number | null
           price_ttc: number | null
           rate_code: string
           segment: string | null
+          source_file_name: string | null
+          source_kind: string | null
+          source_page: number | null
+          source_version: string | null
           updated_at: string
           year_from: number | null
           year_to: number | null
@@ -4575,17 +4674,26 @@ export type Database = {
           active?: boolean
           brand: string
           created_at?: string
+          dedupe_key?: string | null
           energies?: string[]
           hours?: number | null
           id?: string
+          imported_at?: string | null
+          imported_by?: string | null
           label: string
           model?: string | null
           notes?: string | null
           operation_code: string
           parts_ht?: number | null
+          price_basis?: string
+          price_ht?: number | null
           price_ttc?: number | null
           rate_code?: string
           segment?: string | null
+          source_file_name?: string | null
+          source_kind?: string | null
+          source_page?: number | null
+          source_version?: string | null
           updated_at?: string
           year_from?: number | null
           year_to?: number | null
@@ -4594,17 +4702,26 @@ export type Database = {
           active?: boolean
           brand?: string
           created_at?: string
+          dedupe_key?: string | null
           energies?: string[]
           hours?: number | null
           id?: string
+          imported_at?: string | null
+          imported_by?: string | null
           label?: string
           model?: string | null
           notes?: string | null
           operation_code?: string
           parts_ht?: number | null
+          price_basis?: string
+          price_ht?: number | null
           price_ttc?: number | null
           rate_code?: string
           segment?: string | null
+          source_file_name?: string | null
+          source_kind?: string | null
+          source_page?: number | null
+          source_version?: string | null
           updated_at?: string
           year_from?: number | null
           year_to?: number | null
