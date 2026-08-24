@@ -587,7 +587,7 @@ function priceOffer(
   const tiresHt = Math.round(sellHt * quantity * 100) / 100;
   const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;
   const mount =
-    mountPackageForSize(packages, quantity, required.size ?? offer.size) ??
+    mountPackageLevel0(packages, quantity) ??
     (offer.mount_price_ttc != null
       ? {
           label: "Montage catalogue pneumatiques",
