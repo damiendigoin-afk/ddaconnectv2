@@ -587,7 +587,7 @@ function priceOffer(
   const tiresHt = Math.round(sellHt * quantity * 100) / 100;
   const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;
   const mount =
-    mountPackageFor(packages, quantity) ??
+    mountPackageLevel0(packages, quantity) ??
     (offer.mount_price_ttc != null
       ? {
           label: "Montage catalogue pneumatiques",
@@ -860,3 +860,79 @@ export function sizeConfidenceMessage(args: {
   if (!args.speed) return "Indice de vitesse à confirmer";
   return null;
 }
+
+/* ------------------- Étiquette pneumatiques → dimensions ------------------ */
+
+export type TireLabelData = {
+  size_front?: string | null;
+  size_rear?: string | null;
+  load_index_front?: string | null;
+  speed_index_front?: string | null;
+  load_index_rear?: string | null;
+  speed_index_rear?: string | null;
+} | null;
+
+/** Essieu concerné par le code roue (avg/avd = avant, arg/ard = arrière). */
+export function axleKindOf(wheelCode: string): "avant" | "arriere" {
+  return /av/.test(wheelCode) ? "avant" : "arriere";
+}
+
+/**
+ * Caractéristiques exigées pour une roue, lues sur l'étiquette pneumatiques
+ * déjà enregistrée. L'essieu arrière retombe sur l'avant quand l'étiquette ne
+ * distingue pas les deux montes (cas le plus courant).
+ */
+export function requiredFromLabel(
+  label: TireLabelData,
+  wheelCode: string,
+): { size: string | null; load: string | null; speed: string | null } {
+  if (!label) return { size: null, load: null, speed: null };
+  const rear = axleKindOf(wheelCode) === "arriere";
+  const size = (rear ? label.size_rear : label.size_front) ?? label.size_front ?? label.size_rear ?? null;
+  const load =
+    (rear ? label.load_index_rear : label.load_index_front) ??
+    label.load_index_front ??
+    label.load_index_rear ??
+    null;
+  const speed =
+    (rear ? label.speed_index_rear : label.speed_index_front) ??
+    label.speed_index_front ??
+    label.speed_index_rear ??
+    null;
+  return { size: size || null, load: load || null, speed: speed || null };
+}
+
+/** Diamètre de jante (pouces) lu dans une dimension pneumatique. */
+export function rimDiameterOf(size: string | null | undefined): number | null {
+  const m = /R\s?(\d{2})/i.exec(normalizeTireSize(size));
+  const d = m ? Number(m[1]) : NaN;
+  return Number.isFinite(d) ? d : null;
+}
+
+/**
+ * Forfait de montage « niveau 0 » Renault/Dacia correspondant au nombre de
+ * pneus montés (RTPNE0 = 1 pneu, RTPNF0 = 2 pneus, RTPNG0 = 4 pneus). Le prix
+ * référencé est un forfait global : il n'est jamais multiplié par la quantité.
+ * À défaut de forfait niveau 0 référencé, sélection générique — jamais de prix inventé.
+ */
+export function mountPackageLevel0(
+  packages: ServicePackage[],
+  quantity: number,
+): { label: string; unitTtc: number; totalTtc: number } | null {
+  const code = quantity <= 1 ? "RTPNE0" : quantity <= 2 ? "RTPNF0" : "RTPNG0";
+  const chosen = packages.find(
+    (p) =>
+      p.active !== false &&
+      p.price_ttc != null &&
+      (p.operation_code ?? "").trim().toUpperCase() === code,
+  );
+  if (!chosen) return mountPackageFor(packages, quantity);
+  const totalTtc = Math.round(Number(chosen.price_ttc) * 100) / 100;
+  return {
+    label: chosen.label,
+    unitTtc: Math.round((totalTtc / Math.max(1, quantity)) * 100) / 100,
+    totalTtc,
+  };
+}
+
+

@@ -18,6 +18,8 @@ import {
   type QuoteLine,
 } from "@/lib/quotes";
 import { priceTour } from "@/lib/tour-pricing";
+import { prepareTourPricing } from "@/lib/tour-recompute";
+
 import type { Confidence, PriceSource, Priority, QuoteBlock } from "@/lib/pricing-engine";
 
 function toDisplay(l: QuoteLine): DisplayLine {
@@ -58,12 +60,23 @@ export function TourQuoteSection({
   async function generate() {
     setBusy(true);
     try {
+      // Recalcul autonome : offres pneus reconstruites depuis l'étiquette déjà
+      // enregistrée, ticket batterie existant relu, avant tout chiffrage.
+      const prep = await prepareTourPricing(inspectionId);
+      if (prep.tireWheels) {
+        toast.info(
+          `Offres pneumatiques reconstruites pour ${prep.tireWheels} roue(s) (${prep.tireOffers} propositions).`,
+        );
+      }
+      if (prep.batteryRead) toast.info("Ticket batterie existant relu automatiquement.");
+      for (const note of prep.notes.slice(0, 3)) toast.warning(note);
       const { ctx, vehicle, items } = await priceTour({
         inspectionId,
         plate: plate ?? null,
         brand: brand ?? null,
         model: model ?? null,
       });
+
       if (!items.length) {
         toast.info("Aucun constat à chiffrer sur ce tour.");
         return;
