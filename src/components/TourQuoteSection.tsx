@@ -18,6 +18,8 @@ import {
   type QuoteLine,
 } from "@/lib/quotes";
 import { priceTour } from "@/lib/tour-pricing";
+import { prepareTourPricing } from "@/lib/tour-recompute";
+
 import type { Confidence, PriceSource, Priority, QuoteBlock } from "@/lib/pricing-engine";
 
 function toDisplay(l: QuoteLine): DisplayLine {
