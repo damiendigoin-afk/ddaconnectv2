@@ -228,7 +228,35 @@ function OrderPage() {
               </Link>
             </section>
           ) : (
-
+            <section className="space-y-2">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Démarrer un tour véhicule
+              </h2>
+              <button
+                onClick={() => void start("libre")}
+                disabled={starting}
+                className="flex w-full items-center gap-3 rounded-xl border-2 border-primary bg-card px-4 py-4 text-left"
+              >
+                <ListChecks className="h-6 w-6" />
+                <span>
+                  <span className="block font-extrabold uppercase">Tour libre</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Signaler uniquement les défauts constatés
+                  </span>
+                </span>
+              </button>
+              <button
+                onClick={() => void start("guide")}
+                disabled={starting}
+                className="flex w-full items-center gap-3 rounded-xl bg-brand px-4 py-4 text-left text-brand-foreground"
+              >
+                {starting ? <Loader2 className="h-6 w-6 animate-spin" /> : <RouteIcon className="h-6 w-6" />}
+                <span>
+                  <span className="block font-extrabold uppercase">Tour guidé</span>
+                  <span className="block text-xs opacity-80">Effectuer le contrôle étape par étape</span>
+                </span>
+              </button>
+            </section>
           )}
 
           <section className="space-y-2">
