@@ -245,10 +245,22 @@ export const HEALTH_QUOTAS = {
 
 export async function fetchPlatformHealth(): Promise<{ metrics: HealthMetric[]; failedRuns: number; lastRunAt: string | null; files: number }> {
   const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
-  const [emails, receipts, docs, runs, storage] = await Promise.all([
+  const [emails, sentMonth, sentTotal, failedMonth, docs, runs, storage] = await Promise.all([
     supabase.from("emails").select("id", { count: "exact", head: true }).gte("sent_at", from),
-    supabase.from("email_logs").select("id", { count: "exact", head: true }).gte("created_at", from),
+    supabase
+      .from("email_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "sent")
+      .gte("created_at", monthStart),
+    supabase.from("email_logs").select("id", { count: "exact", head: true }).eq("status", "sent"),
+    supabase
+      .from("email_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "failed")
+      .gte("created_at", monthStart),
     supabase.from("inbox_documents").select("file_size, status").limit(5000),
     supabase.from("automation_runs").select("status, started_at").gte("started_at", from).order("started_at", { ascending: false }).limit(500),
     supabase.rpc("platform_storage_stats"),
@@ -300,12 +312,28 @@ export async function fetchPlatformHealth(): Promise<{ metrics: HealthMetric[]; 
         hint: "Volume ingéré par le module Flux emails",
       },
       {
-        key: "resend",
-        label: "Emails envoyés (30 j)",
-        value: receipts.count ?? 0,
+        key: "resend_month",
+        label: "E-mails envoyés ce mois-ci",
+        value: sentMonth.count ?? 0,
         quota: HEALTH_QUOTAS.resend_month,
         unit: "count",
-        hint: "Rapports et communications envoyés depuis l'application",
+        hint: "Envois réussis depuis le 1er du mois",
+      },
+      {
+        key: "resend_total",
+        label: "E-mails envoyés au total",
+        value: sentTotal.count ?? 0,
+        quota: null,
+        unit: "count",
+        hint: "Cumul historique des envois réussis",
+      },
+      {
+        key: "resend_failed",
+        label: "Échecs ce mois-ci",
+        value: failedMonth.count ?? 0,
+        quota: null,
+        unit: "count",
+        hint: "Envois en erreur depuis le 1er du mois",
       },
       {
         key: "storage",
