@@ -860,3 +860,84 @@ export function sizeConfidenceMessage(args: {
   if (!args.speed) return "Indice de vitesse à confirmer";
   return null;
 }
+
+/* ------------------- Étiquette pneumatiques → dimensions ------------------ */
+
+export type TireLabelData = {
+  size_front?: string | null;
+  size_rear?: string | null;
+  load_index_front?: string | null;
+  speed_index_front?: string | null;
+  load_index_rear?: string | null;
+  speed_index_rear?: string | null;
+} | null;
+
+/** Essieu concerné par le code roue (avg/avd = avant, arg/ard = arrière). */
+export function axleKindOf(wheelCode: string): "avant" | "arriere" {
+  return /av/.test(wheelCode) ? "avant" : "arriere";
+}
+
+/**
+ * Caractéristiques exigées pour une roue, lues sur l'étiquette pneumatiques
+ * déjà enregistrée. L'essieu arrière retombe sur l'avant quand l'étiquette ne
+ * distingue pas les deux montes (cas le plus courant).
+ */
+export function requiredFromLabel(
+  label: TireLabelData,
+  wheelCode: string,
+): { size: string | null; load: string | null; speed: string | null } {
+  if (!label) return { size: null, load: null, speed: null };
+  const rear = axleKindOf(wheelCode) === "arriere";
+  const size = (rear ? label.size_rear : label.size_front) ?? label.size_front ?? label.size_rear ?? null;
+  const load =
+    (rear ? label.load_index_rear : label.load_index_front) ??
+    label.load_index_front ??
+    label.load_index_rear ??
+    null;
+  const speed =
+    (rear ? label.speed_index_rear : label.speed_index_front) ??
+    label.speed_index_front ??
+    label.speed_index_rear ??
+    null;
+  return { size: size || null, load: load || null, speed: speed || null };
+}
+
+/** Diamètre de jante (pouces) lu dans une dimension pneumatique. */
+export function rimDiameterOf(size: string | null | undefined): number | null {
+  const m = /R\s?(\d{2})/i.exec(normalizeTireSize(size));
+  const d = m ? Number(m[1]) : NaN;
+  return Number.isFinite(d) ? d : null;
+}
+
+/**
+ * Forfait de montage « niveau 0 » Renault/Dacia adapté au diamètre de jante
+ * (RTPNE0 ≤ 15", RTPNF0 16–17", RTPNG0 ≥ 18"). À défaut de forfait niveau 0
+ * référencé, on retombe sur la sélection générique — jamais sur un prix inventé.
+ */
+export function mountPackageForSize(
+  packages: ServicePackage[],
+  quantity: number,
+  size: string | null,
+): { label: string; unitTtc: number; totalTtc: number } | null {
+  const diameter = rimDiameterOf(size);
+  if (diameter != null) {
+    const suffix = diameter <= 15 ? "E" : diameter <= 17 ? "F" : "G";
+    const level0 = packages.filter(
+      (p) =>
+        p.active !== false &&
+        p.price_ttc != null &&
+        new RegExp(`^RTPN${suffix}0$`, "i").test((p.operation_code ?? "").trim()),
+    );
+    const chosen = level0[0];
+    if (chosen) {
+      const unitTtc = Number(chosen.price_ttc);
+      return {
+        label: chosen.label,
+        unitTtc: Math.round(unitTtc * 100) / 100,
+        totalTtc: Math.round(unitTtc * quantity * 100) / 100,
+      };
+    }
+  }
+  return mountPackageFor(packages, quantity);
+}
+
