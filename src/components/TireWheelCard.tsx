@@ -539,6 +539,29 @@ export function TireWheelCard({
             </label>
           </div>
 
+          <p className="text-[11px] text-muted-foreground">
+            {publicQuery.isFetching
+              ? "Consultation des tarifs publics en cours…"
+              : publicQuery.data?.ok
+                ? `Tarifs publics CentralePneus consultés le ${new Date(publicQuery.data.consultedAt).toLocaleString("fr-FR")}`
+                : effectiveSize
+                  ? (publicQuery.data?.error ?? "Tarif actuellement indisponible")
+                  : "Dimension inconnue — photographiez l'étiquette pneumatiques du véhicule."}
+          </p>
+          {sizeConfidenceMessage({
+            size: effectiveSize,
+            load: requiredLoad ?? result?.load_index ?? null,
+            speed: requiredSpeed ?? result?.speed_index ?? null,
+          }) ? (
+            <p className="text-[11px] font-semibold text-amber-700">
+              {sizeConfidenceMessage({
+                size: effectiveSize,
+                load: requiredLoad ?? result?.load_index ?? null,
+                speed: requiredSpeed ?? result?.speed_index ?? null,
+              })}
+            </p>
+          ) : null}
+
           {identical ? <OfferCard offer={identical} selected={selectedSlot === identical.slot} onSelect={() => void selectOffer(identical)} /> : null}
 
           <button
