@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { PhotoManager } from "@/components/PhotoManager";
 import { StatusPicker, type PointStatus } from "@/components/StatusPicker";
+import { BatteryTestCard, type BatteryTest } from "@/components/BatteryTestCard";
 import { uploadPhoto } from "@/lib/photo";
 import type { PointDef } from "@/lib/zones";
 
@@ -78,6 +79,7 @@ export function PointCard({
   }
 
   const flagged = status === "watch" || status === "defect";
+  const isBattery = /batterie/.test(point.point_key);
 
   return (
     <div className="card-surface space-y-3 p-4">
@@ -95,6 +97,13 @@ export function PointCard({
           void persist({ status: v });
         }}
       />
+      {isBattery ? (
+        <BatteryTestCard
+          pointId={point.id}
+          inspectionId={inspectionId}
+          initial={(point as unknown as { battery_test?: BatteryTest | null }).battery_test ?? null}
+        />
+      ) : null}
       {def?.quickDefects && (status === "watch" || status === "defect") ? (
         <div className="flex flex-wrap gap-2">
           {def.quickDefects.map((d) => (
