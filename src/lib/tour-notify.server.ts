@@ -50,6 +50,27 @@ export async function notifyTourCompleted(args: {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const sb = supabaseAdmin;
 
+  // Journalisation systématique : la tentative est tracée avant toute lecture,
+  // pour qu'un échec précoce reste visible dans l'historique du tour.
+  const { data: logRow, error: logError } = await sb
+    .from("tour_notifications")
+    .insert({ inspection_id: args.inspectionId, recipients: [], status: "pending" })
+    .select("id")
+    .single();
+  if (logError) console.error("[tour-notify] journalisation impossible", logError);
+  const logId = logRow?.id as string | undefined;
+
+  const logFail = async (error: string, recipients: string[] = []): Promise<TourNotifyResult> => {
+    console.error("[tour-notify]", error);
+    if (logId) {
+      await sb
+        .from("tour_notifications")
+        .update({ status: "failed", error_message: error.slice(0, 500), recipients })
+        .eq("id", logId);
+    }
+    return { ok: false, error, recipients, photoCount: 0 };
+  };
+
   const { data: insp, error: inspError } = await sb
     .from("vehicle_inspections")
     .select(
@@ -58,18 +79,12 @@ export async function notifyTourCompleted(args: {
     .eq("id", args.inspectionId)
     .single();
   if (inspError || !insp) {
-    console.error("[tour-notify] lecture du tour impossible", inspError);
-    return {
-      ok: false,
-      error: inspError
-        ? `Lecture du tour impossible : ${inspError.message}`
-        : "Tour introuvable",
-      recipients: [],
-      photoCount: 0,
-    };
+    return await logFail(
+      inspError ? `Lecture du tour impossible : ${inspError.message}` : "Tour introuvable",
+    );
   }
   if (s((insp as Row)["status"]) !== "completed") {
-    return { ok: false, error: "Le tour n'est pas terminé", recipients: [], photoCount: 0 };
+    return await logFail("Le tour n'est pas terminé");
   }
 
   const siteId = s((insp as Row)["site_id"]) || null;
@@ -86,33 +101,14 @@ export async function notifyTourCompleted(args: {
     new Set(((recRows ?? []) as Row[]).map((r) => s(r["email"]).trim().toLowerCase()).filter(Boolean)),
   );
   if (recError && !recipients.length) {
-    return {
-      ok: false,
-      error: `Lecture des destinataires impossible : ${recError.message}`,
-      recipients: [],
-      photoCount: 0,
-    };
+    return await logFail(`Lecture des destinataires impossible : ${recError.message}`);
   }
-
-  const { data: logRow, error: logError } = await sb
-    .from("tour_notifications")
-    .insert({ inspection_id: args.inspectionId, recipients, status: "pending" })
-    .select("id")
-    .single();
-  if (logError) console.error("[tour-notify] journalisation impossible", logError);
-  const logId = logRow?.id as string | undefined;
-
-  const fail = async (error: string): Promise<TourNotifyResult> => {
-    if (logId) {
-      await sb
-        .from("tour_notifications")
-        .update({ status: "failed", error_message: error.slice(0, 500) })
-        .eq("id", logId);
-    }
-    return { ok: false, error, recipients, photoCount: 0 };
-  };
-
-  if (!recipients.length) return await fail("Aucun destinataire Front Office configuré");
+  if (logId && recipients.length) {
+    await sb.from("tour_notifications").update({ recipients }).eq("id", logId);
+  }
+  if (!recipients.length) {
+    return await logFail("Aucun destinataire Front Office configuré");
+  }
 
   const [{ data: points }, { data: obs }, { data: media }] = await Promise.all([
     sb
