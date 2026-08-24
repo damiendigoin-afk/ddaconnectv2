@@ -40,6 +40,7 @@ export function lineFromItem(item: PricedItem, index = 0) {
     unit_ht: item.unitHt,
     total_ht: item.totalHt,
     total_ttc: item.totalTtc,
+    origin_point_key: item.originPointKey ?? null,
     computation: item.computation as never,
     sort_order: index,
   };

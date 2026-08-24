@@ -104,6 +104,8 @@ export type PricedItem = {
   source: PriceSource;
   confidence: Confidence;
   computation: Record<string, unknown>;
+  /** Point du Tour Véhicule / de l'expertise à l'origine de la ligne. */
+  originPointKey?: string | null;
 };
 
 export type EngineContext = {
@@ -159,6 +161,7 @@ export function contactItem(args: {
   detail?: string;
   reason?: string;
   bodyshopCheck?: boolean;
+  originPointKey?: string | null;
 }): PricedItem {
   return {
     ok: false,
@@ -175,7 +178,8 @@ export function contactItem(args: {
     totalTtc: 0,
     source: "saisie_manuelle",
     confidence: "faible",
-    computation: { reason: args.reason ?? "chiffrage_non_fiable" },
+    computation: { reason: args.reason ?? "chiffrage_non_fiable", method: "contact_operateur" },
+    originPointKey: args.originPointKey ?? null,
   };
 }
 
