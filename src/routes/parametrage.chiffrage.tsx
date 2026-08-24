@@ -7,7 +7,9 @@ import { AppShell } from "@/components/AppShell";
 import { Field } from "@/components/bits";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import type { CommercialSettings, PaintElementRule, ServicePackage } from "@/lib/pricing-engine";
+import type { CommercialSettings, PaintElementRule } from "@/lib/pricing-engine";
+import { PackagesSection } from "@/components/PackagesSection";
+import type { PackageRow } from "@/lib/packages-import";
 import {
   GRADE_LABEL,
   SEASON_LABEL,
@@ -56,7 +58,7 @@ function PricingSettings() {
     queryFn: async () => {
       const { data, error } = await supabase.from("service_packages").select("*").order("operation_code");
       if (error) throw error;
-      return (data ?? []) as ServicePackage[];
+      return (data ?? []) as PackageRow[];
     },
   });
   const paint = useQuery({
@@ -406,33 +408,8 @@ function PricingSettings() {
 
         </section>
 
-        <section className="card-surface space-y-3 p-4">
-          <h2 className="text-sm font-bold uppercase tracking-widest">Forfaits mécaniques</h2>
-          <p className="text-xs text-muted-foreground">
-            Référentiel Renault / Dacia utilisé en priorité, puis équivalence par segment déduit,
-            génération proche et motorisation. Sans forfait fiable, le moteur affiche « Nous
-            contacter pour le devis ».
-          </p>
-          {(packages.data ?? []).length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-              Aucun forfait chargé pour l'instant : le référentiel Renault/Dacia 2026 doit être
-              importé pour activer le chiffrage mécanique automatique.
-            </p>
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {(packages.data ?? []).map((p) => (
-                <li key={p.id} className="flex justify-between rounded-lg border border-border px-3 py-2">
-                  <span>
-                    {p.label} · {p.brand} {p.model ?? p.segment ?? ""}
-                  </span>
-                  <span className="font-bold">
-                    {p.price_ttc != null ? `${Number(p.price_ttc).toFixed(2)} € TTC` : `${p.hours ?? 0} h`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <PackagesSection packages={packages.data ?? []} refetch={() => packages.refetch()} />
+
 
         <section className="card-surface space-y-3 p-4">
           <h2 className="text-sm font-bold uppercase tracking-widest">Catalogue pneumatiques</h2>
