@@ -25,9 +25,8 @@ import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/tour/$tourId/")({
   // Un tour terminé reste modifiable : ?edit=1 rouvre les contrôles.
-  validateSearch: (search: Record<string, unknown>) => ({
-    edit: search["edit"] === "1" || search["edit"] === 1 || search["edit"] === true,
-  }),
+  validateSearch: (search: Record<string, unknown>): { edit?: boolean } =>
+    search["edit"] === "1" || search["edit"] === 1 || search["edit"] === true ? { edit: true } : {},
   head: () => ({
     meta: [
       { title: "Tour véhicule — DDA Connect" },

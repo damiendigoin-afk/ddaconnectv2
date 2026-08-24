@@ -112,7 +112,7 @@ export function BurstCamera({
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
     try {
-      await track.applyConstraints({ advanced: [{ torch: on }] } as MediaTrackConstraints);
+      await track.applyConstraints({ advanced: [{ torch: on }] } as unknown as MediaTrackConstraints);
       setTorchOn(on);
     } catch {
       // Torche non pilotable sur cet appareil : on n'empêche jamais la prise.
@@ -133,7 +133,7 @@ export function BurstCamera({
     () => () => {
       const track = streamRef.current?.getVideoTracks()[0];
       try {
-        void track?.applyConstraints({ advanced: [{ torch: false }] } as MediaTrackConstraints);
+        void track?.applyConstraints({ advanced: [{ torch: false }] } as unknown as MediaTrackConstraints);
       } catch {
         /* ignoré */
       }
