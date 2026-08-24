@@ -910,34 +910,29 @@ export function rimDiameterOf(size: string | null | undefined): number | null {
 }
 
 /**
- * Forfait de montage « niveau 0 » Renault/Dacia adapté au diamètre de jante
- * (RTPNE0 ≤ 15", RTPNF0 16–17", RTPNG0 ≥ 18"). À défaut de forfait niveau 0
- * référencé, on retombe sur la sélection générique — jamais sur un prix inventé.
+ * Forfait de montage « niveau 0 » Renault/Dacia correspondant au nombre de
+ * pneus montés (RTPNE0 = 1 pneu, RTPNF0 = 2 pneus, RTPNG0 = 4 pneus). Le prix
+ * référencé est un forfait global : il n'est jamais multiplié par la quantité.
+ * À défaut de forfait niveau 0 référencé, sélection générique — jamais de prix inventé.
  */
-export function mountPackageForSize(
+export function mountPackageLevel0(
   packages: ServicePackage[],
   quantity: number,
-  size: string | null,
 ): { label: string; unitTtc: number; totalTtc: number } | null {
-  const diameter = rimDiameterOf(size);
-  if (diameter != null) {
-    const suffix = diameter <= 15 ? "E" : diameter <= 17 ? "F" : "G";
-    const level0 = packages.filter(
-      (p) =>
-        p.active !== false &&
-        p.price_ttc != null &&
-        new RegExp(`^RTPN${suffix}0$`, "i").test((p.operation_code ?? "").trim()),
-    );
-    const chosen = level0[0];
-    if (chosen) {
-      const unitTtc = Number(chosen.price_ttc);
-      return {
-        label: chosen.label,
-        unitTtc: Math.round(unitTtc * 100) / 100,
-        totalTtc: Math.round(unitTtc * quantity * 100) / 100,
-      };
-    }
-  }
-  return mountPackageFor(packages, quantity);
+  const code = quantity <= 1 ? "RTPNE0" : quantity <= 2 ? "RTPNF0" : "RTPNG0";
+  const chosen = packages.find(
+    (p) =>
+      p.active !== false &&
+      p.price_ttc != null &&
+      (p.operation_code ?? "").trim().toUpperCase() === code,
+  );
+  if (!chosen) return mountPackageFor(packages, quantity);
+  const totalTtc = Math.round(Number(chosen.price_ttc) * 100) / 100;
+  return {
+    label: chosen.label,
+    unitTtc: Math.round((totalTtc / Math.max(1, quantity)) * 100) / 100,
+    totalTtc,
+  };
 }
+
 
