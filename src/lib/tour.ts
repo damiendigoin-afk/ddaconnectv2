@@ -93,7 +93,26 @@ export async function saveMileage(opts: {
       .from("vehicle_inspections")
       .update({ mileage: opts.mileage })
       .eq("id", opts.inspectionId);
+    // Cohérence rapport : le point de contrôle kilométrage suit toujours la valeur retenue.
+    const { data: point } = await supabase
+      .from("inspection_points")
+      .select("id, status")
+      .eq("inspection_id", opts.inspectionId)
+      .eq("point_key", "kilometrage")
+      .maybeSingle();
+    if (point?.id) {
+      await supabase
+        .from("inspection_points")
+        .update({
+          status: point.status && point.status !== "unset" ? point.status : "ok",
+          measure_value: String(opts.mileage),
+          measure_unit: "km",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", point.id);
+    }
   }
+
   await supabase
     .from("vehicles")
     .update({ last_mileage: opts.mileage, last_mileage_at: new Date().toISOString() })

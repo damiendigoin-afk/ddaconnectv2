@@ -88,6 +88,9 @@ Réponds STRICTEMENT en JSON :
 - photo_quality parmi "bonne", "moyenne", "insuffisante". Mets "insuffisante" si flou, trop sombre,
   surexposé, roue hors cadre, bande de roulement non visible ou marquages totalement illisibles.
 - confidence : niveau "elevee" / "moyenne" / "faible" par donnée réellement renseignée.
+- foreign_objects = true UNIQUEMENT pour un objet vraisemblablement perforant ou à risque
+  (vis, clou, éclat métallique, corps étranger enfoncé). Un gravillon ou un caillou coincé dans une
+  sculpture n'est PAS un corps étranger dangereux : laisse false et cite-le dans "observations".
 - observations : anomalies visuelles constatées, formulées factuellement, en français.
 - client_comment : une phrase compréhensible par un client, sans diagnostic péremptoire.
 - N'énonce aucun kilométrage restant et aucune durée de vie.`;

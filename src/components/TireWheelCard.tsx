@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import type { CommercialSettings, ServicePackage } from "@/lib/pricing-engine";
 import { analyzeWheelPhotos } from "@/lib/tire-ai.functions";
+import { fetchPublicTireOffers } from "@/lib/tire-provider.functions";
 import type { TireWheelAi } from "@/lib/tire-types";
 import {
   GRADE_LABEL,
@@ -29,6 +30,9 @@ import {
   buildSevenOffers,
   fetchBrandTiers,
   gradeToPriority,
+  publicItemsToOffers,
+  sizeConfidenceMessage,
+  type PublicTireItem,
   judgeTire,
   needsQuote,
   severityOf,
@@ -167,6 +171,17 @@ export function TireWheelCard({
         brands,
       };
     },
+  });
+
+  const publicOffers = useServerFn(fetchPublicTireOffers);
+  const effectiveSize = requiredSize ?? stored.final?.size ?? stored.ai?.size ?? null;
+
+  // Consultation publique réelle des prix TTC, refaite à chaque chiffrage/recalcul.
+  const publicQuery = useQuery({
+    queryKey: ["tire-public-offers", effectiveSize],
+    enabled: Boolean(effectiveSize) && Boolean(stored.grade && needsQuote(stored.grade)),
+    staleTime: 0,
+    queryFn: () => publicOffers({ data: { size: effectiveSize as string } }),
   });
 
   const grid = wearGrid(engine.data?.settings ?? null);
@@ -318,7 +333,13 @@ export function TireWheelCard({
   const offers: SevenOffer[] =
     engine.data && stored.grade && needsQuote(stored.grade)
       ? buildSevenOffers({
-          offers: engine.data.offers,
+          offers: [
+            ...publicItemsToOffers(
+              (publicQuery.data?.ok ? (publicQuery.data.items as PublicTireItem[]) : []),
+              engine.data.brands,
+            ),
+            ...engine.data.offers,
+          ],
           brands: engine.data.brands,
           packages: engine.data.packages,
           settings: engine.data.settings,
@@ -357,6 +378,8 @@ export function TireWheelCard({
         supplier: o.supplier,
         supplier_ref: o.supplierRef,
         source_price_ht: o.unitSourceHt,
+        source_price_ttc: o.unitSourceHt == null ? null : Math.round(o.unitSourceHt * 1.2 * 100) / 100,
+        ...(o.consultedAt ? { consulted_at: o.consultedAt } : {}),
         margin_ht: o.marginHt,
         sell_price_ht: o.unitSellHt,
         mount_package: o.mountLabel,
@@ -517,6 +540,29 @@ export function TireWheelCard({
               />
             </label>
           </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            {publicQuery.isFetching
+              ? "Consultation des tarifs publics en cours…"
+              : publicQuery.data?.ok
+                ? `Tarifs publics CentralePneus consultés le ${new Date(publicQuery.data.consultedAt).toLocaleString("fr-FR")}`
+                : effectiveSize
+                  ? (publicQuery.data?.error ?? "Tarif actuellement indisponible")
+                  : "Dimension inconnue — photographiez l'étiquette pneumatiques du véhicule."}
+          </p>
+          {sizeConfidenceMessage({
+            size: effectiveSize,
+            load: requiredLoad ?? result?.load_index ?? null,
+            speed: requiredSpeed ?? result?.speed_index ?? null,
+          }) ? (
+            <p className="text-[11px] font-semibold text-amber-700">
+              {sizeConfidenceMessage({
+                size: effectiveSize,
+                load: requiredLoad ?? result?.load_index ?? null,
+                speed: requiredSpeed ?? result?.speed_index ?? null,
+              })}
+            </p>
+          ) : null}
 
           {identical ? <OfferCard offer={identical} selected={selectedSlot === identical.slot} onSelect={() => void selectOffer(identical)} /> : null}
 

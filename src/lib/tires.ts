@@ -791,3 +791,72 @@ export function axleOf(code: string): { label: string; wheels: string[] } {
     ? { label: "Essieu avant", wheels: ["avg", "avd"] }
     : { label: "Essieu arrière", wheels: ["arg", "ard"] };
 }
+
+/* --------------------- Offres publiques (source web) ---------------------- */
+
+export type PublicTireItem = {
+  supplierRef: string;
+  brand: string;
+  model: string;
+  size: string | null;
+  loadIndex: string | null;
+  speedIndex: string | null;
+  season: TireSeason | null;
+  publicPriceTtc: number;
+  availability: string | null;
+  sourceUrl: string;
+  consultedAt: string;
+};
+
+/** Gamme d'une marque d'après le paramétrage (aucune gamme inventée). */
+export function tierOfBrand(brands: BrandTierRow[], brand: string): TireTier | null {
+  const b = brand.trim().toLowerCase();
+  const row = brands.find((r) => r.active && r.brand.trim().toLowerCase() === b);
+  return (row?.tier as TireTier | undefined) ?? null;
+}
+
+/**
+ * Conversion des offres publiques consultées en offres exploitables par le
+ * moteur. Le prix public TTC reste marqué comme tel : il est ramené au HT avant
+ * marge (jamais traité comme un prix d'achat HT).
+ */
+export function publicItemsToOffers(items: PublicTireItem[], brands: BrandTierRow[]): TireOffer[] {
+  return items.map((it) => ({
+    id: `centralepneus:${it.supplierRef}`,
+    tier: tierOfBrand(brands, it.brand) ?? "",
+    season: it.season ?? "",
+    brand: it.brand,
+    model: it.model,
+    size: it.size,
+    purchase_price_ht: it.publicPriceTtc,
+    price_kind: "public_ttc",
+    mount_price_ttc: 0,
+    source: "CentralePneus (prix public TTC)",
+    source_url: it.sourceUrl,
+    price_date: it.consultedAt.slice(0, 10),
+    active: true,
+    created_at: it.consultedAt,
+    updated_at: it.consultedAt,
+    load_index: it.loadIndex,
+    speed_index: it.speedIndex,
+    availability: it.availability,
+    supplier_ref: it.supplierRef,
+    supplier_key: "centralepneus",
+  })) as unknown as TireOffer[];
+}
+
+/**
+ * Message de dimension : on ne dit « dimension à confirmer » que si la
+ * dimension est réellement inconnue. Un simple indice manquant est signalé
+ * comme tel.
+ */
+export function sizeConfidenceMessage(args: {
+  size: string | null;
+  load: string | null;
+  speed: string | null;
+}): string | null {
+  if (!args.size) return "Dimension à confirmer";
+  if (!args.load) return "Indice de charge à confirmer";
+  if (!args.speed) return "Indice de vitesse à confirmer";
+  return null;
+}
