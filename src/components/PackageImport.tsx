@@ -1,12 +1,29 @@
 /** Import / mise à jour du référentiel forfaits Renault / Dacia (managers). */
-import { useMemo, useRef, useState } from "react";
-import { Loader2, Paperclip } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Paperclip, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 import { useAuth } from "@/lib/auth";
 import { blobToDataUrl } from "@/lib/photo";
 import { analyzePackageMementoFn } from "@/lib/packages-import.functions";
+import { extractPagesDataUrl, loadPdf } from "@/lib/pdf-split";
+import {
+  DEFAULT_BATCH_SIZE,
+  clearJob,
+  consolidate,
+  jobIdFor,
+  loadJob,
+  offsetLines,
+  pendingBatches,
+  planBatches,
+  saveJob,
+  summarize,
+  summaryText,
+  upsertOutcome,
+  type BatchOutcome,
+  type JobState,
+} from "@/lib/packages-batch";
 import {
   SOURCE_KINDS,
   SOURCE_LABEL,
@@ -17,6 +34,8 @@ import {
   type DetectedLine,
   type SourceKind,
 } from "@/lib/packages-import";
+
+const MAX_ATTEMPTS = 3;
 
 function fileRows(buf: ArrayBuffer): string[][] {
   const wb = XLSX.read(buf, { type: "array" });
@@ -34,16 +53,118 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
   const [lines, setLines] = useState<DetectedLine[]>([]);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [job, setJob] = useState<JobState | null>(null);
+  const [current, setCurrent] = useState<{ from: number; to: number } | null>(null);
+  const [resumable, setResumable] = useState<JobState | null>(null);
 
   const selected = useMemo(() => lines.filter((_, i) => checked[i] !== false), [lines, checked]);
+  const progress = useMemo(() => (job ? summarize(job) : null), [job]);
+
+  useEffect(() => {
+    const saved = loadJob();
+    if (saved) setResumable(saved);
+  }, []);
+
+  function finish(state: JobState) {
+    const merged = consolidate(state.outcomes);
+    setLines(merged.lines);
+    setChecked({});
+    setWarnings(merged.warnings);
+    setCurrent(null);
+    const s = summarize(state);
+    if (!merged.lines.length) toast.error("Aucune ligne de forfait exploitable détectée.");
+    else toast.success(summaryText(s));
+  }
+
+  /** Traite tous les lots restants d'un PDF, avec retry et sauvegarde après chaque lot. */
+  async function runBatches(file: File, initial: JobState) {
+    const { doc } = await loadPdf(file);
+    let state = initial;
+    setJob(state);
+
+    for (const batch of pendingBatches(state)) {
+      setCurrent({ from: batch.from, to: batch.to });
+      const dataUrl = await extractPagesDataUrl(doc, batch.from, batch.to);
+      let outcome: BatchOutcome | null = null;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+        try {
+          const res = await analyzePackageMementoFn({
+            data: { dataUrl, filename: file.name, pageFrom: batch.from, pageTo: batch.to },
+          });
+          if (!res.ok) throw new Error(res.error);
+          const out = linesFromAi(JSON.parse(res.json), {
+            source_kind: state.sourceKind as SourceKind,
+            source_file_name: file.name,
+            source_version: state.version,
+          });
+          outcome = {
+            index: batch.index,
+            from: batch.from,
+            to: batch.to,
+            status: "done",
+            attempts: attempt,
+            lines: offsetLines(out.lines, batch),
+            warnings: out.warnings,
+          };
+          break;
+        } catch (e) {
+          if (attempt === MAX_ATTEMPTS) {
+            outcome = {
+              index: batch.index,
+              from: batch.from,
+              to: batch.to,
+              status: "failed",
+              attempts: attempt,
+              lines: [],
+              warnings: [],
+              error: e instanceof Error ? e.message : "analyse impossible",
+            };
+          } else {
+            await new Promise((r) => setTimeout(r, 800 * attempt));
+          }
+        }
+      }
+
+      state = upsertOutcome(state, outcome!);
+      saveJob(state);
+      setJob(state);
+    }
+
+    finish(state);
+  }
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
     setBusy(true);
+    setResumable(null);
     const all: DetectedLine[] = [];
     const warns: string[] = [];
     try {
-      for (const file of Array.from(files)) {
+      const list = Array.from(files);
+      const pdfs = list.filter((f) => /\.pdf$/i.test(f.name));
+
+      // Un PDF seul : traitement par lots de pages avec progression et reprise.
+      if (pdfs.length === 1 && list.length === 1) {
+        const file = pdfs[0]!;
+        const { pageCount } = await loadPdf(file);
+        const state: JobState = {
+          jobId: jobIdFor(file.name, file.size, kind, version.trim() || null),
+          fileName: file.name,
+          fileSize: file.size,
+          sourceKind: kind,
+          version: version.trim() || null,
+          totalPages: pageCount,
+          batchSize: DEFAULT_BATCH_SIZE,
+          outcomes: [],
+          updatedAt: new Date().toISOString(),
+        };
+        saveJob(state);
+        await runBatches(file, state);
+        return;
+      }
+
+      for (const file of list) {
         const ctx = { source_kind: kind, source_file_name: file.name, source_version: version.trim() || null };
         const isSheet = /\.(csv|xlsx|xls)$/i.test(file.name);
         if (isSheet) {
@@ -75,6 +196,24 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
     }
   }
 
+  /** Reprise d'un job interrompu : seuls les lots manquants ou en échec sont relancés. */
+  async function resume(files: FileList | null) {
+    const file = files?.[0];
+    const saved = resumable;
+    if (!file || !saved) return;
+    setBusy(true);
+    setResumable(null);
+    try {
+      setKind(saved.sourceKind as SourceKind);
+      setVersion(saved.version ?? "");
+      await runBatches(file, saved);
+    } catch {
+      toast.error("Reprise impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runImport() {
     if (!selected.length) return;
     setBusy(true);
@@ -92,6 +231,8 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
       );
       setLines([]);
       setWarnings([]);
+      clearJob();
+      setJob(null);
       await onImported();
     } catch {
       toast.error("Import impossible.");
@@ -100,16 +241,19 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
     }
   }
 
+  const showPreview = lines.length > 0 && !busy;
+
   return (
     <div className="rounded-xl border-2 border-border p-3">
       <h3 className="text-xs font-bold uppercase tracking-widest">
         Importer / mettre à jour le référentiel forfaits
       </h3>
       <p className="mt-1 text-xs text-muted-foreground">
-        Mémentos PDF (Renault Public, Renault Pro/LLD, Dacia Public) ou fichiers CSV/XLSX déjà
-        structurés. L'analyse des PDF est réalisée côté serveur ; toute page ou table non
-        exploitable est signalée et jamais complétée par déduction. Réimporter le même mémento ne
-        crée aucun doublon.
+        Mémentos PDF complets (Renault Public, Renault Pro/LLD, Dacia Public), même de 250 à 400
+        pages : le document est analysé automatiquement page par page, par lots, jusqu'à la dernière
+        page. Fichiers CSV/XLSX déjà structurés également acceptés. Aucune page n'est écartée
+        volontairement : une page illisible est signalée « à contrôler ». Réimporter le même mémento
+        ne crée aucun doublon.
       </p>
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -120,6 +264,7 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as SourceKind)}
+            disabled={busy}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
             {SOURCE_KINDS.map((s) => (
@@ -148,7 +293,7 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
         multiple
         accept=".pdf,.csv,.xlsx,.xls,image/*"
         className="hidden"
-        onChange={(e) => void handleFiles(e.target.files)}
+        onChange={(e) => void (resumable ? resume(e.target.files) : handleFiles(e.target.files))}
       />
       <button
         onClick={() => inputRef.current?.click()}
@@ -159,15 +304,64 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
         {busy ? "Analyse en cours" : "Choisir un ou plusieurs fichiers"}
       </button>
 
-      {warnings.length ? (
-        <ul className="mt-3 space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
+      {resumable && !busy ? (
+        <div className="mt-3 rounded-lg border border-brand bg-brand/5 p-2 text-[11px]">
+          <div className="flex items-center gap-2 font-bold">
+            <RotateCw className="h-3.5 w-3.5" /> Import interrompu : {resumable.fileName}
+          </div>
+          <p className="mt-1">
+            {summaryText(summarize(resumable))} — {summarize(resumable).percent} % traité.
+            Re-sélectionnez le même PDF pour reprendre : les lots déjà réussis ne seront pas
+            relancés.
+          </p>
+          <button
+            onClick={() => {
+              clearJob();
+              setResumable(null);
+            }}
+            className="mt-1 text-[10px] font-bold uppercase underline"
+          >
+            Abandonner cet import
+          </button>
+        </div>
+      ) : null}
+
+      {busy && progress ? (
+        <div className="mt-3 space-y-1 rounded-lg border border-border p-2 text-[11px]">
+          <div className="font-bold">
+            {job?.fileName} · {progress.totalPages} pages
+          </div>
+          <div>
+            {current
+              ? `Analyse ${current.from}–${current.to} / ${progress.totalPages} pages`
+              : "Préparation du document…"}{" "}
+            · {progress.percent} %
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded bg-muted">
+            <div className="h-full bg-brand transition-all" style={{ width: `${progress.percent}%` }} />
+          </div>
+          <div className="text-muted-foreground">
+            {progress.linesDetected} forfait(s) détecté(s) · {progress.warnings} avertissement(s)
+            {progress.pagesFailed ? ` · ${progress.pagesFailed} page(s) à contrôler` : ""}
+          </div>
+        </div>
+      ) : null}
+
+      {showPreview && job ? (
+        <p className="mt-3 rounded-lg border border-border bg-muted/40 p-2 text-[11px] font-bold">
+          {summaryText(summarize(job))}
+        </p>
+      ) : null}
+
+      {showPreview && warnings.length ? (
+        <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
           {warnings.map((w, i) => (
             <li key={i}>{w}</li>
           ))}
         </ul>
       ) : null}
 
-      {lines.length ? (
+      {showPreview ? (
         <div className="mt-3 space-y-2">
           <p className="text-[11px] text-muted-foreground">
             {selected.length} / {lines.length} ligne(s) sélectionnée(s). Vérifiez avant écriture.
