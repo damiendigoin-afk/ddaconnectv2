@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import type { CommercialSettings, ServicePackage } from "@/lib/pricing-engine";
 import { analyzeWheelPhotos } from "@/lib/tire-ai.functions";
+import { fetchPublicTireOffers } from "@/lib/tire-provider.functions";
 import type { TireWheelAi } from "@/lib/tire-types";
 import {
   GRADE_LABEL,
@@ -29,6 +30,9 @@ import {
   buildSevenOffers,
   fetchBrandTiers,
   gradeToPriority,
+  publicItemsToOffers,
+  sizeConfidenceMessage,
+  type PublicTireItem,
   judgeTire,
   needsQuote,
   severityOf,
@@ -167,6 +171,17 @@ export function TireWheelCard({
         brands,
       };
     },
+  });
+
+  const publicOffers = useServerFn(fetchPublicTireOffers);
+  const effectiveSize = requiredSize ?? stored.final?.size ?? stored.ai?.size ?? null;
+
+  // Consultation publique réelle des prix TTC, refaite à chaque chiffrage/recalcul.
+  const publicQuery = useQuery({
+    queryKey: ["tire-public-offers", effectiveSize],
+    enabled: Boolean(effectiveSize) && Boolean(stored.grade && needsQuote(stored.grade)),
+    staleTime: 0,
+    queryFn: () => publicOffers({ data: { size: effectiveSize as string } }),
   });
 
   const grid = wearGrid(engine.data?.settings ?? null);
@@ -318,7 +333,13 @@ export function TireWheelCard({
   const offers: SevenOffer[] =
     engine.data && stored.grade && needsQuote(stored.grade)
       ? buildSevenOffers({
-          offers: engine.data.offers,
+          offers: [
+            ...publicItemsToOffers(
+              (publicQuery.data?.ok ? (publicQuery.data.items as PublicTireItem[]) : []),
+              engine.data.brands,
+            ),
+            ...engine.data.offers,
+          ],
           brands: engine.data.brands,
           packages: engine.data.packages,
           settings: engine.data.settings,
