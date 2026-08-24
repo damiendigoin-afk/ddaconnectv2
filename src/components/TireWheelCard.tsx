@@ -378,6 +378,8 @@ export function TireWheelCard({
         supplier: o.supplier,
         supplier_ref: o.supplierRef,
         source_price_ht: o.unitSourceHt,
+        source_price_ttc: o.unitSourceHt == null ? null : Math.round(o.unitSourceHt * 1.2 * 100) / 100,
+        consulted_at: o.consultedAt,
         margin_ht: o.marginHt,
         sell_price_ht: o.unitSellHt,
         mount_package: o.mountLabel,
