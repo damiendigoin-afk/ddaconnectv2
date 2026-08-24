@@ -122,26 +122,87 @@ export type RecentTour = {
   or_number: string | null;
   internal_ref: string | null;
   client_name: string;
+  archived_at: string | null;
 };
 
 /**
  * `scope` : "completed" = historique des tours clôturés (liste principale),
  * "open" = brouillons / tours en cours, "all" = tout.
  */
+export type TourScope = "completed" | "open" | "archived" | "all";
+
+export type TourSearch = {
+  /** Texte libre : immatriculation, n° OR, référence DDA, client, marque, modèle, opérateur. */
+  text?: string;
+  from?: string | null;
+  to?: string | null;
+};
+
+const TOUR_SELECT =
+  "id, inspection_type, status, started_at, completed_at, finished_at, updated_at, archived_at, duration_seconds, started_by_name, completed_by_name, created_by_name, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, plate_normalized, brand, model), repair_order:repair_orders(id, or_number, internal_ref, client:clients(first_name, last_name))";
+
 export async function fetchRecentTours(
   limit = 10,
-  scope: "completed" | "open" | "all" = "completed",
+  scope: TourScope = "completed",
+  search: TourSearch = {},
 ): Promise<RecentTour[]> {
-  let query = supabase
-    .from("vehicle_inspections")
-    .select(
-      "id, inspection_type, status, started_at, completed_at, finished_at, duration_seconds, started_by_name, completed_by_name, created_by_name, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, brand, model), repair_order:repair_orders(id, or_number, internal_ref, client:clients(first_name, last_name))",
-    );
-  if (scope === "completed") query = query.eq("status", "completed");
-  if (scope === "open") query = query.neq("status", "completed");
-  const { data, error } = await query
-    .order("started_at", { ascending: false })
-    .limit(limit);
+  let query = supabase.from("vehicle_inspections").select(TOUR_SELECT);
+  if (scope === "completed") query = query.eq("status", "completed").is("archived_at", null);
+  if (scope === "open") query = query.neq("status", "completed").is("archived_at", null);
+  if (scope === "archived") query = query.not("archived_at", "is", null);
+
+  const text = (search.text ?? "").trim();
+  if (text) {
+    // Recherche sur l'ensemble de l'historique : véhicule, dossier, client, opérateur.
+    const like = `%${text.replace(/[%,()]/g, " ")}%`;
+    const norm = normalizePlate(text);
+    const vehicleFilter = norm
+      ? `plate.ilike.${like},plate_normalized.ilike.%${norm}%,brand.ilike.${like},model.ilike.${like}`
+      : `plate.ilike.${like},brand.ilike.${like},model.ilike.${like}`;
+    const [vehicles, orders] = await Promise.all([
+      supabase.from("vehicles").select("id").or(vehicleFilter).limit(300),
+      supabase
+        .from("repair_orders")
+        .select("id, client:clients(first_name, last_name)")
+        .or(`or_number.ilike.${like},internal_ref.ilike.${like}`)
+        .limit(300),
+    ]);
+    const { data: clients } = await supabase
+      .from("clients")
+      .select("id")
+      .or(`first_name.ilike.${like},last_name.ilike.${like},company.ilike.${like}`)
+      .limit(300);
+    let orderIds = (orders.data ?? []).map((o) => o.id as string);
+    if ((clients ?? []).length) {
+      const { data: clientOrders } = await supabase
+        .from("repair_orders")
+        .select("id")
+        .in("client_id", (clients ?? []).map((c) => c.id as string))
+        .limit(500);
+      orderIds = [...new Set([...orderIds, ...(clientOrders ?? []).map((o) => o.id as string)])];
+    }
+    const vehicleIds = (vehicles.data ?? []).map((v) => v.id as string);
+    const ors: string[] = [
+      `started_by_name.ilike.${like}`,
+      `completed_by_name.ilike.${like}`,
+      `created_by_name.ilike.${like}`,
+    ];
+    if (vehicleIds.length) ors.push(`vehicle_id.in.(${vehicleIds.join(",")})`);
+    if (orderIds.length) ors.push(`repair_order_id.in.(${orderIds.join(",")})`);
+    query = query.or(ors.join(","));
+  }
+  if (search.from) query = query.gte("started_at", search.from);
+  if (search.to) query = query.lte("started_at", search.to);
+
+  // Ordre chronologique métier : clôture pour les tours terminés, activité sinon.
+  if (scope === "completed") {
+    query = query.order("completed_at", { ascending: false, nullsFirst: false });
+  } else if (scope === "open") {
+    query = query.order("updated_at", { ascending: false }).order("started_at", { ascending: false });
+  } else {
+    query = query.order("updated_at", { ascending: false });
+  }
+  const { data, error } = await query.limit(limit);
   if (error) throw error;
   return (data ?? []).map((i) => {
     const pts = (i.inspection_points ?? []) as { status: string }[];
@@ -179,6 +240,7 @@ export async function fetchRecentTours(
       or_id: o?.id ?? null,
       or_number: o?.or_number ?? null,
       internal_ref: o?.internal_ref ?? null,
+      archived_at: (i as { archived_at?: string | null }).archived_at ?? null,
       client_name: [o?.client?.first_name, o?.client?.last_name].filter(Boolean).join(" "),
     };
   });
