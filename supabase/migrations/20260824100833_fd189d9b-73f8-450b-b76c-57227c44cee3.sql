@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.enforce_single_inspection_per_order() FROM PUBLIC, anon, authenticated;
