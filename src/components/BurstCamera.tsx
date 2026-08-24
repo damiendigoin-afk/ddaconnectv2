@@ -1,4 +1,4 @@
-import { Camera, Check, ChevronLeft, ChevronRight, ImagePlus, RotateCcw, X } from "lucide-react";
+import { Camera, Check, ChevronLeft, ChevronRight, ImagePlus, RotateCcw, X, Zap, ZapOff } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 
@@ -57,6 +57,8 @@ export function BurstCamera({
   const [flash, setFlash] = useState(false);
   const [recap, setRecap] = useState(false);
   const [landscape, setLandscape] = useState(false);
+  const [torchAvailable, setTorchAvailable] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
 
   const step: BurstStep | undefined = steps[index];
   const freeMode = !step;
@@ -89,6 +91,9 @@ export function BurstCamera({
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => undefined);
         }
+        const track = stream.getVideoTracks()[0];
+        const caps = (track?.getCapabilities?.() ?? {}) as { torch?: boolean };
+        setTorchAvailable(Boolean(caps.torch));
         setReady(true);
       } catch {
         setFallback(true);
@@ -101,6 +106,40 @@ export function BurstCamera({
       streamRef.current = null;
     };
   }, []);
+
+  /** Torche : allumée par défaut sur les étapes roue / bande de roulement. */
+  const applyTorch = useCallback(async (on: boolean) => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: on }] } as MediaTrackConstraints);
+      setTorchOn(on);
+    } catch {
+      // Torche non pilotable sur cet appareil : on n'empêche jamais la prise.
+      setTorchAvailable(false);
+    }
+  }, []);
+
+  const maskKind = step?.mask ?? "free";
+  useEffect(() => {
+    if (!ready || !torchAvailable) return;
+    const wanted = maskKind === "wheel" || maskKind === "tread";
+    if (wanted !== torchOn) void applyTorch(wanted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, torchAvailable, maskKind]);
+
+  // Extinction systématique en quittant la caméra.
+  useEffect(
+    () => () => {
+      const track = streamRef.current?.getVideoTracks()[0];
+      try {
+        void track?.applyConstraints({ advanced: [{ torch: false }] } as MediaTrackConstraints);
+      } catch {
+        /* ignoré */
+      }
+    },
+    [],
+  );
 
   /** Enregistre la prise pour l'étape courante (remplace en cas de reprise). */
   const push = useCallback(
@@ -331,7 +370,21 @@ export function BurstCamera({
             <div className="mt-1 max-w-[70vw] text-[11px] font-semibold normal-case opacity-90">{step.hint}</div>
           ) : null}
         </div>
-        <span className="w-10" />
+        {torchAvailable ? (
+          <button
+            type="button"
+            onClick={() => void applyTorch(!torchOn)}
+            aria-label={torchOn ? "Éteindre l'éclairage" : "Allumer l'éclairage"}
+            className={`pointer-events-auto flex items-center gap-1 rounded-full px-3 py-2.5 text-xs font-bold uppercase backdrop-blur ${
+              torchOn ? "bg-white text-black" : "bg-black/40 text-white"
+            }`}
+          >
+            {torchOn ? <Zap className="h-4 w-4" /> : <ZapOff className="h-4 w-4" />}
+            Éclairage
+          </button>
+        ) : (
+          <span className="w-10" />
+        )}
       </div>
 
       <span className="sr-only">{title}</span>
