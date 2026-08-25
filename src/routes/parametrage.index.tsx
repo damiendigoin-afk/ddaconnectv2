@@ -78,6 +78,14 @@ const ENTRIES: { to: string; label: string; hint: string; icon: LucideIcon }[] =
     icon: Activity,
   },
   {
+    to: "/parametrage/couts",
+    label: "Coûts et IA",
+    hint: "Crédits d'analyse automatique consommés, cache, échecs facturés et budgets par jour et par mois",
+    icon: Activity,
+  },
+
+
+  {
     to: "/parametrage/notifications",
     label: "Notifications Front Office",
     hint: "Destinataires prévenus automatiquement à la fin d'un Tour Véhicule, par établissement",

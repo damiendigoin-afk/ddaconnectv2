@@ -9,42 +9,30 @@ import type { TireLabelAi, TireWheelAi } from "./tire-types";
 
 export type { TireLabelAi, TireWheelAi };
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+import { runPaidAi } from "./ai-usage.server";
 
 /** Modèle visuel OpenAI utilisé pour l'analyse pneumatique. */
 export const TIRE_VISION_MODEL = "openai/gpt-5-mini";
 
 type Block = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
 
-async function askOpenAiVision(prompt: string, images: string[]) {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) return { ok: false as const, error: "Analyse automatique non configurée." };
-
+async function askOpenAiVision(prompt: string, images: string[], feature: string) {
   const blocks: Block[] = [{ type: "text", text: prompt }];
   for (const url of images) blocks.push({ type: "image_url", image_url: { url } });
 
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: TIRE_VISION_MODEL,
+  const res = await runPaidAi({
+    feature,
+    fingerprintSeed: `${prompt}\u0000${images.join("\u0000")}`,
+    model: TIRE_VISION_MODEL,
+    body: {
       messages: [{ role: "user", content: blocks }],
       response_format: { type: "json_object" },
-    }),
+    },
   });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    console.error("tire vision error", res.status, detail);
-    if (res.status === 429) return { ok: false as const, error: "Trop de demandes, réessayez dans un instant." };
-    if (res.status === 402) return { ok: false as const, error: "Crédits d'analyse épuisés." };
-    if (res.status === 403) return { ok: false as const, error: "Analyse visuelle bloquée par la configuration." };
-    return { ok: false as const, error: "L'analyse automatique a échoué." };
-  }
-
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  return { ok: true as const, content: json.choices?.[0]?.message?.content ?? "" };
+  if (!res.ok) return { ok: false as const, error: res.error };
+  return { ok: true as const, content: res.content };
 }
+
 
 function parseJson(content: string): Record<string, unknown> | null {
   const cleaned = content.replace(/```json/gi, "").replace(/```/g, "").trim();
@@ -104,7 +92,7 @@ function str(v: unknown): string | null {
 }
 
 export async function analyzeTireWheel(images: string[]) {
-  const result = await askOpenAiVision(WHEEL_PROMPT, images.slice(0, 5));
+  const result = await askOpenAiVision(WHEEL_PROMPT, images.slice(0, 5), "tire_wheel");
   if (!result.ok) return { ok: false as const, error: result.error, analysis: null };
   const parsed = parseJson(result.content);
   if (!parsed) return { ok: false as const, error: "Analyse illisible.", analysis: null };
@@ -166,7 +154,7 @@ function num(v: unknown): number | null {
 }
 
 export async function analyzeTireLabel(images: string[]) {
-  const result = await askOpenAiVision(LABEL_PROMPT, images.slice(0, 3));
+  const result = await askOpenAiVision(LABEL_PROMPT, images.slice(0, 3), "tire_label");
   if (!result.ok) return { ok: false as const, error: result.error, label: null };
   const parsed = parseJson(result.content);
   if (!parsed) return { ok: false as const, error: "Étiquette illisible.", label: null };

@@ -113,6 +113,63 @@ export type Database = {
           },
         ]
       }
+      ai_budget_settings: {
+        Row: {
+          daily_credits: number
+          fallback_ai_enabled: boolean
+          id: string
+          max_credits_per_operation: number
+          monthly_credits: number
+          updated_at: string
+        }
+        Insert: {
+          daily_credits?: number
+          fallback_ai_enabled?: boolean
+          id?: string
+          max_credits_per_operation?: number
+          monthly_credits?: number
+          updated_at?: string
+        }
+        Update: {
+          daily_credits?: number
+          fallback_ai_enabled?: boolean
+          id?: string
+          max_credits_per_operation?: number
+          monthly_credits?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_cache: {
+        Row: {
+          content: string
+          created_at: string
+          feature: string
+          fingerprint: string
+          hits: number
+          last_used_at: string
+          model: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          feature: string
+          fingerprint: string
+          hits?: number
+          last_used_at?: string
+          model: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          feature?: string
+          fingerprint?: string
+          hits?: number
+          last_used_at?: string
+          model?: string
+        }
+        Relationships: []
+      }
       ai_corrections: {
         Row: {
           ai_confidence: string | null
@@ -167,6 +224,72 @@ export type Database = {
           subject?: string
           user_id?: string | null
           user_name?: string | null
+        }
+        Relationships: []
+      }
+      ai_usage_log: {
+        Row: {
+          blocked_reason: string | null
+          cache_hit: boolean
+          calls: number
+          created_at: string
+          duration_ms: number | null
+          entity: string | null
+          estimated_credits: number
+          feature: string
+          fingerprint: string | null
+          http_status: number | null
+          id: string
+          model: string | null
+          provider: string
+          retries: number
+          site_id: string | null
+          success: boolean
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string | null
+        }
+        Insert: {
+          blocked_reason?: string | null
+          cache_hit?: boolean
+          calls?: number
+          created_at?: string
+          duration_ms?: number | null
+          entity?: string | null
+          estimated_credits?: number
+          feature: string
+          fingerprint?: string | null
+          http_status?: number | null
+          id?: string
+          model?: string | null
+          provider?: string
+          retries?: number
+          site_id?: string | null
+          success?: boolean
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          blocked_reason?: string | null
+          cache_hit?: boolean
+          calls?: number
+          created_at?: string
+          duration_ms?: number | null
+          entity?: string | null
+          estimated_credits?: number
+          feature?: string
+          fingerprint?: string | null
+          http_status?: number | null
+          id?: string
+          model?: string | null
+          provider?: string
+          retries?: number
+          site_id?: string | null
+          success?: boolean
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -2443,6 +2566,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      import_jobs: {
+        Row: {
+          created_at: string
+          file_fingerprint: string | null
+          file_name: string
+          file_size: number | null
+          id: string
+          job_key: string
+          kind: string
+          state: Json
+          status: string
+          total_pages: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_fingerprint?: string | null
+          file_name: string
+          file_size?: number | null
+          id?: string
+          job_key: string
+          kind: string
+          state?: Json
+          status?: string
+          total_pages?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_fingerprint?: string | null
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          job_key?: string
+          kind?: string
+          state?: Json
+          status?: string
+          total_pages?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       import_rows: {
         Row: {

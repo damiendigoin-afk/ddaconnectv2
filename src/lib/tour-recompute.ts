@@ -247,7 +247,8 @@ async function rereadBatteryTicket(inspectionId: string, points: PointRow[], rep
     return;
   }
 
-  for (const candidate of candidates.slice(0, 3)) {
+  // Une seule photo prioritaire : jamais de boucle payante sur plusieurs médias.
+  for (const candidate of candidates.slice(0, 1)) {
     try {
       const url = await mediaUrl(candidate.storage_path);
       if (!url) continue;

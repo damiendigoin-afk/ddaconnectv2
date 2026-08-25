@@ -1,47 +1,53 @@
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+/**
+ * Analyses visuelles Gemini — toutes routées par le service central `runPaidAi`
+ * (cache par empreinte, budget, journal, aucun retry payant).
+ */
+import { MANUAL_FALLBACK_MESSAGE, runPaidAi } from "./ai-usage.server";
+
+export const VISION_MODEL = "google/gemini-3.5-flash";
 
 type Block =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } }
   | { type: "file"; file: { filename: string; file_data: string } };
 
-export async function askVision(prompt: string, dataUrl: string, filename?: string) {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) {
-    return { ok: false as const, error: "Analyse automatique non configurée." };
-  }
+function blockFor(dataUrl: string, filename?: string): Block {
+  return dataUrl.startsWith("data:application/pdf")
+    ? { type: "file", file: { filename: filename || "document.pdf", file_data: dataUrl } }
+    : { type: "image_url", image_url: { url: dataUrl } };
+}
 
-  const isPdf = dataUrl.startsWith("data:application/pdf");
-  const blocks: Block[] = [{ type: "text", text: prompt }];
-  if (isPdf) {
-    blocks.push({
-      type: "file",
-      file: { filename: filename || "document.pdf", file_data: dataUrl },
-    });
-  } else {
-    blocks.push({ type: "image_url", image_url: { url: dataUrl } });
-  }
-
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-3.5-flash",
-      messages: [{ role: "user", content: blocks }],
-    }),
+export async function askVision(
+  prompt: string,
+  dataUrl: string,
+  filename?: string,
+  feature = "vision",
+) {
+  const res = await runPaidAi({
+    feature,
+    fingerprintSeed: `${prompt}\u0000${dataUrl}`,
+    model: VISION_MODEL,
+    body: { messages: [{ role: "user", content: [{ type: "text", text: prompt }, blockFor(dataUrl, filename)] }] },
   });
+  if (!res.ok) return { ok: false as const, error: res.error };
+  return { ok: true as const, content: res.content };
+}
 
-  if (!res.ok) {
-    const detail = await res.text();
-    console.error("AI gateway error", res.status, detail);
-    if (res.status === 429) return { ok: false as const, error: "Trop de demandes, réessayez dans un instant." };
-    if (res.status === 402) return { ok: false as const, error: "Crédits d'analyse épuisés." };
-    return { ok: false as const, error: "L'analyse automatique a échoué." };
-  }
-
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = json.choices?.[0]?.message?.content ?? "";
-  return { ok: true as const, content };
+export async function askVisionMulti(
+  prompt: string,
+  images: { dataUrl: string; filename?: string }[],
+  feature = "vision_multi",
+) {
+  if (!images.length) return { ok: false as const, error: MANUAL_FALLBACK_MESSAGE };
+  const blocks: Block[] = [{ type: "text", text: prompt }, ...images.map((i) => blockFor(i.dataUrl, i.filename))];
+  const res = await runPaidAi({
+    feature,
+    fingerprintSeed: `${prompt}\u0000${images.map((i) => i.dataUrl).join("\u0000")}`,
+    model: VISION_MODEL,
+    body: { messages: [{ role: "user", content: blocks }] },
+  });
+  if (!res.ok) return { ok: false as const, error: res.error };
+  return { ok: true as const, content: res.content };
 }
 
 export function parseJsonBlock(content: string): Record<string, unknown> | null {
@@ -57,40 +63,4 @@ export function parseJsonBlock(content: string): Record<string, unknown> | null 
   } catch {
     return null;
   }
-}
-export async function askVisionMulti(prompt: string, images: { dataUrl: string; filename?: string }[]) {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) {
-    return { ok: false as const, error: "Analyse automatique non configurée." };
-  }
-
-  const blocks: Block[] = [{ type: "text", text: prompt }];
-  for (const img of images) {
-    if (img.dataUrl.startsWith("data:application/pdf")) {
-      blocks.push({ type: "file", file: { filename: img.filename || "document.pdf", file_data: img.dataUrl } });
-    } else {
-      blocks.push({ type: "image_url", image_url: { url: img.dataUrl } });
-    }
-  }
-
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-3.5-flash",
-      messages: [{ role: "user", content: blocks }],
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    console.error("AI gateway error", res.status, detail);
-    if (res.status === 429) return { ok: false as const, error: "Trop de demandes, réessayez dans un instant." };
-    if (res.status === 402) return { ok: false as const, error: "Crédits d'analyse épuisés." };
-    return { ok: false as const, error: "L'analyse automatique a échoué." };
-  }
-
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = json.choices?.[0]?.message?.content ?? "";
-  return { ok: true as const, content };
 }
