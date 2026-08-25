@@ -48,6 +48,7 @@ import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
 import { Route as ParametrageChiffrageRouteImport } from './routes/parametrage.chiffrage'
+import { Route as ParametrageCoutsRouteImport } from './routes/parametrage.couts'
 import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.global'
 import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.messages'
 import { Route as ParametrageNotificationsRouteImport } from './routes/parametrage.notifications'
@@ -272,6 +273,11 @@ const ParametrageChiffrageRoute = ParametrageChiffrageRouteImport.update({
   path: '/parametrage/chiffrage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageCoutsRoute = ParametrageCoutsRouteImport.update({
+  id: '/parametrage/couts',
+  path: '/parametrage/couts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametrageGlobalRoute = ParametrageGlobalRouteImport.update({
   id: '/parametrage/global',
   path: '/parametrage/global',
@@ -445,6 +451,7 @@ export interface FileRoutesByFullPath {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
+  '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -514,6 +521,7 @@ export interface FileRoutesByTo {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
+  '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -584,6 +592,7 @@ export interface FileRoutesById {
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
+  '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -655,6 +664,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/parametrage/chiffrage'
+    | '/parametrage/couts'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -724,6 +734,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/parametrage/chiffrage'
+    | '/parametrage/couts'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -793,6 +804,7 @@ export interface FileRouteTypes {
     | '/or/$orId'
     | '/or/nouveau'
     | '/parametrage/chiffrage'
+    | '/parametrage/couts'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -863,6 +875,7 @@ export interface RootRouteChildren {
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
   ParametrageChiffrageRoute: typeof ParametrageChiffrageRoute
+  ParametrageCoutsRoute: typeof ParametrageCoutsRoute
   ParametrageGlobalRoute: typeof ParametrageGlobalRoute
   ParametrageMessagesRoute: typeof ParametrageMessagesRoute
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
@@ -1179,6 +1192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageChiffrageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/couts': {
+      id: '/parametrage/couts'
+      path: '/parametrage/couts'
+      fullPath: '/parametrage/couts'
+      preLoaderRoute: typeof ParametrageCoutsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametrage/global': {
       id: '/parametrage/global'
       path: '/parametrage/global'
@@ -1407,6 +1427,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
   ParametrageChiffrageRoute: ParametrageChiffrageRoute,
+  ParametrageCoutsRoute: ParametrageCoutsRoute,
   ParametrageGlobalRoute: ParametrageGlobalRoute,
   ParametrageMessagesRoute: ParametrageMessagesRoute,
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,

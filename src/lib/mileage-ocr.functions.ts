@@ -15,5 +15,5 @@ export const ocrStoredOdometer = createServerFn({ method: "POST" })
       return { ok: false as const, error: "Photo inaccessible pour l’analyse.", mileage: 0 };
     }
 
-    return readStoredOdometer(signed.signedUrl);
+    return readStoredOdometer(signed.signedUrl, data.path);
   });

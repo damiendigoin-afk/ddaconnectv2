@@ -1,29 +1,28 @@
-/** Import / mise à jour du référentiel forfaits Renault / Dacia (managers). */
+/**
+ * Import / mise à jour du référentiel forfaits Renault / Dacia (managers).
+ *
+ * Parcours DÉTERMINISTE : couche texte du PDF (pdfjs) + parseur métier, 0 crédit IA.
+ * L'IA n'intervient jamais automatiquement : uniquement sur les pages scannées,
+ * après confirmation explicite du manager et affichage du coût estimé.
+ */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Paperclip, RotateCw } from "lucide-react";
+import { AlertTriangle, Loader2, Paperclip, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 import { useAuth } from "@/lib/auth";
-import { blobToDataUrl } from "@/lib/photo";
 import { analyzePackageMementoFn } from "@/lib/packages-import.functions";
+import { extractPdfText, fileFingerprint } from "@/lib/pdf-text";
+import { parseDocument } from "@/lib/packages-parse";
 import { extractPagesDataUrl, loadPdf } from "@/lib/pdf-split";
 import {
-  DEFAULT_BATCH_SIZE,
-  clearJob,
-  consolidate,
-  jobIdFor,
-  loadJob,
-  offsetLines,
-  pendingBatches,
-  planBatches,
-  saveJob,
-  summarize,
-  summaryText,
-  upsertOutcome,
-  type BatchOutcome,
-  type JobState,
-} from "@/lib/packages-batch";
+  deleteImportJob,
+  finishImportJob,
+  jobKey,
+  latestRunningJob,
+  saveImportJob,
+  type ImportJob,
+} from "@/lib/import-jobs";
 import {
   SOURCE_KINDS,
   SOURCE_LABEL,
@@ -35,7 +34,9 @@ import {
   type SourceKind,
 } from "@/lib/packages-import";
 
-const MAX_ATTEMPTS = 3;
+const MODULE = "memento";
+/** Coût moyen constaté d'un lot de 12 pages envoyé au modèle visuel. */
+const CREDITS_PER_AI_PAGE = 0.2;
 
 function fileRows(buf: ArrayBuffer): string[][] {
   const wb = XLSX.read(buf, { type: "array" });
@@ -53,150 +54,168 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
   const [lines, setLines] = useState<DetectedLine[]>([]);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [job, setJob] = useState<JobState | null>(null);
-  const [current, setCurrent] = useState<{ from: number; to: number } | null>(null);
-  const [resumable, setResumable] = useState<JobState | null>(null);
+  const [scanned, setScanned] = useState<number[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [resumable, setResumable] = useState<ImportJob | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [jobRef, setJobRef] = useState<string | null>(null);
 
   const selected = useMemo(() => lines.filter((_, i) => checked[i] !== false), [lines, checked]);
-  const progress = useMemo(() => (job ? summarize(job) : null), [job]);
+  const aiCost = useMemo(() => Math.round(scanned.length * CREDITS_PER_AI_PAGE * 100) / 100, [scanned]);
 
   useEffect(() => {
-    const saved = loadJob();
-    if (saved) setResumable(saved);
+    void latestRunningJob(MODULE).then((j) => setResumable(j));
   }, []);
 
-  function finish(state: JobState) {
-    const merged = consolidate(state.outcomes);
-    setLines(merged.lines);
+  /* ------------------------------ PDF texte ------------------------------ */
+
+  async function runDeterministic(file: File, resume?: ImportJob | null) {
+    const fp = await fileFingerprint(file);
+    const key = jobKey(MODULE, fp, kind);
+    setJobRef(key);
+    const done = new Set<number>(resume?.state?.donePages ?? []);
+    const previousLines = (resume?.state?.lines ?? []) as DetectedLine[];
+    const previousWarnings = resume?.state?.uncertain ?? [];
+
+    const { pages, pageCount } = await extractPdfText(
+      file,
+      (d, t) => setProgress({ done: d, total: t }),
+      done.size ? done : undefined,
+    );
+
+    const parsed = parseDocument(pages, {
+      kind,
+      fileName: file.name,
+      version: version.trim() || resume?.state?.version || null,
+    });
+
+    const allLines = [...previousLines, ...parsed.lines];
+    const allWarnings = [...previousWarnings, ...parsed.uncertain];
+
+    setLines(allLines);
     setChecked({});
-    setWarnings(merged.warnings);
-    setCurrent(null);
-    const s = summarize(state);
-    if (!merged.lines.length) toast.error("Aucune ligne de forfait exploitable détectée.");
-    else toast.success(summaryText(s));
-  }
+    setWarnings(allWarnings);
+    setScanned(parsed.scannedPages);
+    setPendingFile(file);
+    if (parsed.version && !version.trim()) setVersion(parsed.version);
 
-  /** Traite tous les lots restants d'un PDF, avec retry et sauvegarde après chaque lot. */
-  async function runBatches(file: File, initial: JobState) {
-    const { doc } = await loadPdf(file);
-    let state = initial;
-    setJob(state);
+    await saveImportJob({
+      key,
+      kind,
+      fileName: file.name,
+      fileSize: file.size,
+      fingerprint: fp,
+      totalPages: pageCount,
+      state: {
+        version: parsed.version,
+        donePages: pages.map((p) => p.page).concat([...done]),
+        lines: allLines,
+        uncertain: allWarnings,
+      },
+      userId: user?.id ?? null,
+    });
 
-    for (const batch of pendingBatches(state)) {
-      setCurrent({ from: batch.from, to: batch.to });
-      const dataUrl = await extractPagesDataUrl(doc, batch.from, batch.to);
-      let outcome: BatchOutcome | null = null;
-
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-        try {
-          const res = await analyzePackageMementoFn({
-            data: { dataUrl, filename: file.name, pageFrom: batch.from, pageTo: batch.to },
-          });
-          if (!res.ok) throw new Error(res.error);
-          const out = linesFromAi(JSON.parse(res.json), {
-            source_kind: state.sourceKind as SourceKind,
-            source_file_name: file.name,
-            source_version: state.version,
-          });
-          outcome = {
-            index: batch.index,
-            from: batch.from,
-            to: batch.to,
-            status: "done",
-            attempts: attempt,
-            lines: offsetLines(out.lines, batch),
-            warnings: out.warnings,
-          };
-          break;
-        } catch (e) {
-          if (attempt === MAX_ATTEMPTS) {
-            outcome = {
-              index: batch.index,
-              from: batch.from,
-              to: batch.to,
-              status: "failed",
-              attempts: attempt,
-              lines: [],
-              warnings: [],
-              error: e instanceof Error ? e.message : "analyse impossible",
-            };
-          } else {
-            await new Promise((r) => setTimeout(r, 800 * attempt));
-          }
-        }
-      }
-
-      state = upsertOutcome(state, outcome!);
-      saveJob(state);
-      setJob(state);
+    if (!allLines.length) {
+      toast.error("Aucun forfait exploitable détecté dans la couche texte de ce document.");
+    } else {
+      toast.success(
+        `${allLines.length} forfait(s) extrait(s) sur ${pageCount} pages — 0 crédit IA consommé`,
+      );
     }
-
-    finish(state);
   }
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
     setBusy(true);
     setResumable(null);
-    const all: DetectedLine[] = [];
-    const warns: string[] = [];
+    setProgress(null);
     try {
       const list = Array.from(files);
       const pdfs = list.filter((f) => /\.pdf$/i.test(f.name));
 
-      // Un PDF seul : traitement par lots de pages avec progression et reprise.
       if (pdfs.length === 1 && list.length === 1) {
-        const file = pdfs[0]!;
-        const { pageCount } = await loadPdf(file);
-        const state: JobState = {
-          jobId: jobIdFor(file.name, file.size, kind, version.trim() || null),
-          fileName: file.name,
-          fileSize: file.size,
-          sourceKind: kind,
-          version: version.trim() || null,
-          totalPages: pageCount,
-          batchSize: DEFAULT_BATCH_SIZE,
-          outcomes: [],
-          updatedAt: new Date().toISOString(),
-        };
-        saveJob(state);
-        await runBatches(file, state);
+        await runDeterministic(pdfs[0]!);
         return;
       }
 
+      const all: DetectedLine[] = [];
+      const warns: string[] = [];
       for (const file of list) {
         const ctx = { source_kind: kind, source_file_name: file.name, source_version: version.trim() || null };
-        const isSheet = /\.(csv|xlsx|xls)$/i.test(file.name);
-        if (isSheet) {
+        if (/\.(csv|xlsx|xls)$/i.test(file.name)) {
           const out = linesFromRows(fileRows(await file.arrayBuffer()), ctx);
           all.push(...out.lines);
           warns.push(...out.warnings.map((w) => `${file.name} — ${w}`));
+        } else if (/\.pdf$/i.test(file.name)) {
+          const { pages } = await extractPdfText(file);
+          const parsed = parseDocument(pages, { kind, fileName: file.name, version: ctx.source_version });
+          all.push(...parsed.lines);
+          warns.push(...parsed.uncertain);
         } else {
-          const dataUrl = await blobToDataUrl(file);
-          const res = await analyzePackageMementoFn({ data: { dataUrl, filename: file.name } });
-          if (!res.ok) {
-            warns.push(`${file.name} — ${res.error}`);
-            continue;
-          }
-          const out = linesFromAi(JSON.parse(res.json), ctx);
-          all.push(...out.lines);
-          warns.push(...out.warnings.map((w) => `${file.name} — ${w}`));
+          warns.push(`${file.name} — image ou scan : analyse IA requise, à lancer explicitement.`);
         }
       }
       setLines(all);
       setChecked({});
       setWarnings(warns);
+      setScanned([]);
       if (!all.length) toast.error("Aucune ligne de forfait exploitable détectée.");
-      else toast.success(`${all.length} ligne(s) détectée(s)`);
-    } catch {
+      else toast.success(`${all.length} ligne(s) détectée(s) — 0 crédit IA`);
+    } catch (e) {
+      console.error(e);
       toast.error("Lecture du fichier impossible.");
     } finally {
       setBusy(false);
+      setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
 
-  /** Reprise d'un job interrompu : seuls les lots manquants ou en échec sont relancés. */
+  /* --------------------- Repli IA explicite (pages scannées) -------------- */
+
+  async function analyzeScannedWithAi() {
+    const file = pendingFile;
+    if (!file || !scanned.length) return;
+    const ok = window.confirm(
+      `Analyse IA de ${scanned.length} page(s) non reconnue(s).\nCoût estimé : ~${aiCost} crédit(s).\nConfirmer ?`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const { doc } = await loadPdf(file);
+      const added: DetectedLine[] = [];
+      const warns: string[] = [];
+      for (const page of scanned) {
+        const dataUrl = await extractPagesDataUrl(doc, page, page);
+        const res = await analyzePackageMementoFn({
+          data: { dataUrl, filename: file.name, pageFrom: page, pageTo: page },
+        });
+        // Aucun retry : un échec est signalé, la page reste « à contrôler ».
+        if (!res.ok) {
+          warns.push(`page ${page} — ${res.error}`);
+          continue;
+        }
+        const out = linesFromAi(JSON.parse(res.json), {
+          source_kind: kind,
+          source_file_name: file.name,
+          source_version: version.trim() || null,
+        });
+        added.push(...out.lines.map((l) => ({ ...l, source_page: page })));
+        warns.push(...out.warnings);
+      }
+      setLines((prev) => [...prev, ...added]);
+      setWarnings((prev) => [...prev, ...warns]);
+      setScanned([]);
+      toast.success(`${added.length} ligne(s) ajoutée(s) par analyse IA`);
+    } catch {
+      toast.error("Analyse IA impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* -------------------------------- Reprise ------------------------------- */
+
   async function resume(files: FileList | null) {
     const file = files?.[0];
     const saved = resumable;
@@ -204,13 +223,14 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
     setBusy(true);
     setResumable(null);
     try {
-      setKind(saved.sourceKind as SourceKind);
-      setVersion(saved.version ?? "");
-      await runBatches(file, saved);
+      setKind(saved.kind as SourceKind);
+      await runDeterministic(file, saved);
     } catch {
       toast.error("Reprise impossible.");
     } finally {
       setBusy(false);
+      setProgress(null);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -226,13 +246,12 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
         fileName: selected[0]?.source_file_name ?? "import",
         version: version.trim() || selected[0]?.source_version || null,
       });
-      toast.success(
-        `${res.inserted} créé(s), ${res.updated} mis à jour, ${res.unchanged} inchangé(s)`,
-      );
+      toast.success(`${res.inserted} créé(s), ${res.updated} mis à jour, ${res.unchanged} inchangé(s)`);
       setLines([]);
       setWarnings([]);
-      clearJob();
-      setJob(null);
+      setScanned([]);
+      setPendingFile(null);
+      if (jobRef) await finishImportJob(jobRef);
       await onImported();
     } catch {
       toast.error("Import impossible.");
@@ -249,11 +268,10 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
         Importer / mettre à jour le référentiel forfaits
       </h3>
       <p className="mt-1 text-xs text-muted-foreground">
-        Mémentos PDF complets (Renault Public, Renault Pro/LLD, Dacia Public), même de 250 à 400
-        pages : le document est analysé automatiquement page par page, par lots, jusqu'à la dernière
-        page. Fichiers CSV/XLSX déjà structurés également acceptés. Aucune page n'est écartée
-        volontairement : une page illisible est signalée « à contrôler ». Réimporter le même mémento
-        ne crée aucun doublon.
+        Mémentos PDF complets (Renault Public, Renault Pro/LLD, Dacia Public), de 100 à 400+ pages :
+        le document est lu directement dans sa couche texte, sans IA et sans coût. Fichiers CSV/XLSX
+        également acceptés. Les pages scannées ou non reconnues restent « à contrôler » et ne sont
+        jamais envoyées à une IA sans votre accord. Réimporter le même mémento ne crée aucun doublon.
       </p>
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -291,7 +309,7 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
         ref={inputRef}
         type="file"
         multiple
-        accept=".pdf,.csv,.xlsx,.xls,image/*"
+        accept=".pdf,.csv,.xlsx,.xls"
         className="hidden"
         onChange={(e) => void (resumable ? resume(e.target.files) : handleFiles(e.target.files))}
       />
@@ -301,22 +319,21 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-border px-4 py-3 text-xs font-bold uppercase"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-        {busy ? "Analyse en cours" : "Choisir un ou plusieurs fichiers"}
+        {busy ? "Lecture en cours" : "Choisir un ou plusieurs fichiers"}
       </button>
 
       {resumable && !busy ? (
         <div className="mt-3 rounded-lg border border-brand bg-brand/5 p-2 text-[11px]">
           <div className="flex items-center gap-2 font-bold">
-            <RotateCw className="h-3.5 w-3.5" /> Import interrompu : {resumable.fileName}
+            <RotateCw className="h-3.5 w-3.5" /> Import interrompu : {resumable.file_name}
           </div>
           <p className="mt-1">
-            {summaryText(summarize(resumable))} — {summarize(resumable).percent} % traité.
-            Re-sélectionnez le même PDF pour reprendre : les lots déjà réussis ne seront pas
-            relancés.
+            {(resumable.state?.donePages?.length ?? 0)} / {resumable.total_pages ?? "?"} pages déjà
+            traitées. Re-sélectionnez le même PDF : les pages terminées ne sont pas retraitées.
           </p>
           <button
             onClick={() => {
-              clearJob();
+              void deleteImportJob(resumable.job_key);
               setResumable(null);
             }}
             className="mt-1 text-[10px] font-bold uppercase underline"
@@ -328,34 +345,40 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
 
       {busy && progress ? (
         <div className="mt-3 space-y-1 rounded-lg border border-border p-2 text-[11px]">
-          <div className="font-bold">
-            {job?.fileName} · {progress.totalPages} pages
-          </div>
           <div>
-            {current
-              ? `Analyse ${current.from}–${current.to} / ${progress.totalPages} pages`
-              : "Préparation du document…"}{" "}
-            · {progress.percent} %
+            Lecture page {progress.done} / {progress.total} · 0 crédit IA
           </div>
           <div className="h-2 w-full overflow-hidden rounded bg-muted">
-            <div className="h-full bg-brand transition-all" style={{ width: `${progress.percent}%` }} />
-          </div>
-          <div className="text-muted-foreground">
-            {progress.linesDetected} forfait(s) détecté(s) · {progress.warnings} avertissement(s)
-            {progress.pagesFailed ? ` · ${progress.pagesFailed} page(s) à contrôler` : ""}
+            <div
+              className="h-full bg-brand transition-all"
+              style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }}
+            />
           </div>
         </div>
       ) : null}
 
-      {showPreview && job ? (
-        <p className="mt-3 rounded-lg border border-border bg-muted/40 p-2 text-[11px] font-bold">
-          {summaryText(summarize(job))}
-        </p>
+      {showPreview && scanned.length ? (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900">
+          <div className="flex items-center gap-2 font-bold">
+            <AlertTriangle className="h-3.5 w-3.5" /> {scanned.length} page(s) scannée(s) sans couche
+            texte
+          </div>
+          <p className="mt-1">
+            Ces pages ne sont pas importées. Analyse IA facultative — modèle visuel Gemini, coût
+            estimé ~{aiCost} crédit(s).
+          </p>
+          <button
+            onClick={() => void analyzeScannedWithAi()}
+            className="mt-1 rounded-lg border border-amber-500 px-2 py-1 text-[10px] font-bold uppercase"
+          >
+            Analyser ces pages par IA
+          </button>
+        </div>
       ) : null}
 
       {showPreview && warnings.length ? (
         <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
-          {warnings.map((w, i) => (
+          {warnings.slice(0, 200).map((w, i) => (
             <li key={i}>{w}</li>
           ))}
         </ul>
@@ -388,7 +411,6 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
                     {l.brand}
                     {l.model ? ` ${l.model}` : l.segment ? ` · ${l.segment}` : ""}
                     {l.energies.length ? ` · ${l.energies.join(", ")}` : ""}
-                    {l.year_from || l.year_to ? ` · ${l.year_from ?? "?"}–${l.year_to ?? "?"}` : ""}
                     <br />
                     {l.price_value != null
                       ? `${l.price_value.toFixed(2)} € ${l.price_basis.toUpperCase()} source → ${p.price_ttc?.toFixed(2)} € TTC`
