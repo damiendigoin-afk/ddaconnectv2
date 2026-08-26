@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { TourRow } from "@/components/RecentTours";
+import { EMPTY_TOUR_SEARCH, TourSearchForm } from "@/components/TourSearchForm";
 import { fetchRecentTours, type TourScope } from "@/lib/queries";
 
 export const Route = createFileRoute("/tours")({
@@ -40,10 +40,7 @@ const SUBTITLE: Record<TourScope, string> = {
 
 function AllTours() {
   const [scope, setScope] = useState<TourScope>("completed");
-  const [text, setText] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [applied, setApplied] = useState({ text: "", from: "", to: "" });
+  const [applied, setApplied] = useState(EMPTY_TOUR_SEARCH);
 
   const search = useMemo(
     () => ({
@@ -62,64 +59,7 @@ function AllTours() {
 
   return (
     <AppShell title="Tours véhicule" subtitle={SUBTITLE[scope]} back={{ to: "/tour-vehicule" }}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setApplied({ text, from, to });
-        }}
-        className="mb-3 space-y-2"
-      >
-        <div className="flex gap-2">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Immatriculation, n° OR, réf. DDA, client, marque, opérateur…"
-            aria-label="Rechercher un tour véhicule"
-            className="w-full rounded-lg border-2 border-border bg-card px-3 py-3 text-base outline-none focus:border-brand"
-          />
-          <button
-            type="submit"
-            aria-label="Rechercher"
-            className="flex items-center gap-2 rounded-lg bg-brand px-4 text-sm font-bold uppercase text-brand-foreground"
-          >
-            <Search className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Du
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="mt-1 w-full rounded-lg border-2 border-border bg-card px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Au
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="mt-1 w-full rounded-lg border-2 border-border bg-card px-3 py-2 text-sm"
-            />
-          </label>
-        </div>
-        {applied.text || applied.from || applied.to ? (
-          <button
-            type="button"
-            onClick={() => {
-              setText("");
-              setFrom("");
-              setTo("");
-              setApplied({ text: "", from: "", to: "" });
-            }}
-            className="text-xs font-bold uppercase tracking-widest text-brand underline"
-          >
-            Réinitialiser la recherche
-          </button>
-        ) : null}
-      </form>
+      <TourSearchForm applied={applied} onApply={setApplied} />
 
       <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl bg-secondary p-1">
         {SCOPES.map((s) => (
