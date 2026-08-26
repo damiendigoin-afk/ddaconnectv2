@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 
 import { fetchReport, type ReportMedia } from "@/lib/report";
+import { ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { GROUP_LABEL, siteHeader } from "@/lib/sites";
@@ -144,6 +145,7 @@ function PdfPage() {
     if (obs) return `${obs.category} — ${obs.element}`;
     return m.label ?? "";
   };
+  const ctDates = reportCtDates(d);
   const clientName = [d.order?.client?.first_name, d.order?.client?.last_name].filter(Boolean).join(" ");
 
   return (
@@ -187,16 +189,26 @@ function PdfPage() {
           <div className="font-bold uppercase">Véhicule</div>
           <div className="text-lg font-extrabold">{formatPlate(d.vehicle?.plate ?? "")}</div>
           <div>{[d.vehicle?.brand, d.vehicle?.model].filter(Boolean).join(" ")}</div>
-          <div>{d.inspection.mileage ? `${d.inspection.mileage.toLocaleString("fr-FR")} km` : "Kilométrage non relevé"}</div>
+          <div>
+            {d.inspection.mileage ? `${d.inspection.mileage.toLocaleString("fr-FR")} km · ` : ""}
+            {ctSummaryLabel(ctDates.ct)}
+          </div>
+          {formatCtDate(ctDates.pollution) ? (
+            <div>{`${POLLUTION_PREFIX} ${formatCtDate(ctDates.pollution)}.`}</div>
+          ) : null}
         </div>
       </section>
 
       <section className="mt-3 border-y border-black py-2 text-[9pt]">
         <span className="font-bold uppercase">Opérateur : </span>
-        {d.inspection.completed_by_name ?? "—"}
-        {started ? ` · Début ${started.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}
-        {finished ? ` · Fin ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}
-        {dur != null ? ` · Durée ${Math.floor(dur / 60)} min` : ""}
+        {[
+          d.inspection.completed_by_name ?? "—",
+          started ? `Début : ${started.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
+          finished ? `Fin : ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
+          dur != null ? `Durée : ${Math.floor(dur / 60)} min` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
       </section>
 
       <section className="mt-4">

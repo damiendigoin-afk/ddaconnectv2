@@ -68,3 +68,15 @@ export function mileageAndCtLine(mileage: number | null | undefined, ct?: string
   const km = mileage != null ? `${mileage.toLocaleString("fr-FR")} km` : "Kilométrage non relevé";
   return `${km} · ${ctSummaryLabel(ct)}`;
 }
+
+/** Date CT retenue pour un rapport : point de contrôle en priorité, puis véhicule. */
+export function reportCtDates(d: {
+  vehicle?: { ct_due_date?: string | null; pollution_due_date?: string | null } | null;
+  points?: { point_key?: string | null; ct_due_date?: string | null; pollution_due_date?: string | null }[];
+}): { ct: string | null; pollution: string | null } {
+  const point = (d.points ?? []).find((p) => p.point_key === "controle_technique");
+  return {
+    ct: point?.ct_due_date ?? d.vehicle?.ct_due_date ?? null,
+    pollution: point?.pollution_due_date ?? d.vehicle?.pollution_due_date ?? null,
+  };
+}
