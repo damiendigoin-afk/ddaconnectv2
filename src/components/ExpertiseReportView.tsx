@@ -31,8 +31,13 @@ export function ExpertiseReport({ d }: { d: ExpertiseData }) {
   const vehicle = [e.brand, e.model, e.version].filter(Boolean).join(" ");
   const photoOf = (id: string | null) => photos.find((p) => p.id === id);
   const lightbox = useLightbox();
+  // Galerie navigable : on ouvre toujours la version détaillée optimisée.
   const openPhoto = (p: (typeof photos)[number]) =>
-    lightbox.open([{ path: p.storage_path, label: p.label }], 0);
+    lightbox.open(
+      photos.map((x) => ({ path: x.storage_path, label: x.label })),
+      Math.max(0, photos.findIndex((x) => x.id === p.id)),
+    );
+
 
   return (
     <div className="space-y-4">
