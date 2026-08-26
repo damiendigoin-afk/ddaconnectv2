@@ -3,8 +3,10 @@ import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { mergeCtComment } from "@/lib/ct";
 import { ocrTechnicalControl } from "@/lib/ocr.functions";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
+
 
 type CtRead = {
   ct_due_date?: string | null;
