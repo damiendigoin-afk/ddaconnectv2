@@ -1,13 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Inbox, Link2, Mail, Paperclip, Plug, RefreshCw, Unlink, Users, Zap } from "lucide-react";
+import { Car, Inbox, Link2, Mail, Paperclip, Plug, RefreshCw, SlidersHorizontal, Trash2, Unlink, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { toastError } from "@/lib/errors";
-import { CATEGORY_LABELS, EMAIL_CATEGORIES } from "@/lib/emails-core";
+import { CATEGORY_LABELS, EMAIL_CATEGORIES, QUICK_CATEGORIES } from "@/lib/emails-core";
+import {
+  alwaysForSender,
+  attachEmailToVehicle,
+  deleteEmailRule,
+  detachEmail,
+  fetchEmailRules,
+  findEmailVehicleCandidates,
+  replayEmailRules,
+  RULE_TYPE_LABELS,
+  setEmailCategory,
+  updateEmailRuleCategory,
+  type EmailLinkCandidate,
+} from "@/lib/email-rules";
+import { fetchSites } from "@/lib/sites";
 import {
   computeStats,
   fetchEmailAccounts,
@@ -60,7 +74,8 @@ function EmailsPage() {
   const [category, setCategory] = useState("all");
   const [mailbox, setMailbox] = useState("all");
   const [triage, setTriage] = useState("all");
-  const [tab, setTab] = useState<"flux" | "boites">("flux");
+  const [tab, setTab] = useState<"flux" | "boites" | "regles">("flux");
+  const [siteId, setSiteId] = useState<string>("all");
   const [open, setOpen] = useState<string | null>(null);
   const [newBox, setNewBox] = useState("");
 
@@ -78,9 +93,33 @@ function EmailsPage() {
   }, []);
 
   const accounts = useQuery({ queryKey: ["email-accounts"], queryFn: fetchEmailAccounts });
+  const sites = useQuery({ queryKey: ["sites"], queryFn: fetchSites });
+  const rules = useQuery({ queryKey: ["email-rules"], queryFn: fetchEmailRules });
   const emails = useQuery({
-    queryKey: ["emails", search, category, mailbox, triage],
-    queryFn: () => fetchEmails({ search, category, mailbox, triage }),
+    queryKey: ["emails", search, category, mailbox, triage, siteId],
+    queryFn: () =>
+      fetchEmails({ search, category, mailbox, triage, siteId: siteId === "all" ? null : siteId }),
+  });
+
+  const reclassify = useMutation({
+    mutationFn: (a: { id: string; from: string; category: string; always: boolean }) =>
+      a.always ? alwaysForSender(a.from, a.category) : setEmailCategory(a.id, a.category),
+    onSuccess: async (_r, a) => {
+      toast.success(a.always ? "Règle enregistrée et appliquée" : "Affectation corrigée");
+      await qc.invalidateQueries({ queryKey: ["emails"] });
+      await qc.invalidateQueries({ queryKey: ["email-rules"] });
+    },
+    onError: (e) => toastError(e, "Correction de l'affectation impossible"),
+  });
+
+  const linkVehicle = useMutation({
+    mutationFn: (a: { id: string; candidate: EmailLinkCandidate | null }) =>
+      a.candidate ? attachEmailToVehicle(a.id, a.candidate) : detachEmail(a.id),
+    onSuccess: async () => {
+      toast.success("Rattachement mis à jour");
+      await qc.invalidateQueries({ queryKey: ["emails"] });
+    },
+    onError: (e) => toastError(e, "Rattachement impossible"),
   });
 
   const stats = useMemo(() => computeStats(emails.data ?? []), [emails.data]);
@@ -162,6 +201,12 @@ function EmailsPage() {
             label="Boîtes"
             icon={<Plug className="h-4 w-4" />}
           />
+          <Tab
+            active={tab === "regles"}
+            onClick={() => setTab("regles")}
+            label="Règles"
+            icon={<SlidersHorizontal className="h-4 w-4" />}
+          />
         </div>
 
         {tab === "flux" ? (
@@ -189,6 +234,15 @@ function EmailsPage() {
               ))}
             </div>
 
+            {(sites.data ?? []).length > 1 ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <Chip active={siteId === "all"} onClick={() => setSiteId("all")} label="Tous les garages" />
+                {(sites.data ?? []).map((st) => (
+                  <Chip key={st.id} active={siteId === st.id} onClick={() => setSiteId(st.id)} label={st.name} />
+                ))}
+              </div>
+            ) : null}
+
             {stats.byMailbox.length ? (
               <div className="flex gap-2 overflow-x-auto pb-1">
                 <Chip active={mailbox === "all"} onClick={() => setMailbox("all")} label="Toutes les boîtes" />
@@ -211,6 +265,10 @@ function EmailsPage() {
                   open={open === m.id}
                   onToggle={() => setOpen((v) => (v === m.id ? null : m.id))}
                   onStatus={(status) => markTriage.mutate({ id: m.id, status })}
+                  onCategory={(cat, always) =>
+                    reclassify.mutate({ id: m.id, from: m.from_address, category: cat, always })
+                  }
+                  onLink={(candidate) => linkVehicle.mutate({ id: m.id, candidate })}
                 />
               ))}
               {emails.data && !emails.data.length ? (
@@ -220,6 +278,15 @@ function EmailsPage() {
               ) : null}
             </div>
           </>
+        ) : tab === "regles" ? (
+          <RulesPanel
+            rules={rules.data ?? []}
+            isManager={isManager}
+            onChange={async () => {
+              await qc.invalidateQueries({ queryKey: ["email-rules"] });
+              await qc.invalidateQueries({ queryKey: ["emails"] });
+            }}
+          />
         ) : (
           <div className="space-y-3">
             {isManager ? (
