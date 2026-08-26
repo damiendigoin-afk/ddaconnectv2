@@ -2032,6 +2032,39 @@ export type Database = {
           },
         ]
       }
+      email_rules: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          match_type: string
+          match_value: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          match_type: string
+          match_value: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          match_type?: string
+          match_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       emails: {
         Row: {
           action_required: boolean
@@ -2041,7 +2074,9 @@ export type Database = {
           category_confidence: number
           category_source: string
           cc_addresses: string[]
+          client_id: string | null
           created_at: string
+          detected_plate: string | null
           due_at: string | null
           expires_at: string | null
           fingerprint: string
@@ -2053,6 +2088,7 @@ export type Database = {
           id: string
           importance: string
           kind: string
+          link_status: string
           rfc_message_id: string | null
           sent_at: string
           services: string[]
@@ -2066,6 +2102,7 @@ export type Database = {
           triage_status: string
           updated_at: string
           urgency: string
+          vehicle_id: string | null
         }
         Insert: {
           action_required?: boolean
@@ -2075,7 +2112,9 @@ export type Database = {
           category_confidence?: number
           category_source?: string
           cc_addresses?: string[]
+          client_id?: string | null
           created_at?: string
+          detected_plate?: string | null
           due_at?: string | null
           expires_at?: string | null
           fingerprint: string
@@ -2087,6 +2126,7 @@ export type Database = {
           id?: string
           importance?: string
           kind?: string
+          link_status?: string
           rfc_message_id?: string | null
           sent_at: string
           services?: string[]
@@ -2100,6 +2140,7 @@ export type Database = {
           triage_status?: string
           updated_at?: string
           urgency?: string
+          vehicle_id?: string | null
         }
         Update: {
           action_required?: boolean
@@ -2109,7 +2150,9 @@ export type Database = {
           category_confidence?: number
           category_source?: string
           cc_addresses?: string[]
+          client_id?: string | null
           created_at?: string
+          detected_plate?: string | null
           due_at?: string | null
           expires_at?: string | null
           fingerprint?: string
@@ -2121,6 +2164,7 @@ export type Database = {
           id?: string
           importance?: string
           kind?: string
+          link_status?: string
           rfc_message_id?: string | null
           sent_at?: string
           services?: string[]
@@ -2134,13 +2178,28 @@ export type Database = {
           triage_status?: string
           updated_at?: string
           urgency?: string
+          vehicle_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "emails_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "emails_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emails_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
         ]
