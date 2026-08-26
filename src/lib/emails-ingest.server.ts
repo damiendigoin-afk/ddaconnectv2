@@ -1,8 +1,11 @@
 import {
   categorizeEmail,
   emailFingerprint,
+  findPlates,
+  matchEmailRule,
   messageKind,
   threadKeyOf,
+  type EmailRule,
 } from "@/lib/emails-core";
 import type { IncomingEmail } from "@/lib/emails";
 import { dueAtFrom, expiresAtFrom, triageIncoming } from "@/lib/triage-core";
@@ -34,7 +37,17 @@ export async function ingestEmailServer(
   const duplicate = !!emailId;
 
   if (!emailId) {
-    const cat = categorizeEmail({ subject: e.subject, body: e.bodyText ?? e.bodyHtml, from: e.from });
+    let cat = categorizeEmail({ subject: e.subject, body: e.bodyText ?? e.bodyHtml, from: e.from });
+    let categorySource = "auto";
+    // Règles de tri déterministes enregistrées par les utilisateurs : priorité absolue.
+    const { data: rules } = await supabaseAdmin
+      .from("email_rules")
+      .select("id, match_type, match_value, category");
+    const rule = matchEmailRule((rules ?? []) as EmailRule[], { from: e.from, subject: e.subject });
+    if (rule) {
+      cat = { category: rule.category as typeof cat.category, confidence: 1 };
+      categorySource = "regle";
+    }
     const tri = triageIncoming({
       subject: e.subject,
       body: e.bodyText ?? e.bodyHtml,
@@ -61,6 +74,7 @@ export async function ingestEmailServer(
         kind: messageKind(e.subject),
         category: cat.category,
         category_confidence: cat.confidence,
+        category_source: categorySource,
         importance: tri.importance,
         urgency: tri.urgency,
         action_required: tri.actionRequired,
@@ -91,6 +105,8 @@ export async function ingestEmailServer(
     }
   }
 
+  if (!duplicate) await autoLinkVehicle(supabaseAdmin, emailId, e);
+
   await supabaseAdmin.from("email_receipts").upsert(
     {
       email_id: emailId as string,
@@ -103,4 +119,41 @@ export async function ingestEmailServer(
   );
 
   return { emailId: emailId as string, duplicate };
+}
+
+/**
+ * Rattachement véhicule / client par immatriculation exacte (regex + base).
+ * Aucun OCR, aucune IA : en cas d'ambiguïté, l'e-mail reste « à confirmer ».
+ */
+async function autoLinkVehicle(
+  admin: { from: (t: string) => any },
+  emailId: string,
+  e: IncomingEmail,
+) {
+  const plates = findPlates(
+    [e.subject ?? "", e.bodyText ?? "", (e.attachments ?? []).map((a) => a.filename).join(" ")].join(" "),
+  );
+  if (!plates.length) return;
+  const { data } = await admin
+    .from("vehicles")
+    .select("id, plate_normalized, client_id")
+    .in("plate_normalized", plates);
+  const rows = (data ?? []) as { id: string; plate_normalized: string | null; client_id: string | null }[];
+  if (rows.length === 1) {
+    const v = rows[0]!;
+    await admin
+      .from("emails")
+      .update({
+        vehicle_id: v.id,
+        client_id: v.client_id,
+        detected_plate: v.plate_normalized,
+        link_status: "auto",
+      })
+      .eq("id", emailId);
+    return;
+  }
+  await admin
+    .from("emails")
+    .update({ detected_plate: plates[0] ?? null, link_status: "a_confirmer" })
+    .eq("id", emailId);
 }

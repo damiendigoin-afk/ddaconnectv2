@@ -1,6 +1,7 @@
 import { MediaThumb } from "@/components/PhotoManager";
 import { useLightbox } from "@/components/PhotoLightbox";
 import { StatusBadge } from "@/components/StatusPicker";
+import { ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import type { ReportData, ReportMedia } from "@/lib/report";
 
@@ -24,6 +25,7 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
     if (h > 0) return `${h} h ${String(m).padStart(2, "0")}`;
     return m > 0 ? `${m} min` : `${s} s`;
   };
+  const ctDates = reportCtDates(d);
   const counts = {
     ok: d.points.filter((p) => p.status === "ok").length,
     watch: d.points.filter((p) => p.status === "watch").length,
@@ -41,15 +43,25 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
         {date.toLocaleDateString("fr-FR")} à{" "}
         {date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
       </div>
-      {d.inspection.mileage ? (
-        <div className="font-semibold">{d.inspection.mileage.toLocaleString("fr-FR")} km</div>
+      <div className="font-semibold">
+        {d.inspection.mileage ? `${d.inspection.mileage.toLocaleString("fr-FR")} km · ` : ""}
+        {ctSummaryLabel(ctDates.ct)}
+      </div>
+      {formatCtDate(ctDates.pollution) ? (
+        <div className="text-xs font-semibold text-muted-foreground">
+          {POLLUTION_PREFIX} {formatCtDate(ctDates.pollution)}.
+        </div>
       ) : null}
       {startedAt || finishedAt || duration != null ? (
-        <div className="flex flex-wrap gap-x-3 text-xs font-semibold text-muted-foreground">
-          {startedAt ? <span>Début : {hhmm(startedAt)}</span> : null}
-          {finishedAt ? <span>Fin : {hhmm(finishedAt)}</span> : null}
-          {duration != null ? <span>Durée : {formatDuration(duration)}</span> : null}
-          {d.inspection.completed_by_name ? <span>Terminé par {d.inspection.completed_by_name}</span> : null}
+        <div className="text-xs font-semibold text-muted-foreground">
+          {[
+            startedAt ? `Début : ${hhmm(startedAt)}` : "",
+            finishedAt ? `Fin : ${hhmm(finishedAt)}` : "",
+            duration != null ? `Durée : ${formatDuration(duration)}` : "",
+            d.inspection.completed_by_name ? `Terminé par ${d.inspection.completed_by_name}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </div>
       ) : null}
       <div className="pt-2 text-sm">

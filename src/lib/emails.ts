@@ -49,6 +49,10 @@ export type EmailRow = {
   triage_status: string;
   triage_confidence: string;
   triage_reason: string | null;
+  vehicle_id: string | null;
+  client_id: string | null;
+  link_status: string;
+  detected_plate: string | null;
   receipts: { mailbox_address: string; person_name: string | null }[];
 };
 
@@ -98,7 +102,7 @@ export async function fetchEmails(opts: {
   let q = supabase
     .from("emails")
     .select(
-      "id, sent_at, from_address, from_name, to_addresses, cc_addresses, subject, snippet, body_text, kind, category, category_confidence, thread_key, gmail_thread_id, has_attachments, site_id, importance, urgency, action_required, human_required, services, due_at, expires_at, triage_status, triage_confidence, triage_reason, receipts:email_receipts(mailbox_address, person_name)",
+      "id, sent_at, from_address, from_name, to_addresses, cc_addresses, subject, snippet, body_text, kind, category, category_confidence, thread_key, gmail_thread_id, has_attachments, site_id, importance, urgency, action_required, human_required, services, due_at, expires_at, triage_status, triage_confidence, triage_reason, vehicle_id, client_id, link_status, detected_plate, receipts:email_receipts(mailbox_address, person_name)",
     )
     .order("sent_at", { ascending: false })
     .limit(opts.limit ?? 200);

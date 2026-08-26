@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Maximize2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Maximize2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 
 import { mediaUrl } from "@/lib/photo";
@@ -72,14 +72,28 @@ export function PhotoLightbox({
             {index + 1}/{items.length}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => void toggleFullscreen()}
-          aria-label="Plein écran"
-          className="rounded-lg p-3"
-        >
-          <Maximize2 className="h-6 w-6" />
-        </button>
+        <div className="flex items-center">
+          {url ? (
+            <a
+              href={url}
+              download={`${(current.label || "photo").replace(/[^\w-]+/g, "-").toLowerCase()}.jpg`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Télécharger la photo"
+              className="rounded-lg p-3"
+            >
+              <Download className="h-6 w-6" />
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void toggleFullscreen()}
+            aria-label="Plein écran"
+            className="rounded-lg p-3"
+          >
+            <Maximize2 className="h-6 w-6" />
+          </button>
+        </div>
       </header>
 
       <div className="relative flex-1 overflow-hidden">

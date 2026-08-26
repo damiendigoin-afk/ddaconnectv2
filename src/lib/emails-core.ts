@@ -3,6 +3,7 @@
 export const EMAIL_CATEGORIES = [
   "atelier",
   "carrosserie",
+  "magasin",
   "vn_vo",
   "devis",
   "rendez_vous",
@@ -15,6 +16,8 @@ export const EMAIL_CATEGORIES = [
   "rh",
   "administratif",
   "renault",
+  "direction",
+  "publicite",
   "autre",
 ] as const;
 
@@ -23,7 +26,8 @@ export type EmailCategory = (typeof EMAIL_CATEGORIES)[number];
 export const CATEGORY_LABELS: Record<EmailCategory, string> = {
   atelier: "Atelier mécanique",
   carrosserie: "Carrosserie",
-  vn_vo: "VN / VO",
+  magasin: "Magasin",
+  vn_vo: "Vente véhicules",
   devis: "Devis",
   rendez_vous: "Demande de rendez-vous",
   client: "Client",
@@ -35,8 +39,23 @@ export const CATEGORY_LABELS: Record<EmailCategory, string> = {
   rh: "RH",
   administratif: "Administratif",
   renault: "Renault",
-  autre: "Autre",
+  direction: "Direction",
+  publicite: "Publicité",
+  autre: "À classer",
 };
+
+/** Affectations proposées en un clic sur chaque e-mail du flux (tri manuel rapide). */
+export const QUICK_CATEGORIES: EmailCategory[] = [
+  "atelier",
+  "carrosserie",
+  "magasin",
+  "vn_vo",
+  "comptabilite",
+  "rh",
+  "direction",
+  "publicite",
+  "autre",
+];
 
 const RULES: { cat: EmailCategory; words: string[]; weight: number }[] = [
   { cat: "renault", words: ["renault", "dacia", "alpine", "reagroup"], weight: 0.9 },
@@ -48,6 +67,9 @@ const RULES: { cat: EmailCategory; words: string[]; weight: number }[] = [
   { cat: "devis", words: ["devis", "estimation", "chiffrage", "proposition commerciale"], weight: 0.8 },
   { cat: "rendez_vous", words: ["rendez-vous", "rdv", "prise de rdv", "disponibilite atelier", "créneau", "creneau"], weight: 0.8 },
   { cat: "comptabilite", words: ["comptab", "facture", "règlement", "reglement", "relance", "impayé", "impaye", "virement", "avoir"], weight: 0.7 },
+  { cat: "publicite", words: ["newsletter", "promotion", "offre du mois", "se désinscrire", "se desinscrire", "désinscription", "desinscription", "publicité", "publicite", "ne plus recevoir", "nos offres", "portes ouvertes", "mailing"], weight: 0.9 },
+  { cat: "magasin", words: ["magasin", "retour fournisseur", "pièce en retour", "piece en retour", "stock pièces", "stock pieces", "avoir pièces", "avoir pieces"], weight: 0.8 },
+  { cat: "direction", words: ["direction", "comité", "comite", "réunion de direction", "reunion de direction", "concession", "groupement"], weight: 0.6 },
   { cat: "rh", words: ["contrat de travail", "paie", "congés", "conges", "absence", "candidature", "cv "], weight: 0.8 },
   { cat: "vn_vo", words: ["véhicule neuf", "vehicule neuf", "occasion", "vo ", "vn ", "reprise", "lead", "annonce", "leboncoin", "lacentrale"], weight: 0.75 },
   { cat: "atelier", words: ["révision", "revision", "vidange", "distribution", "embrayage", "frein", "diagnostic", "atelier", "or n"], weight: 0.7 },
@@ -122,4 +144,56 @@ export function emailFingerprint(input: {
 export function threadKeyOf(input: { gmailThreadId?: string | null | undefined; subject?: string | null | undefined; from: string }): string {
   if (input.gmailThreadId) return `g:${input.gmailThreadId}`;
   return `s:${hash(normalizeSubject(input.subject) + "|" + input.from.toLowerCase().trim())}`;
+}
+
+
+/* ------------------------- Règles de tri déterministes ------------------------ */
+
+export type EmailRule = {
+  id: string;
+  match_type: "sender" | "domain" | "subject";
+  match_value: string;
+  category: string;
+};
+
+/**
+ * Applique les règles de tri enregistrées : adresse exacte d'abord,
+ * puis domaine, puis mot de l'objet. Aucune IA.
+ */
+export function matchEmailRule(
+  rules: EmailRule[],
+  email: { from?: string | null | undefined; subject?: string | null | undefined },
+): EmailRule | null {
+  const from = (email.from ?? "").toLowerCase().trim();
+  const domain = from.includes("@") ? from.split("@")[1]! : "";
+  const subject = (email.subject ?? "").toLowerCase();
+  const by = (t: EmailRule["match_type"]) => rules.filter((r) => r.match_type === t);
+  return (
+    by("sender").find((r) => r.match_value.toLowerCase().trim() === from) ??
+    by("domain").find((r) => r.match_value.toLowerCase().replace(/^@/, "").trim() === domain) ??
+    by("subject").find((r) => r.match_value.trim().length > 2 && subject.includes(r.match_value.toLowerCase().trim())) ??
+    null
+  );
+}
+
+/* --------------------- Détection d'immatriculation (regex) -------------------- */
+
+const PLATE_NEW = /\b([A-Z]{2})[\s-]?(\d{3})[\s-]?([A-Z]{2})\b/g;
+const PLATE_OLD = /\b(\d{2,4})[\s-]?([A-Z]{2,3})[\s-]?(\d{2})\b/g;
+
+/** Immatriculations françaises trouvées dans un texte, normalisées et dédoublonnées. */
+export function findPlates(text: string | null | undefined): string[] {
+  const hay = (text ?? "").toUpperCase();
+  const out = new Set<string>();
+  for (const re of [PLATE_NEW, PLATE_OLD]) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(hay))) {
+      const plate = `${m[1]}${m[2]}${m[3]}`;
+      // Écarte les faux positifs évidents (SS, WW, dates collées).
+      if (/^\d/.test(plate) && plate.length < 6) continue;
+      out.add(plate);
+    }
+  }
+  return [...out];
 }

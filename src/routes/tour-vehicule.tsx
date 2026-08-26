@@ -8,6 +8,7 @@ import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
 import { EntitySearch, type EntityPick } from "@/components/EntitySearch";
 import { OrCard } from "@/components/OrCard";
 import { TourRow } from "@/components/RecentTours";
+import { EMPTY_TOUR_SEARCH, TourSearchForm } from "@/components/TourSearchForm";
 import { fetchRecentOrders, fetchRecentTours } from "@/lib/queries";
 import { refPrefillByVehicle } from "@/lib/refbase";
 
@@ -42,6 +43,8 @@ function ModuleHome() {
   const navigate = useNavigate();
   const { vehicle_id: vehicleIdParam } = Route.useSearch();
   const [tab, setTab] = useState<"tours" | "drafts" | "ors">("tours");
+  const [applied, setApplied] = useState(EMPTY_TOUR_SEARCH);
+  const [globalSearch, setGlobalSearch] = useState(false);
 
   // Le véhicule choisi sur une fiche suit l'utilisateur : aucune ressaisie.
   useEffect(() => {
@@ -55,6 +58,23 @@ function ModuleHome() {
       alive = false;
     };
   }, [vehicleIdParam, navigate]);
+  const searching = Boolean(applied.text.trim() || applied.from || applied.to);
+  const searchArgs = {
+    text: applied.text,
+    from: applied.from ? new Date(`${applied.from}T00:00:00`).toISOString() : null,
+    to: applied.to ? new Date(`${applied.to}T23:59:59`).toISOString() : null,
+  };
+  // Priorité : on cherche d'abord dans les Tours existants, jamais dans toute la base.
+  const tourSearch = useQuery({
+    queryKey: ["tour-search", searchArgs],
+    queryFn: () => fetchRecentTours(50, "all", searchArgs),
+    enabled: searching,
+  });
+  const searchResults = [...(tourSearch.data ?? [])].sort((a, b) => {
+    const rank = (t: { status: string }) => (t.status === "completed" ? 1 : 0);
+    return rank(a) - rank(b);
+  });
+
   const recent = useQuery({ queryKey: ["recent-orders"], queryFn: () => fetchRecentOrders() });
   const tours = useQuery({
     queryKey: ["recent-tours", "completed"],
@@ -181,11 +201,55 @@ function ModuleHome() {
           <DocIdentify compact={false} onResult={onDocument} onError={(m) => toast.error(m)} />
         </div>
 
-        <EntitySearch
-          onPick={onPick}
-          onDocument={onDocument}
-          onDocumentError={(m) => toast.error(m)}
-        />
+        <section>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Rechercher un Tour Véhicule
+          </h2>
+          <TourSearchForm
+            applied={applied}
+            onApply={(v) => {
+              setApplied(v);
+              setGlobalSearch(false);
+            }}
+          />
+
+          {searching ? (
+            <div className="space-y-2">
+              {tourSearch.isLoading ? (
+                <p className="text-sm text-muted-foreground">Recherche…</p>
+              ) : null}
+              {searchResults.map((t) => (
+                <TourRow key={t.id} t={t} resume={t.status !== "completed"} />
+              ))}
+              {!tourSearch.isLoading && searchResults.length === 0 ? (
+                <div className="space-y-3 rounded-xl border border-dashed border-border p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Aucun tour trouvé — rechercher dans les véhicules et clients
+                  </p>
+                  {!globalSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => setGlobalSearch(true)}
+                      className="rounded-lg bg-brand px-4 py-2 text-xs font-extrabold uppercase tracking-widest text-brand-foreground"
+                    >
+                      Lancer la recherche globale
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {globalSearch ? (
+            <div className="mt-3">
+              <EntitySearch
+                onPick={onPick}
+                onDocument={onDocument}
+                onDocumentError={(m) => toast.error(m)}
+              />
+            </div>
+          ) : null}
+        </section>
 
         <>
           {/* Mobile : sélecteur simple entre les deux listes */}
