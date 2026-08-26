@@ -162,7 +162,7 @@ export type EmailRule = {
  */
 export function matchEmailRule(
   rules: EmailRule[],
-  email: { from?: string | null; subject?: string | null },
+  email: { from?: string | null | undefined; subject?: string | null | undefined },
 ): EmailRule | null {
   const from = (email.from ?? "").toLowerCase().trim();
   const domain = from.includes("@") ? from.split("@")[1]! : "";
