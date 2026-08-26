@@ -151,12 +151,12 @@ export async function detachEmail(emailId: string) {
   if (error) throw error;
 }
 
-/** E-mails rattachés à un véhicule : chronologie documentaire de la fiche véhicule. */
-export async function fetchVehicleEmails(vehicleId: string) {
+/** E-mails rattachés à une immatriculation : chronologie documentaire de la fiche véhicule. */
+export async function fetchPlateEmails(plateNormalized: string) {
   const { data, error } = await supabase
     .from("emails")
     .select("id, sent_at, subject, from_address, from_name, category, has_attachments, link_status")
-    .eq("vehicle_id", vehicleId)
+    .eq("detected_plate", plateNormalized.toUpperCase())
     .order("sent_at", { ascending: false })
     .limit(50);
   if (error) throw error;
