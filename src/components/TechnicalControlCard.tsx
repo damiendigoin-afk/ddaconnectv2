@@ -61,12 +61,20 @@ export function TechnicalControlCard({
 
   async function persist(ct: string, pollution: string, mediaId?: string, manual = true) {
     const now = new Date().toISOString();
+    // Le commentaire du point reprend la date structurée : partie automatique
+    // régénérée sans doublon, commentaire manuel conservé.
+    const { data: current } = await supabase
+      .from("inspection_points")
+      .select("comment")
+      .eq("id", pointId)
+      .maybeSingle();
     const pointPatch = {
       ct_due_date: ct || null,
       pollution_due_date: pollution || null,
       ct_read_at: now,
       ct_source: manual ? "manuel" : "ocr",
       ct_manually_corrected: manual,
+      comment: mergeCtComment(current?.comment ?? "", ct, pollution),
     };
     const vehiclePatch = {
       ct_due_date: ct || null,
@@ -83,6 +91,7 @@ export function TechnicalControlCard({
     if (pointError) throw pointError;
     if (vehicleError) throw vehicleError;
   }
+
 
   return (
     <div className="mt-3 space-y-3 rounded-lg border-2 border-border p-3">
