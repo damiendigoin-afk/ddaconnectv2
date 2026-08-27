@@ -337,11 +337,13 @@ function ItemEditor({
         comment: text.trim() ? text.trim() : null,
         client_comment: null,
         measure_value: measure.trim() ? measure.trim() : null,
-        updated_at: new Date().toISOString(),
       };
       const { error } =
         table === "inspection_points"
-          ? await supabase.from("inspection_points").update(patch).eq("id", id)
+          ? await supabase
+              .from("inspection_points")
+              .update({ ...patch, updated_at: new Date().toISOString() })
+              .eq("id", id)
           : await supabase.from("observations").update(patch).eq("id", id);
       if (error) throw error;
       toast.success("Correction enregistrée");
