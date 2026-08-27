@@ -71,6 +71,8 @@ export const closeTour = createServerFn({ method: "POST" })
       const res = await notifyTourCompleted({
         inspectionId: data.inspectionId,
         origin: data.origin,
+        // Clôture automatique : jamais deux notifications pour le même tour.
+        skipIfAlreadySent: true,
       });
       return {
         closed,

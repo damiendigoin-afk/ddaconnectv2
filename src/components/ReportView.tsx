@@ -1,6 +1,10 @@
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { supabase } from "@/integrations/supabase/client";
 import { MediaThumb } from "@/components/PhotoManager";
 import { useLightbox } from "@/components/PhotoLightbox";
-import { StatusBadge } from "@/components/StatusPicker";
+import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import type { ReportData, ReportMedia } from "@/lib/report";
@@ -94,10 +98,15 @@ export function ReportBody({
   d,
   detailed,
   clientView,
+  editable,
+  onSaved,
 }: {
   d: ReportData;
   detailed: boolean;
   clientView: boolean;
+  /** Correction directe des points par l'utilisateur (aucune relance d'analyse IA). */
+  editable?: boolean;
+  onSaved?: () => void;
 }) {
   const zones = Array.from(new Set(d.points.map((p) => p.zone_index))).sort((a, b) => a - b);
   const visiblePoints = (zi: number) =>
@@ -130,14 +139,25 @@ export function ReportBody({
                   <div className="font-bold">{o.element}</div>
                   <div className="text-xs text-muted-foreground">{o.category}</div>
                 </div>
-                <StatusBadge status={o.status} />
+                {editable && !clientView ? null : <StatusBadge status={o.status} />}
               </div>
-              {o.measure_value ? (
+              {editable && !clientView ? (
+                <ItemEditor
+                  table="observations"
+                  id={o.id}
+                  status={o.status}
+                  comment={o.comment}
+                  measureValue={o.measure_value}
+                  measureUnit={o.measure_unit}
+                  {...(onSaved ? { onSaved } : {})}
+                />
+              ) : null}
+              {o.measure_value && !editable ? (
                 <div className="text-sm">
                   Mesure : {o.measure_value} {o.measure_unit}
                 </div>
               ) : null}
-              {clientView ? (
+              {editable && !clientView ? null : clientView ? (
                 o.client_comment || o.comment ? (
                   <p className="text-sm">{o.client_comment || o.comment}</p>
                 ) : null
@@ -176,14 +196,25 @@ export function ReportBody({
               <div key={p.id} className="card-surface space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-semibold">{p.point_label}</span>
-                  <StatusBadge status={p.status} />
+                  {editable && !clientView ? null : <StatusBadge status={p.status} />}
                 </div>
-                {p.measure_value ? (
+                {editable && !clientView ? (
+                  <ItemEditor
+                    table="inspection_points"
+                    id={p.id}
+                    status={p.status}
+                    comment={p.comment}
+                    measureValue={p.measure_value}
+                    measureUnit={p.measure_unit}
+                    {...(onSaved ? { onSaved } : {})}
+                  />
+                ) : null}
+                {p.measure_value && !editable ? (
                   <div className="text-sm">
                     Mesure : {p.measure_value} {p.measure_unit}
                   </div>
                 ) : null}
-                {clientView ? (
+                {editable && !clientView ? null : clientView ? (
                   p.client_comment || p.comment ? (
                     <p className="text-sm">{p.client_comment || p.comment}</p>
                   ) : null
@@ -255,6 +286,107 @@ function PhotoRow({
           />
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Correction directe d'un point de contrôle ou d'une observation depuis le
+ * rapport : statut, mesure et commentaire. Aucune analyse IA n'est relancée ;
+ * la correction efface le commentaire client généré pour que la version
+ * corrigée soit celle vue par le client, dans le PDF et dans le devis.
+ */
+function ItemEditor({
+  table,
+  id,
+  status,
+  comment,
+  measureValue,
+  measureUnit,
+  onSaved,
+}: {
+  table: "inspection_points" | "observations";
+  id: string;
+  status: string;
+  comment: string | null;
+  measureValue: string | null;
+  measureUnit: string | null;
+  onSaved?: () => void;
+}) {
+  const [st, setSt] = useState<PointStatus>((status as PointStatus) ?? "unset");
+  const [text, setText] = useState(comment ?? "");
+  const [measure, setMeasure] = useState(measureValue ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setSt((status as PointStatus) ?? "unset");
+    setText(comment ?? "");
+    setMeasure(measureValue ?? "");
+  }, [status, comment, measureValue]);
+
+  const dirty =
+    st !== ((status as PointStatus) ?? "unset") ||
+    text !== (comment ?? "") ||
+    measure !== (measureValue ?? "");
+
+  async function save() {
+    setSaving(true);
+    try {
+      const patch = {
+        status: st,
+        comment: text.trim() ? text.trim() : null,
+        client_comment: null,
+        measure_value: measure.trim() ? measure.trim() : null,
+      };
+      const { error } =
+        table === "inspection_points"
+          ? await supabase
+              .from("inspection_points")
+              .update({ ...patch, updated_at: new Date().toISOString() })
+              .eq("id", id)
+          : await supabase.from("observations").update(patch).eq("id", id);
+      if (error) throw error;
+      toast.success("Correction enregistrée");
+      onSaved?.();
+    } catch (e) {
+      console.error(e);
+      toast.error("Enregistrement impossible");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border-2 border-border p-2">
+      <StatusPicker value={st} onChange={setSt} compact />
+      {measureValue != null || measureUnit ? (
+        <div className="flex items-center gap-2">
+          <input
+            inputMode="decimal"
+            value={measure}
+            onChange={(e) => setMeasure(e.target.value)}
+            aria-label="Mesure"
+            className="w-24 rounded-lg border-2 border-border bg-card px-2 py-2 text-center text-sm outline-none focus:border-brand"
+          />
+          <span className="text-xs font-semibold text-muted-foreground">{measureUnit ?? ""}</span>
+        </div>
+      ) : null}
+      <textarea
+        rows={2}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Commentaire"
+        aria-label="Commentaire"
+        className="w-full rounded-lg border-2 border-border bg-card px-2 py-2 text-sm outline-none focus:border-brand"
+      />
+      <button
+        type="button"
+        onClick={() => void save()}
+        disabled={saving || !dirty}
+        className="w-full rounded-lg bg-brand px-3 py-2 text-xs font-bold uppercase text-brand-foreground disabled:opacity-50"
+      >
+        {saving ? "Enregistrement…" : dirty ? "Enregistrer la correction" : "Enregistré"}
+      </button>
     </div>
   );
 }

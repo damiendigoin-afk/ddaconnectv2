@@ -46,9 +46,28 @@ export type TourNotifyResult = {
 export async function notifyTourCompleted(args: {
   inspectionId: string;
   origin: string;
+  /** Clôture automatique : ne jamais renvoyer deux fois la même notification. */
+  skipIfAlreadySent?: boolean;
 }): Promise<TourNotifyResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const sb = supabaseAdmin;
+
+  if (args.skipIfAlreadySent) {
+    const { data: already } = await sb
+      .from("tour_notifications")
+      .select("recipients, photo_count")
+      .eq("inspection_id", args.inspectionId)
+      .in("status", ["sent", "partial"])
+      .limit(1);
+    const hit = ((already ?? []) as Row[])[0];
+    if (hit) {
+      return {
+        ok: true,
+        recipients: (hit["recipients"] as string[]) ?? [],
+        photoCount: Number(hit["photo_count"] ?? 0),
+      };
+    }
+  }
 
   // Journalisation systématique : la tentative est tracée avant toute lecture,
   // pour qu'un échec précoce reste visible dans l'historique du tour.
@@ -60,12 +79,16 @@ export async function notifyTourCompleted(args: {
   if (logError) console.error("[tour-notify] journalisation impossible", logError);
   const logId = logRow?.id as string | undefined;
 
-  const logFail = async (error: string, recipients: string[] = []): Promise<TourNotifyResult> => {
+  const logFail = async (
+    error: string,
+    recipients: string[] = [],
+    status = "failed",
+  ): Promise<TourNotifyResult> => {
     console.error("[tour-notify]", error);
     if (logId) {
       await sb
         .from("tour_notifications")
-        .update({ status: "failed", error_message: error.slice(0, 500), recipients })
+        .update({ status, error_message: error.slice(0, 500), recipients })
         .eq("id", logId);
     }
     return { ok: false, error, recipients, photoCount: 0 };
@@ -107,7 +130,7 @@ export async function notifyTourCompleted(args: {
     await sb.from("tour_notifications").update({ recipients }).eq("id", logId);
   }
   if (!recipients.length) {
-    return await logFail("Aucun destinataire Front Office configuré");
+    return await logFail("Aucun destinataire Front Office configuré", [], "no_recipients");
   }
 
   const [{ data: points }, { data: obs }, { data: media }] = await Promise.all([
