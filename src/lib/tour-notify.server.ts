@@ -46,9 +46,28 @@ export type TourNotifyResult = {
 export async function notifyTourCompleted(args: {
   inspectionId: string;
   origin: string;
+  /** Clôture automatique : ne jamais renvoyer deux fois la même notification. */
+  skipIfAlreadySent?: boolean;
 }): Promise<TourNotifyResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const sb = supabaseAdmin;
+
+  if (args.skipIfAlreadySent) {
+    const { data: already } = await sb
+      .from("tour_notifications")
+      .select("recipients, photo_count")
+      .eq("inspection_id", args.inspectionId)
+      .in("status", ["sent", "partial"])
+      .limit(1);
+    const hit = ((already ?? []) as Row[])[0];
+    if (hit) {
+      return {
+        ok: true,
+        recipients: (hit["recipients"] as string[]) ?? [],
+        photoCount: Number(hit["photo_count"] ?? 0),
+      };
+    }
+  }
 
   // Journalisation systématique : la tentative est tracée avant toute lecture,
   // pour qu'un échec précoce reste visible dans l'historique du tour.
