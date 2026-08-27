@@ -7,8 +7,6 @@ import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { customerName, fetchRefVehicle, vehicleLabel } from "@/lib/refbase";
 import { completenessLabel, vehicleCompleteness } from "@/lib/quality";
-import { fetchPlateEmails } from "@/lib/email-rules";
-import { CATEGORY_LABELS } from "@/lib/emails-core";
 
 export const Route = createFileRoute("/vehicule/$vehId")({
   head: () => ({
@@ -35,13 +33,6 @@ function VehiclePage() {
   const v = data?.vehicle;
   const owner = data?.customers?.[0] ?? null;
   const plate = v?.registration_display ?? v?.registration_normalized ?? "";
-  const plateKey = v?.registration_normalized ?? "";
-  // Chronologie documentaire : e-mails rattachés à cette immatriculation (sans IA).
-  const docs = useQuery({
-    queryKey: ["vehicle-emails", plateKey],
-    queryFn: () => fetchPlateEmails(plateKey),
-    enabled: Boolean(plateKey),
-  });
 
   return (
     <AppShell title={plate || "Véhicule"} subtitle={v ? vehicleLabel(v) : undefined} back={{ to: "/base" }}>
@@ -185,21 +176,6 @@ function VehiclePage() {
                   </span>
                 </div>
               ))}
-            </Section>
-
-            <Section title="Documents & e-mails reçus">
-              {(docs.data ?? []).map((m) => (
-                <div key={m.id} className="flex items-start justify-between gap-3 text-sm">
-                  <span className="min-w-0 flex-1 truncate">{m.subject || "(sans objet)"}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {fr(m.sent_at)} · {CATEGORY_LABELS[m.category as keyof typeof CATEGORY_LABELS] ?? m.category}
-                    {m.has_attachments ? " · PJ" : ""}
-                  </span>
-                </div>
-              ))}
-              {docs.data && docs.data.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucun e-mail rattaché à ce véhicule.</p>
-              ) : null}
             </Section>
 
             {isManager ? (
