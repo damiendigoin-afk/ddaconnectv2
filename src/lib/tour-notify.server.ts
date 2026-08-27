@@ -130,7 +130,7 @@ export async function notifyTourCompleted(args: {
     await sb.from("tour_notifications").update({ recipients }).eq("id", logId);
   }
   if (!recipients.length) {
-    return await logFail("Aucun destinataire Front Office configuré");
+    return await logFail("Aucun destinataire Front Office configuré", [], "no_recipients");
   }
 
   const [{ data: points }, { data: obs }, { data: media }] = await Promise.all([
