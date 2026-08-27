@@ -333,7 +333,13 @@ function ReportPage() {
           </button>
         </div>
 
-        <ReportBody d={d} detailed={detailed} clientView={false} />
+        <ReportBody
+          d={d}
+          detailed={detailed}
+          clientView={false}
+          editable
+          onSaved={() => void qc.invalidateQueries({ queryKey: ["report", tourId] })}
+        />
       </div>
     </AppShell>
   );
@@ -353,6 +359,7 @@ const NOTIF_LABEL: Record<string, string> = {
   sent: "Envoyée",
   partial: "Partiellement envoyée",
   failed: "En erreur",
+  no_recipients: "Aucun destinataire actif",
   pending: "En cours",
 };
 
