@@ -79,12 +79,16 @@ export async function notifyTourCompleted(args: {
   if (logError) console.error("[tour-notify] journalisation impossible", logError);
   const logId = logRow?.id as string | undefined;
 
-  const logFail = async (error: string, recipients: string[] = []): Promise<TourNotifyResult> => {
+  const logFail = async (
+    error: string,
+    recipients: string[] = [],
+    status = "failed",
+  ): Promise<TourNotifyResult> => {
     console.error("[tour-notify]", error);
     if (logId) {
       await sb
         .from("tour_notifications")
-        .update({ status: "failed", error_message: error.slice(0, 500), recipients })
+        .update({ status, error_message: error.slice(0, 500), recipients })
         .eq("id", logId);
     }
     return { ok: false, error, recipients, photoCount: 0 };
