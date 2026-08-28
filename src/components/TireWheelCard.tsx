@@ -358,8 +358,12 @@ export function TireWheelCard({
   /** Confirme la référence pneumatique et la mémorise sur la fiche véhicule. */
   async function confirmRef() {
     const parsed = parseTireReference(currentRef);
-    if (!parsed.size) {
-      toast.error("Référence illisible — exemple attendu : 195/55 R16 87H");
+    if (!parsed.complete) {
+      toast.error(
+        parsed.size
+          ? "Référence incomplète — ajoutez les indices de charge et de vitesse, ex : 195/55 R16 87H"
+          : "Référence illisible — exemple attendu : 195/55 R16 87H",
+      );
       return;
     }
     await persist({ ...stored, confirmedRef: parsed.display });
