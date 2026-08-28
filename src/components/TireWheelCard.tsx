@@ -319,7 +319,13 @@ export function TireWheelCard({
       const res = await analyze({ data: { images: dataUrls.slice(0, 5) } });
       if (!res.ok || !res.json) {
         toast.error(res.error || "Analyse indisponible — saisie manuelle possible.");
-        await persist({ ...stored, partial: true, attempts: stored.attempts + 1, photoHash: hash });
+        await persist({
+          ...stored,
+          partial: true,
+          attempts: stored.attempts + 1,
+          photoHash: hash,
+          confirmedRef: null,
+        });
         return;
       }
       const ai = JSON.parse(res.json) as TireWheelAi;
