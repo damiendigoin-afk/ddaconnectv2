@@ -243,7 +243,8 @@ export function TireWheelCard({
   const suggestion = stored.confirmedRef || readRef;
   const currentRef = refTouched ? refInput : suggestion;
   const parsedRef = parseTireReference(currentRef);
-  const refConfirmed = Boolean(stored.confirmedRef) && parseTireReference(stored.confirmedRef).size != null;
+  // Le devis n'est débloqué que par une référence COMPLÈTE : dimension + charge + vitesse.
+  const refConfirmed = parseTireReference(stored.confirmedRef).complete;
   const refState: "reconnue" | "partielle" | "introuvable" = parseTireReference(readRef).complete
     ? "reconnue"
     : parseTireReference(readRef).size
