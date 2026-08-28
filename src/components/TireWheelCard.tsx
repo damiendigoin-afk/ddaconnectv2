@@ -335,7 +335,8 @@ export function TireWheelCard({
         partial,
         attempts,
         photoHash: hash,
-        confirmedRef: stored.confirmedRef ?? null,
+        // Photos différentes = nouvelle lecture : l'ancienne confirmation est invalidée.
+        confirmedRef: null,
       };
       const st = statusFor(judged.grade);
       setStatus(st);
