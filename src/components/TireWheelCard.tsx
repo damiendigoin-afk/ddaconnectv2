@@ -243,7 +243,8 @@ export function TireWheelCard({
   const suggestion = stored.confirmedRef || readRef;
   const currentRef = refTouched ? refInput : suggestion;
   const parsedRef = parseTireReference(currentRef);
-  const refConfirmed = Boolean(stored.confirmedRef) && parseTireReference(stored.confirmedRef).size != null;
+  // Le devis n'est débloqué que par une référence COMPLÈTE : dimension + charge + vitesse.
+  const refConfirmed = parseTireReference(stored.confirmedRef).complete;
   const refState: "reconnue" | "partielle" | "introuvable" = parseTireReference(readRef).complete
     ? "reconnue"
     : parseTireReference(readRef).size
@@ -318,7 +319,13 @@ export function TireWheelCard({
       const res = await analyze({ data: { images: dataUrls.slice(0, 5) } });
       if (!res.ok || !res.json) {
         toast.error(res.error || "Analyse indisponible — saisie manuelle possible.");
-        await persist({ ...stored, partial: true, attempts: stored.attempts + 1, photoHash: hash });
+        await persist({
+          ...stored,
+          partial: true,
+          attempts: stored.attempts + 1,
+          photoHash: hash,
+          confirmedRef: null,
+        });
         return;
       }
       const ai = JSON.parse(res.json) as TireWheelAi;
@@ -334,7 +341,8 @@ export function TireWheelCard({
         partial,
         attempts,
         photoHash: hash,
-        confirmedRef: stored.confirmedRef ?? null,
+        // Photos différentes = nouvelle lecture : l'ancienne confirmation est invalidée.
+        confirmedRef: null,
       };
       const st = statusFor(judged.grade);
       setStatus(st);
@@ -356,8 +364,12 @@ export function TireWheelCard({
   /** Confirme la référence pneumatique et la mémorise sur la fiche véhicule. */
   async function confirmRef() {
     const parsed = parseTireReference(currentRef);
-    if (!parsed.size) {
-      toast.error("Référence illisible — exemple attendu : 195/55 R16 87H");
+    if (!parsed.complete) {
+      toast.error(
+        parsed.size
+          ? "Référence incomplète — ajoutez les indices de charge et de vitesse, ex : 195/55 R16 87H"
+          : "Référence illisible — exemple attendu : 195/55 R16 87H",
+      );
       return;
     }
     await persist({ ...stored, confirmedRef: parsed.display });
