@@ -35,6 +35,7 @@ import {
   type PublicTireItem,
   judgeTire,
   needsQuote,
+  parseTireReference,
   severityOf,
   wearGrid,
   type SevenOffer,
@@ -46,18 +47,19 @@ import type { PointRow } from "@/components/PointCard";
 
 const STEPS = [
   {
-    key: "roue",
-    label: "Roue complète et flanc",
-    mask: "wheel" as const,
-    hint: "Placez la roue complète dans le cercle",
-  },
-  {
     key: "bande",
     label: "Bande de roulement",
     mask: "tread" as const,
     hint: "Placez la bande de roulement dans le U et montrez le maximum de largeur visible",
   },
+  {
+    key: "flanc",
+    label: "Flanc complet et roue entière",
+    mask: "sidewall" as const,
+    hint: "Si possible, placez la dimension dans la zone indiquée",
+  },
 ];
+
 
 const MOTIFS = [
   "Trop sévère",
@@ -103,6 +105,10 @@ type Stored = {
   confirmed: boolean;
   partial: boolean;
   attempts: number;
+  /** Empreinte des photos déjà analysées : évite tout appel IA redondant. */
+  photoHash?: string | null;
+  /** Référence pneumatique confirmée par l'opérateur (ex « 195/55 R16 87H »). */
+  confirmedRef?: string | null;
 };
 
 function readStored(value: unknown): Stored {
@@ -115,8 +121,27 @@ function readStored(value: unknown): Stored {
     confirmed: v.confirmed ?? false,
     partial: v.partial ?? false,
     attempts: v.attempts ?? 0,
+    photoHash: v.photoHash ?? null,
+    confirmedRef: v.confirmedRef ?? null,
   };
 }
+
+/** Empreinte locale et rapide d'un lot de photos (aucun coût, aucun réseau). */
+function hashOf(parts: string[]): string {
+  let h = 0;
+  const joined = parts.join("|");
+  for (let i = 0; i < joined.length; i += 1) {
+    h = (h * 31 + joined.charCodeAt(i)) | 0;
+  }
+  return `${joined.length}:${h}`;
+}
+
+/** Construit « 195/55 R16 87H » à partir des éléments disponibles. */
+function refString(size?: string | null, load?: string | null, speed?: string | null): string {
+  const idx = `${load ?? ""}${speed ?? ""}`.trim();
+  return [size ?? "", idx].filter(Boolean).join(" ").trim();
+}
+
 
 function euro(v: number | null | undefined) {
   return v == null ? "—" : `${v.toFixed(2)} €`;
@@ -125,12 +150,14 @@ function euro(v: number | null | undefined) {
 export function TireWheelCard({
   point,
   inspectionId,
+  vehicleId,
   requiredSize,
   requiredLoad,
   requiredSpeed,
 }: {
   point: PointRow & { tire_analysis?: unknown };
   inspectionId: string;
+  vehicleId?: string | null;
   requiredSize: string | null;
   requiredLoad: string | null;
   requiredSpeed: string | null;
@@ -151,9 +178,12 @@ export function TireWheelCard({
   const [showOthers, setShowOthers] = useState(false);
   const [quantity, setQuantity] = useState(2);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [refInput, setRefInput] = useState<string>("");
+  const [refTouched, setRefTouched] = useState(false);
 
   const code = point.point_key.replace("pneu_", "");
   const axle = axleOf(code);
+  const rearAxle = /ar/.test(code);
 
   const engine = useQuery({
     queryKey: ["tire-engine"],
@@ -173,8 +203,54 @@ export function TireWheelCard({
     },
   });
 
+  // Dernière monte confirmée sur la fiche véhicule : proposée, jamais imposée.
+  const fitment = useQuery({
+    queryKey: ["vehicle-fitment", vehicleId],
+    enabled: Boolean(vehicleId),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("vehicles")
+        .select("tire_size_front, tire_size_rear, homologated_tire_size")
+        .eq("id", vehicleId as string)
+        .maybeSingle();
+      return (data ?? null) as {
+        tire_size_front: string | null;
+        tire_size_rear: string | null;
+        homologated_tire_size: string | null;
+      } | null;
+    },
+  });
+
   const publicOffers = useServerFn(fetchPublicTireOffers);
-  const effectiveSize = requiredSize ?? stored.final?.size ?? stored.ai?.size ?? null;
+
+  const grid = wearGrid(engine.data?.settings ?? null);
+  const severity = severityOf(engine.data?.settings ?? null);
+  const result = stored.final ?? stored.ai;
+
+  /* ------------------------- Référence pneumatique ------------------------- */
+
+  // Proposition : correction déjà confirmée > lecture du flanc > étiquette
+  // véhicule > dernière monte mémorisée. Aucune écrasement silencieux.
+  const memorized = rearAxle
+    ? (fitment.data?.tire_size_rear ?? fitment.data?.tire_size_front ?? null)
+    : (fitment.data?.tire_size_front ?? null);
+  const readRef =
+    refString(result?.size, result?.load_index, result?.speed_index) ||
+    refString(requiredSize, requiredLoad, requiredSpeed) ||
+    memorized ||
+    fitment.data?.homologated_tire_size ||
+    "";
+  const suggestion = stored.confirmedRef || readRef;
+  const currentRef = refTouched ? refInput : suggestion;
+  const parsedRef = parseTireReference(currentRef);
+  const refConfirmed = Boolean(stored.confirmedRef) && parseTireReference(stored.confirmedRef).size != null;
+  const refState: "reconnue" | "partielle" | "introuvable" = parseTireReference(readRef).complete
+    ? "reconnue"
+    : parseTireReference(readRef).size
+      ? "partielle"
+      : "introuvable";
+
+  const effectiveSize = refConfirmed ? parseTireReference(stored.confirmedRef).size : null;
 
   // Consultation publique réelle des prix TTC, refaite à chaque chiffrage/recalcul.
   const publicQuery = useQuery({
@@ -184,9 +260,6 @@ export function TireWheelCard({
     queryFn: () => publicOffers({ data: { size: effectiveSize as string } }),
   });
 
-  const grid = wearGrid(engine.data?.settings ?? null);
-  const severity = severityOf(engine.data?.settings ?? null);
-  const result = stored.final ?? stored.ai;
 
   async function persist(next: Stored, extra: Record<string, unknown> = {}) {
     setStored(next);
@@ -209,10 +282,18 @@ export function TireWheelCard({
     return "ok";
   }
 
-  async function onShots(shots: BurstShot[], free: boolean) {
+  /**
+   * Rafale : les deux photos sont enregistrées puis analysées en arrière-plan.
+   * Aucun écran bloquant, aucune reprise imposée : le Tour Véhicule continue.
+   */
+  function onShots(shots: BurstShot[], free: boolean) {
     setCameraOpen(false);
     setFreeCamera(false);
     if (!shots.length) return;
+    void runAnalysis(shots, free);
+  }
+
+  async function runAnalysis(shots: BurstShot[], free: boolean) {
     setBusy(true);
     try {
       const dataUrls: string[] = [];
@@ -227,23 +308,21 @@ export function TireWheelCard({
       }
       setPhotoKey((k) => k + 1);
 
+      // Anti-doublon : photos inchangées = aucune nouvelle analyse payante.
+      const hash = hashOf(dataUrls);
+      if (hash === stored.photoHash && stored.ai) {
+        setBusy(false);
+        return;
+      }
+
       const res = await analyze({ data: { images: dataUrls.slice(0, 5) } });
       if (!res.ok || !res.json) {
         toast.error(res.error || "Analyse indisponible — saisie manuelle possible.");
-        const next = { ...stored, partial: true, attempts: stored.attempts + 1 };
-        await persist(next);
+        await persist({ ...stored, partial: true, attempts: stored.attempts + 1, photoHash: hash });
         return;
       }
       const ai = JSON.parse(res.json) as TireWheelAi;
       const attempts = free ? stored.attempts : stored.attempts + 1;
-
-      if (!free && ai.photo_quality === "insuffisante" && attempts < 2) {
-        await persist({ ...stored, ai, attempts, partial: false });
-        toast.warning("Photo difficilement lisible — veuillez la reprendre");
-        setCameraOpen(true);
-        return;
-      }
-
       const partial = ai.photo_quality === "insuffisante";
       const judged = judgeTire(ai, grid, severity);
       const next: Stored = {
@@ -254,6 +333,8 @@ export function TireWheelCard({
         confirmed: false,
         partial,
         attempts,
+        photoHash: hash,
+        confirmedRef: stored.confirmedRef ?? null,
       };
       const st = statusFor(judged.grade);
       setStatus(st);
@@ -263,7 +344,7 @@ export function TireWheelCard({
         measure_unit: "mm",
         comment: partial ? "Analyse partielle : qualité des photos insuffisante" : point.comment,
       });
-      if (partial) toast.warning("Analyse partielle : qualité des photos insuffisante");
+      if (partial) toast.warning("Analyse partielle — la dimension pourra être saisie au chiffrage");
     } catch (e) {
       console.error(e);
       toast.error("Échec de l'analyse — saisie manuelle possible.");
@@ -271,6 +352,29 @@ export function TireWheelCard({
       setBusy(false);
     }
   }
+
+  /** Confirme la référence pneumatique et la mémorise sur la fiche véhicule. */
+  async function confirmRef() {
+    const parsed = parseTireReference(currentRef);
+    if (!parsed.size) {
+      toast.error("Référence illisible — exemple attendu : 195/55 R16 87H");
+      return;
+    }
+    await persist({ ...stored, confirmedRef: parsed.display });
+    setRefTouched(false);
+    if (vehicleId) {
+      const patch = rearAxle
+        ? { tire_size_rear: parsed.display }
+        : { tire_size_front: parsed.display };
+      await supabase
+        .from("vehicles")
+        .update({ ...patch, tire_size_confirmed_at: new Date().toISOString() })
+        .eq("id", vehicleId);
+      void fitment.refetch();
+    }
+    toast.success(`Référence confirmée : ${parsed.display}`);
+  }
+
 
   async function confirm() {
     if (!result || !stored.grade) return;
@@ -331,7 +435,7 @@ export function TireWheelCard({
   /* ------------------------------ Propositions ----------------------------- */
 
   const offers: SevenOffer[] =
-    engine.data && stored.grade && needsQuote(stored.grade)
+    engine.data && stored.grade && needsQuote(stored.grade) && refConfirmed
       ? buildSevenOffers({
           offers: [
             ...publicItemsToOffers(
@@ -351,12 +455,13 @@ export function TireWheelCard({
             season: (result?.season as TireSeason | null) ?? null,
           },
           required: {
-            size: requiredSize ?? result?.size ?? null,
-            load: requiredLoad ?? result?.load_index ?? null,
-            speed: requiredSpeed ?? result?.speed_index ?? null,
+            size: effectiveSize ?? requiredSize ?? result?.size ?? null,
+            load: parsedRef.load ?? requiredLoad ?? result?.load_index ?? null,
+            speed: parsedRef.speed ?? requiredSpeed ?? result?.speed_index ?? null,
           },
         })
       : [];
+
 
   async function selectOffer(offer: SevenOffer) {
     setSelectedSlot(offer.slot);
@@ -541,6 +646,46 @@ export function TireWheelCard({
             </label>
           </div>
 
+          {/* Référence pneumatique : proposée, corrigeable, à confirmer. */}
+          <div className="space-y-1 rounded-lg bg-secondary/50 p-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest">
+              Référence pneumatique
+            </span>
+            <p className="text-[11px] text-muted-foreground">
+              {refConfirmed
+                ? `Confirmée : ${stored.confirmedRef}`
+                : refState === "reconnue"
+                  ? "Référence lue au flanc — vérifiez puis confirmez."
+                  : refState === "partielle"
+                    ? "Lecture partielle — complétez puis confirmez."
+                    : "Aucune lecture — saisissez la référence, exemple : 195/55 R16 87H."}
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={currentRef}
+                placeholder="195/55 R16 87H"
+                onChange={(e) => {
+                  setRefTouched(true);
+                  setRefInput(e.target.value);
+                }}
+                className="flex-1 rounded-lg border-2 border-border px-2 py-2 text-sm font-bold uppercase"
+              />
+              <button
+                type="button"
+                onClick={() => void confirmRef()}
+                className="rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground"
+              >
+                Confirmer
+              </button>
+            </div>
+            {!refConfirmed ? (
+              <p className="text-[11px] font-semibold text-amber-700">
+                Le devis pneus reste bloqué tant que la référence n'est pas confirmée (le tour peut
+                être clôturé sans dimension).
+              </p>
+            ) : null}
+          </div>
+
           <p className="text-[11px] text-muted-foreground">
             {publicQuery.isFetching
               ? "Consultation des tarifs publics en cours…"
@@ -548,8 +693,9 @@ export function TireWheelCard({
                 ? `Tarifs publics CentralePneus consultés le ${new Date(publicQuery.data.consultedAt).toLocaleString("fr-FR")}`
                 : effectiveSize
                   ? (publicQuery.data?.error ?? "Tarif actuellement indisponible")
-                  : "Dimension inconnue — photographiez l'étiquette pneumatiques du véhicule."}
+                  : "Référence non confirmée — le chiffrage pneus est en attente."}
           </p>
+
           {sizeConfidenceMessage({
             size: effectiveSize,
             load: requiredLoad ?? result?.load_index ?? null,

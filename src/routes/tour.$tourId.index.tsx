@@ -495,6 +495,7 @@ function Guided(props: SharedProps) {
                 key={p.id}
                 point={p}
                 inspectionId={props.tourId}
+                vehicleId={props.vehicleId}
                 requiredSize={(rear ? tireLabel?.size_rear : tireLabel?.size_front) ?? tireLabel?.size_front ?? null}
                 requiredLoad={(rear ? tireLabel?.load_index_rear : tireLabel?.load_index_front) ?? null}
                 requiredSpeed={(rear ? tireLabel?.speed_index_rear : tireLabel?.speed_index_front) ?? null}

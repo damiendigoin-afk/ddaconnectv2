@@ -297,6 +297,65 @@ export function normalizeTireSize(v: string | null | undefined): string {
 }
 
 /**
+ * Lecture déterministe d'une référence pneumatique saisie ou lue au flanc
+ * (« 195/55 R16 87H », « 195/55R16 87 H XL »). Aucun appel IA : simple analyse
+ * de la chaîne. Renvoie ce qui est réellement reconnu, jamais une déduction.
+ */
+export type TireReference = {
+  size: string | null;
+  width: number | null;
+  height: number | null;
+  rim: number | null;
+  load: string | null;
+  speed: string | null;
+  marks: string[];
+  complete: boolean;
+  display: string;
+};
+
+const TIRE_MARKS = ["3PMSF", "M+S", "MS", "XL", "RUNFLAT", "ROF", "RFT", "SSR", "DEMO"];
+
+export function parseTireReference(input: string | null | undefined): TireReference {
+  const raw = (input ?? "").toUpperCase().replace(/\u00A0/g, " ").trim();
+  const empty: TireReference = {
+    size: null,
+    width: null,
+    height: null,
+    rim: null,
+    load: null,
+    speed: null,
+    marks: [],
+    complete: false,
+    display: "",
+  };
+  if (!raw) return empty;
+
+  const marks = TIRE_MARKS.filter((m) => raw.includes(m));
+  const m = /(\d{3})\s*\/\s*(\d{2})\s*[ZR]?\s*R?\s*(\d{2})/.exec(raw);
+  if (!m) return { ...empty, marks };
+  const width = Number(m[1]);
+  const height = Number(m[2]);
+  const rim = Number(m[3]);
+  const rest = raw.slice(m.index + m[0].length);
+  const idx = /(\d{2,3})\s*([A-Z])\b/.exec(rest);
+  const load = idx ? (idx[1] as string) : null;
+  const speed = idx ? (idx[2] as string) : null;
+  const size = `${width}/${height}R${rim}`;
+  return {
+    size,
+    width,
+    height,
+    rim,
+    load,
+    speed,
+    marks,
+    complete: Boolean(load && speed),
+    display: `${width}/${height} R${rim}${load && speed ? ` ${load}${speed}` : ""}`,
+  };
+}
+
+
+/**
  * On ne suppose jamais que la monte en place est correcte : la dimension lue au
  * flanc est comparée à la dimension homologuée (WinMotor/Xelio, base technique
  * ou photo de l'étiquette constructeur).

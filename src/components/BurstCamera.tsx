@@ -19,6 +19,7 @@ export type MaskKind =
   | "interior"
   | "odometer"
   | "wheel"
+  | "sidewall"
   | "tread"
   | "tire-label"
   | "document"
@@ -123,7 +124,7 @@ export function BurstCamera({
   const maskKind = step?.mask ?? "free";
   useEffect(() => {
     if (!ready || !torchAvailable) return;
-    const wanted = maskKind === "wheel" || maskKind === "tread";
+    const wanted = maskKind === "wheel" || maskKind === "tread" || maskKind === "sidewall";
     if (wanted !== torchOn) void applyTorch(wanted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, torchAvailable, maskKind]);
@@ -512,6 +513,26 @@ const MASKS: Record<MaskKind, ReactElement> = {
       <circle cx="50" cy="50" r="24" strokeDasharray="2 5" />
     </>
   ),
+  /* Flanc complet + roue entière : zone conseillée pour la dimension. */
+  sidewall: (
+    <>
+      <circle cx="50" cy="50" r="46" strokeWidth="1" />
+      <circle cx="50" cy="50" r="26" strokeDasharray="2 5" />
+      <rect x="20" y="70" width="60" height="14" rx="3" strokeDasharray="3 2" />
+      <text
+        x="50"
+        y="79"
+        fill="#ffd400"
+        fillOpacity="0.85"
+        stroke="none"
+        fontSize="4.2"
+        textAnchor="middle"
+      >
+        Si possible, placer la dimension ici
+      </text>
+    </>
+  ),
+
   /* Bande de roulement : masque en U, largeur maximale visible. */
   tread: (
     <>
