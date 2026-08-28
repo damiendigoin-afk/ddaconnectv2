@@ -47,8 +47,9 @@ function parseJson(content: string): Record<string, unknown> | null {
 }
 
 const WHEEL_PROMPT = `Tu es un technicien pneumatique français. Tu analyses les photos d'UNE SEULE roue :
-la première montre la roue complète et le flanc, la deuxième la bande de roulement, les suivantes
-sont des vues complémentaires facultatives.
+la première montre la bande de roulement (état et usure), la deuxième le flanc complet et la roue
+entière (marquages : dimension, indices de charge et vitesse, marque, modèle, 3PMSF/M+S/XL/Runflat),
+les suivantes sont des vues complémentaires facultatives.
 
 Règle absolue : n'invente jamais une caractéristique, une dimension, une marque ou une mesure.
 Si une information n'est pas lisible, mets null et cite-la dans "unreadable".
