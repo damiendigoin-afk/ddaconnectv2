@@ -82,6 +82,13 @@ export async function sendEmailWithAttachments(
   } catch {
     /* ignore parse errors */
   }
+  if (!id) {
+    return {
+      ok: false,
+      status: res.status,
+      error: "Le fournisseur a répondu sans identifiant d'envoi",
+    };
+  }
   return { ok: true, status: res.status, id };
 }
 

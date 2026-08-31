@@ -15,7 +15,7 @@ export const notifyTourFrontOffice = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { notifyTourCompleted } = await import("./tour-notify.server");
-      const res = await notifyTourCompleted(data);
+      const res = await notifyTourCompleted({ ...data, mode: "manual" });
       return {
         ok: res.ok,
         error: res.ok ? "" : (res.error ?? "Envoi impossible (raison inconnue)"),

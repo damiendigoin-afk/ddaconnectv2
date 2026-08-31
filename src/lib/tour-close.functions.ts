@@ -73,6 +73,7 @@ export const closeTour = createServerFn({ method: "POST" })
         origin: data.origin,
         // Clôture automatique : jamais deux notifications pour le même tour.
         skipIfAlreadySent: true,
+        mode: "automatic",
       });
       return {
         closed,
