@@ -1,6 +1,16 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
+import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
+
 import { brandedEmail, emailButton, sendEmailWithAttachments } from "./email.server";
+import {
+  acceptedProviderSend,
+  aggregateFrontOfficeResults,
+  assertUsablePdf,
+  emailLogOutcome,
+  frontOfficeIdempotencyKey,
+  normalizeFrontOfficeRecipients,
+} from "./tour-notify-core";
 
 type Row = Record<string, unknown>;
 
@@ -48,6 +58,8 @@ export async function notifyTourCompleted(args: {
   origin: string;
   /** Clôture automatique : ne jamais renvoyer deux fois la même notification. */
   skipIfAlreadySent?: boolean;
+  /** Une relance manuelle est une nouvelle tentative explicitement traçable. */
+  mode?: "automatic" | "manual";
 }): Promise<TourNotifyResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const sb = supabaseAdmin;
@@ -120,12 +132,10 @@ export async function notifyTourCompleted(args: {
   if (siteId) recipientsQuery = recipientsQuery.or(`site_id.eq.${siteId},site_id.is.null`);
   const { data: recRows, error: recError } = await recipientsQuery;
   if (recError) console.error("[tour-notify] lecture des destinataires impossible", recError);
-  const recipients = Array.from(
-    new Set(((recRows ?? []) as Row[]).map((r) => s(r["email"]).trim().toLowerCase()).filter(Boolean)),
-  );
-  if (recError && !recipients.length) {
+  if (recError) {
     return await logFail(`Lecture des destinataires impossible : ${recError.message}`);
   }
+  const recipients = normalizeFrontOfficeRecipients((recRows ?? []) as Row[]);
   if (logId && recipients.length) {
     await sb.from("tour_notifications").update({ recipients }).eq("id", logId);
   }
@@ -171,8 +181,27 @@ export async function notifyTourCompleted(args: {
     expertiseId = s(((exp ?? []) as Row[])[0]?.["id"]);
   }
 
-  let pdfBase64 = "";
-  let photoCount = 0;
+  const { publicOrigin } = await import("./public-url.server");
+  const origin = publicOrigin(args.origin);
+  const logoUrl = new URL(ddaRenaultLogo.url, `${origin}/`).toString();
+
+  const logEmailFailureForRecipients = async (error: string) => {
+    await Promise.all(
+      recipients.map((recipient) =>
+        sb.from("email_logs").insert({
+          inspection_id: args.inspectionId,
+          recipient,
+          subject: `Tour de véhicule terminé – ${plate} – ${clientName}`,
+          kind: "rapport_front_office",
+          status: "failed",
+          error_message: error.slice(0, 500),
+        }),
+      ),
+    );
+  };
+
+  let pdfBase64: string;
+  let photoCount: number;
   try {
     const built = await buildTourPdf({
       sb,
@@ -182,15 +211,18 @@ export async function notifyTourCompleted(args: {
       media: (media ?? []) as Row[],
       plate,
       clientName,
+      inspectionId: args.inspectionId,
+      logoUrl,
     });
+    assertUsablePdf(built.base64);
     pdfBase64 = built.base64;
     photoCount = built.photoCount;
   } catch (e) {
-    console.error("[tour-notify] génération PDF impossible", e);
+    const error = `Génération du PDF impossible : ${e instanceof Error ? e.message : String(e)}`;
+    await logEmailFailureForRecipients(error);
+    return await logFail(error, recipients);
   }
 
-  const { publicOrigin } = await import("./public-url.server");
-  const origin = publicOrigin(args.origin);
   const tourLink = `${origin}/tour/${args.inspectionId}/rapport`;
   const expLink = expertiseId ? `${origin}/expertise/${expertiseId}` : "";
 
@@ -208,31 +240,70 @@ export async function notifyTourCompleted(args: {
     <p style="font-size:13px;color:#71717a;">Rapport PDF complet joint à cet e-mail (${photoCount} photo(s)).</p>`;
 
   const html = brandedEmail(inner, { preview: `Tour terminé – ${plate}` });
-  const attachments = pdfBase64
-    ? [{ filename: `tour-${plate.replace(/[^A-Za-z0-9-]/g, "")}.pdf`, content: pdfBase64 }]
-    : [];
+  const attachments = [{ filename: `tour-${plate.replace(/[^A-Za-z0-9-]/g, "")}.pdf`, content: pdfBase64 }];
+  const mode = args.mode ?? (args.skipIfAlreadySent ? "automatic" : "manual");
+  const attemptId = mode === "manual" ? crypto.randomUUID() : undefined;
 
   const results = await Promise.all(
-    recipients.map((to) =>
-      sendEmailWithAttachments({
-        to,
-        subject,
-        html,
-        attachments,
-        idempotencyKey: `tour-fo-${args.inspectionId}-${to}-${Date.now()}`,
-      }),
-    ),
+    recipients.map(async (to) => {
+      const { data: emailLog, error: emailLogError } = await sb
+        .from("email_logs")
+        .insert({
+          inspection_id: args.inspectionId,
+          recipient: to,
+          subject,
+          kind: "rapport_front_office",
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (emailLogError || !emailLog?.id) {
+        return {
+          ok: false,
+          status: 0,
+          error: `Journalisation email impossible : ${emailLogError?.message ?? "identifiant absent"}`,
+        };
+      }
+
+      let result;
+      try {
+        result = await sendEmailWithAttachments({
+          to,
+          subject,
+          html,
+          attachments,
+          idempotencyKey: frontOfficeIdempotencyKey({
+            inspectionId: args.inspectionId,
+            recipient: to,
+            mode,
+            ...(attemptId ? { attemptId } : {}),
+          }),
+        });
+      } catch (e) {
+        result = {
+          ok: false,
+          status: 0,
+          error: `Erreur fournisseur : ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
+      const outcome = emailLogOutcome(result);
+      await sb.from("email_logs").update(outcome).eq("id", emailLog.id);
+      return acceptedProviderSend(result)
+        ? result
+        : { ...result, ok: false, error: outcome.error_message ?? "Envoi non confirmé" };
+    }),
   );
-  const failed = results.filter((r) => !r.ok);
+  const status = aggregateFrontOfficeResults(results);
+  const failed = results.filter((r) => !acceptedProviderSend(r));
 
   if (logId) {
     await sb
       .from("tour_notifications")
       .update({
-        status: failed.length ? (failed.length === results.length ? "failed" : "partial") : "sent",
+        status,
         error_message: failed.length ? (failed[0]?.error ?? "Erreur inconnue").slice(0, 500) : null,
         photo_count: photoCount,
-        sent_at: new Date().toISOString(),
+        sent_at: status === "failed" ? null : new Date().toISOString(),
       })
       .eq("id", logId);
   }
@@ -245,7 +316,7 @@ export async function notifyTourCompleted(args: {
 
 type AnyClient = { storage: { from: (b: string) => { createSignedUrl: (p: string, e: number) => Promise<{ data: { signedUrl: string } | null }> } } };
 
-async function buildTourPdf(args: {
+export async function buildTourPdf(args: {
   sb: unknown;
   insp: Row;
   points: Row[];
@@ -253,6 +324,8 @@ async function buildTourPdf(args: {
   media: Row[];
   plate: string;
   clientName: string;
+  inspectionId: string;
+  logoUrl: string;
 }): Promise<{ base64: string; photoCount: number }> {
   const sb = args.sb as AnyClient;
   const pdf = await PDFDocument.create();
@@ -262,6 +335,19 @@ async function buildTourPdf(args: {
   const margin = 40;
   let page = pdf.addPage(A4);
   let y = A4[1] - margin;
+
+  const logoResponse = await fetch(args.logoUrl);
+  if (!logoResponse.ok) throw new Error(`Logo officiel inaccessible (${logoResponse.status})`);
+  const logoBytes = new Uint8Array(await logoResponse.arrayBuffer());
+  const logo = await pdf.embedJpg(logoBytes);
+  const logoScale = Math.min(210 / logo.width, 58 / logo.height);
+  page.drawImage(logo, {
+    x: margin,
+    y: y - logo.height * logoScale,
+    width: logo.width * logoScale,
+    height: logo.height * logoScale,
+  });
+  y -= logo.height * logoScale + 14;
 
   const newPage = () => {
     page = pdf.addPage(A4);
@@ -284,6 +370,7 @@ async function buildTourPdf(args: {
 
   line("RAPPORT DE TOUR VEHICULE", 16, true);
   line(`${args.plate} — ${args.clientName}`, 12, true);
+  line(`Reference du tour : ${args.inspectionId}`, 7);
   const finished = s(args.insp["finished_at"]) || s(args.insp["completed_at"]);
   if (finished) line(`Termine le ${new Date(finished).toLocaleString("fr-FR")}`);
   if (args.insp["mileage"]) line(`Kilometrage : ${Number(args.insp["mileage"]).toLocaleString("fr-FR")} km`);
@@ -397,6 +484,9 @@ async function buildTourPdf(args: {
   await drawPhotos(linked, "PHOTOS DES POINTS CONTROLES");
   await drawPhotos(others, "AUTRES PHOTOS DU TOUR");
 
+  pdf.setTitle(`Tour véhicule ${args.plate} — ${args.inspectionId}`);
+  pdf.setSubject(`Compte-rendu du tour ${args.inspectionId}`);
   const base64 = await pdf.saveAsBase64();
+  assertUsablePdf(base64);
   return { base64, photoCount };
 }
