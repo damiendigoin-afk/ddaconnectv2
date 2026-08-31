@@ -1,28 +1,36 @@
-# Diagnostic — photos manquantes dans le compte rendu / PDF
+# Correctif ciblé — PDF officiel et notification Front Office
 
-## Ce que montre le contrôle
+## Diagnostic confirmé
 
-Les photos sont bien enregistrées et bien reliées : sur 187 médias, tous ceux d'un tour (`inspections/`, `tours/`) ont un `inspection_id` renseigné (les 23 sans lien viennent des OR, hors sujet). La capture n'est donc pas en cause — le problème est dans l'affichage PDF.
+- La clôture passe bien par `finishTour` → `closeTour` → `notifyTourCompleted`.
+- Le destinataire est résolu depuis le paramétrage Front Office avec la règle existante : destinataires du site du Tour + destinataires globaux.
+- Le PDF joint est généré séparément du PDF affiché à l’écran. En cas d’échec de génération, le code actuel continue pourtant l’envoi sans pièce jointe et peut marquer la notification comme envoyée.
+- Le flux Front Office journalise seulement dans l’historique du Tour, jamais dans `email_logs` ; les envois Front Office récents sont donc absents du journal demandé.
+- La clé d’idempotence contient l’heure courante et ne protège donc pas réellement les relances automatiques.
+- Le destinataire actuellement configuré est bien rattaché à Castillon. Les Tours Lalinde/DDA n’ont actuellement aucun destinataire propre ou global et doivent rester signalés comme non envoyés.
 
-## Causes identifiées (par ordre d'impact)
+## Modifications
 
-1. **Le PDF exclut volontairement des photos** — `src/routes/tour.$tourId.pdf.tsx` ne garde que `alertMedia` : photos rattachées à un point en « à surveiller / défaut » ou à une observation. Toute photo prise sur un point **OK**, sur le **compteur**, sur le **contrôle technique**, ou non rattachée à un point, disparaît du PDF. C'est la cause principale.
-2. **Limite de 9 photos** — `alertMedia.slice(0, 9)` coupe silencieusement au-delà de 9 photos, même parmi les anomalies.
-3. **Bucket privé + URL publique** — le bucket `dda-media` est privé (vérifié), or le PDF construit les images avec `getPublicUrl()`. Ces URLs renvoient une erreur : les images restent vides/cassées à l'impression. La vue écran, elle, utilise des URLs signées (`mediaUrl`) et s'affiche correctement — d'où l'écart écran/PDF constaté.
-4. **Impression déclenchée trop tôt** — `window.print()` part sur un `setTimeout` de 600 ms sans attendre le chargement effectif des images ; sur connexion lente, le PDF sort avec des cadres vides.
+1. **Logo PDF officiel**
+   - Conserver l’asset exact `dda-renault-logo.jpeg.asset.json` déjà utilisé dans le PDF écran/impression.
+   - Utiliser ce même asset dans le PDF serveur joint à l’e-mail Front Office, sans recréer le logo.
 
-## Correctifs recommandés
+2. **Envoi Front Office fiable**
+   - Exiger un PDF généré, non vide et correspondant à l’identifiant du Tour avant tout appel au fournisseur d’e-mail.
+   - Si le PDF ou le logo ne peut pas être généré, arrêter l’envoi et enregistrer un échec explicite ; ne plus envoyer un message prétendant contenir un PDF absent.
+   - Garder la résolution multi-site existante et échouer explicitement quand aucun destinataire ne correspond au site.
+   - Utiliser une clé d’idempotence stable pour la clôture automatique afin d’empêcher les doublons réels ; conserver la relance manuelle comme une nouvelle tentative explicite.
 
-- Afficher **toutes** les photos du tour dans le PDF, groupées par point / observation, avec une section « autres photos » pour les non rattachées (compteur, CT, vue générale).
-- Supprimer la limite à 9 (ou la remplacer par une pagination sur plusieurs pages A4).
-- Remplacer `getPublicUrl` par des **URLs signées** (`createSignedUrl`, comme `src/lib/photo.ts`), résolues avant le rendu ; utiliser `thumb_path` quand il existe pour alléger le document.
-- Attendre le chargement de toutes les images (`Promise.all` sur `img.decode()`) avant d'appeler `window.print()`, avec un délai de sécurité.
+3. **Traçabilité exacte**
+   - Créer une ligne `email_logs` par destinataire Front Office avant l’appel fournisseur.
+   - Passer à `sent` uniquement lorsque le fournisseur accepte la requête et renvoie un identifiant ; sinon enregistrer `failed` avec le message d’erreur.
+   - Aligner l’historique `tour_notifications` sur les résultats réels : succès, échec total ou succès partiel, sans horodatage d’envoi en cas d’échec total.
 
-## Fichiers concernés
+4. **Tests ciblés**
+   - Ajouter des tests sans envoi réel couvrant : résolution/dédoublonnage des destinataires, pièce jointe PDF obligatoire, acceptation fournisseur avec identifiant, refus fournisseur, et agrégation succès/échec.
+   - Vérifier le PDF produit par sa signature, son nombre de pages et son contenu lié au Tour.
+   - Exécuter les tests concernés et laisser le build automatique confirmer le typecheck/build.
 
-- `src/routes/tour.$tourId.pdf.tsx` — filtrage, limite, URLs, déclenchement de l'impression
-- `src/lib/report.ts` — expose déjà tous les médias, pas de changement nécessaire
-- `src/lib/photo.ts` — source des URLs signées à réutiliser
-- `src/components/ReportView.tsx` — vue écran, déjà correcte (référence de comportement attendu)
+## Périmètre
 
-Aucun code n'a été modifié : ce document est un diagnostic. Dis-moi si tu veux que j'applique les quatre correctifs.
+Fichiers ciblés : PDF Tour, notification Front Office, expéditeur serveur et tests associés. Aucun changement du flux d’envoi client, du module mails entrants, ni ajout d’IA ou de migration.
