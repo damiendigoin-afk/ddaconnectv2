@@ -167,8 +167,14 @@ function PdfPage() {
     if (last && last.label === label) last.points.push(p);
     else zones.push({ label, points: [p] });
   }
-  const counts = { ok: 0, watch: 0, defect: 0, unset: 0 } as Record<string, number>;
-  for (const p of d.points) counts[p.status in counts ? p.status : "unset"] += 1;
+  const counts = { ok: 0, watch: 0, defect: 0, unset: 0 };
+  for (const p of d.points) {
+    const key = (p.status === "ok" || p.status === "watch" || p.status === "defect"
+      ? p.status
+      : "unset") as keyof typeof counts;
+    counts[key] += 1;
+  }
+
 
   const cell = "border border-neutral-300 px-2 py-[3px] align-top";
 
