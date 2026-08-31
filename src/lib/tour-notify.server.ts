@@ -185,6 +185,21 @@ export async function notifyTourCompleted(args: {
   const origin = publicOrigin(args.origin);
   const logoUrl = new URL(ddaRenaultLogo.url, `${origin}/`).toString();
 
+  const logEmailFailureForRecipients = async (error: string) => {
+    await Promise.all(
+      recipients.map((recipient) =>
+        sb.from("email_logs").insert({
+          inspection_id: args.inspectionId,
+          recipient,
+          subject: `Tour de véhicule terminé – ${plate} – ${clientName}`,
+          kind: "rapport_front_office",
+          status: "failed",
+          error_message: error.slice(0, 500),
+        }),
+      ),
+    );
+  };
+
   let pdfBase64: string;
   let photoCount: number;
   try {
@@ -203,10 +218,9 @@ export async function notifyTourCompleted(args: {
     pdfBase64 = built.base64;
     photoCount = built.photoCount;
   } catch (e) {
-    return await logFail(
-      `Génération du PDF impossible : ${e instanceof Error ? e.message : String(e)}`,
-      recipients,
-    );
+    const error = `Génération du PDF impossible : ${e instanceof Error ? e.message : String(e)}`;
+    await logEmailFailureForRecipients(error);
+    return await logFail(error, recipients);
   }
 
   const tourLink = `${origin}/tour/${args.inspectionId}/rapport`;
@@ -251,18 +265,27 @@ export async function notifyTourCompleted(args: {
         };
       }
 
-      const result = await sendEmailWithAttachments({
-        to,
-        subject,
-        html,
-        attachments,
-        idempotencyKey: frontOfficeIdempotencyKey({
-          inspectionId: args.inspectionId,
-          recipient: to,
-          mode,
-          ...(attemptId ? { attemptId } : {}),
-        }),
-      });
+      let result;
+      try {
+        result = await sendEmailWithAttachments({
+          to,
+          subject,
+          html,
+          attachments,
+          idempotencyKey: frontOfficeIdempotencyKey({
+            inspectionId: args.inspectionId,
+            recipient: to,
+            mode,
+            ...(attemptId ? { attemptId } : {}),
+          }),
+        });
+      } catch (e) {
+        result = {
+          ok: false,
+          status: 0,
+          error: `Erreur fournisseur : ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
       const outcome = emailLogOutcome(result);
       await sb.from("email_logs").update(outcome).eq("id", emailLog.id);
       return acceptedProviderSend(result)
