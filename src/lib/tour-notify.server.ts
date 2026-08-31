@@ -260,7 +260,7 @@ export async function notifyTourCompleted(args: {
           inspectionId: args.inspectionId,
           recipient: to,
           mode,
-          attemptId,
+          ...(attemptId ? { attemptId } : {}),
         }),
       });
       const outcome = emailLogOutcome(result);

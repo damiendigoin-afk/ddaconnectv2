@@ -1,7 +1,7 @@
 export type ProviderSendResult = {
   ok: boolean;
-  id?: string;
-  error?: string;
+  id?: string | undefined;
+  error?: string | undefined;
 };
 
 export type FrontOfficeSendStatus = "sent" | "failed";
