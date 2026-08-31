@@ -31,6 +31,16 @@ const STATUS_FR: Record<string, string> = {
   unset: "Non renseigné",
 };
 
+/** Charte D.D.A. : noir + jaune, couleurs réservées aux statuts. */
+const DDA_YELLOW = "#F2C200";
+const STATUS_COLOR: Record<string, string> = {
+  ok: "#15803d",
+  watch: "#b45309",
+  defect: "#b91c1c",
+  unset: "#525252",
+};
+
+
 /** Image de rapport : URL signée (bucket privé) + gestion d'échec non bloquante. */
 function PdfPhoto({
   media,
@@ -148,6 +158,26 @@ function PdfPage() {
   const ctDates = reportCtDates(d);
   const clientName = [d.order?.client?.first_name, d.order?.client?.last_name].filter(Boolean).join(" ");
 
+  // Regroupement par zone, dans l'ordre réel des points enregistrés : aucune
+  // case n'est fabriquée, seuls les contrôles existants du tour sont restitués.
+  const zones: { label: string; points: typeof d.points }[] = [];
+  for (const p of d.points) {
+    const label = p.zone_label || "Contrôles";
+    const last = zones[zones.length - 1];
+    if (last && last.label === label) last.points.push(p);
+    else zones.push({ label, points: [p] });
+  }
+  const counts = { ok: 0, watch: 0, defect: 0, unset: 0 };
+  for (const p of d.points) {
+    const key = (p.status === "ok" || p.status === "watch" || p.status === "defect"
+      ? p.status
+      : "unset") as keyof typeof counts;
+    counts[key] += 1;
+  }
+
+
+  const cell = "border border-neutral-300 px-2 py-[3px] align-top";
+
   return (
     <div className="mx-auto max-w-[210mm] bg-white p-8 text-[11pt] text-black print:p-0">
       <button
@@ -157,26 +187,31 @@ function PdfPage() {
         <Printer className="h-4 w-4" /> Imprimer / Enregistrer en PDF
       </button>
 
-      <header className="flex items-start justify-between gap-4 border-b-2 border-black pb-3">
-        <div>
-          {site?.logo_url ? (
-            <img src={site.logo_url} alt={head.title} className="mb-2 h-12 object-contain" />
-          ) : null}
-          <div className="text-base font-extrabold uppercase">{site ? head.title : GROUP_LABEL}</div>
-          {head.lines.map((l) => (
-            <div key={l} className="text-[9pt]">
-              {l}
-            </div>
-          ))}
-        </div>
-        <div className="text-right">
-          <div className="text-lg font-extrabold uppercase">Rapport de tour véhicule</div>
-          <div className="text-[9pt]">
-            {finished ? finished.toLocaleDateString("fr-FR") : ""}
-            {finished ? ` · ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}
+      <header className="border-b-4 border-black pb-2">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            {/* Emplacement du logo officiel : alimenté par le site (aucun logo recréé). */}
+            {site?.logo_url ? (
+              <img src={site.logo_url} alt={head.title} className="mb-2 h-12 object-contain" />
+            ) : null}
+            <div className="text-base font-extrabold uppercase">{site ? head.title : GROUP_LABEL}</div>
+            {head.lines.map((l) => (
+              <div key={l} className="text-[9pt]">
+                {l}
+              </div>
+            ))}
           </div>
-          {d.order?.or_number ? <div className="text-[9pt]">OR WinMotor {d.order.or_number}</div> : null}
+          <div className="text-right">
+            <div className="text-lg font-extrabold uppercase leading-tight">Compte-rendu tour de véhicule</div>
+            <div className="text-[9pt]">
+              {finished ? finished.toLocaleDateString("fr-FR") : ""}
+              {finished ? ` · ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}
+            </div>
+            {d.order?.or_number ? <div className="text-[9pt]">OR WinMotor {d.order.or_number}</div> : null}
+          </div>
         </div>
+        {/* Filet dynamique discret, charte D.D.A. (noir + jaune). */}
+        <div className="mt-2 h-[3px] w-full" style={{ background: DDA_YELLOW }} />
       </header>
 
       <section className="mt-4 grid grid-cols-2 gap-4 text-[10pt]">
@@ -184,6 +219,10 @@ function PdfPage() {
           <div className="font-bold uppercase">Client</div>
           <div>{clientName || "—"}</div>
           <div>{d.order?.client?.email ?? ""}</div>
+          <div className="mt-1 font-bold uppercase">Opérateur / site</div>
+          <div>
+            {[d.inspection.completed_by_name ?? "—", site ? head.title : GROUP_LABEL].filter(Boolean).join(" · ")}
+          </div>
         </div>
         <div>
           <div className="font-bold uppercase">Véhicule</div>
@@ -200,61 +239,93 @@ function PdfPage() {
       </section>
 
       <section className="mt-3 border-y border-black py-2 text-[9pt]">
-        <span className="font-bold uppercase">Opérateur : </span>
         {[
-          d.inspection.completed_by_name ?? "—",
           started ? `Début : ${started.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
           finished ? `Fin : ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
           dur != null ? `Durée : ${Math.floor(dur / 60)} min` : "",
+          `${d.points.length} contrôle(s) · ${totalPhotos} photo(s)`,
         ]
           .filter(Boolean)
           .join(" · ")}
       </section>
 
-      <section className="mt-4">
-        <h2 className="mb-2 text-sm font-extrabold uppercase">Résumé des contrôles</h2>
-        <table className="w-full border-collapse text-[9.5pt]">
-          <thead>
-            <tr className="bg-neutral-200 text-left">
-              <th className="border border-neutral-400 px-2 py-1">Zone</th>
-              <th className="border border-neutral-400 px-2 py-1">Point</th>
-              <th className="border border-neutral-400 px-2 py-1">État</th>
-              <th className="border border-neutral-400 px-2 py-1">Mesure / Commentaire</th>
-            </tr>
-          </thead>
-          <tbody>
-            {d.points.map((p) => (
-              <tr key={p.id}>
-                <td className="border border-neutral-400 px-2 py-1">{p.zone_label}</td>
-                <td className="border border-neutral-400 px-2 py-1">{p.point_label}</td>
-                <td className="border border-neutral-400 px-2 py-1 font-bold">{STATUS_FR[p.status] ?? p.status}</td>
-                <td className="border border-neutral-400 px-2 py-1">
-                  {[p.measure_value ? `${p.measure_value} ${p.measure_unit ?? ""}`.trim() : "", p.comment ?? ""]
-                    .filter(Boolean)
-                    .join(" — ")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <section className="mt-4 grid grid-cols-4 gap-2 text-center text-[9pt]">
+        {(
+          [
+            ["OK", counts.ok, "#15803d"],
+            ["À surveiller", counts.watch, "#b45309"],
+            ["Défaut", counts.defect, "#b91c1c"],
+            ["Non renseigné", counts.unset, "#525252"],
+          ] as const
+        ).map(([label, value, color]) => (
+          <div key={label} className="border border-neutral-400 py-1">
+            <div className="text-lg font-extrabold" style={{ color }}>
+              {value}
+            </div>
+            <div className="uppercase">{label}</div>
+          </div>
+        ))}
       </section>
 
+      {zones.map((z) => (
+        <section key={z.label} className="mt-4 break-inside-avoid">
+          <h2 className="mb-1 border-l-4 pl-2 text-sm font-extrabold uppercase" style={{ borderColor: DDA_YELLOW }}>
+            {z.label}
+          </h2>
+          <table className="w-full border-collapse text-[9.5pt]">
+            <thead>
+              <tr className="text-left">
+                <th className={`${cell} w-[42%] bg-neutral-100`}>Contrôle</th>
+                <th className={`${cell} w-[18%] bg-neutral-100`}>État</th>
+                <th className={`${cell} bg-neutral-100`}>Commentaire opérateur</th>
+              </tr>
+            </thead>
+            <tbody>
+              {z.points.map((p) => (
+                <tr key={p.id}>
+                  <td className={cell}>{p.point_label}</td>
+                  <td className={`${cell} font-bold`} style={{ color: STATUS_COLOR[p.status] ?? "#525252" }}>
+                    {STATUS_FR[p.status] ?? p.status}
+                  </td>
+                  <td className={cell}>
+                    {[p.measure_value ? `${p.measure_value} ${p.measure_unit ?? ""}`.trim() : "", p.comment ?? ""]
+                      .filter(Boolean)
+                      .join(" — ")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))}
+
       {d.observations.length ? (
-        <section className="mt-4">
-          <h2 className="mb-2 text-sm font-extrabold uppercase">Observations</h2>
-          <ul className="list-disc pl-5 text-[10pt]">
-            {d.observations.map((o) => (
-              <li key={o.id}>
-                <span className="font-bold">{o.element}</span> ({o.category}) — {STATUS_FR[o.status] ?? o.status}
-                {o.comment ? ` — ${o.comment}` : ""}
-              </li>
-            ))}
-          </ul>
+        <section className="mt-4 break-inside-avoid">
+          <h2 className="mb-1 border-l-4 pl-2 text-sm font-extrabold uppercase" style={{ borderColor: DDA_YELLOW }}>
+            Observations complémentaires
+          </h2>
+          <table className="w-full border-collapse text-[9.5pt]">
+            <tbody>
+              {d.observations.map((o) => (
+                <tr key={o.id}>
+                  <td className={`${cell} w-[42%]`}>{`${o.category} — ${o.element}`}</td>
+                  <td className={`${cell} w-[18%] font-bold`} style={{ color: STATUS_COLOR[o.status] ?? "#525252" }}>
+                    {STATUS_FR[o.status] ?? o.status}
+                  </td>
+                  <td className={cell}>
+                    {[o.measure_value ? `${o.measure_value} ${o.measure_unit ?? ""}`.trim() : "", o.comment ?? ""]
+                      .filter(Boolean)
+                      .join(" — ")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       ) : null}
 
       {linkedMedia.length ? (
-        <section className="mt-4">
+        <section className="mt-4 break-before-page">
           <h2 className="mb-2 text-sm font-extrabold uppercase">Photos des points contrôlés</h2>
           <div className="grid grid-cols-3 gap-2">
             {linkedMedia.map((m) => (
@@ -275,9 +346,19 @@ function PdfPage() {
         </section>
       ) : null}
 
-      <footer className="mt-6 border-t border-black pt-2 text-[8pt]">
-        Document généré par DDA Connect — {site ? head.title : GROUP_LABEL} · {totalPhotos} photo(s)
+      <footer className="mt-6 border-t-2 border-black pt-2 text-[8pt]">
+        <div>
+          Légende : OK = conforme · À surveiller = à prévoir · Défaut = intervention nécessaire · Non renseigné =
+          contrôle non réalisé.
+        </div>
+        <div className="mt-1 flex justify-between">
+          <span>
+            Opérateur : {d.inspection.completed_by_name ?? "—"} · {totalPhotos} photo(s)
+          </span>
+          <span>Document généré par DDA Connect — {site ? head.title : GROUP_LABEL}</span>
+        </div>
       </footer>
     </div>
   );
 }
+
