@@ -9,6 +9,7 @@ import { formatPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { GROUP_LABEL, siteHeader } from "@/lib/sites";
 import { mediaUrl } from "@/lib/photo";
+import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
 
 export const Route = createFileRoute("/tour/$tourId/pdf")({
   head: () => ({
@@ -190,10 +191,11 @@ function PdfPage() {
       <header className="border-b-4 border-black pb-2">
         <div className="flex items-start justify-between gap-4">
           <div>
-            {/* Emplacement du logo officiel : alimenté par le site (aucun logo recréé). */}
-            {site?.logo_url ? (
-              <img src={site.logo_url} alt={head.title} className="mb-2 h-12 object-contain" />
-            ) : null}
+            <img
+              src={ddaRenaultLogo.url}
+              alt="D.D.A. Renault — Saint-Cyprien et Lalinde"
+              className="mb-2 h-16 w-auto object-contain"
+            />
             <div className="text-base font-extrabold uppercase">{site ? head.title : GROUP_LABEL}</div>
             {head.lines.map((l) => (
               <div key={l} className="text-[9pt]">
