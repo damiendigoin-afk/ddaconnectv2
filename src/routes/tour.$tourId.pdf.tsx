@@ -31,6 +31,16 @@ const STATUS_FR: Record<string, string> = {
   unset: "Non renseigné",
 };
 
+/** Charte D.D.A. : noir + jaune, couleurs réservées aux statuts. */
+const DDA_YELLOW = "#F2C200";
+const STATUS_COLOR: Record<string, string> = {
+  ok: "#15803d",
+  watch: "#b45309",
+  defect: "#b91c1c",
+  unset: "#525252",
+};
+
+
 /** Image de rapport : URL signée (bucket privé) + gestion d'échec non bloquante. */
 function PdfPhoto({
   media,
