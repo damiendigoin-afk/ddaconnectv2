@@ -92,7 +92,9 @@ export const GUIDED_ZONES: ZoneDef[] = [
       },
       { key: "pare_brise", label: "Pare-brise" },
       { key: "essuie_glaces", label: "Balais essuie-glaces avant" },
+      { key: "gicleurs_lave_glace", label: "Gicleurs lave-glace" },
       { key: "controle_technique", label: "Contrôle technique", special: "ct" },
+
     ],
   },
   {
@@ -189,6 +191,8 @@ export const GUIDED_ZONES: ZoneDef[] = [
       { key: "fuites_dessous", label: "Fuites sous véhicule" },
       { key: "echappement", label: "Ligne d'échappement" },
       { key: "trains_roulants", label: "Trains roulants / rotules" },
+      { key: "roulements_roues", label: "Roulements de roues" },
+
       { key: "suspension", label: "Suspension / amortisseurs" },
       { key: "direction", label: "Direction" },
       { key: "freinage_accessible", label: "Éléments de freinage accessibles" },
