@@ -120,8 +120,8 @@ describe("agrégation et comparatifs", () => {
 describe("jours ouvrés France", () => {
   it("intègre les jours fériés", () => {
     expect(frenchHolidays(2026).has("2026-05-01")).toBe(true);
-    // mai 2026 : 21 jours ouvrables lundi-vendredi, moins 1er mai, 8 mai, Ascension (14/05)
-    expect(monthProgress("2026-05-01", new Date(2026, 4, 31)).total).toBe(18);
+    // mai 2026 : 21 jours lundi-vendredi, moins 1er mai, 8 mai, Ascension (14/05) et Pentecôte (25/05)
+    expect(monthProgress("2026-05-01", new Date(2026, 4, 31)).total).toBe(17);
   });
   it("avancement du mois", () => {
     const p = monthProgress("2026-09-01", new Date(2026, 8, 15));
