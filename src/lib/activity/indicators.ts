@@ -155,21 +155,140 @@ export function normLabel(v: unknown): string {
     .replace(/[^A-Z0-9]/g, "");
 }
 
-const BY_NORM = new Map<string, Indicator>();
+/**
+ * Blocs du tableau réel. Un bloc = un entête de section dans l'onglet.
+ * La résolution des libellés courts (MO, Autres, Total, Atelier…) se fait DANS le bloc courant.
+ */
+export type BlockKey =
+  | "ca"
+  | "marge"
+  | "productifs"
+  | "heures"
+  | "entrees"
+  | "achats"
+  | "charges_ext"
+  | "fournitures"
+  | "fixes"
+  | "vo";
+
+const BLOCK_OF: Record<string, BlockKey> = {
+  nb_productifs: "productifs",
+  heures_achetees: "heures",
+  heures_passees: "heures",
+  heures_facturees: "heures",
+  realisation: "heures",
+  objectif_heures: "heures",
+  entrees_payantes: "entrees",
+  entrees_toutes: "entrees",
+  entrees_n1: "entrees",
+};
+
+/** Alias valables uniquement à l'intérieur d'un bloc (jamais en global). */
+const BLOCK_ALIASES: Record<string, string[]> = {
+  heures_achetees: ["Achetées"],
+  heures_passees: ["Passées"],
+  heures_facturees: ["Facturées"],
+  entrees_payantes: ["Payantes"],
+  entrees_toutes: ["Toutes"],
+  marge_mo: ["MO"],
+  marge_autres: ["Autres"],
+  marge_total: ["Total"],
+  marge_pr: ["PR"],
+  marge_st: ["ST"],
+  marge_pneus: ["Pneus"],
+  marge_huiles: ["Huiles"],
+  rep_atelier: ["Atelier"],
+  rep_cession: ["Cession"],
+  rep_garantie: ["Garantie"],
+};
+
+export function blockOf(ind: Indicator): BlockKey {
+  return BLOCK_OF[ind.key] ?? (ind.section as BlockKey);
+}
+
+/** Entêtes de bloc reconnus dans les onglets (ligne de titre, jamais une donnée). */
+export const BLOCK_HEADERS: { block: BlockKey; test: (norm: string) => boolean }[] = [
+  { block: "marge", test: (n) => n === "MARGEAPV" },
+  { block: "productifs", test: (n) => n.startsWith("NBPRODUCTIFS") },
+  { block: "heures", test: (n) => n === "HEURES" },
+  { block: "entrees", test: (n) => n.startsWith("ENTREES") && !n.includes("PAYANTES") },
+  { block: "charges_ext", test: (n) => n.startsWith("AUTRESCHARGESEXT") },
+  { block: "fournitures", test: (n) => n.startsWith("ACHATSNONSTOCKES") },
+  { block: "fixes", test: (n) => n.includes("IMPOTS") && n.includes("SALAIRES") },
+  { block: "vo", test: (n) => n.startsWith("VENTEVEHICULES") },
+  { block: "achats", test: (n) => n === "ACHATSCONSOST" || n === "ACHATSETCONSOS" },
+];
+
+export function blockHeaderFor(label: unknown): BlockKey | null {
+  const n = normLabel(label);
+  if (!n) return null;
+  return BLOCK_HEADERS.find((h) => h.test(n))?.block ?? null;
+}
+
+/** Colonnes APV du tableau réel : `S APV | Atelier | Cession | Garantie`. */
+export const APV_COLUMNS = ["s_apv", "atelier", "cession", "garantie"] as const;
+export type ApvColumn = (typeof APV_COLUMNS)[number];
+
+export const APV_COLUMN_LABELS: Record<ApvColumn, string> = {
+  s_apv: "S APV",
+  atelier: "Atelier",
+  cession: "Cession",
+  garantie: "Garantie",
+};
+
+/** Clé de stockage d'une ventilation APV (la colonne S APV reste l'indicateur principal). */
+export function apvSubKey(key: string, column: ApvColumn): string {
+  return `${key}__${column}`;
+}
+
+const BY_BLOCK = new Map<BlockKey, Map<string, Indicator>>();
+const GLOBAL = new Map<string, Indicator | null>(); // null = libellé ambigu entre blocs
+
+for (const ind of INDICATORS) {
+  const block = blockOf(ind);
+  const map = BY_BLOCK.get(block) ?? new Map<string, Indicator>();
+  for (const label of [ind.label, ...(ind.aliases ?? []), ...(BLOCK_ALIASES[ind.key] ?? [])]) {
+    const k = normLabel(label);
+    if (!k) continue;
+    if (!map.has(k)) map.set(k, ind);
+  }
+  BY_BLOCK.set(block, map);
+}
+
 for (const ind of INDICATORS) {
   for (const label of [ind.label, ...(ind.aliases ?? [])]) {
     const k = normLabel(label);
-    if (!BY_NORM.has(k)) BY_NORM.set(k, ind);
+    if (!k) continue;
+    const prev = GLOBAL.get(k);
+    if (prev === undefined) GLOBAL.set(k, ind);
+    else if (prev && prev.key !== ind.key) GLOBAL.set(k, null);
+  }
+}
+// les alias de bloc courts ne doivent jamais résoudre en global
+for (const [key, labels] of Object.entries(BLOCK_ALIASES)) {
+  for (const label of labels) {
+    const k = normLabel(label);
+    const prev = GLOBAL.get(k);
+    if (prev && prev.key !== key) GLOBAL.set(k, null);
+    else if (prev === undefined) GLOBAL.set(k, null);
   }
 }
 
-export function indicatorForLabel(label: unknown): Indicator | null {
-  return BY_NORM.get(normLabel(label)) ?? null;
+/** Résolution contextuelle : bloc courant d'abord, puis libellé globalement non ambigu. */
+export function indicatorForLabel(label: unknown, block: BlockKey | null = null): Indicator | null {
+  const n = normLabel(label);
+  if (!n) return null;
+  if (block) {
+    const hit = BY_BLOCK.get(block)?.get(n);
+    if (hit) return hit;
+  }
+  return GLOBAL.get(n) ?? null;
 }
 
 export function indicatorByKey(key: string): Indicator | null {
   return INDICATORS.find((i) => i.key === key) ?? null;
 }
+
 
 /** KPI principaux du tableau de bord. */
 export const MAIN_KPIS: string[] = [
