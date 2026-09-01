@@ -14,6 +14,112 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_imports: {
+        Row: {
+          anomalies: Json
+          created_at: string
+          file_name: string | null
+          id: string
+          imported_by: string | null
+          imported_by_name: string | null
+          months_count: number
+          site_code: string
+          values_count: number
+        }
+        Insert: {
+          anomalies?: Json
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          imported_by?: string | null
+          imported_by_name?: string | null
+          months_count?: number
+          site_code: string
+          values_count?: number
+        }
+        Update: {
+          anomalies?: Json
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          imported_by?: string | null
+          imported_by_name?: string | null
+          months_count?: number
+          site_code?: string
+          values_count?: number
+        }
+        Relationships: []
+      }
+      activity_months: {
+        Row: {
+          created_at: string
+          id: string
+          import_id: string | null
+          period_start: string
+          sheet_name: string | null
+          site_code: string
+          status: string
+          status_manual: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          period_start: string
+          sheet_name?: string | null
+          site_code: string
+          status?: string
+          status_manual?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          period_start?: string
+          sheet_name?: string | null
+          site_code?: string
+          status?: string
+          status_manual?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_months_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "activity_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_values: {
+        Row: {
+          indicator_key: string
+          month_id: string
+          value: number | null
+        }
+        Insert: {
+          indicator_key: string
+          month_id: string
+          value?: number | null
+        }
+        Update: {
+          indicator_key?: string
+          month_id?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_values_month_id_fkey"
+            columns: ["month_id"]
+            isOneToOne: false
+            referencedRelation: "activity_months"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agreements: {
         Row: {
           active: boolean
