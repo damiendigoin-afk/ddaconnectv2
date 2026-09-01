@@ -82,6 +82,14 @@ function MyStats() {
           </div>
         ) : null}
 
+        <Link
+          to="/statistiques/activite"
+          className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
+        >
+          <BarChart3 className="h-5 w-5 text-brand" />
+          <div className="flex-1 text-sm font-extrabold uppercase">Suivi d'activité mensuel</div>
+        </Link>
+
         <PeriodPicker value={range} onChange={setRange} />
 
         {selected.length ? (
