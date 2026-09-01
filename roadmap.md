@@ -1,7 +1,9 @@
-# Correctif Front Office
+# Suivi d'activité mensuel (01/09)
 
-- [x] Intégrer le logo officiel dans le PDF serveur joint
-- [x] Rendre le PDF obligatoire avant l’envoi
-- [x] Journaliser chaque destinataire dans `email_logs`
-- [x] Stabiliser l’idempotence automatique et distinguer les relances manuelles
-- [x] Valider tests ciblés, typecheck et build
+- [x] Migration `activity_imports` / `activity_months` / `activity_values`
+- [x] Import Excel déterministe (société, mois, libellés normalisés, anomalies)
+- [x] Tableau de bord site / Groupe, comparatifs N-1/N-2, courbes
+- [x] Jours ouvrés France et statut mensuel corrigeable
+- [x] Tests ciblés, typecheck, build
+
+Phase 2 (non développée) : planning de présence / congés, neutralisation des cessions internes en vue Groupe.
