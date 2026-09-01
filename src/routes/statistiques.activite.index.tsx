@@ -148,13 +148,14 @@ function ActivityDashboard() {
               onClick={() => { setEnd(monthKeyNow()); setStart(shiftMonths(monthKeyNow(), -2)); }}
             />
             <Preset
-              label="Exercice"
+              label="Exercice (avr→mars)"
               onClick={() => {
-                const y = new Date().getFullYear();
-                setStart(`${y}-01-01`);
-                setEnd(monthKeyNow());
+                const fy = fiscalYearRange(end);
+                setStart(fy.start);
+                setEnd(fy.end);
               }}
             />
+
           </div>
 
           <Field label="Comparaison">
