@@ -23,7 +23,7 @@ export const Route = createFileRoute("/statistiques/activite/import")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: ActivityImport;
+  component: ActivityImport,
 });
 
 function ActivityImport() {
