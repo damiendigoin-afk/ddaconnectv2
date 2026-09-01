@@ -47,9 +47,10 @@ export async function saveWorkbook(
     p_file_name: meta.fileName,
     p_user: meta.userId,
     p_user_name: meta.userName,
-    p_anomalies: parsed.anomalies as never,
-    p_months: months as never,
-  });
+    p_anomalies: parsed.anomalies,
+    p_months: months,
+  } as never);
+
   if (error) throw error;
   return data as string;
 }
