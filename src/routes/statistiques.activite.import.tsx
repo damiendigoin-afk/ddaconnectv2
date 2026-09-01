@@ -61,7 +61,7 @@ function ActivityImport() {
       toast.success(`${parsed.months.length} mois importés`);
       void navigate({ to: "/statistiques/activite" });
     } catch {
-      toast.error("Import interrompu : aucune donnée existante n'a été écrasée pour les mois non traités.");
+      toast.error("Import annulé : la transaction a été annulée, aucune donnée existante n'a été modifiée.");
     } finally {
       setBusy(false);
     }
@@ -124,18 +124,31 @@ function ActivityImport() {
             </div>
 
             {parsed.anomalies.length ? (
-              <div className="card-surface space-y-1 p-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-status-watch">Données manquantes</p>
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {parsed.anomalies.slice(0, 80).map((a, i) => (
-                    <li key={i}>{a.message}</li>
-                  ))}
-                </ul>
+              <div className="card-surface space-y-3 p-4">
+                {(["missing", "unknown"] as const).map((kind) => {
+                  const list = parsed.anomalies.filter((a) => a.kind === kind);
+                  if (!list.length) return null;
+                  return (
+                    <div key={kind} className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-status-watch">
+                        {kind === "missing"
+                          ? `Données manquantes (${list.length})`
+                          : `Rubriques non reconnues (${list.length})`}
+                      </p>
+                      <ul className="space-y-1 text-xs text-muted-foreground">
+                        {list.slice(0, 80).map((a, i) => (
+                          <li key={i}>{a.message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
 
             <p className="text-xs text-muted-foreground">
-              Un mois déjà importé sera intégralement remplacé par cette version. Les cellules vides restent vides, elles
+              L'import est atomique : tout est enregistré en une seule transaction, ou rien. Un mois déjà importé sera
+              intégralement remplacé par cette version. Les cellules vides restent vides, elles
               ne sont jamais converties en zéro.
             </p>
 

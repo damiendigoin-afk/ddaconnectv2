@@ -27,60 +27,34 @@ export type ActivityImport = {
   created_at: string;
 };
 
-/** Écriture d'un import : chaque mois réimporté remplace intégralement sa version précédente. */
+/**
+ * Écriture d'un import en UNE SEULE transaction base (fonction SQL `activity_import_apply`).
+ * Si quoi que ce soit échoue, rien n'est écrit : aucune donnée existante n'est écrasée.
+ */
 export async function saveWorkbook(
   parsed: ParsedWorkbook,
   meta: { fileName: string | null; userId: string | null; userName: string | null },
 ): Promise<string> {
-  const ins = await supabase
-    .from("activity_imports")
-    .insert({
-      site_code: parsed.site,
-      file_name: meta.fileName,
-      imported_by: meta.userId,
-      imported_by_name: meta.userName,
-      months_count: parsed.months.length,
-      values_count: parsed.valuesCount,
-      anomalies: parsed.anomalies as never,
-    })
-    .select("id")
-    .single();
-  if (ins.error) throw ins.error;
-  const importId = ins.data.id as string;
+  const months = parsed.months.map((m) => ({
+    period_start: m.periodStart,
+    sheet_name: m.sheet,
+    status: autoStatus(m.periodStart),
+    values: m.values,
+  }));
 
-  for (const month of parsed.months) {
-    const up = await supabase
-      .from("activity_months")
-      .upsert(
-        {
-          site_code: parsed.site,
-          period_start: month.periodStart,
-          sheet_name: month.sheet,
-          import_id: importId,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "site_code,period_start" },
-      )
-      .select("id, status_manual")
-      .single();
-    if (up.error) throw up.error;
-    const monthId = up.data.id as string;
+  const { data, error } = await supabase.rpc("activity_import_apply", {
+    p_site: parsed.site,
+    p_file_name: meta.fileName,
+    p_user: meta.userId,
+    p_user_name: meta.userName,
+    p_anomalies: parsed.anomalies,
+    p_months: months,
+  } as never);
 
-    if (!up.data.status_manual) {
-      await supabase.from("activity_months").update({ status: autoStatus(month.periodStart) }).eq("id", monthId);
-    }
-
-    // dernière version seulement : on remplace toutes les valeurs du mois
-    const del = await supabase.from("activity_values").delete().eq("month_id", monthId);
-    if (del.error) throw del.error;
-    const rows = Object.entries(month.values).map(([indicator_key, value]) => ({ month_id: monthId, indicator_key, value }));
-    if (rows.length) {
-      const insVals = await supabase.from("activity_values").insert(rows);
-      if (insVals.error) throw insVals.error;
-    }
-  }
-  return importId;
+  if (error) throw error;
+  return data as string;
 }
+
 
 export type MonthData = { month: ActivityMonth; values: Map<string, number | null> };
 

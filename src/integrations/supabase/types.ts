@@ -6221,6 +6221,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activity_import_apply: {
+        Args: {
+          p_anomalies: Json
+          p_file_name: string
+          p_months: Json
+          p_site: string
+          p_user: string
+          p_user_name: string
+        }
+        Returns: string
+      }
       finish_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }
         Returns: {

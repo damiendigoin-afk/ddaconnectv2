@@ -39,27 +39,27 @@ export const INDICATORS: Indicator[] = [
   { key: "pr_constructeur", label: "PR Constructeur", section: "ca", unit: "eur" },
   { key: "pr_autres_marques", label: "PR Autres marques", section: "ca", unit: "eur", aliases: ["PR AUTRES"] },
   { key: "pr_occasions", label: "PR Occasions", section: "ca", unit: "eur", aliases: ["PR OCCASION"] },
-  { key: "pneumatiques", label: "Pneumatiques", section: "ca", unit: "eur", aliases: ["PNEUS"] },
-  { key: "lubrifiants", label: "Lubrifiants", section: "ca", unit: "eur", aliases: ["HUILES"] },
+  { key: "pneumatiques", label: "Pneumatiques", section: "ca", unit: "eur" },
+  { key: "lubrifiants", label: "Lubrifiants", section: "ca", unit: "eur" },
   { key: "accessoires", label: "Accessoires", section: "ca", unit: "eur" },
   { key: "carburant", label: "Carburant", section: "ca", unit: "eur" },
   { key: "ca_pr", label: "C.A. P.R.", section: "ca", unit: "eur", aliases: ["CA PR"] },
   { key: "ca_total", label: "Total C.A.", section: "ca", unit: "eur", aliases: ["TOTAL CA", "CA TOTAL", "TOTAL C A"] },
-  { key: "rep_atelier", label: "Répartition Atelier", section: "ca", unit: "eur", aliases: ["ATELIER"] },
-  { key: "rep_cession", label: "Répartition Cession", section: "ca", unit: "eur", aliases: ["CESSION", "CESSIONS"] },
-  { key: "rep_garantie", label: "Répartition Garantie", section: "ca", unit: "eur", aliases: ["GARANTIE", "GARANTIES"] },
+  { key: "rep_atelier", label: "Répartition Atelier", section: "ca", unit: "eur" },
+  { key: "rep_cession", label: "Répartition Cession", section: "ca", unit: "eur" },
+  { key: "rep_garantie", label: "Répartition Garantie", section: "ca", unit: "eur" },
 
   // B — Marge APV
-  { key: "marge_mo", label: "Marge MO", section: "marge", unit: "eur", aliases: ["MO"] },
+  { key: "marge_mo", label: "Marge MO", section: "marge", unit: "eur" },
   { key: "marge_st", label: "Marge ST ~25%", section: "marge", unit: "eur", aliases: ["ST 25", "ST25", "MARGE ST"] },
-  { key: "marge_autres", label: "Marge Autres", section: "marge", unit: "eur", aliases: ["AUTRES"] },
+  { key: "marge_autres", label: "Marge Autres", section: "marge", unit: "eur" },
   { key: "marge_total_mo", label: "Total MO", section: "marge", unit: "eur" },
   { key: "marge_pr", label: "Marge PR ~25%", section: "marge", unit: "eur", aliases: ["PR 25", "PR25", "MARGE PR"] },
   { key: "marge_pneus", label: "Marge Pneus 5%", section: "marge", unit: "eur", aliases: ["PNEUS 5", "PNEUS5"] },
   { key: "marge_huiles", label: "Marge Huiles 50%", section: "marge", unit: "eur", aliases: ["HUILES 50", "HUILES50"] },
   { key: "marge_total_pr", label: "Total PR", section: "marge", unit: "eur" },
   { key: "gain_apv", label: "Total Gain APV", section: "marge", unit: "eur", aliases: ["GAIN APV", "TOTAL GAIN APV"] },
-  { key: "marge_total", label: "TOTAL marge", section: "marge", unit: "eur", aliases: ["TOTAL"] },
+  { key: "marge_total", label: "TOTAL marge", section: "marge", unit: "eur" },
   { key: "resultat", label: "RESULTAT", section: "marge", unit: "eur", aliases: ["RESULTAT NET"] },
   { key: "taux_marge_apv", label: "Taux marge APV", section: "marge", unit: "pct", aliases: ["TAUX MARGE", "RATIO MARGE"] },
 
@@ -155,21 +155,142 @@ export function normLabel(v: unknown): string {
     .replace(/[^A-Z0-9]/g, "");
 }
 
-const BY_NORM = new Map<string, Indicator>();
+/**
+ * Blocs du tableau réel. Un bloc = un entête de section dans l'onglet.
+ * La résolution des libellés courts (MO, Autres, Total, Atelier…) se fait DANS le bloc courant.
+ */
+export type BlockKey =
+  | "ca"
+  | "marge"
+  | "productifs"
+  | "heures"
+  | "entrees"
+  | "achats"
+  | "charges_ext"
+  | "fournitures"
+  | "fixes"
+  | "vo";
+
+const BLOCK_OF: Record<string, BlockKey> = {
+  nb_productifs: "productifs",
+  heures_achetees: "heures",
+  heures_passees: "heures",
+  heures_facturees: "heures",
+  realisation: "heures",
+  objectif_heures: "heures",
+  entrees_payantes: "entrees",
+  entrees_toutes: "entrees",
+  entrees_n1: "entrees",
+};
+
+/** Alias valables uniquement à l'intérieur d'un bloc (jamais en global). */
+const BLOCK_ALIASES: Record<string, string[]> = {
+  pneumatiques: ["Pneus"],
+  lubrifiants: ["Huiles"],
+  heures_achetees: ["Achetées"],
+  heures_passees: ["Passées"],
+  heures_facturees: ["Facturées"],
+  entrees_payantes: ["Payantes"],
+  entrees_toutes: ["Toutes"],
+  marge_mo: ["MO"],
+  marge_autres: ["Autres"],
+  marge_total: ["Total"],
+  marge_pr: ["PR"],
+  marge_st: ["ST"],
+  marge_pneus: ["Pneus"],
+  marge_huiles: ["Huiles"],
+  rep_atelier: ["Atelier"],
+  rep_cession: ["Cession"],
+  rep_garantie: ["Garantie"],
+};
+
+export function blockOf(ind: Indicator): BlockKey {
+  return BLOCK_OF[ind.key] ?? (ind.section as BlockKey);
+}
+
+/** Entêtes de bloc reconnus dans les onglets (ligne de titre, jamais une donnée). */
+export const BLOCK_HEADERS: { block: BlockKey; test: (norm: string) => boolean }[] = [
+  { block: "marge", test: (n) => n === "MARGEAPV" },
+  { block: "productifs", test: (n) => n.startsWith("NBPRODUCTIFS") },
+  { block: "heures", test: (n) => n === "HEURES" },
+  { block: "entrees", test: (n) => n.startsWith("ENTREES") && !n.includes("PAYANTES") },
+  { block: "charges_ext", test: (n) => n.startsWith("AUTRESCHARGESEXT") },
+  { block: "fournitures", test: (n) => n.startsWith("ACHATSNONSTOCKES") },
+  { block: "fixes", test: (n) => n.includes("IMPOTS") && n.includes("SALAIRES") },
+  { block: "vo", test: (n) => n.startsWith("VENTEVEHICULES") },
+  { block: "achats", test: (n) => n === "ACHATSCONSOST" || n === "ACHATSETCONSOS" },
+];
+
+export function blockHeaderFor(label: unknown): BlockKey | null {
+  const n = normLabel(label);
+  if (!n) return null;
+  return BLOCK_HEADERS.find((h) => h.test(n))?.block ?? null;
+}
+
+/** Colonnes APV du tableau réel : `S APV | Atelier | Cession | Garantie`. */
+export const APV_COLUMNS = ["s_apv", "atelier", "cession", "garantie"] as const;
+export type ApvColumn = (typeof APV_COLUMNS)[number];
+
+export const APV_COLUMN_LABELS: Record<ApvColumn, string> = {
+  s_apv: "S APV",
+  atelier: "Atelier",
+  cession: "Cession",
+  garantie: "Garantie",
+};
+
+/** Clé de stockage d'une ventilation APV (la colonne S APV reste l'indicateur principal). */
+export function apvSubKey(key: string, column: ApvColumn): string {
+  return `${key}__${column}`;
+}
+
+const BY_BLOCK = new Map<BlockKey, Map<string, Indicator>>();
+const GLOBAL = new Map<string, Indicator | null>(); // null = libellé ambigu entre blocs
+
+for (const ind of INDICATORS) {
+  const block = blockOf(ind);
+  const map = BY_BLOCK.get(block) ?? new Map<string, Indicator>();
+  for (const label of [ind.label, ...(ind.aliases ?? []), ...(BLOCK_ALIASES[ind.key] ?? [])]) {
+    const k = normLabel(label);
+    if (!k) continue;
+    if (!map.has(k)) map.set(k, ind);
+  }
+  BY_BLOCK.set(block, map);
+}
+
 for (const ind of INDICATORS) {
   for (const label of [ind.label, ...(ind.aliases ?? [])]) {
     const k = normLabel(label);
-    if (!BY_NORM.has(k)) BY_NORM.set(k, ind);
+    if (!k) continue;
+    const prev = GLOBAL.get(k);
+    if (prev === undefined) GLOBAL.set(k, ind);
+    else if (prev && prev.key !== ind.key) GLOBAL.set(k, null);
+  }
+}
+// les alias de bloc courts ne doivent jamais résoudre en global
+for (const [key, labels] of Object.entries(BLOCK_ALIASES)) {
+  for (const label of labels) {
+    const k = normLabel(label);
+    const prev = GLOBAL.get(k);
+    if (prev && prev.key !== key) GLOBAL.set(k, null);
+    else if (prev === undefined) GLOBAL.set(k, null);
   }
 }
 
-export function indicatorForLabel(label: unknown): Indicator | null {
-  return BY_NORM.get(normLabel(label)) ?? null;
+/** Résolution contextuelle : bloc courant d'abord, puis libellé globalement non ambigu. */
+export function indicatorForLabel(label: unknown, block: BlockKey | null = null): Indicator | null {
+  const n = normLabel(label);
+  if (!n) return null;
+  if (block) {
+    const hit = BY_BLOCK.get(block)?.get(n);
+    if (hit) return hit;
+  }
+  return GLOBAL.get(n) ?? null;
 }
 
 export function indicatorByKey(key: string): Indicator | null {
   return INDICATORS.find((i) => i.key === key) ?? null;
 }
+
 
 /** KPI principaux du tableau de bord. */
 export const MAIN_KPIS: string[] = [

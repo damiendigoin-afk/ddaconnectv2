@@ -1,8 +1,17 @@
 /**
  * Import déterministe des tableaux de suivi mensuel Excel (aucune IA, aucun OCR).
- * Détection société par en-tête, mois par onglet, valeurs par libellé normalisé.
+ * Détection société par en-tête, mois par onglet, valeurs par bloc + libellé normalisé.
  */
-import { indicatorForLabel, normLabel, type Indicator } from "./indicators";
+import {
+  APV_COLUMNS,
+  apvSubKey,
+  blockHeaderFor,
+  indicatorForLabel,
+  normLabel,
+  type ApvColumn,
+  type BlockKey,
+  type Indicator,
+} from "./indicators";
 
 export type SiteCode = "dda" | "castillon";
 
@@ -131,6 +140,34 @@ function firstValue(row: unknown[], from: number): { value: number | null; found
   return { value: null, found: false };
 }
 
+function hasAnyNumber(row: unknown[], from: number): boolean {
+  for (let i = from; i < row.length; i++) if (toNumber(row[i]) !== null) return true;
+  return false;
+}
+
+/** Ligne d'entête de colonnes APV : `S APV | Atelier | Cession | Garantie`. */
+function apvHeaderColumns(row: unknown[]): Partial<Record<ApvColumn, number>> | null {
+  const found: Partial<Record<ApvColumn, number>> = {};
+  for (let i = 0; i < row.length; i++) {
+    const n = normLabel(row[i]);
+    if (!n) continue;
+    if (n === "SAPV" || n === "SERVICEAPV") found.s_apv = i;
+    else if (n === "ATELIER") found.atelier = i;
+    else if (n === "CESSION" || n === "CESSIONS") found.cession = i;
+    else if (n === "GARANTIE" || n === "GARANTIES") found.garantie = i;
+  }
+  return found.s_apv !== undefined && found.atelier !== undefined ? found : null;
+}
+
+/** Libellés décoratifs / titres à ne jamais remonter comme anomalie. */
+function isDecorative(label: string): boolean {
+  const n = normLabel(label);
+  if (n.length < 2) return true;
+  if (COMPANY_SIGNATURES.some((s) => n.includes(s.norm))) return true;
+  if (MONTH_WORDS.some((w) => n.startsWith(w))) return true;
+  return ["RUBRIQUE", "LIBELLE", "MOIS", "CUMUL", "REEL", "N1", "NA", "TOTAUX", "SUIVI", "TABLEAUDEBORD"].includes(n);
+}
+
 /** Analyse d'un onglet mensuel déjà converti en tableau de cellules. */
 export function parseSheet(
   sheetName: string,
@@ -143,14 +180,67 @@ export function parseSheet(
 
   const values: Record<string, number | null> = {};
   const seen = new Set<string>();
+  let block: BlockKey = "ca";
+  let apvCols: Partial<Record<ApvColumn, number>> | null = null;
+
   for (const row of rows) {
+    const cols = apvHeaderColumns(row);
+    if (cols) {
+      apvCols = cols;
+      continue;
+    }
+
     const head = labelCell(row);
     if (!head) continue;
-    const indicator: Indicator | null = indicatorForLabel(head.label);
-    const { value, found } = firstValue(row, head.index + 1);
-    if (!indicator) continue;
+
+    const header = blockHeaderFor(head.label);
+    if (header) {
+      block = header;
+      if (!hasAnyNumber(row, head.index + 1)) continue; // pur titre de bloc
+    }
+
+    const indicator: Indicator | null = indicatorForLabel(head.label, block);
+    if (!indicator) {
+      if (!header && hasAnyNumber(row, head.index + 1) && !isDecorative(head.label)) {
+        anomalies.push({
+          kind: "unknown",
+          site: SITE_LABELS[site],
+          sheet: sheetName,
+          section: block,
+          label: head.label,
+          message: `${SITE_LABELS[site]} → ${sheetName} → ${head.label} : rubrique non reconnue (valeur ignorée)`,
+        });
+      }
+      continue;
+    }
     if (seen.has(indicator.key)) continue;
     seen.add(indicator.key);
+
+    // Lignes APV à 4 colonnes : la valeur S APV reste l'indicateur principal.
+    if (apvCols && block === "ca" && apvCols.s_apv !== undefined && apvCols.s_apv > head.index) {
+      const main = toNumber(row[apvCols.s_apv]);
+      values[indicator.key] = main;
+      for (const col of APV_COLUMNS) {
+        if (col === "s_apv") continue;
+        const idx = apvCols[col];
+        if (idx === undefined) continue;
+        const v = toNumber(row[idx]);
+        if (v !== null) values[apvSubKey(indicator.key, col)] = v;
+      }
+      if (main === null) {
+        anomalies.push({
+          kind: "missing",
+          site: SITE_LABELS[site],
+          sheet: sheetName,
+          section: indicator.section,
+          label: indicator.label,
+          message: `${SITE_LABELS[site]} → ${sheetName} → ${indicator.label} : valeur manquante`,
+        });
+      }
+      continue;
+    }
+
+    const { value, found } = firstValue(row, head.index + 1);
     values[indicator.key] = found ? value : null;
     if (!found) {
       anomalies.push({
