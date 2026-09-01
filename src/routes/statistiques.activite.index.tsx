@@ -9,6 +9,7 @@ import { INDICATORS, MAIN_KPIS, SECTIONS, indicatorByKey } from "@/lib/activity/
 import { SITE_LABELS, type SiteCode } from "@/lib/activity/parse";
 import { aggregateKey, combineByPeriod, inRange, shiftMonths, variation } from "@/lib/activity/series";
 import { fetchImports, fetchMonths, setMonthStatus } from "@/lib/activity/store";
+import { fiscalYearLabel, fiscalYearRange } from "@/lib/activity/fiscal";
 import { STATUS_LABELS, autoStatus, monthProgress, type MonthStatus } from "@/lib/activity/workdays";
 import { periodLabel } from "@/lib/stats";
 
@@ -85,6 +86,8 @@ function ActivityDashboard() {
 
   const lastImport = (imports.data ?? []).find((i) => site === "groupe" || i.site_code === site);
   const anomalies = lastImport?.anomalies ?? [];
+  const missingCount = anomalies.filter((a) => a.kind !== "unknown").length;
+  const unknownCount = anomalies.filter((a) => a.kind === "unknown").length;
   const [showAnomalies, setShowAnomalies] = useState(false);
 
   const chartData = useMemo(() => {
@@ -194,7 +197,7 @@ function ActivityDashboard() {
               className="flex w-full items-center gap-2 text-left text-sm font-extrabold uppercase text-status-watch"
             >
               <AlertTriangle className="h-4 w-4" />
-              Import avec anomalies : {anomalies.length} données manquantes
+              Import avec anomalies : {missingCount} données manquantes · {unknownCount} non reconnues
             </button>
             {showAnomalies ? (
               <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
