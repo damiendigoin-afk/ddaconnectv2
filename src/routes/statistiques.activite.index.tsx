@@ -172,6 +172,8 @@ function ActivityDashboard() {
               {periodLabel(start)}
               {start !== end ? ` → ${periodLabel(end)}` : ""}
             </span>
+            <span className="uppercase">· {fiscalYearLabel(end)}</span>
+
             {monthRows.map((m) => (
               <StatusChip
                 key={m.month.id}
