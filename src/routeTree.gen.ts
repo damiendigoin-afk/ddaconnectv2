@@ -70,6 +70,7 @@ import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId
 import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
 import { Route as ParametrageFournisseursIndexRouteImport } from './routes/parametrage.fournisseurs.index'
 import { Route as ParametrageFournisseursSupplierIdRouteImport } from './routes/parametrage.fournisseurs.$supplierId'
+import { Route as StatistiquesActiviteIndexRouteImport } from './routes/statistiques.activite.index'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
 import { Route as TourTourIdPdfRouteImport } from './routes/tour.$tourId.pdf'
 import { Route as TourTourIdPresentationRouteImport } from './routes/tour.$tourId.presentation'
@@ -386,6 +387,12 @@ const ParametrageFournisseursSupplierIdRoute =
     path: '/parametrage/fournisseurs/$supplierId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const StatistiquesActiviteIndexRoute =
+  StatistiquesActiviteIndexRouteImport.update({
+    id: '/statistiques/activite/',
+    path: '/statistiques/activite/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const TourTourIdIndexRoute = TourTourIdIndexRouteImport.update({
   id: '/tour/$tourId/',
   path: '/tour/$tourId/',
@@ -487,6 +494,7 @@ export interface FileRoutesByFullPath {
   '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
+  '/statistiques/activite/': typeof StatistiquesActiviteIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
@@ -557,6 +565,7 @@ export interface FileRoutesByTo {
   '/base/historique': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs': typeof ParametrageFournisseursIndexRoute
+  '/statistiques/activite': typeof StatistiquesActiviteIndexRoute
   '/tour/$tourId': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
@@ -628,6 +637,7 @@ export interface FileRoutesById {
   '/base/historique/': typeof BaseHistoriqueIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
+  '/statistiques/activite/': typeof StatistiquesActiviteIndexRoute
   '/tour/$tourId/': typeof TourTourIdIndexRoute
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
@@ -700,6 +710,7 @@ export interface FileRouteTypes {
     | '/base/historique/'
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
+    | '/statistiques/activite/'
     | '/tour/$tourId/'
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
@@ -770,6 +781,7 @@ export interface FileRouteTypes {
     | '/base/historique'
     | '/expertise/$exId'
     | '/parametrage/fournisseurs'
+    | '/statistiques/activite'
     | '/tour/$tourId'
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
@@ -840,6 +852,7 @@ export interface FileRouteTypes {
     | '/base/historique/'
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
+    | '/statistiques/activite/'
     | '/tour/$tourId/'
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
@@ -911,6 +924,7 @@ export interface RootRouteChildren {
   BaseHistoriqueIndexRoute: typeof BaseHistoriqueIndexRoute
   ExpertiseExIdIndexRoute: typeof ExpertiseExIdIndexRoute
   ParametrageFournisseursIndexRoute: typeof ParametrageFournisseursIndexRoute
+  StatistiquesActiviteIndexRoute: typeof StatistiquesActiviteIndexRoute
   TourTourIdIndexRoute: typeof TourTourIdIndexRoute
   ApiPublicEmailsIngestRoute: typeof ApiPublicEmailsIngestRoute
   ApiPublicGmailCallbackRoute: typeof ApiPublicGmailCallbackRoute
@@ -1346,6 +1360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageFournisseursSupplierIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/statistiques/activite/': {
+      id: '/statistiques/activite/'
+      path: '/statistiques/activite'
+      fullPath: '/statistiques/activite/'
+      preLoaderRoute: typeof StatistiquesActiviteIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tour/$tourId/': {
       id: '/tour/$tourId/'
       path: '/tour/$tourId'
@@ -1464,6 +1485,7 @@ const rootRouteChildren: RootRouteChildren = {
   BaseHistoriqueIndexRoute: BaseHistoriqueIndexRoute,
   ExpertiseExIdIndexRoute: ExpertiseExIdIndexRoute,
   ParametrageFournisseursIndexRoute: ParametrageFournisseursIndexRoute,
+  StatistiquesActiviteIndexRoute: StatistiquesActiviteIndexRoute,
   TourTourIdIndexRoute: TourTourIdIndexRoute,
   ApiPublicEmailsIngestRoute: ApiPublicEmailsIngestRoute,
   ApiPublicGmailCallbackRoute: ApiPublicGmailCallbackRoute,
