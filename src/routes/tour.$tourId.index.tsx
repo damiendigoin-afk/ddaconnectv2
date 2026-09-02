@@ -120,6 +120,8 @@ function TourPage() {
     zoneIndex: tour.data.current_zone_index as number,
     ctDueDate: (vehicle as unknown as { ct_due_date?: string | null }).ct_due_date ?? null,
     pollutionDueDate: (vehicle as unknown as { pollution_due_date?: string | null }).pollution_due_date ?? null,
+    tireSizeFront: (vehicle as unknown as { tire_size_front?: string | null }).tire_size_front ?? null,
+    tireSizeRear: (vehicle as unknown as { tire_size_rear?: string | null }).tire_size_rear ?? null,
     quit,
     deleteDraft,
   };
@@ -139,6 +141,9 @@ type SharedProps = {
   zoneIndex: number;
   ctDueDate: string | null;
   pollutionDueDate: string | null;
+  /** Monte mémorisée sur la fiche véhicule : vaut référence d'essieu confirmée. */
+  tireSizeFront: string | null;
+  tireSizeRear: string | null;
   quit: () => void;
   deleteDraft: () => void;
 };
