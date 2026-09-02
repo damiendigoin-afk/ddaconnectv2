@@ -7,7 +7,7 @@
  */
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
@@ -46,6 +46,16 @@ export function TireLabelCard({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [photoKey, setPhotoKey] = useState(0);
+
+  // Reprise d'un tour : l'étiquette déjà lue est remontée au parent au montage,
+  // sans nouvelle photo ni nouvel appel IA.
+  const notified = useRef(false);
+  useEffect(() => {
+    if (notified.current) return;
+    notified.current = true;
+    if (initial?.label) onLabel?.(initial.label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function save(next: { state: State; label: TireLabelAi | null }) {
     setState(next.state);

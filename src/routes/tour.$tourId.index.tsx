@@ -42,7 +42,7 @@ export const Route = createFileRoute("/tour/$tourId/")({
 async function loadTour(id: string) {
   const { data, error } = await supabase
     .from("vehicle_inspections")
-    .select("*, repair_order:repair_orders(id, or_number), vehicle:vehicles(id, plate, brand, model, last_mileage, ct_due_date, pollution_due_date)")
+    .select("*, repair_order:repair_orders(id, or_number), vehicle:vehicles(id, plate, brand, model, last_mileage, ct_due_date, pollution_due_date, tire_size_front, tire_size_rear)")
     .eq("id", id)
     .single();
   if (error) throw error;
@@ -120,6 +120,8 @@ function TourPage() {
     zoneIndex: tour.data.current_zone_index as number,
     ctDueDate: (vehicle as unknown as { ct_due_date?: string | null }).ct_due_date ?? null,
     pollutionDueDate: (vehicle as unknown as { pollution_due_date?: string | null }).pollution_due_date ?? null,
+    tireSizeFront: (vehicle as unknown as { tire_size_front?: string | null }).tire_size_front ?? null,
+    tireSizeRear: (vehicle as unknown as { tire_size_rear?: string | null }).tire_size_rear ?? null,
     quit,
     deleteDraft,
   };
@@ -139,6 +141,9 @@ type SharedProps = {
   zoneIndex: number;
   ctDueDate: string | null;
   pollutionDueDate: string | null;
+  /** Monte mémorisée sur la fiche véhicule : vaut référence d'essieu confirmée. */
+  tireSizeFront: string | null;
+  tireSizeRear: string | null;
   quit: () => void;
   deleteDraft: () => void;
 };
@@ -292,24 +297,33 @@ function Guided(props: SharedProps) {
   }
 
   // §10 — pneus à chiffrer sans référence complète confirmée sur l'essieu.
-  const tiresWithoutSize = useMemo(() => {
-    const all = points.data ?? [];
-    const axleConfirmed = new Set<string>();
-    for (const p of all) {
+  // Une monte complète mémorisée sur la fiche véhicule vaut confirmation
+  // d'essieu, exactement comme dans TireWheelCard.
+  const axleConfirmed = useMemo(() => {
+    const set = new Set<string>();
+    if (parseTireReference(props.tireSizeFront).complete) set.add("av");
+    if (parseTireReference(props.tireSizeRear ?? props.tireSizeFront).complete) set.add("ar");
+    for (const p of points.data ?? []) {
       if (!/^pneu_/.test(p.point_key)) continue;
       const ta = (p as unknown as { tire_analysis?: { confirmedRef?: string | null } | null })
         .tire_analysis;
       if (parseTireReference(ta?.confirmedRef).complete) {
-        axleConfirmed.add(p.point_key.includes("av") ? "av" : "ar");
+        set.add(p.point_key.includes("av") ? "av" : "ar");
       }
     }
-    return all.filter(
-      (p) =>
-        /^pneu_/.test(p.point_key) &&
-        (p.status === "watch" || p.status === "defect") &&
-        !axleConfirmed.has(p.point_key.includes("av") ? "av" : "ar"),
-    );
-  }, [points.data]);
+    return set;
+  }, [points.data, props.tireSizeFront, props.tireSizeRear]);
+
+  const tiresWithoutSize = useMemo(
+    () =>
+      (points.data ?? []).filter(
+        (p) =>
+          /^pneu_/.test(p.point_key) &&
+          (p.status === "watch" || p.status === "defect") &&
+          !axleConfirmed.has(p.point_key.includes("av") ? "av" : "ar"),
+      ),
+    [points.data, axleConfirmed],
+  );
   const [tireWarnOpen, setTireWarnOpen] = useState(false);
 
   const uploads = useUploadState();
@@ -328,13 +342,16 @@ function Guided(props: SharedProps) {
       if (p.point_key === "batterie" && p.status !== "unset" && !battery && !p.measure_value) {
         out.push({ key: p.point_key, label: "Batterie : aucun résultat de test exploité" });
       }
-      const tire = (p as unknown as { tire_analysis?: { size?: string | null } | null }).tire_analysis;
-      if (/^pneu_/.test(p.point_key) && (p.status === "watch" || p.status === "defect") && !tire?.size) {
+      if (
+        /^pneu_/.test(p.point_key) &&
+        (p.status === "watch" || p.status === "defect") &&
+        !axleConfirmed.has(p.point_key.includes("av") ? "av" : "ar")
+      ) {
         out.push({ key: p.point_key, label: `${p.point_label} : dimension pneumatique non exploitable` });
       }
     }
     return out;
-  }, [points.data, mileage]);
+  }, [points.data, mileage, axleConfirmed]);
 
   async function finish(opts?: { withoutTireSize?: boolean }) {
     if (!user) return;
