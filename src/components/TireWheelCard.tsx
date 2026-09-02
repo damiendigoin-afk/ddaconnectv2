@@ -35,6 +35,7 @@ import {
   type PublicTireItem,
   judgeTire,
   needsQuote,
+  oppositeWheel,
   parseTireReference,
   severityOf,
   wearGrid,
@@ -44,6 +45,13 @@ import {
   type TireSeason,
 } from "@/lib/tires";
 import type { PointRow } from "@/components/PointCard";
+
+const CHAR_STEP = {
+  key: "caracteres",
+  label: "Caractères du pneu",
+  mask: "tire-chars" as const,
+  hint: "Cadrer la dimension et les indices : 205/55 R16 91V",
+};
 
 const STEPS = [
   {
@@ -240,18 +248,25 @@ export function TireWheelCard({
     memorized ||
     fitment.data?.homologated_tire_size ||
     "";
-  const suggestion = stored.confirmedRef || readRef;
+  // Une seule confirmation par essieu suffit : la monte mémorisée sur l'essieu
+  // fait foi si elle est complète (dimension + charge + vitesse).
+  const memorizedParsed = parseTireReference(memorized);
+  const axleRef = stored.confirmedRef || (memorizedParsed.complete ? memorizedParsed.display : "");
+  const suggestion = axleRef || readRef;
   const currentRef = refTouched ? refInput : suggestion;
   const parsedRef = parseTireReference(currentRef);
   // Le devis n'est débloqué que par une référence COMPLÈTE : dimension + charge + vitesse.
-  const refConfirmed = parseTireReference(stored.confirmedRef).complete;
+  const refConfirmed = parseTireReference(axleRef).complete;
   const refState: "reconnue" | "partielle" | "introuvable" = parseTireReference(readRef).complete
     ? "reconnue"
     : parseTireReference(readRef).size
       ? "partielle"
       : "introuvable";
 
-  const effectiveSize = refConfirmed ? parseTireReference(stored.confirmedRef).size : null;
+  const effectiveSize = refConfirmed ? parseTireReference(axleRef).size : null;
+  // Photo 3 (caractères du pneu) : uniquement si aucune référence exploitable.
+  const needsCharShot = !refConfirmed && !parseTireReference(readRef).complete;
+  const captureSteps = needsCharShot ? [...STEPS, CHAR_STEP] : STEPS;
 
   // Consultation publique réelle des prix TTC, refaite à chaque chiffrage/recalcul.
   const publicQuery = useQuery({
@@ -261,6 +276,29 @@ export function TireWheelCard({
     queryFn: () => publicOffers({ data: { size: effectiveSize as string } }),
   });
 
+
+  /** Préremplit la roue opposée du même essieu sans jamais écraser une saisie. */
+  async function prefillOpposite(patch: { status?: PointStatus; ref?: string }) {
+    const opp = oppositeWheel(code);
+    if (!opp) return;
+    const { data } = await supabase
+      .from("inspection_points")
+      .select("id, status, tire_analysis")
+      .eq("inspection_id", inspectionId)
+      .eq("point_key", `pneu_${opp}`)
+      .maybeSingle();
+    if (!data) return;
+    const update: Record<string, unknown> = {};
+    if (patch.status && data.status === "unset") update["status"] = patch.status;
+    if (patch.ref) {
+      const other = readStored((data as { tire_analysis?: unknown }).tire_analysis);
+      if (!parseTireReference(other.confirmedRef).complete) {
+        update["tire_analysis"] = { ...other, confirmedRef: patch.ref } as never;
+      }
+    }
+    if (!Object.keys(update).length) return;
+    await supabase.from("inspection_points").update(update).eq("id", data.id);
+  }
 
   async function persist(next: Stored, extra: Record<string, unknown> = {}) {
     setStored(next);
@@ -352,6 +390,7 @@ export function TireWheelCard({
         measure_unit: "mm",
         comment: partial ? "Analyse partielle : qualité des photos insuffisante" : point.comment,
       });
+      if (st === "watch" || st === "defect") await prefillOpposite({ status: st });
       if (partial) toast.warning("Analyse partielle — la dimension pourra être saisie au chiffrage");
     } catch (e) {
       console.error(e);
@@ -384,7 +423,8 @@ export function TireWheelCard({
         .eq("id", vehicleId);
       void fitment.refetch();
     }
-    toast.success(`Référence confirmée : ${parsed.display}`);
+    await prefillOpposite({ ref: parsed.display });
+    toast.success(`Référence confirmée : ${parsed.display} — proposée sur l'autre roue de l'essieu`);
   }
 
 
@@ -531,6 +571,7 @@ export function TireWheelCard({
         onChange={(v) => {
           setStatus(v);
           void supabase.from("inspection_points").update({ status: v }).eq("id", point.id);
+          if (v === "watch" || v === "defect") void prefillOpposite({ status: v });
         }}
       />
 
@@ -541,7 +582,11 @@ export function TireWheelCard({
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-base font-extrabold uppercase text-brand-foreground disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
-        {busy ? "Analyse en cours…" : stored.ai ? "Reprendre les 2 photos" : "Photographier la roue (2 photos)"}
+        {busy
+          ? "Analyse en cours…"
+          : stored.ai
+            ? `Reprendre les ${captureSteps.length} photos`
+            : `Photographier la roue (${captureSteps.length} photos)`}
       </button>
 
       {stored.ai ? (
@@ -752,7 +797,7 @@ export function TireWheelCard({
 
       {cameraOpen ? (
         <BurstCamera
-          steps={freeCamera ? [] : STEPS}
+          steps={freeCamera ? [] : captureSteps}
           allowFree={false}
           autoFinish={!freeCamera}
           title={point.point_label}
