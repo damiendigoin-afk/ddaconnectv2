@@ -710,7 +710,7 @@ export function TireWheelCard({
             </span>
             <p className="text-[11px] text-muted-foreground">
               {refConfirmed
-                ? `Confirmée : ${stored.confirmedRef}`
+                ? `Confirmée : ${parseTireReference(axleRef).display || axleRef}`
                 : refState === "reconnue"
                   ? "Référence lue au flanc — vérifiez puis confirmez."
                   : refState === "partielle"

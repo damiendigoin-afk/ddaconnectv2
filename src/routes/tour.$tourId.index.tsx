@@ -42,7 +42,7 @@ export const Route = createFileRoute("/tour/$tourId/")({
 async function loadTour(id: string) {
   const { data, error } = await supabase
     .from("vehicle_inspections")
-    .select("*, repair_order:repair_orders(id, or_number), vehicle:vehicles(id, plate, brand, model, last_mileage, ct_due_date, pollution_due_date)")
+    .select("*, repair_order:repair_orders(id, or_number), vehicle:vehicles(id, plate, brand, model, last_mileage, ct_due_date, pollution_due_date, tire_size_front, tire_size_rear)")
     .eq("id", id)
     .single();
   if (error) throw error;
