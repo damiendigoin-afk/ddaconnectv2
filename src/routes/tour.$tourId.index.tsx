@@ -305,18 +305,9 @@ function Guided(props: SharedProps) {
     if (parseTireReference(props.tireSizeRear ?? props.tireSizeFront).complete) set.add("ar");
     for (const p of points.data ?? []) {
       if (!/^pneu_/.test(p.point_key)) continue;
-      const ta = (
-        p as unknown as {
-          tire_analysis?: {
-            confirmedRef?: string | null;
-            final?: { size?: string | null; load_index?: string | null; speed_index?: string | null } | null;
-            ai?: { size?: string | null; load_index?: string | null; speed_index?: string | null } | null;
-          } | null;
-        }
-      ).tire_analysis;
-      const r = ta?.final ?? ta?.ai ?? null;
-      const read = [r?.size, r?.load_index, r?.speed_index].filter(Boolean).join(" ");
-      if (parseTireReference(ta?.confirmedRef).complete || parseTireReference(read).complete) {
+      const ta = (p as unknown as { tire_analysis?: { confirmedRef?: string | null } | null })
+        .tire_analysis;
+      if (parseTireReference(ta?.confirmedRef).complete) {
         set.add(p.point_key.includes("av") ? "av" : "ar");
       }
     }
@@ -351,13 +342,16 @@ function Guided(props: SharedProps) {
       if (p.point_key === "batterie" && p.status !== "unset" && !battery && !p.measure_value) {
         out.push({ key: p.point_key, label: "Batterie : aucun résultat de test exploité" });
       }
-      const tire = (p as unknown as { tire_analysis?: { size?: string | null } | null }).tire_analysis;
-      if (/^pneu_/.test(p.point_key) && (p.status === "watch" || p.status === "defect") && !tire?.size) {
+      if (
+        /^pneu_/.test(p.point_key) &&
+        (p.status === "watch" || p.status === "defect") &&
+        !axleConfirmed.has(p.point_key.includes("av") ? "av" : "ar")
+      ) {
         out.push({ key: p.point_key, label: `${p.point_label} : dimension pneumatique non exploitable` });
       }
     }
     return out;
-  }, [points.data, mileage]);
+  }, [points.data, mileage, axleConfirmed]);
 
   async function finish(opts?: { withoutTireSize?: boolean }) {
     if (!user) return;
