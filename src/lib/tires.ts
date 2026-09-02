@@ -851,6 +851,12 @@ export function axleOf(code: string): { label: string; wheels: string[] } {
     : { label: "Essieu arrière", wheels: ["arg", "ard"] };
 }
 
+/** Roue opposée du même essieu : AVG↔AVD, ARG↔ARD. */
+export function oppositeWheel(code: string): string | null {
+  const map: Record<string, string> = { avg: "avd", avd: "avg", arg: "ard", ard: "arg" };
+  return map[code] ?? null;
+}
+
 /* --------------------- Offres publiques (source web) ---------------------- */
 
 export type PublicTireItem = {
