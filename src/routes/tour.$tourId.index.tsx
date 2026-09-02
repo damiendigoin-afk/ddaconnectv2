@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
 import { finishTour } from "@/lib/tour-finish";
 import { markTourModified } from "@/lib/tour-admin";
+import { parseTireReference } from "@/lib/tires";
 import { useUploadState } from "@/lib/upload-tracker";
 import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
