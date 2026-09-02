@@ -22,6 +22,7 @@ export type MaskKind =
   | "sidewall"
   | "tread"
   | "tire-label"
+  | "tire-chars"
   | "document"
   | "plate"
   | "free";
@@ -124,7 +125,7 @@ export function BurstCamera({
   const maskKind = step?.mask ?? "free";
   useEffect(() => {
     if (!ready || !torchAvailable) return;
-    const wanted = maskKind === "wheel" || maskKind === "tread" || maskKind === "sidewall";
+    const wanted = maskKind === "wheel" || maskKind === "tread" || maskKind === "sidewall" || maskKind === "tire-chars";
     if (wanted !== torchOn) void applyTorch(wanted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, torchAvailable, maskKind]);
@@ -538,6 +539,23 @@ const MASKS: Record<MaskKind, ReactElement> = {
     <>
       <path d="M14 12 V58 Q14 84 50 84 Q86 84 86 58 V12" strokeWidth="1" />
       <path d="M30 22 V70 M50 22 V76 M70 22 V70" strokeDasharray="2 5" />
+    </>
+  ),
+  /* Caractères du pneu : cadre rapproché sur la dimension et les indices. */
+  "tire-chars": (
+    <>
+      <rect x="8" y="40" width="84" height="22" rx="3" strokeWidth="1" />
+      <text
+        x="50"
+        y="70"
+        fill="#ffd400"
+        fillOpacity="0.9"
+        stroke="none"
+        fontSize="4.6"
+        textAnchor="middle"
+      >
+        Cadrer 205/55 R16 91V
+      </text>
     </>
   ),
   /* Étiquette dimensions / pressions : petit cadre paysage. */

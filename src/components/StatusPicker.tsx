@@ -38,8 +38,9 @@ export function StatusPicker({
           data-on={value === o.value}
           onClick={() => onChange(value === o.value ? "unset" : o.value)}
           className={cn(
-            "rounded-lg border-2 border-border bg-card font-semibold transition-colors",
-            compact ? "px-2 py-2 text-xs" : "px-2 py-3 text-sm",
+            "rounded-lg border-2 border-border bg-card font-semibold uppercase leading-tight transition-colors",
+            "hyphens-auto break-words whitespace-normal",
+            compact ? "px-1 py-2 text-[10px]" : "px-1 py-3 text-xs sm:text-sm",
             o.cls,
           )}
         >
@@ -59,9 +60,9 @@ export function StatusBadge({ status }: { status: string }) {
   };
   const labels: Record<string, string> = {
     ok: "OK",
-    watch: "À surveiller",
-    defect: "Défaut",
-    unset: "Non renseigné",
+    watch: "À SURVEILLER",
+    defect: "DÉFAUT",
+    unset: "NON RENSEIGNÉ",
   };
   return (
     <span

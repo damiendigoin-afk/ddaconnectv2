@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
+import { isoDate, isoTimestamp } from "@/lib/datetime";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
 import { nextInternalRef } from "@/lib/or-ref";
@@ -292,7 +293,7 @@ function NewOrder() {
             vin: form.vin || null,
             brand: form.brand || null,
             model: form.model || null,
-            first_registration: form.first_registration || null,
+            first_registration: isoDate(form.first_registration),
             last_mileage: mileage,
             last_mileage_at: mileage ? new Date().toISOString() : null,
           })
@@ -315,15 +316,15 @@ function NewOrder() {
           or_number: form.or_number.trim() || null,
           internal_ref: internalRef,
           record_type: hasOrNumber ? "or_winmotor" : "intervention",
-          or_status: hasOrNumber ? "or_complet" : "sans_or",
+          or_status: hasOrNumber ? "or_complet" : "or_manquant",
           or_source: hasOrNumber ? "saisie_manuelle" : null,
           or_linked_at: hasOrNumber ? new Date().toISOString() : null,
 
-          or_date: form.or_date || null,
+          or_date: isoDate(form.or_date),
           client_remarks: form.client_remarks || null,
           requested_work: form.requested_work || null,
-          entry_at: form.entry_at ? new Date(form.entry_at).toISOString() : null,
-          delivery_at: form.delivery_at ? new Date(form.delivery_at).toISOString() : null,
+          entry_at: isoTimestamp(form.entry_at),
+          delivery_at: isoTimestamp(form.delivery_at),
           mileage_in: mileage,
         })
         .select()

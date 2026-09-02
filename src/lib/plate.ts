@@ -1,5 +1,20 @@
+/** Lettres cyrilliques visuellement identiques aux latines (claviers UA/RU). */
+const CYRILLIC_LOOKALIKES: Record<string, string> = {
+  "А": "A", "В": "B", "Е": "E", "Ѕ": "S", "І": "I", "Ј": "J", "К": "K", "М": "M",
+  "Н": "H", "О": "O", "Р": "P", "С": "C", "Т": "T", "У": "Y", "Х": "X",
+  "а": "A", "в": "B", "е": "E", "ѕ": "S", "і": "I", "ј": "J", "к": "K", "м": "M",
+  "н": "H", "о": "O", "р": "P", "с": "C", "т": "T", "у": "Y", "х": "X",
+};
+
+/** Remplace les caractères cyrilliques sosies par leur équivalent latin. */
+export function latinizePlate(input: string): string {
+  return (input || "").replace(/[\u0400-\u04FF]/g, (ch) => CYRILLIC_LOOKALIKES[ch] ?? ch);
+}
+
 export function normalizePlate(input: string): string {
-  return (input || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return latinizePlate(input || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 }
 
 /** Formats a normalized plate for display: AB123CD -> AB-123-CD */

@@ -41,8 +41,18 @@ export function buildHeaderIndex(headers: string[]): Record<string, string> {
   return idx;
 }
 
+const CYRILLIC_LOOKALIKES: Record<string, string> = {
+  "А": "A", "В": "B", "Е": "E", "І": "I", "К": "K", "М": "M", "Н": "H", "О": "O",
+  "Р": "P", "С": "C", "Т": "T", "Х": "X",
+  "а": "A", "в": "B", "е": "E", "і": "I", "к": "K", "м": "M", "н": "H", "о": "O",
+  "р": "P", "с": "C", "т": "T", "х": "X",
+};
+
 export function normalizeRegistration(v: string): string {
-  return (v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return (v || "")
+    .replace(/[\u0400-\u04FF]/g, (ch) => CYRILLIC_LOOKALIKES[ch] ?? ch)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 }
 
 export function formatRegistration(v: string): string {

@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
 import { finishTour } from "@/lib/tour-finish";
 import { markTourModified } from "@/lib/tour-admin";
+import { parseTireReference } from "@/lib/tires";
 import { useUploadState } from "@/lib/upload-tracker";
 import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
@@ -290,6 +291,27 @@ function Guided(props: SharedProps) {
       .eq("id", props.tourId);
   }
 
+  // §10 — pneus à chiffrer sans référence complète confirmée sur l'essieu.
+  const tiresWithoutSize = useMemo(() => {
+    const all = points.data ?? [];
+    const axleConfirmed = new Set<string>();
+    for (const p of all) {
+      if (!/^pneu_/.test(p.point_key)) continue;
+      const ta = (p as unknown as { tire_analysis?: { confirmedRef?: string | null } | null })
+        .tire_analysis;
+      if (parseTireReference(ta?.confirmedRef).complete) {
+        axleConfirmed.add(p.point_key.includes("av") ? "av" : "ar");
+      }
+    }
+    return all.filter(
+      (p) =>
+        /^pneu_/.test(p.point_key) &&
+        (p.status === "watch" || p.status === "defect") &&
+        !axleConfirmed.has(p.point_key.includes("av") ? "av" : "ar"),
+    );
+  }, [points.data]);
+  const [tireWarnOpen, setTireWarnOpen] = useState(false);
+
   const uploads = useUploadState();
   const blockClose = uploads.pending > 0 || uploads.failed.length > 0;
 
@@ -314,7 +336,7 @@ function Guided(props: SharedProps) {
     return out;
   }, [points.data, mileage]);
 
-  async function finish() {
+  async function finish(opts?: { withoutTireSize?: boolean }) {
     if (!user) return;
     if (props.editingCompleted) {
       // Modification d'un tour déjà clôturé : on ne rejoue pas la clôture.
@@ -333,7 +355,9 @@ function Guided(props: SharedProps) {
       tourId: props.tourId,
       userId: user.id,
       userName: displayName || "Utilisateur",
-      source: "bouton_terminer",
+      source: opts?.withoutTireSize
+        ? "bouton_terminer_sans_dimension_pneu"
+        : "bouton_terminer",
     });
     if (!ok) return;
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
@@ -396,8 +420,60 @@ function Guided(props: SharedProps) {
             >
               Modifier
             </button>
+            {tireWarnOpen && tiresWithoutSize.length ? (
+              <section className="rounded-xl border-2 border-status-defect bg-status-defect-soft p-3">
+                <p className="text-sm font-extrabold uppercase text-status-defect">
+                  Pneu(s) à chiffrer sans dimension confirmée
+                </p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-status-defect">
+                  {tiresWithoutSize.map((p) => (
+                    <li key={p.id}>{p.point_label}</li>
+                  ))}
+                </ul>
+                <div className="mt-2 grid gap-2">
+                  <button
+                    onClick={() => {
+                      setTireWarnOpen(false);
+                      setShowSummary(false);
+                      const first = tiresWithoutSize[0];
+                      if (first) void goto(zones.findIndex((z) => z.index === first.zone_index) + 1);
+                    }}
+                    className="rounded-lg bg-brand px-3 py-3 text-xs font-extrabold uppercase text-brand-foreground"
+                  >
+                    Photographier les caractères du pneu
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTireWarnOpen(false);
+                      setShowSummary(false);
+                      const first = tiresWithoutSize[0];
+                      if (first) void goto(zones.findIndex((z) => z.index === first.zone_index) + 1);
+                    }}
+                    className="rounded-lg border-2 border-border px-3 py-3 text-xs font-extrabold uppercase"
+                  >
+                    Saisir la dimension
+                  </button>
+                  <button
+                    onClick={() => void finish({ withoutTireSize: true })}
+                    className="rounded-lg border-2 border-status-defect px-3 py-3 text-xs font-extrabold uppercase text-status-defect"
+                  >
+                    Clôturer quand même sans dimension
+                  </button>
+                </div>
+              </section>
+            ) : null}
             <button
-              onClick={() => void finish()}
+              onClick={() => {
+                if (
+                  !props.editingCompleted &&
+                  tiresWithoutSize.length &&
+                  !tireWarnOpen
+                ) {
+                  setTireWarnOpen(true);
+                  return;
+                }
+                void finish();
+              }}
               disabled={blockClose}
               className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground disabled:opacity-50"
             >
@@ -619,7 +695,7 @@ function Free(props: SharedProps) {
   const freeUploads = useUploadState();
   const freeBlockClose = freeUploads.pending > 0 || freeUploads.failed.length > 0;
 
-  async function finish() {
+  async function finish(opts?: { withoutTireSize?: boolean }) {
     if (!user) return;
     if (props.editingCompleted) {
       try {
@@ -637,7 +713,9 @@ function Free(props: SharedProps) {
       tourId: props.tourId,
       userId: user.id,
       userName: displayName || "Utilisateur",
-      source: "bouton_terminer",
+      source: opts?.withoutTireSize
+        ? "bouton_terminer_sans_dimension_pneu"
+        : "bouton_terminer",
     });
     if (!ok) return;
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
