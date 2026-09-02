@@ -288,7 +288,7 @@ export function TireWheelCard({
       .eq("point_key", `pneu_${opp}`)
       .maybeSingle();
     if (!data) return;
-    const update: Record<string, unknown> = {};
+    const update: { status?: string; tire_analysis?: never } = {};
     if (patch.status && data.status === "unset") update["status"] = patch.status;
     if (patch.ref) {
       const other = readStored((data as { tire_analysis?: unknown }).tire_analysis);
