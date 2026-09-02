@@ -297,24 +297,42 @@ function Guided(props: SharedProps) {
   }
 
   // §10 — pneus à chiffrer sans référence complète confirmée sur l'essieu.
-  const tiresWithoutSize = useMemo(() => {
-    const all = points.data ?? [];
-    const axleConfirmed = new Set<string>();
-    for (const p of all) {
+  // Une monte complète mémorisée sur la fiche véhicule vaut confirmation
+  // d'essieu, exactement comme dans TireWheelCard.
+  const axleConfirmed = useMemo(() => {
+    const set = new Set<string>();
+    if (parseTireReference(props.tireSizeFront).complete) set.add("av");
+    if (parseTireReference(props.tireSizeRear ?? props.tireSizeFront).complete) set.add("ar");
+    for (const p of points.data ?? []) {
       if (!/^pneu_/.test(p.point_key)) continue;
-      const ta = (p as unknown as { tire_analysis?: { confirmedRef?: string | null } | null })
-        .tire_analysis;
-      if (parseTireReference(ta?.confirmedRef).complete) {
-        axleConfirmed.add(p.point_key.includes("av") ? "av" : "ar");
+      const ta = (
+        p as unknown as {
+          tire_analysis?: {
+            confirmedRef?: string | null;
+            final?: { size?: string | null; load_index?: string | null; speed_index?: string | null } | null;
+            ai?: { size?: string | null; load_index?: string | null; speed_index?: string | null } | null;
+          } | null;
+        }
+      ).tire_analysis;
+      const r = ta?.final ?? ta?.ai ?? null;
+      const read = [r?.size, r?.load_index, r?.speed_index].filter(Boolean).join(" ");
+      if (parseTireReference(ta?.confirmedRef).complete || parseTireReference(read).complete) {
+        set.add(p.point_key.includes("av") ? "av" : "ar");
       }
     }
-    return all.filter(
-      (p) =>
-        /^pneu_/.test(p.point_key) &&
-        (p.status === "watch" || p.status === "defect") &&
-        !axleConfirmed.has(p.point_key.includes("av") ? "av" : "ar"),
-    );
-  }, [points.data]);
+    return set;
+  }, [points.data, props.tireSizeFront, props.tireSizeRear]);
+
+  const tiresWithoutSize = useMemo(
+    () =>
+      (points.data ?? []).filter(
+        (p) =>
+          /^pneu_/.test(p.point_key) &&
+          (p.status === "watch" || p.status === "defect") &&
+          !axleConfirmed.has(p.point_key.includes("av") ? "av" : "ar"),
+      ),
+    [points.data, axleConfirmed],
+  );
   const [tireWarnOpen, setTireWarnOpen] = useState(false);
 
   const uploads = useUploadState();
