@@ -48,6 +48,7 @@ import { Route as NotesFraisIndexRouteImport } from './routes/notes-frais.index'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
+import { Route as ParametrageApiRouteImport } from './routes/parametrage.api'
 import { Route as ParametrageChiffrageRouteImport } from './routes/parametrage.chiffrage'
 import { Route as ParametrageCoutsRouteImport } from './routes/parametrage.couts'
 import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.global'
@@ -276,6 +277,11 @@ const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
   path: '/parametrage/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageApiRoute = ParametrageApiRouteImport.update({
+  id: '/parametrage/api',
+  path: '/parametrage/api',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametrageChiffrageRoute = ParametrageChiffrageRouteImport.update({
   id: '/parametrage/chiffrage',
   path: '/parametrage/chiffrage',
@@ -470,6 +476,7 @@ export interface FileRoutesByFullPath {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
@@ -543,6 +550,7 @@ export interface FileRoutesByTo {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
@@ -617,6 +625,7 @@ export interface FileRoutesById {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
@@ -692,6 +701,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
     | '/parametrage/global'
@@ -765,6 +775,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
     | '/parametrage/global'
@@ -838,6 +849,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
     | '/parametrage/global'
@@ -912,6 +924,7 @@ export interface RootRouteChildren {
   MagasinNouveauRoute: typeof MagasinNouveauRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
+  ParametrageApiRoute: typeof ParametrageApiRoute
   ParametrageChiffrageRoute: typeof ParametrageChiffrageRoute
   ParametrageCoutsRoute: typeof ParametrageCoutsRoute
   ParametrageGlobalRoute: typeof ParametrageGlobalRoute
@@ -1233,6 +1246,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/api': {
+      id: '/parametrage/api'
+      path: '/parametrage/api'
+      fullPath: '/parametrage/api'
+      preLoaderRoute: typeof ParametrageApiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametrage/chiffrage': {
       id: '/parametrage/chiffrage'
       path: '/parametrage/chiffrage'
@@ -1488,6 +1508,7 @@ const rootRouteChildren: RootRouteChildren = {
   MagasinNouveauRoute: MagasinNouveauRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
+  ParametrageApiRoute: ParametrageApiRoute,
   ParametrageChiffrageRoute: ParametrageChiffrageRoute,
   ParametrageCoutsRoute: ParametrageCoutsRoute,
   ParametrageGlobalRoute: ParametrageGlobalRoute,
