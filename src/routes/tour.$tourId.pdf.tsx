@@ -159,17 +159,28 @@ function PdfPage() {
   const ctDates = reportCtDates(d);
   const clientName = [d.order?.client?.first_name, d.order?.client?.last_name].filter(Boolean).join(" ");
 
+  // Seuls les contrôles réellement effectués sont imprimés : aucune ligne
+  // « non contrôlé » ne doit apparaître dans le document client.
+  const donePoints = d.points.filter(
+    (p) =>
+      p.status === "ok" ||
+      p.status === "watch" ||
+      p.status === "defect" ||
+      Boolean(p.comment) ||
+      p.measure_value != null,
+  );
+
   // Regroupement par zone, dans l'ordre réel des points enregistrés : aucune
   // case n'est fabriquée, seuls les contrôles existants du tour sont restitués.
   const zones: { label: string; points: typeof d.points }[] = [];
-  for (const p of d.points) {
+  for (const p of donePoints) {
     const label = p.zone_label || "Contrôles";
     const last = zones[zones.length - 1];
     if (last && last.label === label) last.points.push(p);
     else zones.push({ label, points: [p] });
   }
   const counts = { ok: 0, watch: 0, defect: 0, unset: 0 };
-  for (const p of d.points) {
+  for (const p of donePoints) {
     const key = (p.status === "ok" || p.status === "watch" || p.status === "defect"
       ? p.status
       : "unset") as keyof typeof counts;
