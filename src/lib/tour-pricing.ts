@@ -15,7 +15,14 @@ import {
   type Priority,
 } from "./pricing-engine";
 import { buildVehicleProfile, type VehicleProfile } from "./vehicle-profile";
-import { SEASON_LABEL, type TireQuoteOffer, type TireSeason } from "./tires";
+import {
+  mountPackageFor,
+  parseTireReference,
+  SEASON_LABEL,
+  type TireQuoteOffer,
+  type TireSeason,
+} from "./tires";
+import { laborRate } from "./pricing";
 
 type PointRow = {
   id: string;
@@ -156,7 +163,10 @@ export async function priceTour(args: {
   }
 
   const items: PricedItem[] = [];
+  /** Pneus non chiffrés faute d'offre fournisseur : regroupés en fin de parcours. */
+  const pendingTires: { point: PointRow; priority: Priority; offersReady: number }[] = [];
   for (const p of (points ?? []) as PointRow[]) {
+
     const priority = priorityFromStatus(p.status);
     const mapping = mapPoint(p.point_key);
     const detail = p.comment ?? "";
@@ -206,15 +216,15 @@ export async function priceTour(args: {
                 battery_test: test as unknown,
               },
             }
-          : contactItem({
+          : genericBatteryItem({
+              ctx,
               label: `${p.point_label} — remplacement batterie`,
-              block: "mecanique",
               priority: priority ?? "a_remplacer",
-              detail: batteryDetail(test),
-              reason:
-                "Donnée manquante : forfait batterie du référentiel (capacité/CCA du véhicule) non paramétré.",
+              detail: [detail, batteryDetail(test)].filter(Boolean).join(" · "),
+              test,
               originPointKey: p.point_key,
             }),
+
       );
       continue;
     }
@@ -267,21 +277,16 @@ export async function priceTour(args: {
         });
         continue;
       }
-      const available = pointOffers.filter((o) => o.total_ttc != null).length;
-      items.push(
-        contactItem({
-          label: `${p.point_label} — remplacement pneumatique`,
-          block: "mecanique",
-          priority,
-          detail,
-          reason: available
-            ? `${available} proposition(s) préparée(s) — l'opérateur doit retenir l'offre à intégrer au devis.`
-            : "Donnée manquante : dimension exploitable ou tarif public actuellement indisponible.",
-          originPointKey: p.point_key,
-        }),
-      );
+      // Aucune offre fournisseur retenue : on ne jette pas le constat, il est
+      // regroupé en une proposition « x pneus » exploitable et modifiable.
+      pendingTires.push({
+        point: p,
+        priority,
+        offersReady: pointOffers.filter((o) => o.total_ttc != null).length,
+      });
       continue;
     }
+
 
     if (!mapping) {
       items.push(
@@ -323,5 +328,193 @@ export async function priceTour(args: {
       });
     }
   }
+
+  if (pendingTires.length) {
+    const memory = await tireMemoryFor(args.inspectionId);
+    items.push(...groupTireItems(ctx, pendingTires, memory, vehicle.homologatedTireSize ?? null));
+  }
   return { ctx, vehicle, items };
+}
+
+/* ------------------------- Propositions génériques ------------------------ */
+
+const GENERIC_BATTERY_HOURS = 0.4;
+
+/**
+ * Aucun forfait batterie au référentiel : on propose quand même une ligne
+ * exploitable (main-d'œuvre chiffrée à la grille + pièce à compléter) plutôt
+ * qu'un devis vide. Le prix de la batterie reste à saisir par l'opérateur.
+ */
+export function genericBatteryItem(args: {
+  ctx: EngineContext;
+  label: string;
+  priority: Priority;
+  detail: string;
+  test?: BatteryTest | null;
+  originPointKey?: string | null;
+}): PricedItem {
+  const rate = laborRate(args.ctx.pricing?.rates ?? []);
+  const ht = Math.round(GENERIC_BATTERY_HOURS * rate.ht * 100) / 100;
+  const ttc = Math.round(GENERIC_BATTERY_HOURS * rate.ttc * 100) / 100;
+  const capacity = args.test?.cca_rated ? `${args.test.cca_rated} CCA nominaux` : "type/capacité à confirmer";
+  return {
+    ok: ht > 0,
+    needsContact: true,
+    message: "Batterie à compléter : référence et prix pièce à renseigner.",
+    label: `${args.label} (référence à confirmer)`,
+    detail: [args.detail, `Pièce non chiffrée — ${capacity}. Main-d'œuvre pose incluse.`]
+      .filter(Boolean)
+      .join(" · "),
+    block: "mecanique",
+    priority: args.priority,
+    quantity: 1,
+    hours: GENERIC_BATTERY_HOURS,
+    unitHt: ht,
+    totalHt: ht,
+    totalTtc: ttc,
+    source: ht > 0 ? "grille_atelier" : "saisie_manuelle",
+    confidence: "faible",
+    computation: {
+      method: "proposition_generique_batterie",
+      labor_hours: GENERIC_BATTERY_HOURS,
+      labor_rate_ht: rate.ht,
+      battery_part_ht: null,
+      battery_test: (args.test ?? null) as unknown,
+    },
+    originPointKey: args.originPointKey ?? null,
+  };
+}
+
+/** Dimension exploitable d'un point pneu : référence confirmée, puis lecture IA. */
+export function tireSizeOfPoint(analysis: unknown): string | null {
+  const a = (analysis ?? null) as
+    | { confirmedRef?: string | null; final?: { size?: string | null } | null; ai?: { size?: string | null } | null }
+    | null;
+  if (!a) return null;
+  for (const candidate of [a.confirmedRef, a.final?.size, a.ai?.size]) {
+    const parsed = parseTireReference(candidate);
+    if (parsed.display) return parsed.display;
+  }
+  return null;
+}
+
+async function tireMemoryFor(inspectionId: string): Promise<{ front: string | null; rear: string | null }> {
+  const { data } = await supabase
+    .from("vehicle_inspections")
+    .select("vehicle:vehicles(tire_size_front, tire_size_rear)")
+    .eq("id", inspectionId)
+    .maybeSingle();
+  const v = (data as { vehicle?: { tire_size_front?: string | null; tire_size_rear?: string | null } | null } | null)
+    ?.vehicle;
+  return { front: v?.tire_size_front ?? null, rear: v?.tire_size_rear ?? null };
+}
+
+/**
+ * Regroupement des pneus constatés (défaut ET à surveiller) en propositions
+ * « x pneus », avec forfait de montage si référencé. Sans dimension exploitable,
+ * la ligne reste présente avec la mention « dimension à renseigner ».
+ */
+export function groupTireItems(
+  ctx: EngineContext,
+  pending: { point: PointRow; priority: Priority; offersReady: number }[],
+  memory: { front: string | null; rear: string | null } = { front: null, rear: null },
+  homologated: string | null = null,
+): PricedItem[] {
+  const groups = new Map<string, { size: string | null; entries: typeof pending }>();
+  for (const entry of pending) {
+    const axle = /_ar/.test(entry.point.point_key) ? "arriere" : "avant";
+    const size =
+      tireSizeOfPoint(entry.point.tire_analysis) ||
+      parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ||
+      parseTireReference(homologated).display ||
+      null;
+    const key = size ?? `inconnue_${axle}`;
+    const g = groups.get(key) ?? { size, entries: [] as typeof pending };
+    g.entries.push(entry);
+    groups.set(key, g);
+  }
+
+  const out: PricedItem[] = [];
+  for (const g of groups.values()) {
+    const quantity = g.entries.length;
+    const mount = mountPackageFor(ctx.packages, quantity);
+    const wheels = g.entries.map((e) => e.point.point_label).join(", ");
+    const priority: Priority = g.entries.some((e) => e.priority === "urgent") ? "urgent" : "a_surveiller";
+    const offersReady = g.entries.reduce((s, e) => s + e.offersReady, 0);
+    const ttc = mount?.totalTtc ?? 0;
+    const ht = Math.round((ttc / 1.2) * 100) / 100;
+    out.push({
+      ok: false,
+      needsContact: true,
+      message: g.size
+        ? "Prix pneu à compléter : offre fournisseur non disponible."
+        : "Chiffrage incomplet : renseigner la dimension pneu.",
+      label: `${quantity} pneu${quantity > 1 ? "x" : ""} ${g.size || "— dimension à renseigner"}`.trim(),
+      detail: [
+        wheels,
+        offersReady ? `${offersReady} proposition(s) fournisseur préparée(s) à retenir` : null,
+        mount ? `Montage inclus : ${mount.label}` : "Forfait de montage non référencé",
+        "Prix pneu à saisir ou à retenir depuis les offres.",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      block: "mecanique",
+      priority,
+      quantity,
+      hours: null,
+      unitHt: mount ? Math.round((mount.unitTtc / 1.2) * 100) / 100 : null,
+      totalHt: ht,
+      totalTtc: ttc,
+      source: mount ? "grille_atelier" : "saisie_manuelle",
+      confidence: "faible",
+      computation: {
+        method: "proposition_generique_pneus",
+        size: g.size,
+        wheels: g.entries.map((e) => e.point.point_key),
+        mount_package: mount?.label ?? null,
+        mount_total_ttc: mount?.totalTtc ?? null,
+        tire_price_ht: null,
+      },
+      originPointKey: g.entries[0]?.point.point_key ?? null,
+    });
+  }
+  return out;
+}
+
+
+export type UnpricedObservation = {
+  pointKey: string;
+  label: string;
+  statusLabel: string;
+  reason: string;
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  ok: "Conforme",
+  watch: "À surveiller",
+  defect: "Défaut",
+  unset: "Non contrôlé",
+};
+
+/**
+ * Explique, quand aucun chiffrage n'a pu être produit, ce qui a été observé
+ * pendant le tour et pourquoi ce n'est pas chiffré.
+ */
+export async function describeUnpricedTour(inspectionId: string): Promise<UnpricedObservation[]> {
+  const { data } = await supabase
+    .from("inspection_points")
+    .select("point_key, point_label, status, comment")
+    .eq("inspection_id", inspectionId)
+    .in("status", ["watch", "defect", "unset"]);
+  return ((data ?? []) as PointRow[]).map((p) => ({
+    pointKey: p.point_key,
+    label: p.point_label,
+    statusLabel: STATUS_LABEL[p.status ?? "unset"] ?? "Non contrôlé",
+    reason:
+      p.status === "unset"
+        ? "Point non contrôlé : aucun constat à chiffrer."
+        : mapPoint(p.point_key)
+          ? "Constat chiffrable mais donnée manquante (dimension pneu / type batterie / tarif)."
+          : "Aucune correspondance de chiffrage pour ce point : à traiter manuellement.",
+  }));
 }
