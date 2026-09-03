@@ -17,17 +17,26 @@ import {
   updateLine,
   type QuoteLine,
 } from "@/lib/quotes";
-import { priceTour } from "@/lib/tour-pricing";
+import { describeUnpricedTour, priceTour, type UnpricedObservation } from "@/lib/tour-pricing";
 import { prepareTourPricing } from "@/lib/tour-recompute";
 
 import type { Confidence, PriceSource, Priority, QuoteBlock } from "@/lib/pricing-engine";
 
+/** Origine lisible de la ligne : le client et l'opérateur voient d'où elle vient. */
+function originLabel(pointKey: string | null): string {
+  if (!pointKey) return "Issu du tour véhicule";
+  if (/^pneu/.test(pointKey)) return "Pneus issus du tour véhicule";
+  if (/^batterie/.test(pointKey)) return "Batterie issue du tour véhicule";
+  return "Constat issu du tour véhicule";
+}
+
 function toDisplay(l: QuoteLine): DisplayLine {
+  const origin = originLabel(l.origin_point_key);
   return {
     id: l.id,
     block: (l.block as QuoteBlock) ?? "mecanique",
     label: l.label,
-    detail: l.detail,
+    detail: [origin, l.detail].filter(Boolean).join(" — "),
     priority: (l.priority as Priority) ?? "a_prevoir",
     totalTtc: Number(l.total_ttc),
     needsContact: l.needs_contact,
@@ -51,6 +60,7 @@ export function TourQuoteSection({
 }) {
   const { user, displayName } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [emptyReport, setEmptyReport] = useState<UnpricedObservation[] | null>(null);
 
   const quote = useQuery({
     queryKey: ["tour-quote", inspectionId],
@@ -78,9 +88,11 @@ export function TourQuoteSection({
       });
 
       if (!items.length) {
-        toast.info("Aucun constat à chiffrer sur ce tour.");
+        setEmptyReport(await describeUnpricedTour(inspectionId));
+        toast.info("Aucun constat chiffrable : le détail des observations est affiché.");
         return;
       }
+      setEmptyReport(null);
       await createQuote({
         ctx,
         items,
@@ -95,7 +107,10 @@ export function TourQuoteSection({
       await quote.refetch();
       toast.success("Proposition chiffrée générée");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Chiffrage impossible");
+      console.error("[chiffrage tour]", e);
+      toast.error(
+        "Chiffrage incomplet : renseigner la dimension pneu / type batterie, puis relancer. Les lignes restent modifiables à la main.",
+      );
     } finally {
       setBusy(false);
     }
@@ -141,6 +156,25 @@ export function TourQuoteSection({
           {data ? "Recalculer" : "Chiffrer les constats"}
         </button>
       </div>
+
+      {emptyReport ? (
+        <div className="rounded-lg border border-dashed border-border p-3 text-xs">
+          <p className="font-bold uppercase">Aucun élément chiffrable trouvé</p>
+          {emptyReport.length ? (
+            <ul className="mt-2 space-y-1 text-muted-foreground">
+              {emptyReport.map((o) => (
+                <li key={o.pointKey}>
+                  <span className="font-semibold text-foreground">{o.label}</span> — {o.statusLabel} · {o.reason}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-muted-foreground">
+              Tous les points du tour sont conformes : rien à proposer au client.
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {!data ? (
         <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
