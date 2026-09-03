@@ -156,7 +156,10 @@ export async function priceTour(args: {
   }
 
   const items: PricedItem[] = [];
+  /** Pneus non chiffrés faute d'offre fournisseur : regroupés en fin de parcours. */
+  const pendingTires: { point: PointRow; priority: Priority; offersReady: number }[] = [];
   for (const p of (points ?? []) as PointRow[]) {
+
     const priority = priorityFromStatus(p.status);
     const mapping = mapPoint(p.point_key);
     const detail = p.comment ?? "";
