@@ -321,5 +321,156 @@ export async function priceTour(args: {
       });
     }
   }
+
+  if (pendingTires.length) {
+    const memory = await tireMemoryFor(args.inspectionId);
+    items.push(...groupTireItems(ctx, pendingTires, memory, vehicle.homologatedTireSize ?? null));
+  }
   return { ctx, vehicle, items };
 }
+
+/* ------------------------- Propositions génériques ------------------------ */
+
+const GENERIC_BATTERY_HOURS = 0.4;
+
+/**
+ * Aucun forfait batterie au référentiel : on propose quand même une ligne
+ * exploitable (main-d'œuvre chiffrée à la grille + pièce à compléter) plutôt
+ * qu'un devis vide. Le prix de la batterie reste à saisir par l'opérateur.
+ */
+export function genericBatteryItem(args: {
+  ctx: EngineContext;
+  label: string;
+  priority: Priority;
+  detail: string;
+  test?: BatteryTest | null;
+  originPointKey?: string | null;
+}): PricedItem {
+  const rate = laborRate(args.ctx.pricing?.rates ?? []);
+  const ht = Math.round(GENERIC_BATTERY_HOURS * rate.ht * 100) / 100;
+  const ttc = Math.round(GENERIC_BATTERY_HOURS * rate.ttc * 100) / 100;
+  const capacity = args.test?.cca_rated ? `${args.test.cca_rated} CCA nominaux` : "type/capacité à confirmer";
+  return {
+    ok: ht > 0,
+    needsContact: true,
+    message: "Batterie à compléter : référence et prix pièce à renseigner.",
+    label: `${args.label} (référence à confirmer)`,
+    detail: [args.detail, `Pièce non chiffrée — ${capacity}. Main-d'œuvre pose incluse.`]
+      .filter(Boolean)
+      .join(" · "),
+    block: "mecanique",
+    priority: args.priority,
+    quantity: 1,
+    hours: GENERIC_BATTERY_HOURS,
+    unitHt: ht,
+    totalHt: ht,
+    totalTtc: ttc,
+    source: ht > 0 ? "grille_atelier" : "saisie_manuelle",
+    confidence: "faible",
+    computation: {
+      method: "proposition_generique_batterie",
+      labor_hours: GENERIC_BATTERY_HOURS,
+      labor_rate_ht: rate.ht,
+      battery_part_ht: null,
+      battery_test: (args.test ?? null) as unknown,
+    },
+    originPointKey: args.originPointKey ?? null,
+  };
+}
+
+/** Dimension exploitable d'un point pneu : référence confirmée, puis lecture IA. */
+export function tireSizeOfPoint(analysis: unknown): string | null {
+  const a = (analysis ?? null) as
+    | { confirmedRef?: string | null; final?: { size?: string | null } | null; ai?: { size?: string | null } | null }
+    | null;
+  if (!a) return null;
+  for (const candidate of [a.confirmedRef, a.final?.size, a.ai?.size]) {
+    const parsed = parseTireReference(candidate);
+    if (parsed.display) return parsed.display;
+  }
+  return null;
+}
+
+async function tireMemoryFor(inspectionId: string): Promise<{ front: string | null; rear: string | null }> {
+  const { data } = await supabase
+    .from("vehicle_inspections")
+    .select("vehicle:vehicles(tire_size_front, tire_size_rear)")
+    .eq("id", inspectionId)
+    .maybeSingle();
+  const v = (data as { vehicle?: { tire_size_front?: string | null; tire_size_rear?: string | null } | null } | null)
+    ?.vehicle;
+  return { front: v?.tire_size_front ?? null, rear: v?.tire_size_rear ?? null };
+}
+
+/**
+ * Regroupement des pneus constatés (défaut ET à surveiller) en propositions
+ * « x pneus », avec forfait de montage si référencé. Sans dimension exploitable,
+ * la ligne reste présente avec la mention « dimension à renseigner ».
+ */
+export function groupTireItems(
+  ctx: EngineContext,
+  pending: { point: PointRow; priority: Priority; offersReady: number }[],
+  memory: { front: string | null; rear: string | null } = { front: null, rear: null },
+  homologated: string | null = null,
+): PricedItem[] {
+  const groups = new Map<string, { size: string | null; entries: typeof pending }>();
+  for (const entry of pending) {
+    const axle = /_ar/.test(entry.point.point_key) ? "arriere" : "avant";
+    const size =
+      tireSizeOfPoint(entry.point.tire_analysis) ??
+      parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ??
+      parseTireReference(homologated).display ??
+      null;
+    const key = size ?? `inconnue_${axle}`;
+    const g = groups.get(key) ?? { size, entries: [] as typeof pending };
+    g.entries.push(entry);
+    groups.set(key, g);
+  }
+
+  const out: PricedItem[] = [];
+  for (const g of groups.values()) {
+    const quantity = g.entries.length;
+    const mount = mountPackageFor(ctx.packages, quantity);
+    const wheels = g.entries.map((e) => e.point.point_label).join(", ");
+    const priority: Priority = g.entries.some((e) => e.priority === "urgent") ? "urgent" : "a_surveiller";
+    const offersReady = g.entries.reduce((s, e) => s + e.offersReady, 0);
+    const ttc = mount?.totalTtc ?? 0;
+    const ht = Math.round((ttc / 1.2) * 100) / 100;
+    out.push({
+      ok: false,
+      needsContact: true,
+      message: g.size
+        ? "Prix pneu à compléter : offre fournisseur non disponible."
+        : "Chiffrage incomplet : renseigner la dimension pneu.",
+      label: `${quantity} pneu${quantity > 1 ? "x" : ""} ${g.size ?? "— dimension à renseigner"}`.trim(),
+      detail: [
+        wheels,
+        offersReady ? `${offersReady} proposition(s) fournisseur préparée(s) à retenir` : null,
+        mount ? `Montage inclus : ${mount.label}` : "Forfait de montage non référencé",
+        "Prix pneu à saisir ou à retenir depuis les offres.",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      block: "mecanique",
+      priority,
+      quantity,
+      hours: null,
+      unitHt: mount ? Math.round((mount.unitTtc / 1.2) * 100) / 100 : null,
+      totalHt: ht,
+      totalTtc: ttc,
+      source: mount ? "grille_atelier" : "saisie_manuelle",
+      confidence: "faible",
+      computation: {
+        method: "proposition_generique_pneus",
+        size: g.size,
+        wheels: g.entries.map((e) => e.point.point_key),
+        mount_package: mount?.label ?? null,
+        mount_total_ttc: mount?.totalTtc ?? null,
+        tire_price_ht: null,
+      },
+      originPointKey: g.entries[0]?.point.point_key ?? null,
+    });
+  }
+  return out;
+}
+
