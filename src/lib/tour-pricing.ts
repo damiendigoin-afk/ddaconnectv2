@@ -209,15 +209,15 @@ export async function priceTour(args: {
                 battery_test: test as unknown,
               },
             }
-          : contactItem({
+          : genericBatteryItem({
+              ctx,
               label: `${p.point_label} — remplacement batterie`,
-              block: "mecanique",
               priority: priority ?? "a_remplacer",
-              detail: batteryDetail(test),
-              reason:
-                "Donnée manquante : forfait batterie du référentiel (capacité/CCA du véhicule) non paramétré.",
+              detail: [detail, batteryDetail(test)].filter(Boolean).join(" · "),
+              test,
               originPointKey: p.point_key,
             }),
+
       );
       continue;
     }
