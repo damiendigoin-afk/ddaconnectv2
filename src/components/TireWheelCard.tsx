@@ -517,40 +517,21 @@ export function TireWheelCard({
 
   async function selectOffer(offer: SevenOffer) {
     setSelectedSlot(offer.slot);
-    await supabase.from("tire_quote_offers").delete().eq("inspection_point_id", point.id);
-    await supabase.from("tire_quote_offers").insert(
-      offers.map((o) => ({
-        inspection_id: inspectionId,
-        inspection_point_id: point.id,
-        wheel_code: code,
-        kind: o.kind,
-        tier: o.tier,
-        season: o.season,
-        brand: o.brand,
-        model: o.model,
-        size: o.size,
-        load_index: o.loadIndex,
-        speed_index: o.speedIndex,
-        quantity: o.quantity,
-        supplier: o.supplier,
-        supplier_ref: o.supplierRef,
-        source_price_ht: o.unitSourceHt,
-        source_price_ttc: o.unitSourceHt == null ? null : Math.round(o.unitSourceHt * 1.2 * 100) / 100,
-        ...(o.consultedAt ? { consulted_at: o.consultedAt } : {}),
-        margin_ht: o.marginHt,
-        sell_price_ht: o.unitSellHt,
-        mount_package: o.mountLabel,
-        mount_total_ttc: o.mountTtc,
-        total_ht: o.totalHt,
-        total_vat: o.totalVat,
-        total_ttc: o.totalTtc,
-        availability: o.availability,
-        compatibility: o.compatibilityMessage,
-        selected: o.slot === offer.slot,
-        initial_payload: o as never,
-        final_payload: o.slot === offer.slot ? (o as never) : null,
-      })),
+    const purge = await supabase.from("tire_quote_offers").delete().eq("inspection_point_id", point.id);
+    if (purge.error) toast.warning(`Anciennes offres non supprimées : ${purge.error.message}`);
+    const saved = await insertOffersResilient(
+      offerRows(offers, {
+        inspectionId,
+        pointId: point.id,
+        wheelCode: code,
+        selectedSlot: offer.slot,
+      }),
     );
+    if (!saved.count) {
+      toast.error(`Offres non enregistrées : ${saved.error ?? "raison inconnue"}`);
+      return;
+    }
+    if (saved.error) toast.warning(`Offres partiellement enregistrées : ${saved.error}`);
     toast.success("Offre retenue pour le devis");
   }
 
