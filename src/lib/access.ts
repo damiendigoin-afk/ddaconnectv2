@@ -17,6 +17,7 @@ export const MODULES = [
   { key: "notes_frais", label: "Notes de frais" },
   { key: "pilotage", label: "Gestion" },
   { key: "automatisations", label: "Automatisations" },
+  { key: "communication", label: "Communication" },
   { key: "stats_equipe", label: "Statistiques équipe" },
   { key: "stats_import", label: "Import statistiques" },
 ] as const;
