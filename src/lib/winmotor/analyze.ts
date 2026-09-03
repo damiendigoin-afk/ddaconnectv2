@@ -15,9 +15,43 @@ export type Analysis = {
   duplicateCustomers: number;
   anomalies: number;
   anomalySamples: { row: number; errors: string[] }[];
+  /** Lignes valides = lignes exploitables (au moins un identifiant véhicule). */
+  validRows: number;
+  /** Lignes ignorées = ni immatriculation, ni VIN, ni identifiant source. */
+  ignoredRows: number;
+  /** Alertes qualité non bloquantes, comptées par nature. */
+  alerts: { kind: AlertKind; label: string; count: number; sample: string | null }[];
   encoding: string;
   delimiter: string;
 };
+
+export type AlertKind =
+  | "missing_registration"
+  | "visit_future"
+  | "visit_old"
+  | "duplicate_key"
+  | "unreachable_contact"
+  | "site_mismatch";
+
+const ALERT_LABELS: Record<AlertKind, string> = {
+  missing_registration: "Immatriculation absente",
+  visit_future: "Date de dernière visite dans le futur",
+  visit_old: "Dernière visite de plus de 10 ans",
+  duplicate_key: "Doublon immatriculation / VIN",
+  unreachable_contact: "Aucun contact exploitable",
+  site_mismatch: "Code site incohérent avec le reste du fichier",
+};
+
+function siteCode(row: RawRow): string {
+  for (const [k, v] of Object.entries(row)) {
+    const n = k
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    if (n.includes("code du site") || n === "site" || n.includes("code site")) return String(v ?? "").trim().toUpperCase();
+  }
+  return "";
+}
 
 export function analyze(
   fileName: string,
