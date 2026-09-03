@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Database,
   Inbox,
+  KeyRound,
   MailCheck,
   ShieldCheck,
   SlidersHorizontal,
@@ -83,7 +84,12 @@ const ENTRIES: { to: string; label: string; hint: string; icon: LucideIcon }[] =
     hint: "Crédits d'analyse automatique consommés, cache, échecs facturés et budgets par jour et par mois",
     icon: Activity,
   },
-
+  {
+    to: "/parametrage/api",
+    label: "Paramètres API",
+    hint: "Services externes : OCR, email, stockage, géocodage — activation, clés masquées et test de connexion",
+    icon: KeyRound,
+  },
 
   {
     to: "/parametrage/notifications",

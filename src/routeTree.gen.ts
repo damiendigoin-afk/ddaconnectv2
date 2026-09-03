@@ -30,6 +30,7 @@ import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.impo
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
+import { Route as CommunicationIndexRouteImport } from './routes/communication.index'
 import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.index'
 import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as DarvaIndexRouteImport } from './routes/darva.index'
@@ -47,6 +48,7 @@ import { Route as NotesFraisIndexRouteImport } from './routes/notes-frais.index'
 import { Route as OrOrIdRouteImport } from './routes/or.$orId'
 import { Route as OrNouveauRouteImport } from './routes/or.nouveau'
 import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index'
+import { Route as ParametrageApiRouteImport } from './routes/parametrage.api'
 import { Route as ParametrageChiffrageRouteImport } from './routes/parametrage.chiffrage'
 import { Route as ParametrageCoutsRouteImport } from './routes/parametrage.couts'
 import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.global'
@@ -60,9 +62,11 @@ import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
 import { Route as RetourFournisseurTokenRouteImport } from './routes/retour-fournisseur.$token'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
+import { Route as StatistiquesClienteleRouteImport } from './routes/statistiques.clientele'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
 import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
+import { Route as ApiPublicApiCheckRouteImport } from './routes/api/public/api-check'
 import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
@@ -185,6 +189,11 @@ const ClientClientIdRoute = ClientClientIdRouteImport.update({
   path: '/client/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunicationIndexRoute = CommunicationIndexRouteImport.update({
+  id: '/communication/',
+  path: '/communication/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConnaissancesIndexRoute = ConnaissancesIndexRouteImport.update({
   id: '/connaissances/',
   path: '/connaissances/',
@@ -270,6 +279,11 @@ const ParametrageIndexRoute = ParametrageIndexRouteImport.update({
   path: '/parametrage/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageApiRoute = ParametrageApiRouteImport.update({
+  id: '/parametrage/api',
+  path: '/parametrage/api',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametrageChiffrageRoute = ParametrageChiffrageRouteImport.update({
   id: '/parametrage/chiffrage',
   path: '/parametrage/chiffrage',
@@ -336,6 +350,11 @@ const StatistiquesIndexRoute = StatistiquesIndexRouteImport.update({
   path: '/statistiques/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatistiquesClienteleRoute = StatistiquesClienteleRouteImport.update({
+  id: '/statistiques/clientele',
+  path: '/statistiques/clientele',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StatistiquesEquipeRoute = StatistiquesEquipeRouteImport.update({
   id: '/statistiques/equipe',
   path: '/statistiques/equipe',
@@ -349,6 +368,11 @@ const StatistiquesImportRoute = StatistiquesImportRouteImport.update({
 const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
   id: '/vehicule/$vehId',
   path: '/vehicule/$vehId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicApiCheckRoute = ApiPublicApiCheckRouteImport.update({
+  id: '/api/public/api-check',
+  path: '/api/public/api-check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BaseCorrectionsImportIdRoute = BaseCorrectionsImportIdRouteImport.update({
@@ -464,6 +488,7 @@ export interface FileRoutesByFullPath {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
@@ -473,12 +498,14 @@ export interface FileRoutesByFullPath {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
+  '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/communication/': typeof CommunicationIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
   '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
@@ -491,6 +518,7 @@ export interface FileRoutesByFullPath {
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
+  '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -536,6 +564,7 @@ export interface FileRoutesByTo {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
@@ -545,12 +574,14 @@ export interface FileRoutesByTo {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
+  '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/automatisations': typeof AutomatisationsIndexRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/communication': typeof CommunicationIndexRoute
   '/connaissances': typeof ConnaissancesIndexRoute
   '/crm': typeof CrmIndexRoute
   '/darva': typeof DarvaIndexRoute
@@ -563,6 +594,7 @@ export interface FileRoutesByTo {
   '/qualite': typeof QualiteIndexRoute
   '/recuperation': typeof RecuperationIndexRoute
   '/statistiques': typeof StatistiquesIndexRoute
+  '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -609,6 +641,7 @@ export interface FileRoutesById {
   '/magasin/nouveau': typeof MagasinNouveauRoute
   '/or/$orId': typeof OrOrIdRoute
   '/or/nouveau': typeof OrNouveauRoute
+  '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
@@ -618,12 +651,14 @@ export interface FileRoutesById {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
+  '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/communication/': typeof CommunicationIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
   '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
@@ -636,6 +671,7 @@ export interface FileRoutesById {
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
   '/statistiques/': typeof StatistiquesIndexRoute
+  '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
@@ -683,6 +719,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
     | '/parametrage/global'
@@ -692,12 +729,14 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
+    | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
     | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
+    | '/communication/'
     | '/connaissances/'
     | '/crm/'
     | '/darva/'
@@ -710,6 +749,7 @@ export interface FileRouteTypes {
     | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
+    | '/api/public/api-check'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -755,6 +795,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
     | '/parametrage/global'
@@ -764,12 +805,14 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
+    | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
     | '/automatisations'
     | '/base'
     | '/carrosserie'
+    | '/communication'
     | '/connaissances'
     | '/crm'
     | '/darva'
@@ -782,6 +825,7 @@ export interface FileRouteTypes {
     | '/qualite'
     | '/recuperation'
     | '/statistiques'
+    | '/api/public/api-check'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -827,6 +871,7 @@ export interface FileRouteTypes {
     | '/magasin/nouveau'
     | '/or/$orId'
     | '/or/nouveau'
+    | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
     | '/parametrage/global'
@@ -836,12 +881,14 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
+    | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
     | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
+    | '/communication/'
     | '/connaissances/'
     | '/crm/'
     | '/darva/'
@@ -854,6 +901,7 @@ export interface FileRouteTypes {
     | '/qualite/'
     | '/recuperation/'
     | '/statistiques/'
+    | '/api/public/api-check'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
     | '/expertise/$exId/rapport'
@@ -900,6 +948,7 @@ export interface RootRouteChildren {
   MagasinNouveauRoute: typeof MagasinNouveauRoute
   OrOrIdRoute: typeof OrOrIdRoute
   OrNouveauRoute: typeof OrNouveauRoute
+  ParametrageApiRoute: typeof ParametrageApiRoute
   ParametrageChiffrageRoute: typeof ParametrageChiffrageRoute
   ParametrageCoutsRoute: typeof ParametrageCoutsRoute
   ParametrageGlobalRoute: typeof ParametrageGlobalRoute
@@ -909,12 +958,14 @@ export interface RootRouteChildren {
   ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
   RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
+  StatistiquesClienteleRoute: typeof StatistiquesClienteleRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
   StatistiquesImportRoute: typeof StatistiquesImportRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   AutomatisationsIndexRoute: typeof AutomatisationsIndexRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  CommunicationIndexRoute: typeof CommunicationIndexRoute
   ConnaissancesIndexRoute: typeof ConnaissancesIndexRoute
   CrmIndexRoute: typeof CrmIndexRoute
   DarvaIndexRoute: typeof DarvaIndexRoute
@@ -927,6 +978,7 @@ export interface RootRouteChildren {
   QualiteIndexRoute: typeof QualiteIndexRoute
   RecuperationIndexRoute: typeof RecuperationIndexRoute
   StatistiquesIndexRoute: typeof StatistiquesIndexRoute
+  ApiPublicApiCheckRoute: typeof ApiPublicApiCheckRoute
   BaseCorrectionsImportIdRoute: typeof BaseCorrectionsImportIdRoute
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
@@ -1094,6 +1146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/communication/': {
+      id: '/communication/'
+      path: '/communication'
+      fullPath: '/communication/'
+      preLoaderRoute: typeof CommunicationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/connaissances/': {
       id: '/connaissances/'
       path: '/connaissances'
@@ -1213,6 +1272,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/api': {
+      id: '/parametrage/api'
+      path: '/parametrage/api'
+      fullPath: '/parametrage/api'
+      preLoaderRoute: typeof ParametrageApiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametrage/chiffrage': {
       id: '/parametrage/chiffrage'
       path: '/parametrage/chiffrage'
@@ -1304,6 +1370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StatistiquesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/statistiques/clientele': {
+      id: '/statistiques/clientele'
+      path: '/statistiques/clientele'
+      fullPath: '/statistiques/clientele'
+      preLoaderRoute: typeof StatistiquesClienteleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/statistiques/equipe': {
       id: '/statistiques/equipe'
       path: '/statistiques/equipe'
@@ -1323,6 +1396,13 @@ declare module '@tanstack/react-router' {
       path: '/vehicule/$vehId'
       fullPath: '/vehicule/$vehId'
       preLoaderRoute: typeof VehiculeVehIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/api-check': {
+      id: '/api/public/api-check'
+      path: '/api/public/api-check'
+      fullPath: '/api/public/api-check'
+      preLoaderRoute: typeof ApiPublicApiCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/base/corrections/$importId': {
@@ -1468,6 +1548,7 @@ const rootRouteChildren: RootRouteChildren = {
   MagasinNouveauRoute: MagasinNouveauRoute,
   OrOrIdRoute: OrOrIdRoute,
   OrNouveauRoute: OrNouveauRoute,
+  ParametrageApiRoute: ParametrageApiRoute,
   ParametrageChiffrageRoute: ParametrageChiffrageRoute,
   ParametrageCoutsRoute: ParametrageCoutsRoute,
   ParametrageGlobalRoute: ParametrageGlobalRoute,
@@ -1477,12 +1558,14 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,
   RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
+  StatistiquesClienteleRoute: StatistiquesClienteleRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
   StatistiquesImportRoute: StatistiquesImportRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   AutomatisationsIndexRoute: AutomatisationsIndexRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  CommunicationIndexRoute: CommunicationIndexRoute,
   ConnaissancesIndexRoute: ConnaissancesIndexRoute,
   CrmIndexRoute: CrmIndexRoute,
   DarvaIndexRoute: DarvaIndexRoute,
@@ -1495,6 +1578,7 @@ const rootRouteChildren: RootRouteChildren = {
   QualiteIndexRoute: QualiteIndexRoute,
   RecuperationIndexRoute: RecuperationIndexRoute,
   StatistiquesIndexRoute: StatistiquesIndexRoute,
+  ApiPublicApiCheckRoute: ApiPublicApiCheckRoute,
   BaseCorrectionsImportIdRoute: BaseCorrectionsImportIdRoute,
   BaseHistoriqueImportIdRoute: BaseHistoriqueImportIdRoute,
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,

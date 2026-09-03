@@ -9,6 +9,7 @@ import {
   Gauge,
   Hammer,
   Headphones,
+  Megaphone,
   LogOut,
   PackageOpen,
   SlidersHorizontal,
@@ -100,6 +101,13 @@ const MENU: { to: string; label: string; hint: string; icon: LucideIcon; module?
     hint: "Saisie des dépenses, justificatifs et validation manager",
     icon: FileSpreadsheet,
     module: "notes_frais",
+  },
+  {
+    to: "/communication",
+    label: "Communication",
+    hint: "Bibliothèque des supports publicitaires Renault / Dacia et rotation d'affichage",
+    icon: Megaphone,
+    module: "communication",
   },
   {
     to: "/statistiques",

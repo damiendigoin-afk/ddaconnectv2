@@ -8,6 +8,13 @@
       "when": 1788293375756,
       "tag": "0000_activity_import_apply_atomic",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788454483345,
+      "tag": "0001_communication_api_journaux",
+      "breakpoints": true
     }
   ]
 }

@@ -17,14 +17,31 @@ function decode(buf: ArrayBuffer): { text: string; encoding: string } {
   }
 }
 
-function detectDelimiter(firstLine: string): string {
-  const candidates = [";", "\t", ",", "|"];
+/**
+ * Détection du séparateur sur plusieurs lignes : un export Winmotor en
+ * point-virgule contient souvent des virgules dans les libellés, un titre en
+ * première ligne ou des lignes vides. On retient le séparateur qui découpe le
+ * plus de colonnes de façon stable d'une ligne à l'autre.
+ */
+export function detectDelimiter(sample: string): string {
+  const candidates = [";", "\t", "|", ","];
+  const lines = sample
+    .split("\n")
+    .map((l) => l.replace(/\r$/, ""))
+    .filter((l) => l.trim() !== "")
+    .slice(0, 20);
+  if (!lines.length) return ";";
+
   let best = ";";
-  let max = -1;
+  let bestScore = -1;
   for (const c of candidates) {
-    const n = firstLine.split(c).length;
-    if (n > max) {
-      max = n;
+    const counts = lines.map((l) => l.split(c).length);
+    const cols = Math.min(...counts);
+    if (cols < 2) continue;
+    const stable = counts.filter((n) => n === counts[0]).length / counts.length;
+    const score = cols * 10 + stable * 5;
+    if (score > bestScore) {
+      bestScore = score;
       best = c;
     }
   }
@@ -164,8 +181,7 @@ export async function parseFile(file: File): Promise<ParsedFile> {
     return { ...parsed, delimiter: "xlsx", encoding: "XLSX" };
   }
   const { text, encoding } = decode(await file.arrayBuffer());
-  const firstLine = text.slice(0, text.indexOf("\n") === -1 ? text.length : text.indexOf("\n"));
-  const delimiter = detectDelimiter(firstLine);
+  const delimiter = detectDelimiter(text.slice(0, 20000));
   const parsed = toRows(parseCsv(text, delimiter));
   return { ...parsed, delimiter, encoding };
 }

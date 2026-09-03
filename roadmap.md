@@ -7,3 +7,19 @@
 - [x] Tests ciblés, typecheck, build
 
 Phase 2 (non développée) : planning de présence / congés, neutralisation des cessions internes en vue Groupe.
+
+# Correctifs 03/09 soir
+
+- [x] Statistiques équipe : colonnes H achetées / H passées, ligne TOTAL, sélecteur DDA / CASTI / Groupe
+- [x] Import CSV : détection du séparateur sur plusieurs lignes (point-virgule Winmotor)
+- [x] Statistiques clientèle & véhicules (parc, marques, visites < 24 mois, contacts)
+- [x] Module Communication : bibliothèque de supports publicitaires + rotation linéaire
+- [x] Paramétrage > API : services, clés masquées, test de connexion (`/api/public/api-check`)
+- [x] Référentiel des codes journaux Winmotor + modèle de lettre de relance (inactif)
+- [x] PDF tour : uniquement les contrôles réellement effectués
+
+Reste à faire :
+- [ ] BL / factures fournisseur : capture photo/PDF, OCR tolérant, écran de validation, états et liaison OR
+- [ ] Pneus : seuils de profondeur paramétrables
+- [ ] Amortisseurs : un seul contrôle global au lieu de quatre
+- [ ] Écran carte clientèle (données déjà préparées)

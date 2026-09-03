@@ -159,17 +159,28 @@ function PdfPage() {
   const ctDates = reportCtDates(d);
   const clientName = [d.order?.client?.first_name, d.order?.client?.last_name].filter(Boolean).join(" ");
 
+  // Seuls les contrôles réellement effectués sont imprimés : aucune ligne
+  // « non contrôlé » ne doit apparaître dans le document client.
+  const donePoints = d.points.filter(
+    (p) =>
+      p.status === "ok" ||
+      p.status === "watch" ||
+      p.status === "defect" ||
+      Boolean(p.comment) ||
+      p.measure_value != null,
+  );
+
   // Regroupement par zone, dans l'ordre réel des points enregistrés : aucune
   // case n'est fabriquée, seuls les contrôles existants du tour sont restitués.
   const zones: { label: string; points: typeof d.points }[] = [];
-  for (const p of d.points) {
+  for (const p of donePoints) {
     const label = p.zone_label || "Contrôles";
     const last = zones[zones.length - 1];
     if (last && last.label === label) last.points.push(p);
     else zones.push({ label, points: [p] });
   }
   const counts = { ok: 0, watch: 0, defect: 0, unset: 0 };
-  for (const p of d.points) {
+  for (const p of donePoints) {
     const key = (p.status === "ok" || p.status === "watch" || p.status === "defect"
       ? p.status
       : "unset") as keyof typeof counts;
@@ -245,19 +256,18 @@ function PdfPage() {
           started ? `Début : ${started.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
           finished ? `Fin : ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
           dur != null ? `Durée : ${Math.floor(dur / 60)} min` : "",
-          `${d.points.length} contrôle(s) · ${totalPhotos} photo(s)`,
+          `${donePoints.length} contrôle(s) · ${totalPhotos} photo(s)`,
         ]
           .filter(Boolean)
           .join(" · ")}
       </section>
 
-      <section className="mt-4 grid grid-cols-4 gap-2 text-center text-[9pt]">
+      <section className="mt-4 grid grid-cols-3 gap-2 text-center text-[9pt]">
         {(
           [
             ["OK", counts.ok, "#15803d"],
             ["À surveiller", counts.watch, "#b45309"],
             ["Défaut", counts.defect, "#b91c1c"],
-            ["Non renseigné", counts.unset, "#525252"],
           ] as const
         ).map(([label, value, color]) => (
           <div key={label} className="border border-neutral-400 py-1">
@@ -350,8 +360,8 @@ function PdfPage() {
 
       <footer className="mt-6 border-t-2 border-black pt-2 text-[8pt]">
         <div>
-          Légende : OK = conforme · À surveiller = à prévoir · Défaut = intervention nécessaire · Non renseigné =
-          contrôle non réalisé.
+          Légende : OK = conforme · À surveiller = à prévoir · Défaut = intervention nécessaire. Seuls les contrôles
+          réellement effectués figurent sur ce document.
         </div>
         <div className="mt-1 flex justify-between">
           <span>
