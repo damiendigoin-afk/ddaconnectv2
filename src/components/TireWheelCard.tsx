@@ -16,6 +16,7 @@ import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { PhotoManager } from "@/components/PhotoManager";
 import { StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
+import { insertOffersResilient, offerRows } from "@/lib/tour-recompute";
 import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import type { CommercialSettings, ServicePackage } from "@/lib/pricing-engine";
