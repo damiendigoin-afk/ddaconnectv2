@@ -35,16 +35,15 @@ type Stats = {
   reachable: number;
 };
 
-async function countVehicles(siteId: string | null, apply: (q: ReturnType<typeof baseQuery>) => unknown) {
-  const q = baseQuery();
-  if (siteId) q.eq("site_id", siteId);
-  apply(q);
-  const { count } = await (q as unknown as Promise<{ count: number | null }>);
-  return count ?? 0;
-}
+type VehicleFilter = { brand?: string; visitedSince?: string };
 
-function baseQuery() {
-  return supabase.from("ref_vehicles").select("id", { count: "exact", head: true });
+async function countVehicles(siteId: string | null, filter: VehicleFilter = {}): Promise<number> {
+  let q = supabase.from("ref_vehicles").select("id", { count: "exact", head: true });
+  if (siteId) q = q.eq("site_id", siteId);
+  if (filter.brand) q = q.ilike("brand", `%${filter.brand}%`);
+  if (filter.visitedSince) q = q.gte("last_visit_at", filter.visitedSince);
+  const { count } = await q;
+  return count ?? 0;
 }
 
 async function statsFor(siteId: string | null): Promise<Stats> {
@@ -53,10 +52,10 @@ async function statsFor(siteId: string | null): Promise<Stats> {
   const sinceIso = since.toISOString();
 
   const [vehicles, renault, dacia, recent, customers, reachable] = await Promise.all([
-    countVehicles(siteId, () => undefined),
-    countVehicles(siteId, (q) => q.ilike("brand", "%renault%")),
-    countVehicles(siteId, (q) => q.ilike("brand", "%dacia%")),
-    countVehicles(siteId, (q) => q.gte("last_visit_at", sinceIso)),
+    countVehicles(siteId),
+    countVehicles(siteId, { brand: "renault" }),
+    countVehicles(siteId, { brand: "dacia" }),
+    countVehicles(siteId, { visitedSince: sinceIso }),
     supabase
       .from("customers")
       .select("id", { count: "exact", head: true })

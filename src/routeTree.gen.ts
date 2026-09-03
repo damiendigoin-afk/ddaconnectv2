@@ -62,6 +62,7 @@ import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
 import { Route as RetourFournisseurTokenRouteImport } from './routes/retour-fournisseur.$token'
 import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.index'
+import { Route as StatistiquesClienteleRouteImport } from './routes/statistiques.clientele'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
 import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
@@ -349,6 +350,11 @@ const StatistiquesIndexRoute = StatistiquesIndexRouteImport.update({
   path: '/statistiques/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatistiquesClienteleRoute = StatistiquesClienteleRouteImport.update({
+  id: '/statistiques/clientele',
+  path: '/statistiques/clientele',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StatistiquesEquipeRoute = StatistiquesEquipeRouteImport.update({
   id: '/statistiques/equipe',
   path: '/statistiques/equipe',
@@ -492,6 +498,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
+  '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
@@ -567,6 +574,7 @@ export interface FileRoutesByTo {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
+  '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
@@ -643,6 +651,7 @@ export interface FileRoutesById {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
+  '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
@@ -720,6 +729,7 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
+    | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
@@ -795,6 +805,7 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
+    | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
@@ -870,6 +881,7 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/retour-fournisseur/$token'
+    | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/vehicule/$vehId'
@@ -946,6 +958,7 @@ export interface RootRouteChildren {
   ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
   RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
+  StatistiquesClienteleRoute: typeof StatistiquesClienteleRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
   StatistiquesImportRoute: typeof StatistiquesImportRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
@@ -1357,6 +1370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StatistiquesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/statistiques/clientele': {
+      id: '/statistiques/clientele'
+      path: '/statistiques/clientele'
+      fullPath: '/statistiques/clientele'
+      preLoaderRoute: typeof StatistiquesClienteleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/statistiques/equipe': {
       id: '/statistiques/equipe'
       path: '/statistiques/equipe'
@@ -1538,6 +1558,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,
   RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
+  StatistiquesClienteleRoute: StatistiquesClienteleRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
   StatistiquesImportRoute: StatistiquesImportRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
