@@ -39,6 +39,7 @@ import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
+import { Route as FacturesFournisseurIndexRouteImport } from './routes/factures-fournisseur.index'
 import { Route as MagasinIndexRouteImport } from './routes/magasin.index'
 import { Route as MagasinReturnIdRouteImport } from './routes/magasin.$returnId'
 import { Route as MagasinAvoirsRouteImport } from './routes/magasin.avoirs'
@@ -234,6 +235,12 @@ const ExpertiseNouvelleRoute = ExpertiseNouvelleRouteImport.update({
   path: '/expertise/nouvelle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FacturesFournisseurIndexRoute =
+  FacturesFournisseurIndexRouteImport.update({
+    id: '/factures-fournisseur/',
+    path: '/factures-fournisseur/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const MagasinIndexRoute = MagasinIndexRouteImport.update({
   id: '/magasin/',
   path: '/magasin/',
@@ -510,6 +517,7 @@ export interface FileRoutesByFullPath {
   '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
+  '/factures-fournisseur/': typeof FacturesFournisseurIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
@@ -586,6 +594,7 @@ export interface FileRoutesByTo {
   '/crm': typeof CrmIndexRoute
   '/darva': typeof DarvaIndexRoute
   '/emails': typeof EmailsIndexRoute
+  '/factures-fournisseur': typeof FacturesFournisseurIndexRoute
   '/magasin': typeof MagasinIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
   '/notes-frais': typeof NotesFraisIndexRoute
@@ -663,6 +672,7 @@ export interface FileRoutesById {
   '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
+  '/factures-fournisseur/': typeof FacturesFournisseurIndexRoute
   '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
@@ -741,6 +751,7 @@ export interface FileRouteTypes {
     | '/crm/'
     | '/darva/'
     | '/emails/'
+    | '/factures-fournisseur/'
     | '/magasin/'
     | '/maintenance/'
     | '/notes-frais/'
@@ -817,6 +828,7 @@ export interface FileRouteTypes {
     | '/crm'
     | '/darva'
     | '/emails'
+    | '/factures-fournisseur'
     | '/magasin'
     | '/maintenance'
     | '/notes-frais'
@@ -893,6 +905,7 @@ export interface FileRouteTypes {
     | '/crm/'
     | '/darva/'
     | '/emails/'
+    | '/factures-fournisseur/'
     | '/magasin/'
     | '/maintenance/'
     | '/notes-frais/'
@@ -970,6 +983,7 @@ export interface RootRouteChildren {
   CrmIndexRoute: typeof CrmIndexRoute
   DarvaIndexRoute: typeof DarvaIndexRoute
   EmailsIndexRoute: typeof EmailsIndexRoute
+  FacturesFournisseurIndexRoute: typeof FacturesFournisseurIndexRoute
   MagasinIndexRoute: typeof MagasinIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   NotesFraisIndexRoute: typeof NotesFraisIndexRoute
@@ -1207,6 +1221,13 @@ declare module '@tanstack/react-router' {
       path: '/expertise/nouvelle'
       fullPath: '/expertise/nouvelle'
       preLoaderRoute: typeof ExpertiseNouvelleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/factures-fournisseur/': {
+      id: '/factures-fournisseur/'
+      path: '/factures-fournisseur'
+      fullPath: '/factures-fournisseur/'
+      preLoaderRoute: typeof FacturesFournisseurIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/magasin/': {
@@ -1570,6 +1591,7 @@ const rootRouteChildren: RootRouteChildren = {
   CrmIndexRoute: CrmIndexRoute,
   DarvaIndexRoute: DarvaIndexRoute,
   EmailsIndexRoute: EmailsIndexRoute,
+  FacturesFournisseurIndexRoute: FacturesFournisseurIndexRoute,
   MagasinIndexRoute: MagasinIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
   NotesFraisIndexRoute: NotesFraisIndexRoute,
