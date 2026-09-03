@@ -118,7 +118,7 @@ export function TourQuoteSection({
 
   async function editLine(l: DisplayLine) {
     if (!l.id) return;
-    const raw = window.prompt("Nouveau montant TTC (€)", l.totalTtc.toFixed(2));
+    const raw = window.prompt("Nouveau montant TTC (€) — laisser vide pour supprimer la ligne", l.totalTtc.toFixed(2));
     if (raw === null) return;
     if (raw.trim() === "") {
       await removeLine(l.id);
@@ -184,6 +184,10 @@ export function TourQuoteSection({
       ) : (
         <>
           <QuoteBlocks lines={lines} onEdit={(l) => void editLine(l)} />
+          <p className="text-[11px] text-muted-foreground">
+            Chaque ligne est modifiable (montant TTC) ou supprimable (champ laissé vide) avant validation.
+            Aucun devis n'est envoyé automatiquement.
+          </p>
           <button
             onClick={() => {
               void navigator.clipboard.writeText(clientUrl);
