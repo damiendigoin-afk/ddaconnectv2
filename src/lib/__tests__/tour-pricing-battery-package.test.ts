@@ -87,7 +87,7 @@ describe("chiffrage batterie — priorité au forfait Renault", () => {
     expect(item.source).toBe("forfait_renault");
     expect(item.totalTtc).toBe(189);
     expect(item.label).toMatch(/BATTERIE/i);
-    expect((item.computation as Record<string, unknown>).method).toBe("forfait_batterie_referentiel");
+    expect((item.computation as Record<string, unknown>)["method"]).toBe("forfait_batterie_referentiel");
   });
 
   it("signale un choix manuel quand plusieurs forfaits batterie correspondent", () => {
@@ -107,7 +107,7 @@ describe("chiffrage batterie — priorité au forfait Renault", () => {
     expect(item.totalTtc).toBeGreaterThan(0);
     expect(item.message).toMatch(/à sélectionner/i);
     expect(
-      ((item.computation as Record<string, unknown>).battery_package_choices as unknown[]).length,
+      ((item.computation as Record<string, unknown>)["battery_package_choices"] as unknown[]).length,
     ).toBe(2);
   });
 
@@ -121,6 +121,6 @@ describe("chiffrage batterie — priorité au forfait Renault", () => {
       test: null,
       originPointKey: "batterie",
     });
-    expect((item.computation as Record<string, unknown>).method).toBe("proposition_generique_batterie");
+    expect((item.computation as Record<string, unknown>)["method"]).toBe("proposition_generique_batterie");
   });
 });

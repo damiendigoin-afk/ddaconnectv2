@@ -386,8 +386,8 @@ export function priceBatteryReplacement(args: {
     label: args.label,
     priority: args.priority,
     detail: args.detail,
-    test: args.test,
-    originPointKey: args.originPointKey,
+    test: args.test ?? null,
+    originPointKey: args.originPointKey ?? null,
   });
 }
 
