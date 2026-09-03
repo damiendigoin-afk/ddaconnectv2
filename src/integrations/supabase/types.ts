@@ -120,6 +120,63 @@ export type Database = {
           },
         ]
       }
+      ad_assets: {
+        Row: {
+          active: boolean
+          archived: boolean
+          brand: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          ends_on: string | null
+          file_name: string | null
+          id: string
+          last_shown_at: string | null
+          mime_type: string | null
+          shown_count: number
+          starts_on: string | null
+          storage_path: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          archived?: boolean
+          brand?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          ends_on?: string | null
+          file_name?: string | null
+          id?: string
+          last_shown_at?: string | null
+          mime_type?: string | null
+          shown_count?: number
+          starts_on?: string | null
+          storage_path: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          archived?: boolean
+          brand?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          ends_on?: string | null
+          file_name?: string | null
+          id?: string
+          last_shown_at?: string | null
+          mime_type?: string | null
+          shown_count?: number
+          starts_on?: string | null
+          storage_path?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agreements: {
         Row: {
           active: boolean
@@ -396,6 +453,54 @@ export type Database = {
           tokens_in?: number | null
           tokens_out?: number | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      api_settings: {
+        Row: {
+          active: boolean
+          created_at: string
+          endpoint: string | null
+          id: string
+          key_hint: string | null
+          label: string
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_ok: boolean | null
+          secret_name: string | null
+          service: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          endpoint?: string | null
+          id?: string
+          key_hint?: string | null
+          label: string
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_ok?: boolean | null
+          secret_name?: string | null
+          service: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          endpoint?: string | null
+          id?: string
+          key_hint?: string | null
+          label?: string
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_ok?: boolean | null
+          secret_name?: string | null
+          service?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -6177,6 +6282,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      winmotor_journals: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          label: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          label: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          label?: string
+        }
+        Relationships: []
       }
       winmotor_operators: {
         Row: {
