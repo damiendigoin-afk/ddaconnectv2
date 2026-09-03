@@ -234,6 +234,132 @@ export function findPackage(
   return null;
 }
 
+/* --------------------------- Forfaits batterie ---------------------------- */
+
+const BATTERY_RE = /batter/i;
+
+export type BatteryPackageSearch = {
+  best: PackageMatch | null;
+  /** Forfaits batterie plausibles (triés du plus pertinent au moins pertinent). */
+  candidates: ServicePackage[];
+  /** true quand plusieurs forfaits sont également plausibles (choix manuel). */
+  ambiguous: boolean;
+};
+
+/**
+ * Recherche d'un forfait batterie dans le référentiel importé (mémentos
+ * Renault/Dacia). Les codes opération des mémentos ne sont pas normalisés
+ * (RMPNxx…), le rattachement se fait donc sur le libellé + la marque + le
+ * modèle/segment quand ces informations existent.
+ */
+export function findBatteryPackages(
+  ctx: EngineContext,
+  vehicle: VehicleProfile,
+): BatteryPackageSearch {
+  const pool = ctx.packages.filter(
+    (p) =>
+      p.active !== false &&
+      (BATTERY_RE.test(p.label ?? "") ||
+        BATTERY_RE.test(p.operation_code ?? "") ||
+        BATTERY_RE.test(p.notes ?? "")),
+  );
+  if (!pool.length) return { best: null, candidates: [], ambiguous: false };
+
+  const year = vehicleYear(vehicle);
+  const brand = (vehicle.brand ?? "").toLowerCase();
+  const model = (vehicle.model ?? "").toLowerCase();
+
+  const score = (p: ServicePackage) => {
+    let s = 0;
+    const pBrand = (p.brand ?? "").toLowerCase();
+    if (pBrand && brand && pBrand === brand) s += 4;
+    else if (pBrand && brand && isGroupBrand(vehicle.brand) && isGroupBrand(p.brand)) s += 2;
+    const pModel = (p.model ?? "").toLowerCase();
+    if (pModel && model && (model.includes(pModel) || pModel.includes(model))) s += 4;
+    else if (!pModel) s += 1; // forfait générique toutes gammes
+    if (p.segment && vehicle.segment !== "inconnu" && p.segment === vehicle.segment) s += 2;
+    if (!p.energies?.length || p.energies.includes(vehicle.energy)) s += 1;
+    if (year == null || ((p.year_from ?? 0) <= year && (p.year_to ?? 9999) >= year)) s += 1;
+    if (Number(p.price_ttc ?? 0) > 0 || Number(p.hours ?? 0) > 0) s += 1;
+    return s;
+  };
+
+  const ranked = [...pool].sort((a, b) => score(b) - score(a));
+  const top = ranked[0]!;
+  const topScore = score(top);
+  const ties = ranked.filter((p) => score(p) === topScore);
+  const priced = ranked.filter((p) => Number(p.price_ttc ?? 0) > 0 || Number(p.hours ?? 0) > 0);
+  const ambiguous = ties.length > 1;
+
+  const source: PriceSource = /dacia/i.test(top.brand ?? "")
+    ? "forfait_dacia"
+    : /renault/i.test(top.brand ?? "")
+      ? "forfait_renault"
+      : "equivalent_multimarques";
+
+  const bestPkg = Number(top.price_ttc ?? 0) > 0 || Number(top.hours ?? 0) > 0 ? top : (priced[0] ?? null);
+  return {
+    best: bestPkg
+      ? { pkg: bestPkg, source, confidence: ambiguous ? "moyenne" : "elevee" }
+      : null,
+    candidates: ranked,
+    ambiguous,
+  };
+}
+
+/** Transforme un forfait du référentiel en ligne de devis chiffrée. */
+export function packageItem(
+  ctx: EngineContext,
+  match: PackageMatch,
+  opts: {
+    label?: string;
+    forceLabel?: string;
+    priority?: Priority;
+    detail?: string;
+    quantity?: number;
+    message?: string;
+    originPointKey?: string | null;
+    extraComputation?: Record<string, unknown>;
+  } = {},
+): PricedItem {
+  const p = match.pkg;
+  const quantity = opts.quantity ?? 1;
+  const rate = laborRate(rates(ctx), p.rate_code || DEFAULT_TECHNICAL_RATE_CODE);
+  const hours = p.hours == null ? null : Number(p.hours);
+  const parts = Number(p.parts_ht ?? 0);
+  const ht = p.price_ttc != null ? round(Number(p.price_ttc) / 1.2) : round((hours ?? 0) * rate.ht + parts);
+  const ttc =
+    p.price_ttc != null ? round(Number(p.price_ttc)) : round((hours ?? 0) * rate.ttc + parts * 1.2);
+  return {
+    ok: true,
+    needsContact: false,
+    message: opts.message ?? "",
+    label: opts.forceLabel ?? p.label ?? opts.label ?? p.operation_code,
+    detail: opts.detail ?? p.notes ?? "",
+    block: "mecanique",
+    priority: opts.priority ?? "conseille",
+    quantity,
+    hours,
+    unitHt: ht,
+    totalHt: round(ht * quantity),
+    totalTtc: round(ttc * quantity),
+    source: match.source,
+    confidence: match.confidence,
+    computation: {
+      package_id: p.id,
+      package_label: p.label,
+      operation_code: p.operation_code,
+      rate_code: p.rate_code,
+      hours,
+      parts_ht: parts,
+      labor_included: hours != null && hours > 0,
+      ...(opts.extraComputation ?? {}),
+    },
+    originPointKey: opts.originPointKey ?? null,
+  };
+}
+
+
 export type MechanicalRequest = {
   operationCode: string;
   label?: string;
