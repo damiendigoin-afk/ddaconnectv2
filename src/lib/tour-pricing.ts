@@ -513,7 +513,7 @@ export async function describeUnpricedTour(inspectionId: string): Promise<Unpric
     reason:
       p.status === "unset"
         ? "Point non contrôlé : aucun constat à chiffrer."
-        : POINT_PRICING[p.point_key]
+        : mapPoint(p.point_key)
           ? "Constat chiffrable mais donnée manquante (dimension pneu / type batterie / tarif)."
           : "Aucune correspondance de chiffrage pour ce point : à traiter manuellement.",
   }));
