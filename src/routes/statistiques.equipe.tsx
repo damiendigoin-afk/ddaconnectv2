@@ -77,6 +77,21 @@ function TeamStats() {
   return (
     <AppShell title="Statistiques équipe" subtitle="Productivité atelier" back={{ to: "/statistiques" }}>
       <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {[...sites.map((s) => ({ id: s.id, label: shortSite(s.code, s.name) })), { id: "groupe", label: "GROUPE" }].map(
+            (o) => (
+              <button
+                key={o.id}
+                onClick={() => setActive(o.id)}
+                className={`rounded-lg border-2 px-3 py-2 text-xs font-extrabold uppercase ${
+                  activeSite === o.id ? "border-brand bg-brand text-brand-foreground" : "border-border"
+                }`}
+              >
+                {o.label}
+              </button>
+            ),
+          )}
+        </div>
         <PeriodPicker value={range} onChange={setRange} />
         {active.length ? null : (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -99,6 +114,8 @@ function TeamStats() {
                 <thead>
                   <tr className="text-left text-muted-foreground">
                     <th className="py-1">Productif</th>
+                    <th className="py-1 text-right">H ach.</th>
+                    <th className="py-1 text-right">H pass.</th>
                     <th className="py-1 text-right">Prod.</th>
                     <th className="py-1 text-right">Rent.</th>
                     <th className="py-1 text-right">H fact.</th>
@@ -115,16 +132,30 @@ function TeamStats() {
                           </span>
                         ) : null}
                       </td>
+                      <td className="py-2 text-right">{hours(r.agg.purchased)}</td>
+                      <td className="py-2 text-right">{hours(r.agg.spent)}</td>
                       <td className="py-2 text-right font-bold">{pct(r.agg.productivity)}</td>
                       <td className="py-2 text-right">{pct(r.agg.profitability)}</td>
                       <td className="py-2 text-right">{hours(r.agg.billed)}</td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  {/* Total : ratios recalculés sur les agrégats, jamais moyennés. */}
+                  <tr className="border-t-2 border-border font-extrabold">
+                    <td className="py-2 uppercase">Total</td>
+                    <td className="py-2 text-right">{hours(totals.purchased)}</td>
+                    <td className="py-2 text-right">{hours(totals.spent)}</td>
+                    <td className="py-2 text-right">{pct(totals.productivity)}</td>
+                    <td className="py-2 text-right">{pct(totals.profitability)}</td>
+                    <td className="py-2 text-right">{hours(totals.billed)}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
         ) : null}
+
 
         <div className="space-y-2">
           <div className="px-1 text-sm font-extrabold uppercase tracking-wide">Historique des imports</div>
