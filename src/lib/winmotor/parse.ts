@@ -181,8 +181,7 @@ export async function parseFile(file: File): Promise<ParsedFile> {
     return { ...parsed, delimiter: "xlsx", encoding: "XLSX" };
   }
   const { text, encoding } = decode(await file.arrayBuffer());
-  const firstLine = text.slice(0, text.indexOf("\n") === -1 ? text.length : text.indexOf("\n"));
-  const delimiter = detectDelimiter(firstLine);
+  const delimiter = detectDelimiter(text.slice(0, 20000));
   const parsed = toRows(parseCsv(text, delimiter));
   return { ...parsed, delimiter, encoding };
 }
