@@ -313,9 +313,86 @@ export async function priceTour(args: {
   return { ctx, vehicle, items };
 }
 
+/* --------------------------- Batterie : chiffrage -------------------------- */
+
+/**
+ * Priorité au référentiel de forfaits (mémentos Renault/Dacia importés) :
+ * 1) code opération normalisé, 2) recherche libellé « batterie » sur la marque /
+ * gamme du véhicule, 3) seulement ensuite la proposition générique.
+ */
+export function priceBatteryReplacement(args: {
+  ctx: EngineContext;
+  vehicle: VehicleProfile;
+  label: string;
+  priority: Priority;
+  detail: string;
+  test?: BatteryTest | null;
+  originPointKey?: string | null;
+}): PricedItem {
+  const { ctx, vehicle } = args;
+
+  for (const code of BATTERY_OPERATIONS) {
+    const candidate = priceMechanical(ctx, {
+      operationCode: code,
+      label: args.label,
+      vehicle,
+      priority: args.priority,
+      detail: args.detail,
+    });
+    if (candidate.ok && !candidate.needsContact) {
+      return {
+        ...candidate,
+        originPointKey: args.originPointKey ?? null,
+        computation: {
+          ...candidate.computation,
+          method: "forfait_batterie_referentiel",
+          battery_test: (args.test ?? null) as unknown,
+        },
+      };
+    }
+  }
+
+  const search = findBatteryPackages(ctx, vehicle);
+  if (search.best) {
+    const choices = search.candidates.slice(0, 8).map((p) => ({
+      id: p.id,
+      label: p.label,
+      operation_code: p.operation_code,
+      model: p.model,
+      price_ttc: p.price_ttc,
+      hours: p.hours,
+    }));
+    return packageItem(ctx, search.best, {
+      label: args.label,
+      priority: args.priority,
+      detail: args.detail,
+      originPointKey: args.originPointKey ?? null,
+      message: search.ambiguous
+        ? "Forfait batterie Renault à sélectionner : plusieurs forfaits correspondent."
+        : "",
+      extraComputation: {
+        method: "forfait_batterie_referentiel",
+        battery_test: (args.test ?? null) as unknown,
+        battery_package_choices: choices,
+        battery_package_ambiguous: search.ambiguous,
+      },
+    });
+  }
+
+  return genericBatteryItem({
+    ctx,
+    label: args.label,
+    priority: args.priority,
+    detail: args.detail,
+    test: args.test,
+    originPointKey: args.originPointKey,
+  });
+}
+
 /* ------------------------- Propositions génériques ------------------------ */
 
 const GENERIC_BATTERY_HOURS = 0.4;
+
 
 /**
  * Aucun forfait batterie au référentiel : on propose quand même une ligne
