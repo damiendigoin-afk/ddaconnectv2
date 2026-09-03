@@ -12,6 +12,7 @@ import { QuoteBlocks, type DisplayLine } from "@/components/QuoteLines";
 import { useAuth } from "@/lib/auth";
 import {
   createQuote,
+  isIncompleteLine,
   fetchQuoteForSource,
   removeLine,
   updateLine,
