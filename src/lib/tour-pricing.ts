@@ -481,3 +481,40 @@ export function groupTireItems(
   return out;
 }
 
+
+export type UnpricedObservation = {
+  pointKey: string;
+  label: string;
+  statusLabel: string;
+  reason: string;
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  ok: "Conforme",
+  watch: "À surveiller",
+  defect: "Défaut",
+  unset: "Non contrôlé",
+};
+
+/**
+ * Explique, quand aucun chiffrage n'a pu être produit, ce qui a été observé
+ * pendant le tour et pourquoi ce n'est pas chiffré.
+ */
+export async function describeUnpricedTour(inspectionId: string): Promise<UnpricedObservation[]> {
+  const { data } = await supabase
+    .from("inspection_points")
+    .select("point_key, point_label, status, comment")
+    .eq("inspection_id", inspectionId)
+    .in("status", ["watch", "defect", "unset"]);
+  return ((data ?? []) as PointRow[]).map((p) => ({
+    pointKey: p.point_key,
+    label: p.point_label,
+    statusLabel: STATUS_LABEL[p.status ?? "unset"] ?? "Non contrôlé",
+    reason:
+      p.status === "unset"
+        ? "Point non contrôlé : aucun constat à chiffrer."
+        : POINT_PRICING[p.point_key]
+          ? "Constat chiffrable mais donnée manquante (dimension pneu / type batterie / tarif)."
+          : "Aucune correspondance de chiffrage pour ce point : à traiter manuellement.",
+  }));
+}
