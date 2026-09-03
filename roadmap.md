@@ -23,3 +23,5 @@ Reste à faire :
 - [ ] Pneus : seuils de profondeur paramétrables
 - [ ] Amortisseurs : un seul contrôle global au lieu de quatre
 - [ ] Écran carte clientèle (données déjà préparées)
+
+- [x] 03/09 : module BL / Factures fournisseur (dépôt photo/PDF, OCR tolérant, validation manuelle, états, rattachement OR) — écran /factures-fournisseur, table inbox_documents réutilisée.
