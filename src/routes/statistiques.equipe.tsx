@@ -40,6 +40,7 @@ export const Route = createFileRoute("/statistiques/equipe")({
 
 function TeamStats() {
   const { user, isManager } = useAuth();
+  const { sites, active: activeSite, isGroup, setActive } = useSite();
   const uid = user?.id ?? "";
   const access = useQuery({ queryKey: ["access", uid], queryFn: () => fetchModuleAccess(uid), enabled: !!uid });
   const imports = useQuery({ queryKey: ["prod-imports"], queryFn: fetchImports });
@@ -51,8 +52,15 @@ function TeamStats() {
     queryFn: () => fetchEntriesInRange(range),
   });
 
-  const rows = useMemo(() => groupByOperator(entries.data ?? []), [entries.data]);
-  const totals = useMemo(() => aggregate(entries.data ?? []), [entries.data]);
+  // Périmètre : un seul site ou Groupe (somme des sites) — réutilise le contexte site global.
+  const scoped = useMemo(
+    () => (entries.data ?? []).filter((e) => isGroup || e.site_id === activeSite),
+    [entries.data, isGroup, activeSite],
+  );
+
+  const rows = useMemo(() => groupByOperator(scoped), [scoped]);
+  const totals = useMemo(() => aggregate(scoped), [scoped]);
+
 
   const allowed = isManager || access.data?.has("stats_equipe");
   if (!allowed) {
