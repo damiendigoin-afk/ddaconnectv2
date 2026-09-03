@@ -53,6 +53,22 @@ describe("enregistrement des offres de chiffrage", () => {
     expect(rows.every((r) => r.consulted_at)).toBe(true);
   });
 
+  it("renseigne consulted_at sur les offres fallback AVG/AVD (contrainte NOT NULL)", () => {
+    const fallback = offer({ available: false, unavailableReason: "Nous contacter pour le devis", consultedAt: null });
+    for (const wheel of ["avg", "avd"]) {
+      const rows = offerRows([fallback], {
+        inspectionId: "i1",
+        pointId: `p-${wheel}`,
+        wheelCode: wheel,
+        selectedSlot: null,
+      });
+      expect(rows[0]!.consulted_at).toBeTruthy();
+      expect(rows[0]!.kind).toBeTruthy();
+      expect(rows[0]!.quantity).toBeGreaterThan(0);
+      expect(rows[0]!.selected).toBe(false);
+    }
+  });
+
   it("enregistre une ligne incomplète en la marquant à compléter", () => {
     const item = {
       ok: false,

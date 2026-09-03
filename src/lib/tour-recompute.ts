@@ -63,7 +63,7 @@ export function offerRows(
     inspection_id: args.inspectionId,
     inspection_point_id: args.pointId,
     wheel_code: args.wheelCode,
-    kind: o.kind,
+    kind: o.kind ?? "gamme",
     tier: o.tier,
     season: o.season,
     brand: o.brand,
@@ -71,7 +71,7 @@ export function offerRows(
     size: o.size,
     load_index: o.loadIndex,
     speed_index: o.speedIndex,
-    quantity: o.quantity,
+    quantity: Number.isFinite(o.quantity) && o.quantity > 0 ? o.quantity : 2,
     supplier: o.supplier,
     supplier_ref: o.supplierRef,
     source_price_ht: o.unitSourceHt,
@@ -97,7 +97,7 @@ export function offerRows(
  * ligne pour ne jamais perdre les propositions exploitables. Une offre
  * incomplète (prix ou dimension manquants) reste enregistrable.
  */
-async function insertOffersResilient(
+export async function insertOffersResilient(
   rows: ReturnType<typeof offerRows>,
 ): Promise<{ count: number; error: string | null }> {
   if (!rows.length) return { count: 0, error: null };
