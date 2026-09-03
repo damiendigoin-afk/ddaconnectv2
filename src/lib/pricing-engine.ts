@@ -333,7 +333,7 @@ export function packageItem(
     ok: true,
     needsContact: false,
     message: opts.message ?? "",
-    label: p.label || opts.label || p.operation_code,
+    label: opts.forceLabel ?? p.label ?? opts.label ?? p.operation_code,
     detail: opts.detail ?? p.notes ?? "",
     block: "mecanique",
     priority: opts.priority ?? "conseille",
