@@ -151,14 +151,14 @@ export async function linkSupplierDocToOrder(id: string, orderId: string): Promi
   if (error) throw error;
 }
 
-/** Recherche d'un OR par numéro ou immatriculation pour proposer un rattachement. */
+/** Recherche d'un OR par numéro pour proposer un rattachement. */
 export async function findOrderCandidates(term: string) {
   const t = term.trim();
   if (t.length < 3) return [];
   const { data } = await supabase
     .from("repair_orders")
-    .select("id,or_number,plate")
-    .or(`or_number.ilike.%${t}%,plate.ilike.%${t}%`)
+    .select("id,or_number,or_date")
+    .ilike("or_number", `%${t}%`)
     .limit(10);
   return data ?? [];
 }
