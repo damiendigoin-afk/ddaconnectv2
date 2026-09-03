@@ -424,9 +424,9 @@ export function groupTireItems(
   for (const entry of pending) {
     const axle = /_ar/.test(entry.point.point_key) ? "arriere" : "avant";
     const size =
-      tireSizeOfPoint(entry.point.tire_analysis) ??
-      parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ??
-      parseTireReference(homologated).display ??
+      tireSizeOfPoint(entry.point.tire_analysis) ||
+      parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ||
+      parseTireReference(homologated).display ||
       null;
     const key = size ?? `inconnue_${axle}`;
     const g = groups.get(key) ?? { size, entries: [] as typeof pending };
@@ -449,7 +449,7 @@ export function groupTireItems(
       message: g.size
         ? "Prix pneu à compléter : offre fournisseur non disponible."
         : "Chiffrage incomplet : renseigner la dimension pneu.",
-      label: `${quantity} pneu${quantity > 1 ? "x" : ""} ${g.size ?? "— dimension à renseigner"}`.trim(),
+      label: `${quantity} pneu${quantity > 1 ? "x" : ""} ${g.size || "— dimension à renseigner"}`.trim(),
       detail: [
         wheels,
         offersReady ? `${offersReady} proposition(s) fournisseur préparée(s) à retenir` : null,
