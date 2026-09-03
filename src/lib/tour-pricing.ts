@@ -366,6 +366,11 @@ export function priceBatteryReplacement(args: {
     }));
     return packageItem(ctx, search.best, {
       label: args.label,
+      ...(search.ambiguous
+        ? {
+            forceLabel: `Forfait batterie Renault à sélectionner — ${search.best.pkg.label}`,
+          }
+        : {}),
       priority: args.priority,
       detail: args.detail,
       originPointKey: args.originPointKey ?? null,

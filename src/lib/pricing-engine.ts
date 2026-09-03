@@ -313,6 +313,7 @@ export function packageItem(
   match: PackageMatch,
   opts: {
     label?: string;
+    forceLabel?: string;
     priority?: Priority;
     detail?: string;
     quantity?: number;
