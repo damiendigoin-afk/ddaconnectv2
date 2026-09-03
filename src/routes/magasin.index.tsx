@@ -82,6 +82,17 @@ function StoreHub() {
         <span className="flex-1 text-left text-lg font-extrabold uppercase tracking-wide">Nouveau retour</span>
       </button>
 
+      <Link
+        to="/factures-fournisseur"
+        className="mt-2 flex w-full items-center gap-3 rounded-xl border-2 border-border px-4 py-4 active:scale-[0.99]"
+      >
+        <FileCheck2 className="h-6 w-6 text-brand" />
+        <span className="flex-1 text-left text-sm font-extrabold uppercase tracking-wide">
+          BL / Factures fournisseur
+        </span>
+      </Link>
+
+
       <div className="mt-3 flex items-center gap-2 rounded-xl border-2 border-border bg-card px-3 py-2">
         <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
         <input

@@ -157,3 +157,28 @@ Nombres uniquement, sans unité. Mets null pour toute valeur non lisible. N'inve
     if (!parsed) return { ok: false as const, error: "Ticket batterie illisible.", json: "" };
     return { ok: true as const, error: "", json: JSON.stringify(parsed) };
   });
+
+/**
+ * Lecture d'un bon de livraison ou d'une facture fournisseur (photo, scan ou PDF).
+ * OCR tolérant : ce qui n'est pas lisible reste null, y compris les lignes.
+ * Les annotations manuscrites sont capturées telles quelles, sans interprétation.
+ */
+export const ocrSupplierInvoice = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Tu lis un bon de livraison ou une facture d'un fournisseur de pièces automobiles (France).
+Le document peut être une photo imparfaite, froissée, annotée à la main.
+Réponds STRICTEMENT en JSON :
+{"doc_kind":"bl|facture|null","supplier":null,"invoice_number":null,"invoice_date":null,"delivery_note_number":null,
+"customer_or_site":null,"order_reference":null,"plate":null,"currency":"EUR",
+"lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"discount_pct":null,"amount":null}],
+"total_ht":null,"vat_amount":null,"total_ttc":null,"handwritten_notes":null}
+Dates ISO YYYY-MM-DD. Nombres décimaux avec un point, sans symbole ni unité.
+handwritten_notes : recopie littérale des mentions manuscrites (ex : "Pas BL retour / Frs à remb", "retour").
+Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun montant.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename, "supplier_invoice");
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    const parsed = parseJsonBlock(result.content);
+    if (!parsed) return { ok: false as const, error: "Document fournisseur illisible : saisissez les informations manuellement.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+  });
