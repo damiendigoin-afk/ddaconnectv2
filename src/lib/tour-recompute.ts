@@ -223,7 +223,12 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
     const best = axleTaken.has(axle) ? null : pickBestOffer(offers);
     if (best) axleTaken.add(axle);
 
-    await supabase.from("tire_quote_offers").delete().eq("inspection_point_id", wheel.id);
+    const purge = await supabase.from("tire_quote_offers").delete().eq("inspection_point_id", wheel.id);
+    if (purge.error) {
+      report.notes.push(
+        `${wheel.point_label} : anciennes offres non supprimées (${purge.error.message}) — les nouvelles s'ajoutent.`,
+      );
+    }
     const rows = offerRows(offers, {
       inspectionId,
       pointId: wheel.id,
