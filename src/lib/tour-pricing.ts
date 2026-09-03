@@ -270,21 +270,16 @@ export async function priceTour(args: {
         });
         continue;
       }
-      const available = pointOffers.filter((o) => o.total_ttc != null).length;
-      items.push(
-        contactItem({
-          label: `${p.point_label} — remplacement pneumatique`,
-          block: "mecanique",
-          priority,
-          detail,
-          reason: available
-            ? `${available} proposition(s) préparée(s) — l'opérateur doit retenir l'offre à intégrer au devis.`
-            : "Donnée manquante : dimension exploitable ou tarif public actuellement indisponible.",
-          originPointKey: p.point_key,
-        }),
-      );
+      // Aucune offre fournisseur retenue : on ne jette pas le constat, il est
+      // regroupé en une proposition « x pneus » exploitable et modifiable.
+      pendingTires.push({
+        point: p,
+        priority,
+        offersReady: pointOffers.filter((o) => o.total_ttc != null).length,
+      });
       continue;
     }
+
 
     if (!mapping) {
       items.push(
