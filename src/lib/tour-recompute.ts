@@ -76,7 +76,7 @@ function offerRows(
     supplier_ref: o.supplierRef,
     source_price_ht: o.unitSourceHt,
     source_price_ttc: o.unitSourceHt == null ? null : Math.round(o.unitSourceHt * 1.2 * 100) / 100,
-    ...(o.consultedAt ? { consulted_at: o.consultedAt } : {}),
+    consulted_at: o.consultedAt ?? new Date().toISOString(),
     margin_ht: o.marginHt,
     sell_price_ht: o.unitSellHt,
     mount_package: o.mountLabel,
@@ -90,6 +90,28 @@ function offerRows(
     initial_payload: o as never,
     final_payload: args.selectedSlot != null && o.slot === args.selectedSlot ? (o as never) : null,
   }));
+}
+
+/**
+ * Enregistrement tolérant des offres : un lot refusé est réessayé ligne par
+ * ligne pour ne jamais perdre les propositions exploitables. Une offre
+ * incomplète (prix ou dimension manquants) reste enregistrable.
+ */
+async function insertOffersResilient(
+  rows: ReturnType<typeof offerRows>,
+): Promise<{ count: number; error: string | null }> {
+  if (!rows.length) return { count: 0, error: null };
+  const { error } = await supabase.from("tire_quote_offers").insert(rows);
+  if (!error) return { count: rows.length, error: null };
+
+  let count = 0;
+  let last: string | null = error.message;
+  for (const row of rows) {
+    const res = await supabase.from("tire_quote_offers").insert(row);
+    if (res.error) last = res.error.message;
+    else count += 1;
+  }
+  return { count, error: count === rows.length ? null : last };
 }
 
 /**
@@ -208,13 +230,20 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
       wheelCode: code,
       selectedSlot: best?.slot ?? null,
     });
-    const { error } = await supabase.from("tire_quote_offers").insert(rows);
-    if (error) {
-      report.notes.push(`${wheel.point_label} : offres non enregistrées (${error.message}).`);
+    const saved = await insertOffersResilient(rows);
+    if (!saved.count) {
+      report.notes.push(
+        `${wheel.point_label} : enregistrement des offres refusé par la base (${saved.error ?? "raison inconnue"}).`,
+      );
       continue;
     }
+    if (saved.error) {
+      report.notes.push(
+        `${wheel.point_label} : ${saved.count}/${rows.length} offres enregistrées, les autres sont à compléter (${saved.error}).`,
+      );
+    }
     report.tireWheels += 1;
-    report.tireOffers += rows.filter((r) => r.total_ttc != null).length;
+    report.tireOffers += rows.slice(0, saved.count).filter((r) => r.total_ttc != null).length;
     if (!best) {
       report.notes.push(
         `${wheel.point_label} : aucune offre exploitable en ${required.size} — proposition à confirmer.`,
