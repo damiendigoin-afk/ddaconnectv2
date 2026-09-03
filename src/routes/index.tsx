@@ -102,6 +102,13 @@ const MENU: { to: string; label: string; hint: string; icon: LucideIcon; module?
     module: "notes_frais",
   },
   {
+    to: "/communication",
+    label: "Communication",
+    hint: "Bibliothèque des supports publicitaires Renault / Dacia et rotation d'affichage",
+    icon: Megaphone,
+    module: "communication",
+  },
+  {
     to: "/statistiques",
     label: "Mes statistiques",
     hint: "Productivité, rentabilité et activité du mois",
