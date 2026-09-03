@@ -26,7 +26,13 @@ export const RESPONSE_LABEL: Record<ClientResponse, string> = {
   contact: "Je souhaite être contacté",
 };
 
+/** Une ligne sans prix exploitable reste enregistrable, marquée « à compléter ». */
+export function isIncompleteLine(item: Pick<PricedItem, "needsContact" | "totalTtc">) {
+  return item.needsContact || !(item.totalTtc > 0);
+}
+
 export function lineFromItem(item: PricedItem, index = 0) {
+  const incomplete = isIncompleteLine(item);
   return {
     block: item.block,
     label: item.label,
@@ -35,13 +41,13 @@ export function lineFromItem(item: PricedItem, index = 0) {
     price_source: item.source,
     confidence: item.confidence,
     needs_contact: item.needsContact,
-    quantity: item.quantity,
+    quantity: Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 1,
     hours: item.hours,
-    unit_ht: item.unitHt,
-    total_ht: item.totalHt,
-    total_ttc: item.totalTtc,
+    unit_ht: Number.isFinite(item.unitHt as number) ? item.unitHt : null,
+    total_ht: Number.isFinite(item.totalHt) ? Math.round(item.totalHt * 100) / 100 : 0,
+    total_ttc: Number.isFinite(item.totalTtc) ? Math.round(item.totalTtc * 100) / 100 : 0,
     origin_point_key: item.originPointKey ?? null,
-    computation: item.computation as never,
+    computation: { ...(item.computation ?? {}), a_completer: incomplete } as never,
     sort_order: index,
   };
 }
@@ -58,8 +64,8 @@ export async function createQuote(args: {
   createdBy?: string | null;
   createdByName?: string | null;
 }): Promise<Quote> {
-  const totalHt = args.items.reduce((s, i) => s + i.totalHt, 0);
-  const totalTtc = args.items.reduce((s, i) => s + i.totalTtc, 0);
+  const totalHt = args.items.reduce((s, i) => s + (Number.isFinite(i.totalHt) ? i.totalHt : 0), 0);
+  const totalTtc = args.items.reduce((s, i) => s + (Number.isFinite(i.totalTtc) ? i.totalTtc : 0), 0);
   const { data, error } = await supabase
     .from("pricing_quotes")
     .insert({

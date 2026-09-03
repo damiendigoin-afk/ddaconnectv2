@@ -15,6 +15,13 @@
       "when": 1788454483345,
       "tag": "0001_communication_api_journaux",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788456114413,
+      "tag": "0002_tire_offers_rebuild_delete",
+      "breakpoints": true
     }
   ]
 }

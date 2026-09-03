@@ -12,6 +12,7 @@ import { QuoteBlocks, type DisplayLine } from "@/components/QuoteLines";
 import { useAuth } from "@/lib/auth";
 import {
   createQuote,
+  isIncompleteLine,
   fetchQuoteForSource,
   removeLine,
   updateLine,
@@ -105,12 +106,17 @@ export function TourQuoteSection({
         createdByName: displayName || null,
       });
       await quote.refetch();
-      toast.success("Proposition chiffrée générée");
+      const incomplete = items.filter((i) => isIncompleteLine(i)).length;
+      if (incomplete) {
+        toast.success("Offres enregistrées. Compléter les lignes incomplètes avant validation.");
+      } else {
+        toast.success("Offres enregistrées.");
+      }
     } catch (e) {
       console.error("[chiffrage tour]", e);
-      toast.error(
-        "Chiffrage incomplet : renseigner la dimension pneu / type batterie, puis relancer. Les lignes restent modifiables à la main.",
-      );
+      const reason =
+        e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : String(e);
+      toast.error(`Offres non enregistrées : ${reason}`);
     } finally {
       setBusy(false);
     }
