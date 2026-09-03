@@ -165,7 +165,12 @@ function DocCard({ doc, open, onToggle }: { doc: SupplierDoc; open: boolean; onT
   async function save(status?: DocStatus) {
     setSaving(true);
     try {
-      await updateSupplierDoc(doc.id, { extracted: form, note: note || null, plate: form.plate ?? null, status });
+      await updateSupplierDoc(doc.id, {
+        extracted: form,
+        note: note || null,
+        plate: form.plate ?? null,
+        ...(status ? { status } : {}),
+      });
       await qc.invalidateQueries({ queryKey: ["supplier-docs"] });
       toast.success(status ? `État : ${statusLabel(status)}` : "Modifications enregistrées");
     } catch {
