@@ -191,41 +191,18 @@ export async function priceTour(args: {
       }
       if (test.verdict !== "a_remplacer") continue;
 
-      let priced: PricedItem | null = null;
-      for (const code of BATTERY_OPERATIONS) {
-        const candidate = priceMechanical(ctx, {
-          operationCode: code,
-          label: `${p.point_label} — remplacement batterie`,
+      items.push(
+        priceBatteryReplacement({
+          ctx,
           vehicle,
+          label: `${p.point_label} — remplacement batterie`,
           priority: priority ?? "a_remplacer",
           detail: [detail, batteryDetail(test)].filter(Boolean).join(" · "),
-        });
-        if (candidate.ok) {
-          priced = candidate;
-          break;
-        }
-      }
-      items.push(
-        priced
-          ? {
-              ...priced,
-              originPointKey: p.point_key,
-              computation: {
-                ...priced.computation,
-                method: "forfait_batterie_referentiel",
-                battery_test: test as unknown,
-              },
-            }
-          : genericBatteryItem({
-              ctx,
-              label: `${p.point_label} — remplacement batterie`,
-              priority: priority ?? "a_remplacer",
-              detail: [detail, batteryDetail(test)].filter(Boolean).join(" · "),
-              test,
-              originPointKey: p.point_key,
-            }),
-
+          test,
+          originPointKey: p.point_key,
+        }),
       );
+
       continue;
     }
 
