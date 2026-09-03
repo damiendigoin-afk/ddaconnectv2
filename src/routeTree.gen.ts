@@ -30,6 +30,7 @@ import { Route as CarrosserieImportRouteImport } from './routes/carrosserie.impo
 import { Route as CarrosserieNouvelleRouteImport } from './routes/carrosserie.nouvelle'
 import { Route as CarrosserieReferentielsRouteImport } from './routes/carrosserie.referentiels'
 import { Route as ClientClientIdRouteImport } from './routes/client.$clientId'
+import { Route as CommunicationIndexRouteImport } from './routes/communication.index'
 import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.index'
 import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as DarvaIndexRouteImport } from './routes/darva.index'
@@ -183,6 +184,11 @@ const CarrosserieReferentielsRoute = CarrosserieReferentielsRouteImport.update({
 const ClientClientIdRoute = ClientClientIdRouteImport.update({
   id: '/client/$clientId',
   path: '/client/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunicationIndexRoute = CommunicationIndexRouteImport.update({
+  id: '/communication/',
+  path: '/communication/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConnaissancesIndexRoute = ConnaissancesIndexRouteImport.update({
@@ -479,6 +485,7 @@ export interface FileRoutesByFullPath {
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/communication/': typeof CommunicationIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
   '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
@@ -551,6 +558,7 @@ export interface FileRoutesByTo {
   '/automatisations': typeof AutomatisationsIndexRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
+  '/communication': typeof CommunicationIndexRoute
   '/connaissances': typeof ConnaissancesIndexRoute
   '/crm': typeof CrmIndexRoute
   '/darva': typeof DarvaIndexRoute
@@ -624,6 +632,7 @@ export interface FileRoutesById {
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
+  '/communication/': typeof CommunicationIndexRoute
   '/connaissances/': typeof ConnaissancesIndexRoute
   '/crm/': typeof CrmIndexRoute
   '/darva/': typeof DarvaIndexRoute
@@ -698,6 +707,7 @@ export interface FileRouteTypes {
     | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
+    | '/communication/'
     | '/connaissances/'
     | '/crm/'
     | '/darva/'
@@ -770,6 +780,7 @@ export interface FileRouteTypes {
     | '/automatisations'
     | '/base'
     | '/carrosserie'
+    | '/communication'
     | '/connaissances'
     | '/crm'
     | '/darva'
@@ -842,6 +853,7 @@ export interface FileRouteTypes {
     | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
+    | '/communication/'
     | '/connaissances/'
     | '/crm/'
     | '/darva/'
@@ -915,6 +927,7 @@ export interface RootRouteChildren {
   AutomatisationsIndexRoute: typeof AutomatisationsIndexRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
+  CommunicationIndexRoute: typeof CommunicationIndexRoute
   ConnaissancesIndexRoute: typeof ConnaissancesIndexRoute
   CrmIndexRoute: typeof CrmIndexRoute
   DarvaIndexRoute: typeof DarvaIndexRoute
@@ -1092,6 +1105,13 @@ declare module '@tanstack/react-router' {
       path: '/client/$clientId'
       fullPath: '/client/$clientId'
       preLoaderRoute: typeof ClientClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/communication/': {
+      id: '/communication/'
+      path: '/communication'
+      fullPath: '/communication/'
+      preLoaderRoute: typeof CommunicationIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/connaissances/': {
@@ -1483,6 +1503,7 @@ const rootRouteChildren: RootRouteChildren = {
   AutomatisationsIndexRoute: AutomatisationsIndexRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
+  CommunicationIndexRoute: CommunicationIndexRoute,
   ConnaissancesIndexRoute: ConnaissancesIndexRoute,
   CrmIndexRoute: CrmIndexRoute,
   DarvaIndexRoute: DarvaIndexRoute,
