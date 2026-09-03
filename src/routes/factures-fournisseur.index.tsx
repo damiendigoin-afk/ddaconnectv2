@@ -49,15 +49,15 @@ function num(v: string): number | null {
 
 function SupplierInvoices() {
   const { user, displayName } = useAuth();
-  const { activeSite } = useSite();
+  const { active, isGroup } = useSite();
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const docs = useQuery({
-    queryKey: ["supplier-docs", activeSite],
-    queryFn: () => fetchSupplierDocs(activeSite === "groupe" ? null : activeSite),
+    queryKey: ["supplier-docs", active],
+    queryFn: () => fetchSupplierDocs(isGroup ? null : active),
   });
 
   function choose(camera: boolean) {
@@ -72,7 +72,10 @@ function SupplierInvoices() {
   async function handleFile(file: File) {
     setBusy(true);
     try {
-      const usable = isImage(file) ? await compressImage(file) : file;
+      const compressed = isImage(file) ? await compressImage(file) : null;
+      const usable = compressed
+        ? new File([compressed], file.name, { type: compressed.type || file.type })
+        : file;
       let extracted: InvoiceExtract = {};
       try {
         const dataUrl = await blobToDataUrl(usable);
@@ -85,7 +88,7 @@ function SupplierInvoices() {
       const created = await uploadSupplierDoc({
         file: usable,
         extracted,
-        siteId: activeSite === "groupe" ? null : activeSite,
+        siteId: isGroup ? null : active,
         userId: user?.id ?? null,
         userName: displayName ?? null,
       });
