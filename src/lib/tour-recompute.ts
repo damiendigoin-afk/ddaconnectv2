@@ -55,7 +55,7 @@ export function pickBestOffer(offers: SevenOffer[]): SevenOffer | null {
   return [...available].sort((a, b) => (a.totalTtc ?? 0) - (b.totalTtc ?? 0))[0] ?? null;
 }
 
-function offerRows(
+export function offerRows(
   offers: SevenOffer[],
   args: { inspectionId: string; pointId: string; wheelCode: string; selectedSlot: string | null },
 ) {
