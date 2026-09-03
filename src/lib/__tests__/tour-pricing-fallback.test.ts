@@ -65,7 +65,7 @@ describe("chiffrage tour — cas Captur (batterie + 2 pneus à surveiller)", () 
   });
 
   it("garde la proposition pneus même sans dimension exploitable", () => {
-    const blank = { ...(tirePoint("pneu_ard") as never), tire_analysis: null } as never;
+    const blank = { ...(tirePoint("pneu_ard") as unknown as Record<string, unknown>), tire_analysis: null } as never;
     const items = groupTireItems(ctx, [{ point: blank, priority: "urgent", offersReady: 0 }]);
     expect(items[0]!.label).toContain("dimension à renseigner");
     expect(items[0]!.priority).toBe("urgent");
