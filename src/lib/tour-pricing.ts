@@ -15,7 +15,14 @@ import {
   type Priority,
 } from "./pricing-engine";
 import { buildVehicleProfile, type VehicleProfile } from "./vehicle-profile";
-import { SEASON_LABEL, type TireQuoteOffer, type TireSeason } from "./tires";
+import {
+  mountPackageFor,
+  parseTireReference,
+  SEASON_LABEL,
+  type TireQuoteOffer,
+  type TireSeason,
+} from "./tires";
+import { laborRate } from "./pricing";
 
 type PointRow = {
   id: string;
