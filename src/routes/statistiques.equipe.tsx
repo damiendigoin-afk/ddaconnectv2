@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { useAuth } from "@/lib/auth";
 import { fetchModuleAccess } from "@/lib/access";
+import { useSite } from "@/lib/site-context";
 import {
   aggregate,
   defaultRange,
@@ -203,4 +204,11 @@ function Kpi({ label, value }: { label: string; value: string }) {
       <div className="text-base font-extrabold">{value}</div>
     </div>
   );
+}
+
+/** Libellé court du périmètre : DDA, CASTI, sinon nom du site. */
+function shortSite(code: string | null, name: string): string {
+  if (code === "dda") return "DDA";
+  if (code === "castillon") return "CASTI";
+  return name.toUpperCase();
 }
