@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Database,
   Inbox,
+  KeyRound,
   MailCheck,
   ShieldCheck,
   SlidersHorizontal,
