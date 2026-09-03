@@ -360,8 +360,8 @@ function PdfPage() {
 
       <footer className="mt-6 border-t-2 border-black pt-2 text-[8pt]">
         <div>
-          Légende : OK = conforme · À surveiller = à prévoir · Défaut = intervention nécessaire · Non renseigné =
-          contrôle non réalisé.
+          Légende : OK = conforme · À surveiller = à prévoir · Défaut = intervention nécessaire. Seuls les contrôles
+          réellement effectués figurent sur ce document.
         </div>
         <div className="mt-1 flex justify-between">
           <span>
