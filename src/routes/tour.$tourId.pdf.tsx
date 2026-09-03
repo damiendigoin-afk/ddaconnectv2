@@ -256,19 +256,18 @@ function PdfPage() {
           started ? `Début : ${started.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
           finished ? `Fin : ${finished.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "",
           dur != null ? `Durée : ${Math.floor(dur / 60)} min` : "",
-          `${d.points.length} contrôle(s) · ${totalPhotos} photo(s)`,
+          `${donePoints.length} contrôle(s) · ${totalPhotos} photo(s)`,
         ]
           .filter(Boolean)
           .join(" · ")}
       </section>
 
-      <section className="mt-4 grid grid-cols-4 gap-2 text-center text-[9pt]">
+      <section className="mt-4 grid grid-cols-3 gap-2 text-center text-[9pt]">
         {(
           [
             ["OK", counts.ok, "#15803d"],
             ["À surveiller", counts.watch, "#b45309"],
             ["Défaut", counts.defect, "#b91c1c"],
-            ["Non renseigné", counts.unset, "#525252"],
           ] as const
         ).map(([label, value, color]) => (
           <div key={label} className="border border-neutral-400 py-1">
