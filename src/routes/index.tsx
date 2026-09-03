@@ -9,6 +9,7 @@ import {
   Gauge,
   Hammer,
   Headphones,
+  Megaphone,
   LogOut,
   PackageOpen,
   SlidersHorizontal,
