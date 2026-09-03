@@ -204,7 +204,9 @@ function ImportPage() {
                 {analysis.delimiter && analysis.delimiter !== "xlsx" ? ` — séparateur « ${analysis.delimiter} »` : ""}
               </div>
               <dl className="grid grid-cols-2 gap-2 text-sm">
-                <Stat label="Lignes détectées" value={analysis.totalRows} />
+                <Stat label="Lignes lues" value={analysis.totalRows} />
+                <Stat label="Lignes valides" value={analysis.validRows} />
+                <Stat label="Lignes ignorées" value={analysis.ignoredRows} />
                 <Stat label="Colonnes détectées" value={analysis.totalColumns} />
                 <Stat label="Clients détectés" value={analysis.customers} />
                 <Stat label="Véhicules détectés" value={analysis.vehicles} />
@@ -216,6 +218,21 @@ function ImportPage() {
                 <Stat label="Doublons potentiels" value={analysis.duplicateVehicles + analysis.duplicateCustomers} />
                 <Stat label="Lignes en anomalie" value={analysis.anomalies} />
               </dl>
+              {analysis.alerts.length ? (
+                <div className="space-y-1 rounded-lg border-2 border-status-watch p-3 text-xs">
+                  <p className="font-extrabold uppercase text-status-watch">Alertes données</p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    {analysis.alerts.map((a) => (
+                      <li key={a.kind}>
+                        {a.label} — {a.count} ligne(s){a.sample ? ` · ${a.sample}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-muted-foreground">
+                    Ces alertes n'empêchent pas l'import : les champs absents restent inconnus.
+                  </p>
+                </div>
+              ) : null}
               {analysis.anomalySamples.length ? (
                 <ul className="space-y-1 rounded-lg bg-secondary p-3 text-xs text-muted-foreground">
                   {analysis.anomalySamples.slice(0, 5).map((a) => (
