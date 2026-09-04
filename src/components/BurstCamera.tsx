@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 
 import { blobToDataUrl } from "@/lib/photo";
+import { prepareCapture } from "@/lib/photo-capture";
 
 export type BurstStep = { key: string; label: string; mask?: MaskKind; hint?: string };
 export type BurstShot = { key: string; label: string; blob: Blob; dataUrl: string };
@@ -403,10 +404,10 @@ export function BurstCamera({
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={async (e) => {
-          const f = e.target.files?.[0];
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
           e.target.value = "";
-          if (f) await push(f);
+          void push(f).catch(() => undefined);
         }}
       />
 
