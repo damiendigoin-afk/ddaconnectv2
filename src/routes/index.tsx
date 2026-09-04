@@ -230,30 +230,38 @@ function Hub() {
           </Link>
         ) : null}
 
-        {visible.map((m, i) => {
-          const Icon = m.icon;
-          const primary = i === 0 && m.to === "/tour-vehicule";
-          return (
-            <Link
-              key={m.to}
-              to={m.to}
-              className={`flex items-center gap-4 rounded-xl px-4 py-4 active:scale-[0.99] ${
-                primary
-                  ? "bg-brand py-5 text-brand-foreground shadow-sm"
-                  : "border-2 border-border bg-card"
-              }`}
-            >
-              <Icon className={`h-7 w-7 shrink-0 ${primary ? "" : "text-brand"}`} />
-              <div className="flex-1">
-                <div className="text-base font-extrabold uppercase tracking-wide">{m.label}</div>
-                <div className={`text-xs ${primary ? "font-medium opacity-80" : "text-muted-foreground"}`}>
-                  {m.hint}
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 shrink-0" />
-            </Link>
-          );
-        })}
+        {families.map((f) => (
+          <section key={f.title} className="space-y-2 pt-2">
+            <h2 className="px-1 text-xs font-extrabold uppercase tracking-widest text-muted-foreground">
+              {f.title}
+            </h2>
+            {f.entries.map((m) => {
+              const Icon = m.icon;
+              const primary = m.to === "/tour-vehicule";
+              return (
+                <Link
+                  key={m.to}
+                  to={m.to}
+                  className={`flex items-center gap-4 rounded-xl px-4 py-4 active:scale-[0.99] ${
+                    primary
+                      ? "bg-brand py-5 text-brand-foreground shadow-sm"
+                      : "border-2 border-border bg-card"
+                  }`}
+                >
+                  <Icon className={`h-7 w-7 shrink-0 ${primary ? "" : "text-brand"}`} />
+                  <div className="flex-1">
+                    <div className="text-base font-extrabold uppercase tracking-wide">{m.label}</div>
+                    <div className={`text-xs ${primary ? "font-medium opacity-80" : "text-muted-foreground"}`}>
+                      {m.hint}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0" />
+                </Link>
+              );
+            })}
+          </section>
+        ))}
+
       </main>
     </div>
   );
