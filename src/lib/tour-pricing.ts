@@ -42,9 +42,11 @@ type BatteryTest = {
   voltage?: number | null;
   cca_measured?: number | null;
   cca_rated?: number | null;
+  capacity_ah?: number | null;
   soh_pct?: number | null;
   soc_pct?: number | null;
 };
+
 
 const BATTERY_OPERATIONS = ["batterie_remplacement", "batterie", "remplacement_batterie"];
 
