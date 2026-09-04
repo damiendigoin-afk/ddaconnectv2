@@ -44,90 +44,135 @@ export const Route = createFileRoute("/")({
   component: Hub,
 });
 
-/** Menu principal : après-vente, puis CRM / vente, puis gestion, paramétrage en dernier. */
-const MENU: { to: string; label: string; hint: string; icon: LucideIcon; module?: string; managerOnly?: boolean }[] = [
+/** Arborescence par familles d'usage : les routes et les droits sont inchangés. */
+type Entry = { to: string; label: string; hint: string; icon: LucideIcon; module?: string; managerOnly?: boolean };
+type Family = { title: string; entries: Entry[] };
+
+const FAMILIES: Family[] = [
   {
-    to: "/tour-vehicule",
-    label: "Tour Véhicule",
-    hint: "OR, contrôle guidé ou libre, rapport et envoi client",
-    icon: Car,
-    module: "tour",
+    title: "Atelier",
+    entries: [
+      {
+        to: "/tour-vehicule",
+        label: "Tour Véhicule",
+        hint: "OR, contrôle guidé ou libre, rapport et envoi client",
+        icon: Car,
+        module: "tour",
+      },
+      {
+        to: "/expertises",
+        label: "Expertise Véhicule",
+        hint: "État des lieux photo, dommages chiffrés et rapport client",
+        icon: ClipboardCheck,
+        module: "expertise",
+      },
+      {
+        to: "/carrosserie",
+        label: "Carrosserie",
+        hint: "Missions, communication expert, pièces, planning et paiements",
+        icon: Hammer,
+        module: "carrosserie",
+      },
+      {
+        to: "/maintenance",
+        label: "Maintenance prédictive",
+        hint: "Échéances projetées à partir des kilométrages relevés",
+        icon: Gauge,
+        module: "maintenance",
+      },
+    ],
   },
   {
-    to: "/expertises",
-    label: "Expertise Véhicule",
-    hint: "État des lieux photo, dommages chiffrés et rapport client",
-    icon: ClipboardCheck,
-    module: "expertise",
+    title: "Magasin & achats",
+    entries: [
+      {
+        to: "/magasin",
+        label: "Magasin",
+        hint: "Retours de pièces, expéditions fournisseurs et avoirs",
+        icon: PackageOpen,
+        module: "magasin",
+      },
+      {
+        to: "/factures-fournisseur",
+        label: "BL & factures fournisseur",
+        hint: "Dépôt photo ou PDF, lecture automatique, validation et rattachement OR",
+        icon: FileSpreadsheet,
+        module: "magasin",
+      },
+    ],
   },
   {
-    to: "/carrosserie",
-    label: "Carrosserie",
-    hint: "Missions, communication expert, pièces, planning et paiements",
-    icon: Hammer,
-    module: "carrosserie",
+    title: "Clients & commercial",
+    entries: [
+      {
+        to: "/crm",
+        label: "CRM",
+        hint: "Appels, emails et réclamations avec relance et escalade",
+        icon: Headphones,
+        module: "crm",
+      },
+      {
+        to: "/recuperation",
+        label: "Ventes",
+        hint: "Planning et checklists de récupération, VN / VO et livraisons",
+        icon: Truck,
+        module: "recuperation",
+      },
+    ],
   },
   {
-    to: "/magasin",
-    label: "Magasin",
-    hint: "Retours de pièces, expéditions fournisseurs et avoirs",
-    icon: PackageOpen,
-    module: "magasin",
+    title: "Communication",
+    entries: [
+      {
+        to: "/communication",
+        label: "Communication",
+        hint: "Bibliothèque des supports publicitaires Renault / Dacia et rotation d'affichage",
+        icon: Megaphone,
+        module: "communication",
+      },
+    ],
   },
   {
-    to: "/maintenance",
-    label: "Maintenance prédictive",
-    hint: "Échéances projetées à partir des kilométrages relevés",
-    icon: Gauge,
-    module: "maintenance",
+    title: "Équipe & RH",
+    entries: [
+      {
+        to: "/notes-frais",
+        label: "Notes de frais",
+        hint: "Saisie des dépenses, justificatifs et validation manager",
+        icon: FileSpreadsheet,
+        module: "notes_frais",
+      },
+    ],
   },
   {
-    to: "/crm",
-    label: "CRM",
-    hint: "Appels, emails et réclamations avec relance et escalade",
-    icon: Headphones,
-    module: "crm",
+    title: "Statistiques & pilotage",
+    entries: [
+      {
+        to: "/statistiques",
+        label: "Mes statistiques",
+        hint: "Productivité, rentabilité et activité du mois",
+        icon: BarChart3,
+      },
+      {
+        to: "/pilotage",
+        label: "Gestion",
+        hint: "Objectifs, KPIs Groupe N/N-1/N-2, balance âgée, impayés et relances",
+        icon: TrendingUp,
+        module: "pilotage",
+      },
+    ],
   },
   {
-    to: "/recuperation",
-    label: "Ventes",
-    hint: "Planning et checklists de récupération, VN / VO et livraisons",
-    icon: Truck,
-    module: "recuperation",
-  },
-  {
-    to: "/notes-frais",
-    label: "Notes de frais",
-    hint: "Saisie des dépenses, justificatifs et validation manager",
-    icon: FileSpreadsheet,
-    module: "notes_frais",
-  },
-  {
-    to: "/communication",
-    label: "Communication",
-    hint: "Bibliothèque des supports publicitaires Renault / Dacia et rotation d'affichage",
-    icon: Megaphone,
-    module: "communication",
-  },
-  {
-    to: "/statistiques",
-    label: "Mes statistiques",
-    hint: "Productivité, rentabilité et activité du mois",
-    icon: BarChart3,
-  },
-  {
-    to: "/pilotage",
-    label: "Gestion",
-    hint: "Objectifs, KPIs Groupe N/N-1/N-2, balance âgée, impayés et relances",
-    icon: TrendingUp,
-    module: "pilotage",
-  },
-  {
-    to: "/parametrage",
-    label: "Paramétrage",
-    hint: "Utilisateurs, base de données, flux emails, connaissances, qualité, automatisations, santé",
-    icon: SlidersHorizontal,
-    managerOnly: true,
+    title: "Paramétrage",
+    entries: [
+      {
+        to: "/parametrage",
+        label: "Paramétrage",
+        hint: "Utilisateurs, base de données, flux emails, connaissances, qualité, automatisations, santé",
+        icon: SlidersHorizontal,
+        managerOnly: true,
+      },
+    ],
   },
 ];
 
@@ -140,7 +185,10 @@ function Hub() {
     enabled: isManager,
   });
 
-  const visible = MENU.filter((m) => (m.managerOnly ? isManager : can(m.module as never)));
+  const families = FAMILIES.map((f) => ({
+    ...f,
+    entries: f.entries.filter((m) => (m.managerOnly ? isManager : can(m.module as never))),
+  })).filter((f) => f.entries.length);
 
   return (
     <div className="min-h-screen bg-background pb-16">
