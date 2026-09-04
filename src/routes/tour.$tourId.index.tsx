@@ -86,10 +86,34 @@ function TourPage() {
     };
   }, [notStarted, user, tourId, displayName, qc]);
 
-  if (tour.isLoading || !tour.data || !vehicle || !order) {
+  if (tour.isLoading) {
     return (
       <AppShell title="Tour véhicule">
         <p className="text-sm text-muted-foreground">Chargement…</p>
+      </AppShell>
+    );
+  }
+
+  // Erreur réseau/RLS ou dossier incomplet (véhicule ou intervention manquants) :
+  // message actionnable au lieu d'un chargement infini ou d'une exception.
+  if (tour.isError || !tour.data || !vehicle || !order) {
+    const reason = tour.error
+      ? (tour.error as Error).message
+      : "Ce tour n'est plus rattaché à un véhicule ou à une intervention.";
+    console.error("[dda] démarrage du tour impossible", { tourId, reason });
+    return (
+      <AppShell title="Tour véhicule" back={{ to: "/tour-vehicule" }}>
+        <div className="card-surface space-y-3 p-4">
+          <p className="text-base font-bold uppercase">Tour non chargé</p>
+          <p className="text-sm text-muted-foreground">{reason}</p>
+          <button
+            type="button"
+            onClick={() => void tour.refetch()}
+            className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-extrabold uppercase text-brand-foreground"
+          >
+            Réessayer
+          </button>
+        </div>
       </AppShell>
     );
   }
