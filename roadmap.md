@@ -28,8 +28,8 @@ Reste à faire :
 
 # Lot 04/09
 
-- [ ] Accueil : arborescence par familles (Atelier, Magasin & achats, Clients & commercial, Communication, Équipe & RH, Statistiques & pilotage, Paramétrage)
-- [ ] Pneus : chiffrage par essieu (1 roue HS => 2 pneus, 2 essieux => 4, jamais 1 ni 3)
-- [ ] Nettoyage : forfaits 39 / 79 / 199 € TTC avec pré-estimation modifiable
-- [ ] Carrosserie : niveaux mineur / réparation MO à déterminer / redressage / remplacement, temps jamais figé
-- [ ] Import forfaits : non modifié dans ce lot (sujet repris séparément)
+- [x] Accueil : arborescence par familles (Atelier, Magasin & achats, Clients & commercial, Communication, Équipe & RH, Statistiques & pilotage, Paramétrage)
+- [x] Pneus : chiffrage par essieu (1 roue HS => 2 pneus, 2 essieux => 4, jamais 1 ni 3)
+- [x] Nettoyage : forfaits 39 / 79 / 199 € TTC avec pré-estimation modifiable
+- [x] Carrosserie : niveaux mineur / réparation MO à déterminer / redressage / remplacement, temps jamais figé
+- [x] Import forfaits : non modifié dans ce lot (sujet repris séparément)
