@@ -12,6 +12,8 @@ import {
   contactItem,
   findBatteryPackages,
   packageItem,
+  priceBodyworkLevel,
+  priceCleaning,
   type EngineContext,
   type PricedItem,
   type Priority,
@@ -78,6 +80,7 @@ type Mapping =
 /** Correspondance point de contrôle → opération chiffrable. */
 export function mapPoint(pointKey: string): Mapping | null {
   if (/^pneu_/.test(pointKey)) return { kind: "pneu" };
+  if (/^proprete/.test(pointKey)) return { kind: "nettoyage" };
   if (/^batterie/.test(pointKey)) return { kind: "batterie" };
   if (/^frein_/.test(pointKey))
     return { kind: "mecanique", operation: "plaquettes", label: "Freinage — plaquettes" };
@@ -280,6 +283,19 @@ export async function priceTour(args: {
     }
 
 
+    /* ---------------------------- Nettoyage ---------------------------- */
+    if (mapping?.kind === "nettoyage") {
+      items.push(
+        priceCleaning({
+          label: p.point_label,
+          priority,
+          detail: [p.point_label, detail].filter(Boolean).join(" — "),
+          originPointKey: p.point_key,
+        }),
+      );
+      continue;
+    }
+
     if (!mapping) {
       items.push(
         contactItem({
@@ -306,18 +322,17 @@ export async function priceTour(args: {
         originPointKey: p.point_key,
         computation: { ...it.computation, method: it.ok ? "forfait_ou_grille_atelier" : "contact_operateur" },
       });
-    } else {
-      const it = priceBodywork(ctx, {
-        elementKey: mapping.element,
-        severity: priority === "urgent" ? "modere" : "leger",
-        paintType: "opaque",
-        priority,
-      });
-      items.push({
-        ...it,
-        originPointKey: p.point_key,
-        computation: { ...it.computation, method: "calcul_carrosserie" },
-      });
+    } else if (mapping.kind === "carrosserie") {
+      // Aucun passage automatique au remplacement : le niveau d'intervention est
+      // pré-lu puis validé par l'opérateur, et le temps n'est jamais figé.
+      items.push(
+        priceBodyworkLevel(ctx, {
+          elementKey: mapping.element,
+          priority,
+          detail: [p.point_label, detail].filter(Boolean).join(" — "),
+          originPointKey: p.point_key,
+        }),
+      );
     }
   }
 
