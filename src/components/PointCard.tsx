@@ -7,7 +7,7 @@ import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { PhotoManager } from "@/components/PhotoManager";
 import { StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { BatteryTestCard, type BatteryTest } from "@/components/BatteryTestCard";
-import { uploadPhoto } from "@/lib/photo";
+import { uploadCapture } from "@/lib/photo-capture";
 import type { PointDef } from "@/lib/zones";
 
 export type PointRow = {
