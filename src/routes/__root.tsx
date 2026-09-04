@@ -127,6 +127,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "DDA Connect : application atelier Damien Digoin Automobile pour les tours véhicule, contrôles et rapports.",
       },
       { name: "author", content: "Damien Digoin Automobile" },
+      // Empêche la traduction automatique Chrome/Google d'altérer le DOM React.
+      { name: "google", content: "notranslate" },
       { property: "og:title", content: "DDA Connect — Tour Véhicule atelier" },
       {
         property: "og:description",
@@ -152,7 +154,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // L'interface est intégralement en français : sans `lang="fr"` + notranslate,
+    // Chrome Android traduit la page (« OK » → « d'accord », « À surveiller » → « à »…)
+    // et remplace les nœuds texte sous React, ce qui provoque des crashes de rendu.
+    <html lang="fr" translate="no">
       <head>
         <HeadContent />
       </head>

@@ -4,7 +4,8 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useLightbox } from "@/components/PhotoLightbox";
-import { deleteMedia, mediaUrl, uploadPhoto, type MediaLinks } from "@/lib/photo";
+import { deleteMedia, mediaUrl, type MediaLinks } from "@/lib/photo";
+import { prepareCapture, uploadCapture } from "@/lib/photo-capture";
 import { addFailedUpload } from "@/lib/upload-tracker";
 
 export type MediaRow = { id: string; storage_path: string };
@@ -96,22 +97,26 @@ export function PhotoManager({
    * Un échec d'envoi est mémorisé globalement : la clôture du Tour reste
    * bloquée tant que l'utilisateur n'a pas réessayé ou abandonné la photo.
    */
-  async function sendOne(file: File) {
-    try {
-      const row = await uploadPhoto(file, folder, links);
-      setItems((prev) => [...prev, row as MediaRow]);
+  async function sendOne(file: unknown) {
+    // Chemin partagé, tolérant aux retours caméra Android incomplets :
+    // aucune exception ne peut remonter au rendu de la carte.
+    const res = await uploadCapture(file, folder, links);
+    if (res.ok) {
+      setItems((prev) => [...prev, res.media as MediaRow]);
       toast.success("Photo enregistrée");
-    } catch (e) {
-      console.error(e);
-      toast.error("Échec de l'envoi de la photo — vous pourrez réessayer avant de terminer le tour.");
-      addFailedUpload({
-        name: file.name || "photo.jpg",
-        retry: async () => {
-          const row = await uploadPhoto(file, folder, links);
-          setItems((prev) => [...prev, row as MediaRow]);
-        },
-      });
+      return;
     }
+    toast.error(`${res.message} Vous pourrez réessayer avant de terminer le tour.`);
+    const capture = prepareCapture(file);
+    if (!capture) return;
+    addFailedUpload({
+      name: capture.name,
+      retry: async () => {
+        const again = await uploadCapture(capture.blob, folder, links);
+        if (!again.ok) throw new Error(again.message);
+        setItems((prev) => [...prev, again.media as MediaRow]);
+      },
+    });
   }
 
   async function remove(item: MediaRow) {

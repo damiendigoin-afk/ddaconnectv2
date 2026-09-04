@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 
 import { blobToDataUrl } from "@/lib/photo";
+import { prepareCapture } from "@/lib/photo-capture";
 
 export type BurstStep = { key: string; label: string; mask?: MaskKind; hint?: string };
 export type BurstShot = { key: string; label: string; blob: Blob; dataUrl: string };
@@ -145,8 +146,14 @@ export function BurstCamera({
 
   /** Enregistre la prise pour l'étape courante (remplace en cas de reprise). */
   const push = useCallback(
-    async (blob: Blob) => {
-      const dataUrl = await blobToDataUrl(blob);
+    async (input: unknown) => {
+      // Retour caméra Android incomplet (nom/MIME absents, blob vide) : on
+      // normalise ici plutôt que de laisser échouer l'aperçu ou l'envoi.
+      const capture = prepareCapture(input);
+      if (!capture) return;
+      const blob = capture.blob;
+      // L'aperçu est un confort : son échec ne doit jamais annuler la prise.
+      const dataUrl = await blobToDataUrl(blob).catch(() => "");
       const key = step?.key ?? `libre_${Date.now()}`;
       const label = step?.label ?? "Photo complémentaire";
       let merged: BurstShot[] = [];
@@ -397,10 +404,10 @@ export function BurstCamera({
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={async (e) => {
-          const f = e.target.files?.[0];
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
           e.target.value = "";
-          if (f) await push(f);
+          void push(f).catch(() => undefined);
         }}
       />
 
