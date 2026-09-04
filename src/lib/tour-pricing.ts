@@ -356,7 +356,10 @@ export function priceBatteryReplacement(args: {
     }
   }
 
-  const search = findBatteryPackages(ctx, vehicle);
+  const search = findBatteryPackages(ctx, vehicle, {
+    capacityAh: args.test?.capacity_ah ?? null,
+    ratedAmp: args.test?.cca_rated ?? null,
+  });
   if (search.best) {
     const choices = search.candidates.slice(0, 8).map((p) => ({
       id: p.id,
