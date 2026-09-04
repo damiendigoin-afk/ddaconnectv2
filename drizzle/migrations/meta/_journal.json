@@ -22,6 +22,13 @@
       "when": 1788456114413,
       "tag": "0002_tire_offers_rebuild_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788502250971,
+      "tag": "0003_add_renault_battery_package_rspncc",
+      "breakpoints": true
     }
   ]
 }
