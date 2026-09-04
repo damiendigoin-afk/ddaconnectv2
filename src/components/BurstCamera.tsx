@@ -145,8 +145,14 @@ export function BurstCamera({
 
   /** Enregistre la prise pour l'étape courante (remplace en cas de reprise). */
   const push = useCallback(
-    async (blob: Blob) => {
-      const dataUrl = await blobToDataUrl(blob);
+    async (input: unknown) => {
+      // Retour caméra Android incomplet (nom/MIME absents, blob vide) : on
+      // normalise ici plutôt que de laisser échouer l'aperçu ou l'envoi.
+      const capture = prepareCapture(input);
+      if (!capture) return;
+      const blob = capture.blob;
+      // L'aperçu est un confort : son échec ne doit jamais annuler la prise.
+      const dataUrl = await blobToDataUrl(blob).catch(() => "");
       const key = step?.key ?? `libre_${Date.now()}`;
       const label = step?.label ?? "Photo complémentaire";
       let merged: BurstShot[] = [];
