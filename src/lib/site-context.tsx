@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchSites, guessSiteCode, GROUP_LABEL, type Site } from "@/lib/sites";
+import { isValidSiteValue } from "@/lib/client-recovery";
 import { useAuth } from "@/lib/auth";
 
 type SiteState = {
