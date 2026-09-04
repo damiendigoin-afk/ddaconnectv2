@@ -42,9 +42,11 @@ type BatteryTest = {
   voltage?: number | null;
   cca_measured?: number | null;
   cca_rated?: number | null;
+  capacity_ah?: number | null;
   soh_pct?: number | null;
   soc_pct?: number | null;
 };
+
 
 const BATTERY_OPERATIONS = ["batterie_remplacement", "batterie", "remplacement_batterie"];
 
@@ -166,7 +168,10 @@ export async function priceTour(args: {
 
   const items: PricedItem[] = [];
   /** Pneus non chiffrés faute d'offre fournisseur : regroupés en fin de parcours. */
-  const pendingTires: { point: PointRow; priority: Priority; offersReady: number }[] = [];
+  const pendingTires: { point: PointRow; priority: Priority; offersReady: number; axle?: string }[] = [];
+  /** Roues déjà couvertes par une offre groupée retenue (évite les doublons). */
+  const coveredByAxle = new Map<string, number>();
+
   for (const p of (points ?? []) as PointRow[]) {
 
     const priority = priorityFromStatus(p.status);
@@ -212,18 +217,22 @@ export async function priceTour(args: {
 
     /* --------------------------- Pneumatiques -------------------------- */
     if (mapping?.kind === "pneu") {
+      const axle = /_ar/.test(p.point_key) ? "arriere" : "avant";
       const pointOffers = offersByPoint.get(p.id) ?? [];
       const selected = pointOffers.find((o) => o.selected && o.total_ttc != null);
       if (selected) {
         const ttc = Number(selected.total_ttc);
         const ht = Number(selected.total_ht ?? Math.round((ttc / 1.2) * 100) / 100);
+        const qty = Number(selected.quantity ?? 1) || 1;
+        coveredByAxle.set(axle, (coveredByAxle.get(axle) ?? 0) + qty);
         items.push({
           ok: true,
           needsContact: false,
           message: "",
-          label: `${selected.quantity} pneu${selected.quantity > 1 ? "x" : ""} ${selected.brand ?? ""} ${
+          label: `${qty} pneu${qty > 1 ? "s" : ""} ${selected.brand ?? ""} ${
             selected.model ?? ""
           }${selected.size ? ` ${selected.size}` : ""}`.replace(/\s+/g, " ").trim(),
+
           detail: [
             selected.season ? SEASON_LABEL[selected.season as TireSeason] : null,
             selected.mount_package,
@@ -262,7 +271,9 @@ export async function priceTour(args: {
         point: p,
         priority,
         offersReady: pointOffers.filter((o) => o.total_ttc != null).length,
+        axle,
       });
+
       continue;
     }
 
@@ -308,10 +319,21 @@ export async function priceTour(args: {
     }
   }
 
-  if (pendingTires.length) {
+  // Une offre groupée retenue (ex. 2 pneus) couvre déjà les autres roues du même
+  // essieu : on supprime les lignes doublons « 1 pneu … » restantes.
+  const remainingTires = pendingTires.filter((e) => {
+    const axle = e.axle ?? (/_ar/.test(e.point.point_key) ? "arriere" : "avant");
+    const left = coveredByAxle.get(axle) ?? 0;
+    if (left <= 1) return true;
+    coveredByAxle.set(axle, left - 1);
+    return false;
+  });
+
+  if (remainingTires.length) {
     const memory = await tireMemoryFor(args.inspectionId);
-    items.push(...groupTireItems(ctx, pendingTires, memory, vehicle.homologatedTireSize ?? null));
+    items.push(...groupTireItems(ctx, remainingTires, memory, vehicle.homologatedTireSize ?? null));
   }
+
   return { ctx, vehicle, items };
 }
 
@@ -354,7 +376,10 @@ export function priceBatteryReplacement(args: {
     }
   }
 
-  const search = findBatteryPackages(ctx, vehicle);
+  const search = findBatteryPackages(ctx, vehicle, {
+    capacityAh: args.test?.capacity_ah ?? null,
+    ratedAmp: args.test?.cca_rated ?? null,
+  });
   if (search.best) {
     const choices = search.candidates.slice(0, 8).map((p) => ({
       id: p.id,
@@ -510,7 +535,7 @@ export function groupTireItems(
       message: g.size
         ? "Prix pneu à compléter : offre fournisseur non disponible."
         : "Chiffrage incomplet : renseigner la dimension pneu.",
-      label: `${quantity} pneu${quantity > 1 ? "x" : ""} ${g.size || "— dimension à renseigner"}`.trim(),
+      label: `${quantity} pneu${quantity > 1 ? "s" : ""} ${g.size || "— dimension à renseigner"}`.trim(),
       detail: [
         wheels,
         offersReady ? `${offersReady} proposition(s) fournisseur préparée(s) à retenir` : null,

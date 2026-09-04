@@ -246,43 +246,104 @@ export type BatteryPackageSearch = {
   ambiguous: boolean;
 };
 
+/** Caractéristiques mesurées/relevées de la batterie du véhicule. */
+export type BatterySpec = { capacityAh?: number | null; ratedAmp?: number | null };
+
+/**
+ * Gammes commerciales et codes usine équivalents : « QM3 » (Corée) désigne le
+ * Captur I. Permet de rattacher un mémento écrit en code usine au véhicule.
+ */
+const MODEL_ALIASES: Record<string, string[]> = {
+  captur: ["qm3", "j87"],
+  clio: ["x98", "b98"],
+  megane: ["b9a", "bfb"],
+  kadjar: ["qm5"],
+};
+
+function modelTokens(raw: string | null | undefined): string[] {
+  return (raw ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** true si le texte du forfait désigne la même gamme que le véhicule (alias inclus). */
+export function modelMatchesPackage(vehicleText: string, packageText: string): boolean {
+  const v = new Set(modelTokens(vehicleText));
+  const p = new Set(modelTokens(packageText));
+  for (const [gamme, aliases] of Object.entries(MODEL_ALIASES)) {
+    const inV = v.has(gamme) || aliases.some((a) => v.has(a));
+    const inP = p.has(gamme) || aliases.some((a) => p.has(a));
+    if (inV && inP) return true;
+  }
+  for (const token of v) if (token.length >= 4 && p.has(token)) return true;
+  return false;
+}
+
+/** Extrait la capacité (Ah) et l'intensité de démarrage (A) d'un libellé de forfait. */
+export function parseBatterySpec(text: string | null | undefined): BatterySpec {
+  const t = (text ?? "").toUpperCase().replace(/\s+/g, " ");
+  const ah = t.match(/(\d{2,3})\s*AH/);
+  const amp = t.match(/(\d{3,4})\s*A(?![HZ0-9])/);
+  return {
+    capacityAh: ah?.[1] ? Number(ah[1]) : null,
+    ratedAmp: amp?.[1] ? Number(amp[1]) : null,
+  };
+}
+
 /**
  * Recherche d'un forfait batterie dans le référentiel importé (mémentos
  * Renault/Dacia). Les codes opération des mémentos ne sont pas normalisés
  * (RMPNxx…), le rattachement se fait donc sur le libellé + la marque + le
- * modèle/segment quand ces informations existent.
+ * modèle/segment + les caractéristiques batterie (Ah / A) quand elles existent.
  */
 export function findBatteryPackages(
   ctx: EngineContext,
   vehicle: VehicleProfile,
+  battery: BatterySpec = {},
 ): BatteryPackageSearch {
-  const pool = ctx.packages.filter(
-    (p) =>
-      p.active !== false &&
-      (BATTERY_RE.test(p.label ?? "") ||
-        BATTERY_RE.test(p.operation_code ?? "") ||
-        BATTERY_RE.test(p.notes ?? "")),
-  );
+  const year = vehicleYear(vehicle);
+  const vehicleText = [vehicle.model, vehicle.version].filter(Boolean).join(" ");
+
+  const pool = ctx.packages.filter((p) => {
+    if (p.active === false) return false;
+    const isBattery =
+      BATTERY_RE.test(p.label ?? "") ||
+      BATTERY_RE.test(p.operation_code ?? "") ||
+      BATTERY_RE.test(p.notes ?? "");
+    if (!isBattery) return false;
+    // Génération incompatible (Captur I vs Captur II) : exclusion stricte.
+    if (year != null && ((p.year_from ?? 0) > year || (p.year_to ?? 9999) < year)) return false;
+    return true;
+  });
   if (!pool.length) return { best: null, candidates: [], ambiguous: false };
 
-  const year = vehicleYear(vehicle);
   const brand = (vehicle.brand ?? "").toLowerCase();
-  const model = (vehicle.model ?? "").toLowerCase();
 
   const score = (p: ServicePackage) => {
     let s = 0;
     const pBrand = (p.brand ?? "").toLowerCase();
     if (pBrand && brand && pBrand === brand) s += 4;
     else if (pBrand && brand && isGroupBrand(vehicle.brand) && isGroupBrand(p.brand)) s += 2;
-    const pModel = (p.model ?? "").toLowerCase();
-    if (pModel && model && (model.includes(pModel) || pModel.includes(model))) s += 4;
-    else if (!pModel) s += 1; // forfait générique toutes gammes
+    const pText = [p.model, p.notes, p.label].filter(Boolean).join(" ");
+    if (p.model && modelMatchesPackage(vehicleText, pText)) s += 6;
+    else if (!p.model) s += 1; // forfait générique toutes gammes
     if (p.segment && vehicle.segment !== "inconnu" && p.segment === vehicle.segment) s += 2;
     if (!p.energies?.length || p.energies.includes(vehicle.energy)) s += 1;
-    if (year == null || ((p.year_from ?? 0) <= year && (p.year_to ?? 9999) >= year)) s += 1;
+    if (year != null && (p.year_from != null || p.year_to != null)) s += 1;
+
+    // Caractéristiques batterie relevées au testeur : rapprochement fort.
+    const spec = parseBatterySpec([p.label, p.notes].filter(Boolean).join(" "));
+    if (battery.ratedAmp && spec.ratedAmp) s += Math.abs(spec.ratedAmp - battery.ratedAmp) <= 20 ? 8 : -8;
+    if (battery.capacityAh && spec.capacityAh)
+      s += Math.abs(spec.capacityAh - battery.capacityAh) <= 5 ? 4 : -4;
+
     if (Number(p.price_ttc ?? 0) > 0 || Number(p.hours ?? 0) > 0) s += 1;
     return s;
   };
+
 
   const ranked = [...pool].sort((a, b) => score(b) - score(a));
   const top = ranked[0]!;

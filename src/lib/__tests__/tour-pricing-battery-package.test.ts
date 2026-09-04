@@ -123,4 +123,47 @@ describe("chiffrage batterie — priorité au forfait Renault", () => {
     });
     expect((item.computation as Record<string, unknown>)["method"]).toBe("proposition_generique_batterie");
   });
+
+  it("rapproche un Captur I / QM3 70 Ah 720 A du forfait RSPNCC, jamais du Captur II", () => {
+    const capturI = buildVehicleProfile({
+      brand: "Renault",
+      model: "CAPTUR DCI 90",
+      energy: "diesel",
+      firstRegistrationDate: "2014-07-21",
+    } as never);
+    const item = priceBatteryReplacement({
+      ctx: ctx([
+        pkg({
+          id: "rspncc",
+          operation_code: "RSPNCC",
+          label: "REMPLACEMENT BATTERIE 70 AH 720 A (BATTERIE ET MAIN D'OEUVRE COMPRISES)",
+          model: "CAPTUR I / QM3",
+          notes: "Captur I / QM3 1.2 16V, 1.3 16V, 1.5 dCi, 1.6 16V",
+          segment: "B",
+          price_ttc: 389,
+          year_from: 2013,
+          year_to: 2019,
+        }),
+        pkg({
+          id: "capturII",
+          operation_code: "RSPNCD",
+          label: "REMPLACEMENT BATTERIE 60 AH 640 A",
+          model: "CAPTUR II",
+          price_ttc: 329,
+          year_from: 2019,
+          year_to: 2030,
+        }),
+      ]),
+      vehicle: capturI,
+      label: "Batterie — remplacement batterie",
+      priority: "a_remplacer",
+      detail: "SOH 69 %",
+      test: { verdict: "a_remplacer", cca_rated: 720, capacity_ah: 70 } as never,
+      originPointKey: "batterie",
+    });
+    expect(item.needsContact).toBe(false);
+    expect(item.source).toBe("forfait_renault");
+    expect(item.totalTtc).toBe(389);
+    expect(item.message).not.toMatch(/à sélectionner/i);
+  });
 });
