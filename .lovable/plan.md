@@ -1,89 +1,68 @@
-# Refonte du tableau de bord DDA Connect
+# Centre de connexions externes (Paramètres API)
 
-## Objectif
+Objectif : garder la page actuelle « Paramètres API » (/parametrage/api) et en faire le seul endroit où l'on voit et gère toutes les connexions externes, avec des statuts compréhensibles. Aucun autre module n'est touché (chiffrage, forfaits, tours véhicule inchangés).
 
-Transformer uniquement la page d’accueil en tableau de bord atelier clair, mobile-first et orienté action, tout en conservant les routes, droits, données et fonctions existantes.
+## Ce que verra l'utilisateur
 
-## Structure cible
+Une page en deux sections :
 
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│ DDA CONNECT          Site : Lalinde / Groupe       Bonjour, Damien  │
-│ [TABLEAU DE BORD]                                 [Profil] [Quitter] │
-└──────────────────────────────────────────────────────────────────────┘
+1. **Services par clé** (existants, conservés) : Emails, Géocodage / temps de trajet, OCR / lecture de documents, Stockage de fichiers, plus une nouvelle carte **IXELLIO**.
+2. **Communication** (nouveau, connexions par bouton) : Meta (Facebook + Instagram + compte publicitaire), Google Business Profile, Google Ads.
 
-┌──────────────────────────────┐  ┌───────────────────────────────────┐
-│ Bonjour Damien               │  │ AUJOURD’HUI                       │
-│ Pilotez l’activité de        │  │ 12 Tours   3 Expertise   4 Docs │
-│ l’atelier en un coup d’œil.  │  │ Récents / Alertes / Messages     │
-└──────────────────────────────┘  └───────────────────────────────────┘
+Chaque carte affiche : un statut clair, le compte/page relié, le ou les sites affectés (Lalinde, Castels ou Groupe), la date de la dernière vérification, le message du dernier test, et les actions Tester / Modifier l'affectation / Déconnecter.
 
-┌──────────────────────────────────────────────────────────────────────┐
-│ Rechercher une immatriculation, un OR, un client, un fournisseur…  │
-└──────────────────────────────────────────────────────────────────────┘
+### Statuts
 
-                         [ DÉMARRER UN TOUR ]
+| Statut | Sens |
+| --- | --- |
+| Non configuré | aucune clé ni compte relié |
+| Configuré | clé ou compte présent, jamais testé |
+| Testé | dernier test réussi mais service mis en pause |
+| Actif | testé avec succès et activé |
+| Erreur | dernier test en échec, avec le message affiché |
 
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│ Tour véhicule│ │ Expertise    │ │ Carrosserie  │ │ Magasin      │
-│ ● 5 en cours │ │ ● 2 brouillon│ │ ● 3 nouvelles│ │ ● 6 à traiter│
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│ Factures     │ │ Statistiques │ │ Communication│ │ Paramètres   │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+Une clé présente n'affiche plus « Inactif » seul : elle affiche « Configuré — jamais testé » ou « Erreur — <message> ».
 
-Barre mobile fixe : Accueil · Recherche · + · Notifications · Plus
-```
+### IXELLIO
 
-## Mise en œuvre
+La carte IXELLIO reprend exactement ce qui existe aujourd'hui dans Paramétrage global : statut, date de mise à jour, modification des identifiants, immatriculation de test, bouton de test. Les identifiants déjà enregistrés et chiffrés sont réutilisés tels quels, aucun doublon n'est créé. Dans Paramétrage global, le bloc est retiré et remplacé par un lien « Connexions externes » vers Paramètres API.
 
-1. **En-tête applicatif**
-   - Remplacer l’en-tête actuel de l’accueil par une barre blanche compacte : marque DDA Connect à gauche, badge site alimenté par le contexte de site existant, nom de l’utilisateur, accès profil et déconnexion à droite.
-   - Ajouter l’onglet actif « Tableau de bord » avec soulignement jaune, sans créer de nouvelle navigation métier.
+### Meta / Google
 
-2. **Bandeau d’accueil et activité du jour**
-   - Ajouter un bandeau gris très clair avec la salutation personnalisée et le texte d’accompagnement demandé.
-   - Afficher trois KPI compacts et lisibles avec icônes : Tours véhicule, Expertises, Documents à traiter.
-   - Ajouter les blocs secondaires « Récents », « Alertes » et « Messages » en réutilisant les données déjà disponibles lorsque possible ; aucun nouveau schéma ni changement backend.
+Pas de saisie de secrets par l'utilisateur : boutons « Connecter avec Meta » et « Connecter avec Google ». Les jetons restent côté serveur, chiffrés, jamais affichés. Après connexion, l'écran liste les pages Facebook, comptes Instagram, comptes publicitaires ou établissements disponibles et permet d'affecter chacun à Lalinde, Castels ou Groupe (un seul compte Google et un seul compte Meta pour les deux sites).
 
-3. **Recherche et action principale**
-   - Conserver `UniversalSearch` et l’intégrer comme large barre centrale avec icône loupe et placeholder élargi aux fournisseurs.
-   - Ajouter le bouton jaune « Démarrer un tour » pointant vers le parcours Tour Véhicule existant.
+## Détail technique
 
-4. **Grille des modules**
-   - Remplacer la liste verticale par une grille de huit tuiles : Tour véhicule, Expertise véhicule, Carrosserie, Magasin, Factures fournisseur, Mes statistiques, Communication, Paramètres.
-   - Conserver les contrôles de droits existants et masquer les tuiles non autorisées, notamment Paramètres pour les non-managers.
-   - Utiliser des icônes contour, titres courts, sous-titres métier, bordures fines, ombres discrètes et rayons modérés.
-   - Afficher les statuts utiles sous forme de puces quand une donnée existante fiable est disponible ; éviter tout compteur fictif.
+### Base de données (une migration)
 
-5. **Navigation mobile**
-   - Ajouter sur l’accueil une barre basse fixe à cinq entrées : Accueil, Recherche, bouton central jaune « + », Notifications, Plus.
-   - Relier chaque action à un comportement existant : retour accueil, focus de la recherche, accès au Tour Véhicule, zone alertes/messages, et accès aux modules complémentaires.
-   - Prévoir les espacements de sécurité mobile pour ne jamais masquer le contenu.
+- `api_settings` : ajout de `category text not null default 'cle'` et `sort_order int default 100`, plus une ligne `ixellio` (carte pilotée par `integration_credentials`, pas par un secret d'environnement).
+- Nouvelle table `integration_connections` : `id`, `provider` (`meta`, `google_business`, `google_ads`, extensible), `status`, `account_label`, `account_external_id`, `access_token_enc`, `refresh_token_enc`, `expires_at`, `scopes text[]`, `last_check_at`, `last_check_ok`, `last_check_message`, `connected_by`, timestamps. GRANT `service_role` uniquement + `SELECT` `authenticated` sur une vue/colonnes sans jetons ; RLS activée, lecture manager.
+- Nouvelle table `integration_targets` : `id`, `connection_id` (FK cascade), `kind` (`fb_page`, `ig_account`, `ad_account`, `gbp_location`), `external_id`, `name`, `site_id uuid null`, `scope text` (`site` | `groupe`), timestamps, unicité (`connection_id`, `kind`, `external_id`). GRANT + RLS manager.
+- `integration_credentials` : inchangée (IXELLIO conservé).
 
-6. **Direction visuelle et responsive**
-   - Étendre les tokens existants vers une palette claire blanche/gris doux, jaune Renault en accent, noir et gris foncé pour la hiérarchie.
-   - Desktop : largeur généreuse, bandeau en deux zones et grille sur quatre colonnes.
-   - Tablette : grille sur deux colonnes.
-   - Mobile : empilement lisible, cartes sur une ou deux colonnes selon largeur, barre basse toujours accessible, aucune coupure de texte.
-   - Ajouter uniquement des transitions discrètes et respecter la réduction des animations.
+### Fichiers
 
-## Fichiers prévus
+Nouveaux :
+- `src/lib/integrations.ts` — types et registre générique des connexions (id, libellé, catégorie, mode `cle` | `oauth`, actions disponibles) ; c'est le point d'extension pour les API futures.
+- `src/lib/integrations.functions.ts` / `src/lib/integrations.server.ts` — server functions manager : lister les connexions (sans jetons), lancer un test, enregistrer les affectations, déconnecter. Chiffrement via `src/lib/crypto.server.ts` existant.
+- `src/routes/api/public/oauth/meta.callback.ts` et `.../google.callback.ts` — retours OAuth, échange du code, stockage chiffré ; `state` signé et vérifié.
+- `src/components/IntegrationCard.tsx` — carte générique (statut, compte, sites, dernier test, actions), utilisée par toutes les connexions.
+- `src/components/IntegrationTargets.tsx` — affectation page/compte/établissement → site.
 
-- `src/routes/index.tsx` : nouvelle composition du tableau de bord et branchement aux données/contexte existants.
-- `src/styles.css` : ajustements ciblés des tokens et utilitaires globaux nécessaires à la direction visuelle.
-- Éventuellement un petit composant dédié sous `src/components/` si la barre mobile ou les tuiles rendent la route trop volumineuse.
+Modifiés :
+- `src/routes/parametrage.api.tsx` — deux sections, carte générique, statuts enrichis, carte IXELLIO (réutilise `getIxellioSettings`, `saveIxellioSettings`, `testIxellioAuth` déjà existants).
+- `src/routes/parametrage.global.tsx` — suppression du bloc `IxellioSettings`, remplacé par un lien vers Paramètres API.
+- `src/routes/api/public/api-check.ts` — retour enrichi (statut + message) pour les services par clé.
 
-## Vérifications
+### Secrets
 
-- Contrôler les rôles manager/salarié et l’absence de liens vers des routes inexistantes.
-- Vérifier visuellement les largeurs mobile, tablette et desktop, ainsi que la barre basse et l’absence de chevauchement.
-- Vérifier les états avec/sans compteurs et alertes, le focus de recherche, le CTA et la déconnexion.
-- Exécuter typecheck, suite de tests et build, puis lire le dernier rapport de build.
+Meta et Google Ads/Business nécessitent un identifiant d'application côté serveur. Le plan prévoit d'utiliser en priorité un connecteur Google déjà disponible dans la plateforme pour Google Ads ; pour Meta, il faudra ajouter `META_APP_ID` et `META_APP_SECRET` dans les secrets du projet (à faire au moment de l'implémentation, pas maintenant). Tant qu'ils sont absents, la carte Meta affiche « Non configuré — application Meta à déclarer » sans casser la page.
 
-## Hors périmètre
+### Vérifications
 
-- Aucun changement de schéma, migration, authentification, fonction serveur ou logique métier.
-- Aucun redesign des pages internes.
-- Aucun compteur inventé ni nouvelle source de données.
-- Aucune publication automatique.
+Typecheck, suite de tests complète, build. Tests ajoutés : calcul du statut d'une connexion, affectation site/groupe, absence de fuite de jeton dans les données renvoyées au navigateur. Aucune publication automatique.
+
+### Découpage proposé
+
+1. Migration + refonte de la page avec statuts clairs + carte IXELLIO + retrait du doublon dans Paramétrage global (coût faible, entièrement testable tout de suite).
+2. OAuth Meta / Google et affectation aux sites (dépend des identifiants d'application).
