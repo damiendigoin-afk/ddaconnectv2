@@ -71,7 +71,9 @@ type Mapping =
   | { kind: "mecanique"; operation: string; label: string }
   | { kind: "carrosserie"; element: string }
   | { kind: "pneu" }
+  | { kind: "nettoyage" }
   | { kind: "batterie" };
+
 
 /** Correspondance point de contrôle → opération chiffrable. */
 export function mapPoint(pointKey: string): Mapping | null {
