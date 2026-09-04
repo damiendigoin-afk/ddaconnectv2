@@ -319,10 +319,21 @@ export async function priceTour(args: {
     }
   }
 
-  if (pendingTires.length) {
+  // Une offre groupée retenue (ex. 2 pneus) couvre déjà les autres roues du même
+  // essieu : on supprime les lignes doublons « 1 pneu … » restantes.
+  const remainingTires = pendingTires.filter((e) => {
+    const axle = e.axle ?? (/_ar/.test(e.point.point_key) ? "arriere" : "avant");
+    const left = coveredByAxle.get(axle) ?? 0;
+    if (left <= 1) return true;
+    coveredByAxle.set(axle, left - 1);
+    return false;
+  });
+
+  if (remainingTires.length) {
     const memory = await tireMemoryFor(args.inspectionId);
-    items.push(...groupTireItems(ctx, pendingTires, memory, vehicle.homologatedTireSize ?? null));
+    items.push(...groupTireItems(ctx, remainingTires, memory, vehicle.homologatedTireSize ?? null));
   }
+
   return { ctx, vehicle, items };
 }
 
