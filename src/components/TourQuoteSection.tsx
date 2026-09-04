@@ -202,7 +202,9 @@ export function TourQuoteSection({
             }}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-3 text-xs font-bold uppercase"
           >
-            <Copy className="h-4 w-4" /> Copier le lien du devis interactif client
+            <Copy aria-hidden="true" focusable="false" className="h-4 w-4" />{" "}
+            <span>Copier le lien du devis interactif client</span>
+
           </button>
         </>
       )}
