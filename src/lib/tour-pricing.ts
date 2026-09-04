@@ -169,6 +169,9 @@ export async function priceTour(args: {
   const items: PricedItem[] = [];
   /** Pneus non chiffrés faute d'offre fournisseur : regroupés en fin de parcours. */
   const pendingTires: { point: PointRow; priority: Priority; offersReady: number }[] = [];
+  /** Roues déjà couvertes par une offre groupée retenue (évite les doublons). */
+  const coveredByAxle = new Map<string, number>();
+
   for (const p of (points ?? []) as PointRow[]) {
 
     const priority = priorityFromStatus(p.status);
