@@ -83,7 +83,7 @@ describe("démarrage d'un tour avec état local ancien (Pixel 7)", () => {
     expect(isStaleAssetError(new Error("boom"))).toBe(false);
     const described = describeClientError(err, { route: "/tour/42" });
     expect(described.staleAsset).toBe(true);
-    expect(described.route).toBe("/tour/42");
+    expect((described as { route?: string }).route).toBe("/tour/42");
   });
 
   it("ne relance la récupération automatique qu'une fois par session", () => {
