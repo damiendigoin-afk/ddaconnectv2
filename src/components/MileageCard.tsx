@@ -14,6 +14,88 @@ import {
   type MileageStep,
 } from "@/lib/mileage-capture";
 
+/**
+ * Repli fonctionnel : si l'affichage de la carte kilométrage est interrompu,
+ * l'opérateur conserve la saisie manuelle et la reprise de la photo — le
+ * message « affichage interrompu » n'est jamais un cul-de-sac.
+ */
+export function MileageManualFallback({
+  vehicleId,
+  inspectionId,
+  previous,
+  onSaved,
+  onRetry,
+}: {
+  vehicleId: string;
+  inspectionId?: string | undefined;
+  previous: number | null;
+  onSaved: (value: number) => void;
+  onRetry: () => void;
+}) {
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    const km = parseMileageInput(value);
+    if (!km) {
+      setError("Kilométrage invalide.");
+      return;
+    }
+    setSaving(true);
+    const saved = await runStep("save", () =>
+      saveMileage({ vehicleId, inspectionId: inspectionId ?? null, mileage: km, mediaId: null, previous }),
+    );
+    setSaving(false);
+    if (!saved.ok) {
+      setError("Kilométrage non enregistré. Réessayez.");
+      return;
+    }
+    setError(null);
+    onSaved(km);
+    toast.success("Kilométrage enregistré");
+  }
+
+  return (
+    <div className="card-surface space-y-3 border-2 border-brand p-4">
+      <h3 className="font-bold uppercase">Kilométrage compteur</h3>
+      <p className="text-xs text-muted-foreground">
+        Saisie manuelle disponible. Dernier kilométrage connu : {(previous ?? 0).toLocaleString("fr-FR")} km
+      </p>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          aria-label="Kilométrage compteur"
+          value={value}
+          onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+          placeholder="Kilométrage relevé"
+          className="flex-1 rounded-lg border-2 border-border px-3 py-3 text-xl font-bold outline-none focus:border-brand"
+        />
+        <span className="font-bold">km</span>
+      </div>
+      {error ? <p className="text-sm font-semibold text-destructive">{error}</p> : null}
+      <button
+        type="button"
+        onClick={() => void submit()}
+        disabled={saving}
+        className="w-full rounded-lg bg-primary px-3 py-3 font-bold uppercase text-primary-foreground disabled:opacity-60"
+      >
+        Confirmer le kilométrage
+      </button>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-border px-3 py-2 text-xs font-bold uppercase"
+      >
+        <RotateCcw className="h-4 w-4" aria-hidden />
+        Reprendre la photo du compteur
+      </button>
+    </div>
+  );
+}
+
 export function MileageCard({
   inspectionId,
   pointId,
