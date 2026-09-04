@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { MileageCard } from "@/components/MileageCard";
+import { LocalErrorBoundary } from "@/components/LocalErrorBoundary";
 import { InfoEditForm } from "@/components/InfoEditForm";
 import { useAuth } from "@/lib/auth";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
@@ -171,6 +172,7 @@ function OrderPage() {
               Kilométrage
             </h2>
             {editMileage && v?.id ? (
+              <LocalErrorBoundary label="Kilométrage compteur">
               <MileageCard
                 title="Mettre à jour le kilométrage"
                 vehicleId={v.id}
@@ -182,6 +184,7 @@ function OrderPage() {
                   toast.success("Kilométrage véhicule mis à jour");
                 }}
               />
+              </LocalErrorBoundary>
             ) : (
               <button
                 onClick={() => setEditMileage(true)}

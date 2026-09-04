@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
 import { MileageCard } from "@/components/MileageCard";
+import { LocalErrorBoundary } from "@/components/LocalErrorBoundary";
 import { PendingUploadsGuard } from "@/components/PendingUploadsGuard";
 import { PhotoManager } from "@/components/PhotoManager";
 import { PointCard, type PointRow } from "@/components/PointCard";
@@ -587,18 +588,20 @@ function Guided(props: SharedProps) {
           const def = zoneDef.points.find((d) => d.key === p.point_key);
           if (def?.special === "mileage") {
             return (
-              <MileageCard
-                key={p.id}
-                inspectionId={props.tourId}
-                pointId={p.id}
-                vehicleId={props.vehicleId}
-                previous={props.lastMileage}
-                current={mileage}
-                onSaved={(v) => {
-                  setMileage(v);
-                  void supabase.from("inspection_points").update({ status: "ok", measure_value: String(v), measure_unit: "km" }).eq("id", p.id);
-                }}
-              />
+              <LocalErrorBoundary key={p.id} label="Kilométrage compteur">
+                <MileageCard
+                  inspectionId={props.tourId}
+                  pointId={p.id}
+                  vehicleId={props.vehicleId}
+                  previous={props.lastMileage}
+                  current={mileage}
+                  onSaved={(v) => {
+                    setMileage(v);
+                    void supabase.from("inspection_points").update({ status: "ok", measure_value: String(v), measure_unit: "km" }).eq("id", p.id);
+                  }}
+                />
+              </LocalErrorBoundary>
+
             );
           }
           if (def?.special === "tire_label") {
