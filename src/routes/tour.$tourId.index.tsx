@@ -86,10 +86,34 @@ function TourPage() {
     };
   }, [notStarted, user, tourId, displayName, qc]);
 
-  if (tour.isLoading || !tour.data || !vehicle || !order) {
+  if (tour.isLoading) {
     return (
       <AppShell title="Tour véhicule">
         <p className="text-sm text-muted-foreground">Chargement…</p>
+      </AppShell>
+    );
+  }
+
+  // Erreur réseau/RLS ou dossier incomplet (véhicule ou intervention manquants) :
+  // message actionnable au lieu d'un chargement infini ou d'une exception.
+  if (tour.isError || !tour.data || !vehicle || !order) {
+    const reason = tour.error
+      ? (tour.error as Error).message
+      : "Ce tour n'est plus rattaché à un véhicule ou à une intervention.";
+    console.error("[dda] démarrage du tour impossible", { tourId, reason });
+    return (
+      <AppShell title="Tour véhicule" back={{ to: "/tour-vehicule" }}>
+        <div className="card-surface space-y-3 p-4">
+          <p className="text-base font-bold uppercase">Tour non chargé</p>
+          <p className="text-sm text-muted-foreground">{reason}</p>
+          <button
+            type="button"
+            onClick={() => void tour.refetch()}
+            className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-extrabold uppercase text-brand-foreground"
+          >
+            Réessayer
+          </button>
+        </div>
       </AppShell>
     );
   }
@@ -187,7 +211,10 @@ function TourNav({
 function Guided(props: SharedProps) {
   const navigate = useNavigate();
   const { user, displayName } = useAuth();
-  const [zone, setZone] = useState(Math.min(props.zoneIndex, GUIDED_ZONES.length));
+  // current_zone_index peut être nul/hors bornes sur un tour ancien : on borne.
+  const [zone, setZone] = useState(
+    Math.min(Math.max(1, Number(props.zoneIndex) || 1), GUIDED_ZONES.length),
+  );
   const [mileage, setMileage] = useState(props.mileage);
   const [showSummary, setShowSummary] = useState(false);
   // Étiquette pneumatiques lue côté conducteur : sert de dimension homologuée
@@ -259,9 +286,12 @@ function Guided(props: SharedProps) {
     return [...map.values()].sort((a, b) => a.index - b.index);
   }, [points.data]);
 
-  const zoneCount = zones.length;
+  const zoneCount = Math.max(1, zones.length);
   const position = Math.max(1, zones.findIndex((z) => z.index === zone) + 1);
-  const current = zones[position - 1] ?? zones[0]!;
+  // Aucun point encore enregistré (tour tout juste créé, insertion partielle) :
+  // on retombe sur la zone de référence plutôt que de casser le rendu.
+  const current = zones[position - 1] ??
+    zones[0] ?? { index: 1, label: GUIDED_ZONES[0]!.label, key: GUIDED_ZONES[0]!.key };
   const zoneDef =
     GUIDED_ZONES.find((z) => z.key === current.key) ?? GUIDED_ZONES[current.index - 1] ?? GUIDED_ZONES[0]!;
   const zonePoints = (points.data ?? [])

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchSites, guessSiteCode, GROUP_LABEL, type Site } from "@/lib/sites";
+import { isValidSiteValue } from "@/lib/client-recovery";
 import { useAuth } from "@/lib/auth";
 
 type SiteState = {
@@ -30,7 +31,14 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (active) return;
     const stored = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
-    if (stored) {
+    // Un site mémorisé supprimé/illisible (ancien cache mobile) ne doit jamais
+    // laisser l'application dans un contexte fantôme : on l'ignore et on purge.
+    const usable =
+      isValidSiteValue(stored) && (stored === "groupe" || !list.length || list.some((s) => s.id === stored));
+    if (stored && !usable && typeof window !== "undefined" && list.length) {
+      window.localStorage.removeItem(KEY);
+    }
+    if (stored && usable) {
       setActiveState(stored);
       return;
     }
