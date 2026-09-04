@@ -662,3 +662,214 @@ export function euroTtc(v: number | null | undefined): string {
   if (v == null) return CONTACT_US;
   return `${Number(v).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € TTC`;
 }
+
+/* ------------------------- Nettoyage / propreté --------------------------- */
+
+export type CleaningLevel = "leger" | "standard" | "profond";
+
+/** Trois niveaux de forfait nettoyage, TTC. Le minimum proposé est 39 €. */
+export const CLEANING_TIERS: { level: CleaningLevel; label: string; ttc: number; hint: string }[] = [
+  { level: "leger", label: "Nettoyage express", ttc: 39, hint: "Véhicule un peu sale : aspiration et vitres." },
+  { level: "standard", label: "Nettoyage complet", ttc: 79, hint: "Véhicule sale : intérieur + extérieur." },
+  { level: "profond", label: "Nettoyage profond", ttc: 199, hint: "Véhicule très sale : shampoing et traitement." },
+];
+
+/** Pré-estimation à partir du commentaire ; null si l'information ne permet pas de trancher. */
+export function estimateCleaningLevel(text: string | null | undefined): CleaningLevel | null {
+  const t = (text ?? "").toLowerCase();
+  if (!t.trim()) return null;
+  if (/(tr[eè]s sale|immonde|tach[ée]|moisi|poils|sable|boue|chantier|odeur)/.test(t)) return "profond";
+  if (/(sale|encrass|poussi[eè]re importante|salissures)/.test(t)) return "standard";
+  if (/(un peu sale|l[ée]g[eè]rement sale|poussi[eè]re|traces)/.test(t)) return "leger";
+  return null;
+}
+
+/**
+ * Ligne nettoyage : toujours au minimum le forfait 39 € TTC, niveau pré-estimé
+ * quand c'est possible mais toujours modifiable par l'opérateur.
+ */
+export function priceCleaning(args: {
+  label: string;
+  priority?: Priority;
+  detail?: string;
+  level?: CleaningLevel | null;
+  originPointKey?: string | null;
+}): PricedItem {
+  const estimated = args.level ?? estimateCleaningLevel(args.detail);
+  const tier = CLEANING_TIERS.find((t) => t.level === (estimated ?? "leger")) ?? CLEANING_TIERS[0]!;
+  const ttc = tier.ttc;
+  const ht = round(ttc / 1.2);
+  return {
+    ok: true,
+    needsContact: false,
+    message: estimated ? "" : "Niveau de nettoyage pré-estimé au minimum : ajustable par l'opérateur.",
+    label: `${tier.label} — ${ttc} € TTC`,
+    detail: [args.detail, tier.hint, "Niveau modifiable : 39 € / 79 € / 199 € TTC."].filter(Boolean).join(" · "),
+    block: "esthetique",
+    priority: args.priority ?? "conseille",
+    quantity: 1,
+    hours: null,
+    unitHt: ht,
+    totalHt: ht,
+    totalTtc: ttc,
+    source: "grille_atelier",
+    confidence: estimated ? "moyenne" : "faible",
+    computation: {
+      method: "forfait_nettoyage",
+      level: tier.level,
+      auto_estimated: Boolean(estimated),
+      tiers: CLEANING_TIERS,
+    },
+    originPointKey: args.originPointKey ?? null,
+  };
+}
+
+/* --------------------- Carrosserie : niveau d'intervention ---------------- */
+
+export type BodyworkLevel = "mineur" | "reparation_mo" | "redressage" | "remplacement";
+
+export const BODYWORK_LEVELS: { level: BodyworkLevel; label: string; hint: string }[] = [
+  { level: "mineur", label: "Mineur / repose-fixation", hint: "Élément déclipsé ou mal fixé : remise en place." },
+  { level: "reparation_mo", label: "Réparation, MO à déterminer", hint: "Réparation possible, temps à évaluer." },
+  { level: "redressage", label: "Réparation / redressage", hint: "Redressage puis peinture, temps à saisir." },
+  { level: "remplacement", label: "Remplacement", hint: "Élément à remplacer : contrôle carrossier." },
+];
+
+const REFIT_HOURS = 0.5;
+
+/**
+ * Pré-lecture du constat carrosserie. Ne conclut jamais au remplacement sur un
+ * simple doute : renvoie null quand le niveau n'est pas suffisamment certain.
+ */
+export function estimateBodyworkLevel(text: string | null | undefined): BodyworkLevel | null {
+  const t = (text ?? "").toLowerCase();
+  if (!t.trim()) return null;
+  if (/(d[ée]clips|d[ée]bo[iî]t|d[ée]croch|mal fix|agrafe|clip|d[ée]solidaris|repose)/.test(t)) return "mineur";
+  if (/(cass[ée]|fissur|d[ée]chir|perc[ée]|arrach)/.test(t)) return "remplacement";
+  if (/(enfonc|bosse|froiss|d[ée]form)/.test(t)) return "redressage";
+  if (/(rayure|[ée]rafl|griff|impact peinture)/.test(t)) return "reparation_mo";
+  return null;
+}
+
+/**
+ * Chiffrage carrosserie piloté par le niveau d'intervention. Aucun temps de
+ * réparation/redressage n'est figé automatiquement : il reste saisi par
+ * l'opérateur. Sans niveau certain, la ligne demande le choix de l'utilisateur.
+ */
+export function priceBodyworkLevel(
+  ctx: EngineContext,
+  req: {
+    elementKey: string;
+    level?: BodyworkLevel | null;
+    priority?: Priority;
+    detail?: string;
+    repairHours?: number | null;
+    paintType?: PaintType;
+    originPointKey?: string | null;
+  },
+): PricedItem {
+  const rule = ctx.paintRules.find((r) => r.element_key === req.elementKey);
+  const label = rule?.label ?? req.elementKey;
+  const priority = req.priority ?? "conseille";
+  const level = req.level ?? estimateBodyworkLevel(req.detail);
+  const choices = BODYWORK_LEVELS;
+  const base = {
+    block: "carrosserie" as QuoteBlock,
+    priority,
+    quantity: 1,
+    originPointKey: req.originPointKey ?? null,
+  };
+
+  if (!level) {
+    return {
+      ...base,
+      ok: false,
+      needsContact: true,
+      message: "Niveau d'intervention à choisir : mineur, réparation, redressage ou remplacement.",
+      label,
+      detail: [req.detail, choices.map((c) => c.label).join(" / ")].filter(Boolean).join(" · "),
+      hours: null,
+      unitHt: null,
+      totalHt: 0,
+      totalTtc: 0,
+      source: "saisie_manuelle",
+      confidence: "faible",
+      computation: { method: "carrosserie_niveau_a_choisir", element_key: req.elementKey, levels: choices },
+    };
+  }
+
+  if (level === "remplacement") {
+    return {
+      ...contactItem({
+        label: `${label} — remplacement`,
+        block: "carrosserie",
+        priority,
+        detail: req.detail ?? "",
+        bodyshopCheck: true,
+        reason: "Remplacement à confirmer par le carrossier : pièce et temps à chiffrer.",
+        originPointKey: req.originPointKey ?? null,
+      }),
+      computation: { method: "carrosserie_remplacement", element_key: req.elementKey, levels: choices },
+    };
+  }
+
+  if (level === "mineur") {
+    const labor = laborRate(ctx.pricing?.rates ?? [], DEFAULT_TECHNICAL_RATE_CODE);
+    const ht = round(REFIT_HOURS * labor.ht);
+    const ttc = round(REFIT_HOURS * labor.ttc);
+    return {
+      ...base,
+      ok: ht > 0,
+      needsContact: false,
+      message: "",
+      label: `${label} — repose / fixation`,
+      detail: [req.detail, `Remise en place ${REFIT_HOURS} h — aucun remplacement.`].filter(Boolean).join(" · "),
+      hours: REFIT_HOURS,
+      unitHt: ht,
+      totalHt: ht,
+      totalTtc: ttc,
+      source: ht > 0 ? "grille_atelier" : "saisie_manuelle",
+      confidence: "moyenne",
+      computation: {
+        method: "carrosserie_repose_fixation",
+        element_key: req.elementKey,
+        labor_hours: REFIT_HOURS,
+        labor_rate_ht: labor.ht,
+        levels: choices,
+      },
+    };
+  }
+
+  const hours = req.repairHours == null ? null : Number(req.repairHours);
+  if (hours == null || !Number.isFinite(hours) || hours <= 0) {
+    return {
+      ...base,
+      ok: false,
+      needsContact: true,
+      message:
+        level === "redressage"
+          ? "Temps de redressage à saisir : aucun temps n'est appliqué automatiquement."
+          : "Main-d'œuvre à déterminer : temps de réparation à saisir.",
+      label: `${label} — ${level === "redressage" ? "réparation / redressage" : "réparation"}`,
+      detail: [req.detail, "Temps non figé : à évaluer selon le dommage réel."].filter(Boolean).join(" · "),
+      hours: null,
+      unitHt: null,
+      totalHt: 0,
+      totalTtc: 0,
+      source: "saisie_manuelle",
+      confidence: "faible",
+      computation: { method: "carrosserie_temps_a_saisir", element_key: req.elementKey, level, levels: choices },
+    };
+  }
+
+  return {
+    ...priceBodywork(ctx, {
+      elementKey: req.elementKey,
+      severity: "modere",
+      paintType: req.paintType ?? "opaque",
+      priority,
+      repairHours: hours,
+    }),
+    originPointKey: req.originPointKey ?? null,
+  };
+}
