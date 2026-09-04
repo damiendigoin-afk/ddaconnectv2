@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
-import { MileageCard } from "@/components/MileageCard";
+import { MileageCard, MileageManualFallback } from "@/components/MileageCard";
 import { LocalErrorBoundary } from "@/components/LocalErrorBoundary";
 import { PendingUploadsGuard } from "@/components/PendingUploadsGuard";
 import { PhotoManager } from "@/components/PhotoManager";
