@@ -217,18 +217,22 @@ export async function priceTour(args: {
 
     /* --------------------------- Pneumatiques -------------------------- */
     if (mapping?.kind === "pneu") {
+      const axle = /_ar/.test(p.point_key) ? "arriere" : "avant";
       const pointOffers = offersByPoint.get(p.id) ?? [];
       const selected = pointOffers.find((o) => o.selected && o.total_ttc != null);
       if (selected) {
         const ttc = Number(selected.total_ttc);
         const ht = Number(selected.total_ht ?? Math.round((ttc / 1.2) * 100) / 100);
+        const qty = Number(selected.quantity ?? 1) || 1;
+        coveredByAxle.set(axle, (coveredByAxle.get(axle) ?? 0) + qty);
         items.push({
           ok: true,
           needsContact: false,
           message: "",
-          label: `${selected.quantity} pneu${selected.quantity > 1 ? "x" : ""} ${selected.brand ?? ""} ${
+          label: `${qty} pneu${qty > 1 ? "s" : ""} ${selected.brand ?? ""} ${
             selected.model ?? ""
           }${selected.size ? ` ${selected.size}` : ""}`.replace(/\s+/g, " ").trim(),
+
           detail: [
             selected.season ? SEASON_LABEL[selected.season as TireSeason] : null,
             selected.mount_package,
