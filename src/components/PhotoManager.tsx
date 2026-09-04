@@ -4,7 +4,8 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useLightbox } from "@/components/PhotoLightbox";
-import { deleteMedia, mediaUrl, uploadPhoto, type MediaLinks } from "@/lib/photo";
+import { deleteMedia, mediaUrl, type MediaLinks } from "@/lib/photo";
+import { prepareCapture, uploadCapture } from "@/lib/photo-capture";
 import { addFailedUpload } from "@/lib/upload-tracker";
 
 export type MediaRow = { id: string; storage_path: string };

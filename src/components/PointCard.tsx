@@ -61,21 +61,23 @@ export function PointCard({
     setCameraOpen(false);
     if (!shots.length) return;
     setUploading(true);
-    try {
-      for (const shot of shots) {
-        await uploadPhoto(shot.blob, `inspections/${inspectionId}`, {
-          inspection_id: inspectionId,
-          inspection_point_id: point.id,
-        });
-      }
-      toast.success(shots.length > 1 ? "Photos enregistrées" : "Photo enregistrée");
-      setPhotoKey((k) => k + 1);
-    } catch (e) {
-      console.error(e);
-      toast.error("Échec de l'envoi des photos");
-    } finally {
-      setUploading(false);
+    // Flux photo partagé : normalisation Android + envoi protégé, jamais d'exception.
+    let sent = 0;
+    let failure: string | null = null;
+    for (const shot of shots) {
+      const res = await uploadCapture(shot?.blob, `inspections/${inspectionId}`, {
+        inspection_id: inspectionId,
+        inspection_point_id: point.id,
+      });
+      if (res.ok) sent += 1;
+      else failure = res.message;
     }
+    setUploading(false);
+    if (sent > 0) {
+      toast.success(sent > 1 ? "Photos enregistrées" : "Photo enregistrée");
+      setPhotoKey((k) => k + 1);
+    }
+    if (failure) toast.error(failure);
   }
 
   const flagged = status === "watch" || status === "defect";
