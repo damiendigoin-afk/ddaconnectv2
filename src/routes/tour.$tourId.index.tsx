@@ -286,9 +286,12 @@ function Guided(props: SharedProps) {
     return [...map.values()].sort((a, b) => a.index - b.index);
   }, [points.data]);
 
-  const zoneCount = zones.length;
+  const zoneCount = Math.max(1, zones.length);
   const position = Math.max(1, zones.findIndex((z) => z.index === zone) + 1);
-  const current = zones[position - 1] ?? zones[0]!;
+  // Aucun point encore enregistré (tour tout juste créé, insertion partielle) :
+  // on retombe sur la zone de référence plutôt que de casser le rendu.
+  const current = zones[position - 1] ??
+    zones[0] ?? { index: 1, label: GUIDED_ZONES[0]!.label, key: GUIDED_ZONES[0]!.key };
   const zoneDef =
     GUIDED_ZONES.find((z) => z.key === current.key) ?? GUIDED_ZONES[current.index - 1] ?? GUIDED_ZONES[0]!;
   const zonePoints = (points.data ?? [])
