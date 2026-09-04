@@ -211,7 +211,10 @@ function TourNav({
 function Guided(props: SharedProps) {
   const navigate = useNavigate();
   const { user, displayName } = useAuth();
-  const [zone, setZone] = useState(Math.min(props.zoneIndex, GUIDED_ZONES.length));
+  // current_zone_index peut être nul/hors bornes sur un tour ancien : on borne.
+  const [zone, setZone] = useState(
+    Math.min(Math.max(1, Number(props.zoneIndex) || 1), GUIDED_ZONES.length),
+  );
   const [mileage, setMileage] = useState(props.mileage);
   const [showSummary, setShowSummary] = useState(false);
   // Étiquette pneumatiques lue côté conducteur : sert de dimension homologuée
