@@ -158,8 +158,9 @@ export function TourQuoteSection({
           disabled={busy}
           className="inline-flex items-center gap-2 rounded-lg bg-brand px-3 py-2 text-xs font-bold uppercase text-brand-foreground disabled:opacity-60"
         >
-          <Calculator className="h-4 w-4" />
-          {data ? "Recalculer" : "Chiffrer les constats"}
+          <Calculator aria-hidden="true" focusable="false" className="h-4 w-4" />
+          <span>{data ? "Recalculer" : "Chiffrer les constats"}</span>
+
         </button>
       </div>
 
