@@ -167,6 +167,13 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Nettoyage ciblé des données locales héritées d'une ancienne version
+  // (Chrome Android / PWA) avant tout rendu de parcours métier.
+  useEffect(() => {
+    const { removed } = migrateLocalState(window.localStorage);
+    if (removed.length) console.warn("[dda] état local incompatible nettoyé", removed);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
