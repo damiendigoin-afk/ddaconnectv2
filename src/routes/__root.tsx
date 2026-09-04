@@ -41,11 +41,43 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
   const router = useRouter();
+  const stale = isStaleAssetError(error);
+
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    // Journalisation exploitable : message, pile, route et nature de la panne.
+    console.error(
+      "[dda] écran d'erreur global",
+      describeClientError(error, { route: window.location.pathname }),
+    );
+    reportLovableError(error, {
+      boundary: "tanstack_root_error_component",
+      staleAsset: isStaleAssetError(error),
+    });
   }, [error]);
+
+  // Bundle/chunk périmé (cache Chrome Android ou service worker PWA) :
+  // relancer le même chunk mort ne sert à rien, on purge et on recharge —
+  // une seule fois par session pour ne jamais boucler.
+  useEffect(() => {
+    if (!stale) return;
+    if (!shouldAutoRecover(window.sessionStorage)) return;
+    void recoverStaleClient();
+  }, [stale]);
+
+  const retry = () => {
+    // Réinitialise uniquement l'état fautif : données locales incompatibles,
+    // puis relance réellement le chargement de la route.
+    migrateLocalState(window.localStorage);
+    clearRecoveryFlag(window.sessionStorage);
+    if (stale) {
+      void recoverStaleClient();
+      return;
+    }
+    void router.invalidate();
+    reset();
+  };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
