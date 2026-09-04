@@ -587,21 +587,36 @@ function Guided(props: SharedProps) {
         {zonePoints.map((p) => {
           const def = zoneDef.points.find((d) => d.key === p.point_key);
           if (def?.special === "mileage") {
+            const onSaved = (v: number) => {
+              setMileage(v);
+              void supabase
+                .from("inspection_points")
+                .update({ status: "ok", measure_value: String(v), measure_unit: "km" })
+                .eq("id", p.id);
+            };
             return (
-              <LocalErrorBoundary key={p.id} label="Kilométrage compteur">
+              <LocalErrorBoundary
+                key={p.id}
+                label="Kilométrage compteur"
+                fallback={(reset) => (
+                  <MileageManualFallback
+                    vehicleId={props.vehicleId}
+                    inspectionId={props.tourId}
+                    previous={props.lastMileage}
+                    onSaved={onSaved}
+                    onRetry={reset}
+                  />
+                )}
+              >
                 <MileageCard
                   inspectionId={props.tourId}
                   pointId={p.id}
                   vehicleId={props.vehicleId}
                   previous={props.lastMileage}
                   current={mileage}
-                  onSaved={(v) => {
-                    setMileage(v);
-                    void supabase.from("inspection_points").update({ status: "ok", measure_value: String(v), measure_unit: "km" }).eq("id", p.id);
-                  }}
+                  onSaved={onSaved}
                 />
               </LocalErrorBoundary>
-
             );
           }
           if (def?.special === "tire_label") {
