@@ -127,6 +127,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "DDA Connect : application atelier Damien Digoin Automobile pour les tours véhicule, contrôles et rapports.",
       },
       { name: "author", content: "Damien Digoin Automobile" },
+      // Empêche la traduction automatique Chrome/Google d'altérer le DOM React.
+      { name: "google", content: "notranslate" },
       { property: "og:title", content: "DDA Connect — Tour Véhicule atelier" },
       {
         property: "og:description",
