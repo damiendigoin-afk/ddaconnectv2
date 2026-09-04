@@ -7,11 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { normalizePlate } from "./plate";
 import {
   loadEngineContext,
-  priceBodywork,
   priceMechanical,
   contactItem,
   findBatteryPackages,
   packageItem,
+  priceBodyworkLevel,
+  priceCleaning,
   type EngineContext,
   type PricedItem,
   type Priority,
@@ -71,11 +72,14 @@ type Mapping =
   | { kind: "mecanique"; operation: string; label: string }
   | { kind: "carrosserie"; element: string }
   | { kind: "pneu" }
+  | { kind: "nettoyage" }
   | { kind: "batterie" };
+
 
 /** Correspondance point de contrôle → opération chiffrable. */
 export function mapPoint(pointKey: string): Mapping | null {
   if (/^pneu_/.test(pointKey)) return { kind: "pneu" };
+  if (/^proprete/.test(pointKey)) return { kind: "nettoyage" };
   if (/^batterie/.test(pointKey)) return { kind: "batterie" };
   if (/^frein_/.test(pointKey))
     return { kind: "mecanique", operation: "plaquettes", label: "Freinage — plaquettes" };
@@ -278,6 +282,19 @@ export async function priceTour(args: {
     }
 
 
+    /* ---------------------------- Nettoyage ---------------------------- */
+    if (mapping?.kind === "nettoyage") {
+      items.push(
+        priceCleaning({
+          label: p.point_label,
+          priority,
+          detail: [p.point_label, detail].filter(Boolean).join(" — "),
+          originPointKey: p.point_key,
+        }),
+      );
+      continue;
+    }
+
     if (!mapping) {
       items.push(
         contactItem({
@@ -304,18 +321,17 @@ export async function priceTour(args: {
         originPointKey: p.point_key,
         computation: { ...it.computation, method: it.ok ? "forfait_ou_grille_atelier" : "contact_operateur" },
       });
-    } else {
-      const it = priceBodywork(ctx, {
-        elementKey: mapping.element,
-        severity: priority === "urgent" ? "modere" : "leger",
-        paintType: "opaque",
-        priority,
-      });
-      items.push({
-        ...it,
-        originPointKey: p.point_key,
-        computation: { ...it.computation, method: "calcul_carrosserie" },
-      });
+    } else if (mapping.kind === "carrosserie") {
+      // Aucun passage automatique au remplacement : le niveau d'intervention est
+      // pré-lu puis validé par l'opérateur, et le temps n'est jamais figé.
+      items.push(
+        priceBodyworkLevel(ctx, {
+          elementKey: mapping.element,
+          priority,
+          detail: [p.point_label, detail].filter(Boolean).join(" — "),
+          originPointKey: p.point_key,
+        }),
+      );
     }
   }
 
@@ -324,7 +340,7 @@ export async function priceTour(args: {
   const remainingTires = pendingTires.filter((e) => {
     const axle = e.axle ?? (/_ar/.test(e.point.point_key) ? "arriere" : "avant");
     const left = coveredByAxle.get(axle) ?? 0;
-    if (left <= 1) return true;
+    if (left <= 0) return true;
     coveredByAxle.set(axle, left - 1);
     return false;
   });
@@ -506,38 +522,52 @@ export function groupTireItems(
   memory: { front: string | null; rear: string | null } = { front: null, rear: null },
   homologated: string | null = null,
 ): PricedItem[] {
-  const groups = new Map<string, { size: string | null; entries: typeof pending }>();
+  /** Un essieu concerné = 2 pneus identiques. Jamais 1, jamais 3. */
+  type Axle = "avant" | "arriere";
+  const axles = new Map<Axle, { size: string | null; entries: typeof pending }>();
   for (const entry of pending) {
-    const axle = /_ar/.test(entry.point.point_key) ? "arriere" : "avant";
+    const axle: Axle = /_ar/.test(entry.point.point_key) ? "arriere" : "avant";
     const size =
       tireSizeOfPoint(entry.point.tire_analysis) ||
       parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ||
       parseTireReference(homologated).display ||
       null;
-    const key = size ?? `inconnue_${axle}`;
-    const g = groups.get(key) ?? { size, entries: [] as typeof pending };
+    const g = axles.get(axle) ?? { size, entries: [] as typeof pending };
+    if (!g.size && size) g.size = size;
     g.entries.push(entry);
-    groups.set(key, g);
+    axles.set(axle, g);
+  }
+
+  // Deux essieux de même dimension : une seule proposition de 4 pneus.
+  const groups: { size: string | null; axles: Axle[]; entries: typeof pending }[] = [];
+  const front = axles.get("avant");
+  const rear = axles.get("arriere");
+  if (front && rear && front.size && rear.size && front.size === rear.size) {
+    groups.push({ size: front.size, axles: ["avant", "arriere"], entries: [...front.entries, ...rear.entries] });
+  } else {
+    if (front) groups.push({ size: front.size, axles: ["avant"], entries: front.entries });
+    if (rear) groups.push({ size: rear.size, axles: ["arriere"], entries: rear.entries });
   }
 
   const out: PricedItem[] = [];
-  for (const g of groups.values()) {
-    const quantity = g.entries.length;
+  for (const g of groups) {
+    const quantity = g.axles.length * 2;
     const mount = mountPackageFor(ctx.packages, quantity);
     const wheels = g.entries.map((e) => e.point.point_label).join(", ");
     const priority: Priority = g.entries.some((e) => e.priority === "urgent") ? "urgent" : "a_surveiller";
     const offersReady = g.entries.reduce((s, e) => s + e.offersReady, 0);
     const ttc = mount?.totalTtc ?? 0;
     const ht = Math.round((ttc / 1.2) * 100) / 100;
+    const axleLabel = g.axles.length === 2 ? "avant et arrière" : g.axles[0] === "arriere" ? "arrière" : "avant";
     out.push({
       ok: false,
       needsContact: true,
       message: g.size
         ? "Prix pneu à compléter : offre fournisseur non disponible."
         : "Chiffrage incomplet : renseigner la dimension pneu.",
-      label: `${quantity} pneu${quantity > 1 ? "s" : ""} ${g.size || "— dimension à renseigner"}`.trim(),
+      label: `${quantity} pneus ${g.size || "— dimension à renseigner"}`.trim(),
       detail: [
-        wheels,
+        `Essieu ${axleLabel} : remplacement par paire (constats : ${wheels})`,
         offersReady ? `${offersReady} proposition(s) fournisseur préparée(s) à retenir` : null,
         mount ? `Montage inclus : ${mount.label}` : "Forfait de montage non référencé",
         "Prix pneu à saisir ou à retenir depuis les offres.",
@@ -556,6 +586,7 @@ export function groupTireItems(
       computation: {
         method: "proposition_generique_pneus",
         size: g.size,
+        axles: g.axles,
         wheels: g.entries.map((e) => e.point.point_key),
         mount_package: mount?.label ?? null,
         mount_total_ttc: mount?.totalTtc ?? null,

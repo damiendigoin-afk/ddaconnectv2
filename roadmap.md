@@ -25,3 +25,11 @@ Reste à faire :
 - [ ] Écran carte clientèle (données déjà préparées)
 
 - [x] 03/09 : module BL / Factures fournisseur (dépôt photo/PDF, OCR tolérant, validation manuelle, états, rattachement OR) — écran /factures-fournisseur, table inbox_documents réutilisée.
+
+# Lot 04/09
+
+- [x] Accueil : arborescence par familles (Atelier, Magasin & achats, Clients & commercial, Communication, Équipe & RH, Statistiques & pilotage, Paramétrage)
+- [x] Pneus : chiffrage par essieu (1 roue HS => 2 pneus, 2 essieux => 4, jamais 1 ni 3)
+- [x] Nettoyage : forfaits 39 / 79 / 199 € TTC avec pré-estimation modifiable
+- [x] Carrosserie : niveaux mineur / réparation MO à déterminer / redressage / remplacement, temps jamais figé
+- [x] Import forfaits : non modifié dans ce lot (sujet repris séparément)
