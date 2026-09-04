@@ -11,6 +11,14 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import {
+  clearRecoveryFlag,
+  describeClientError,
+  isStaleAssetError,
+  migrateLocalState,
+  recoverStaleClient,
+  shouldAutoRecover,
+} from "../lib/client-recovery";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth";
 import { SiteProvider } from "@/lib/site-context";
