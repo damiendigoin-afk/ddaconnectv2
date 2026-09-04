@@ -152,7 +152,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // L'interface est intégralement en français : sans `lang="fr"` + notranslate,
+    // Chrome Android traduit la page (« OK » → « d'accord », « À surveiller » → « à »…)
+    // et remplace les nœuds texte sous React, ce qui provoque des crashes de rendu.
+    <html lang="fr" translate="no">
       <head>
         <HeadContent />
       </head>
