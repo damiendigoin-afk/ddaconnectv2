@@ -621,43 +621,48 @@ function Guided(props: SharedProps) {
           }
           if (def?.special === "tire_label") {
             return (
-              <TireLabelCard
-                key={p.id}
-                point={p}
-                inspectionId={props.tourId}
-                onLabel={setTireLabel}
-              />
+              <LocalErrorBoundary key={p.id} label={p.point_label}>
+                <TireLabelCard point={p} inspectionId={props.tourId} onLabel={setTireLabel} />
+              </LocalErrorBoundary>
             );
           }
           if (def?.special === "tire") {
             const rear = p.point_key.includes("ar");
             return (
-              <TireWheelCard
-                key={p.id}
-                point={p}
-                inspectionId={props.tourId}
-                vehicleId={props.vehicleId}
-                requiredSize={(rear ? tireLabel?.size_rear : tireLabel?.size_front) ?? tireLabel?.size_front ?? null}
-                requiredLoad={(rear ? tireLabel?.load_index_rear : tireLabel?.load_index_front) ?? null}
-                requiredSpeed={(rear ? tireLabel?.speed_index_rear : tireLabel?.speed_index_front) ?? null}
-              />
+              <LocalErrorBoundary key={p.id} label={p.point_label}>
+                <TireWheelCard
+                  point={p}
+                  inspectionId={props.tourId}
+                  vehicleId={props.vehicleId}
+                  requiredSize={(rear ? tireLabel?.size_rear : tireLabel?.size_front) ?? tireLabel?.size_front ?? null}
+                  requiredLoad={(rear ? tireLabel?.load_index_rear : tireLabel?.load_index_front) ?? null}
+                  requiredSpeed={(rear ? tireLabel?.speed_index_rear : tireLabel?.speed_index_front) ?? null}
+                />
+              </LocalErrorBoundary>
             );
           }
           if (def?.special === "ct") {
             return (
-              <div key={p.id}>
-                <PointCard point={p} def={def} inspectionId={props.tourId} />
-                <TechnicalControlCard
-                  pointId={p.id}
-                  tourId={props.tourId}
-                  vehicleId={props.vehicleId}
-                  initialCt={(p as unknown as { ct_due_date?: string | null }).ct_due_date ?? props.ctDueDate}
-                  initialPollution={(p as unknown as { pollution_due_date?: string | null }).pollution_due_date ?? props.pollutionDueDate}
-                />
-              </div>
+              <LocalErrorBoundary key={p.id} label={p.point_label}>
+                <div>
+                  <PointCard point={p} def={def} inspectionId={props.tourId} />
+                  <TechnicalControlCard
+                    pointId={p.id}
+                    tourId={props.tourId}
+                    vehicleId={props.vehicleId}
+                    initialCt={(p as unknown as { ct_due_date?: string | null }).ct_due_date ?? props.ctDueDate}
+                    initialPollution={(p as unknown as { pollution_due_date?: string | null }).pollution_due_date ?? props.pollutionDueDate}
+                  />
+                </div>
+              </LocalErrorBoundary>
             );
           }
-          return <PointCard key={p.id} point={p} def={def} inspectionId={props.tourId} />;
+          // Voyants et tous les autres contrôles photo : isolés comme le compteur.
+          return (
+            <LocalErrorBoundary key={p.id} label={p.point_label}>
+              <PointCard point={p} def={def} inspectionId={props.tourId} />
+            </LocalErrorBoundary>
+          );
         })}
       </div>
 
