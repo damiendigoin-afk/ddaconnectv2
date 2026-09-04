@@ -535,7 +535,7 @@ export function groupTireItems(
       message: g.size
         ? "Prix pneu à compléter : offre fournisseur non disponible."
         : "Chiffrage incomplet : renseigner la dimension pneu.",
-      label: `${quantity} pneu${quantity > 1 ? "x" : ""} ${g.size || "— dimension à renseigner"}`.trim(),
+      label: `${quantity} pneu${quantity > 1 ? "s" : ""} ${g.size || "— dimension à renseigner"}`.trim(),
       detail: [
         wheels,
         offersReady ? `${offersReady} proposition(s) fournisseur préparée(s) à retenir` : null,

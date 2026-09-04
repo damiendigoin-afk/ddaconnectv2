@@ -187,7 +187,7 @@ export function tireProposalToItem(p: TireProposal, priority: Priority = "a_remp
     ok: true,
     needsContact: false,
     message: "",
-    label: `${p.quantity} pneu${p.quantity > 1 ? "x" : ""} ${p.brand} ${p.model}${p.size ? ` ${p.size}` : ""}`,
+    label: `${p.quantity} pneu${p.quantity > 1 ? "s" : ""} ${p.brand} ${p.model}${p.size ? ` ${p.size}` : ""}`,
     detail: `${SEASON_LABEL[p.season]} · ${TIER_LABEL[p.tier]} · montage inclus`,
     block: "mecanique",
     priority,
