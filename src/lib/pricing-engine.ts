@@ -679,8 +679,8 @@ export function estimateCleaningLevel(text: string | null | undefined): Cleaning
   const t = (text ?? "").toLowerCase();
   if (!t.trim()) return null;
   if (/(tr[eè]s sale|immonde|tach[ée]|moisi|poils|sable|boue|chantier|odeur)/.test(t)) return "profond";
-  if (/(sale|encrass|poussi[eè]re importante|salissures)/.test(t)) return "standard";
   if (/(un peu sale|l[ée]g[eè]rement sale|poussi[eè]re|traces)/.test(t)) return "leger";
+  if (/(sale|encrass|salissures)/.test(t)) return "standard";
   return null;
 }
 
