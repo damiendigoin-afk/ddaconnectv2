@@ -82,7 +82,7 @@ export function QuoteLineRow({
                 onClick={onEdit}
                 className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs font-bold uppercase"
               >
-                <Pencil className="h-3.5 w-3.5" /> Modifier
+                <Pencil aria-hidden="true" focusable="false" className="h-3.5 w-3.5" /> <span>Modifier</span>
               </button>
             ) : null}
             {onAdd ? (
