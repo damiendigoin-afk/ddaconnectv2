@@ -271,7 +271,9 @@ export async function priceTour(args: {
         point: p,
         priority,
         offersReady: pointOffers.filter((o) => o.total_ttc != null).length,
+        axle,
       });
+
       continue;
     }
 
