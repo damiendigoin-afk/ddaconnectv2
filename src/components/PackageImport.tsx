@@ -119,7 +119,13 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
 
     for (let i = 0; i < pages.length; i += CHUNK) {
       const slice = pages.slice(i, i + CHUNK);
-      const parsed = parseDocument(slice, { kind, fileName: file.name, version: docVersion, context: ctx });
+      const parsed = parseDocument(slice, {
+        kind,
+        fileName: file.name,
+        version: docVersion,
+        context: ctx,
+        pageCount,
+      });
       ctx = parsed.context;
       if (!docVersion && parsed.version) {
         docVersion = parsed.version;
@@ -146,8 +152,10 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
           fileName: file.name,
           version: docVersion,
           importId,
+          pageCount,
         });
-        running.detected += parsed.lines.length;
+        warns.push(...res.warnings);
+        running.detected += parsed.lines.length - res.rejected;
         running.inserted += res.inserted;
         running.updated += res.updated;
         running.unchanged += res.unchanged;
@@ -189,10 +197,16 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
         warnings: warns,
       });
     }
-    const archivedCount = await archivePreviousVersions(kind, docVersion);
+    // Import complet et réussi uniquement : les versions antérieures sont
+    // archivées, et les lignes de la MÊME version non retouchées par ce run
+    // (import précédent défectueux) sont retirées de la version en vigueur.
+    const archivedCount =
+      (await archivePreviousVersions(kind, docVersion)) +
+      (await retireStaleLines({ sourceKind: kind, version: docVersion, importId }));
     setArchived(archivedCount);
     setPendingFile(file);
     await finishImportJob(key);
+
 
     if (!running.detected) {
       toast.error("Aucun forfait exploitable détecté dans la couche texte de ce document.");
