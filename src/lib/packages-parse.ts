@@ -18,6 +18,8 @@
  */
 import type { DetectedLine, PriceBasis, SourceKind } from "./packages-import";
 import { sourceDef } from "./packages-import";
+import { isForbiddenLabel } from "./packages-guard";
+
 
 export type TextFragment = { str: string; x: number; y: number };
 export type PageText = { page: number; fragments: TextFragment[] };
