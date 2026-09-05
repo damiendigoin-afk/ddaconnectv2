@@ -47,14 +47,24 @@ export async function extractPdfText(
     }
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    const items = content.items as unknown as { str?: string; transform?: number[] }[];
+    const items = content.items as unknown as {
+      str?: string;
+      transform?: number[];
+      width?: number;
+      height?: number;
+    }[];
     const fragments = items
-      .filter((i): i is { str: string; transform: number[] } => typeof i.str === "string")
+      .filter((i): i is { str: string; transform: number[]; width?: number; height?: number } =>
+        typeof i.str === "string",
+      )
       .map((i) => ({
         str: i.str,
         x: Math.round(i.transform?.[4] ?? 0),
         y: Math.round(i.transform?.[5] ?? 0),
+        width: typeof i.width === "number" ? Math.round(i.width) : undefined,
+        height: typeof i.height === "number" ? Math.round(i.height) : undefined,
       }));
+
 
     pages.push({ page: p, fragments });
     page.cleanup();
