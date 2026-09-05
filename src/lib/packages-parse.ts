@@ -338,7 +338,20 @@ export function parsePage(
 
   for (const row of rows) {
     if (NOISE_RE.test(row)) continue;
-    const parsed = parseRow(row);
+
+    // Une ligne d'en-tête fixe le schéma du tableau pour toutes les lignes qui
+    // suivent, y compris sur les pages suivantes.
+    const schema = detectTableSchema(row);
+    if (schema) {
+      ctx.table = schema;
+      if (!schema.hasVehicle) {
+        ctx.model = null;
+        ctx.generation = null;
+      }
+      continue;
+    }
+
+    const parsed = parseRow(row, ctx.table);
 
     if (!parsed) {
       const kind = titleKind(row);
@@ -350,11 +363,12 @@ export function parsePage(
       continue;
     }
 
-    if (parsed.model) {
+    const vehicleTable = ctx.table ? ctx.table.hasVehicle : true;
+    if (vehicleTable && parsed.model) {
       ctx.model = parsed.model;
       ctx.generation = parsed.generation ?? ctx.generation;
     }
-    const label = ctx.operation || parsed.description || parsed.code;
+    const label = parsed.rowLabel || ctx.operation || parsed.description || parsed.code;
     if (!label) {
       uncertain.push(`page ${page.page} : forfait ${parsed.code} sans libellé d'opération`);
       continue;
@@ -366,8 +380,8 @@ export function parsePage(
       source_version: ctx.version,
       source_page: page.page,
       brand: profile.brand,
-      model: parsed.model ?? ctx.model ?? opts.model ?? null,
-      generation: parsed.generation ?? ctx.generation ?? null,
+      model: vehicleTable ? (parsed.model ?? ctx.model ?? opts.model ?? null) : null,
+      generation: vehicleTable ? (parsed.generation ?? ctx.generation ?? null) : null,
       engine: parsed.engine,
       family: ctx.family,
       operation_title: ctx.operation,
@@ -387,6 +401,7 @@ export function parsePage(
       notes: null,
     });
   }
+
 
   if (!lines.length && !uncertain.length) {
     uncertain.push(`page ${page.page} : aucun forfait reconnu — à contrôler`);
