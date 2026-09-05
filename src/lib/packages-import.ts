@@ -382,10 +382,21 @@ export type ImportResult = { inserted: number; updated: number; unchanged: numbe
  */
 export async function importLines(
   lines: DetectedLine[],
-  opts: { userId: string | null; userName: string | null; warnings: string[]; sourceKind: SourceKind; fileName: string; version: string | null },
+  opts: {
+    userId: string | null;
+    userName: string | null;
+    warnings: string[];
+    sourceKind: SourceKind;
+    fileName: string;
+    version: string | null;
+    /** Import déjà ouvert (écriture progressive par lots de pages). */
+    importId?: string | null;
+  },
 ): Promise<ImportResult & { importId: string | null }> {
   const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
-  if (!lines.length) return { ...result, importId: null };
+  if (!lines.length) return { ...result, importId: opts.importId ?? null };
+
+  if (opts.importId) return { ...(await writeLines(lines, opts, opts.importId)), importId: opts.importId };
 
   const { data: importRow } = await supabase
     .from("service_package_imports")
@@ -401,7 +412,25 @@ export async function importLines(
     .select("id")
     .maybeSingle();
   const importId = (importRow?.id as string | undefined) ?? null;
+  const written = await writeLines(lines, opts, importId);
+  Object.assign(result, written);
 
+  if (importId) {
+    await supabase
+      .from("service_package_imports")
+      .update({ lines_imported: result.inserted, lines_updated: result.updated })
+      .eq("id", importId);
+  }
+  return { ...result, importId };
+}
+
+/** Écriture idempotente d'un lot de lignes (rapprochement par clé). */
+async function writeLines(
+  lines: DetectedLine[],
+  opts: { userId: string | null },
+  importId: string | null,
+): Promise<ImportResult> {
+  const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
   const { data: existingRaw } = await supabase.from("service_packages").select("*");
   const existing = (existingRaw ?? []) as PackageRow[];
   const byKey = new Map(existing.filter((p) => p.dedupe_key).map((p) => [p.dedupe_key!, p]));
@@ -453,11 +482,88 @@ export async function importLines(
     if (!error) result.updated += 1;
   }
 
-  if (importId) {
-    await supabase
-      .from("service_package_imports")
-      .update({ lines_imported: result.inserted, lines_updated: result.updated })
-      .eq("id", importId);
-  }
-  return { ...result, importId };
+  return result;
+}
+
+
+/* ----------------------- Versions actives / archivées ---------------------- */
+
+/** Ouvre un import (utilisé pour l'écriture progressive d'un gros mémento). */
+export async function createImportRun(opts: {
+  sourceKind: SourceKind;
+  fileName: string;
+  version: string | null;
+  userId: string | null;
+  userName: string | null;
+}): Promise<string | null> {
+  const { data } = await supabase
+    .from("service_package_imports")
+    .insert({
+      source_kind: opts.sourceKind,
+      file_name: opts.fileName,
+      version_label: opts.version,
+      lines_detected: 0,
+      imported_by: opts.userId,
+      imported_by_name: opts.userName,
+    })
+    .select("id")
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+export async function updateImportRun(
+  importId: string,
+  totals: { detected: number; inserted: number; updated: number; warnings: string[] },
+) {
+  await supabase
+    .from("service_package_imports")
+    .update({
+      lines_detected: totals.detected,
+      lines_imported: totals.inserted,
+      lines_updated: totals.updated,
+      warnings: totals.warnings.slice(0, 500) as never,
+    })
+    .eq("id", importId);
+}
+
+/**
+ * Le dernier mémento d'un même périmètre devient ACTIF : les forfaits des
+ * versions antérieures du même référentiel sont archivés (consultables), jamais
+ * supprimés. Sans version identifiée, rien n'est archivé.
+ */
+export async function archivePreviousVersions(sourceKind: SourceKind, version: string | null): Promise<number> {
+  if (!version) return 0;
+  const { data } = await supabase
+    .from("service_packages")
+    .update({ active: false, archived_at: new Date().toISOString() } as never)
+    .eq("source_kind", sourceKind)
+    .eq("active", true)
+    .neq("source_version", version)
+    .select("id");
+  return (data ?? []).length;
+}
+
+/** Recherche simple : code, opération/libellé, famille, modèle, moteur, mots-clés. */
+export async function searchPackages(query: string, limit = 60): Promise<PackageRow[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const like = `%${q.replace(/[%,]/g, " ")}%`;
+  const { data, error } = await supabase
+    .from("service_packages")
+    .select("*")
+    .or(
+      [
+        `operation_code.ilike.${like}`,
+        `label.ilike.${like}`,
+        `operation_title.ilike.${like}`,
+        `family.ilike.${like}`,
+        `model.ilike.${like}`,
+        `engine.ilike.${like}`,
+        `description.ilike.${like}`,
+      ].join(","),
+    )
+    .order("active", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as PackageRow[];
 }
