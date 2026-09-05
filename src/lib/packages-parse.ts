@@ -7,10 +7,14 @@
  * le tableau se poursuit sur plusieurs pages, jusqu'au titre suivant. Le
  * contexte est donc transporté de page en page.
  *
- * Chaque ligne exploitable est décomposée en champs SÉPARÉS :
- * modèle / génération, motorisation, code forfait, prix. Rien n'est concaténé,
- * rien n'est déduit : une ligne non reconnue de façon fiable part en
- * « à contrôler ».
+ * Deux modes de lecture d'un tableau :
+ *  - COLONNES (prioritaire) : les bornes X sont déduites de la ligne d'en-tête
+ *    (« véhicule motorisation code tarif »), chaque cellule est accumulée
+ *    séparément, y compris sur plusieurs lignes, jusqu'au couple code + tarif.
+ *  - JETONS (repli) : lorsque la couche texte ne permet pas de colonnes.
+ *
+ * Rien n'est concaténé entre deux lignes voisines, rien n'est déduit : une
+ * ligne non reconnue de façon fiable part en « à contrôler ».
  */
 import type { DetectedLine, PriceBasis, SourceKind } from "./packages-import";
 import { sourceDef } from "./packages-import";
@@ -29,6 +33,11 @@ export type TableSchema = {
   header: string;
 };
 
+export type ColumnName = "vehicle" | "engine" | "label" | "code" | "price" | "other";
+export type Column = { name: ColumnName; x: number };
+/** Cellules en cours d'accumulation (tableau à cellules multi-lignes). */
+export type PendingCells = Partial<Record<ColumnName, string>>;
+
 /** Contexte transporté d'une page à l'autre (titres de tableau en cours). */
 export type ParseContext = {
   family: string | null;
@@ -37,6 +46,8 @@ export type ParseContext = {
   generation: string | null;
   version: string | null;
   table: TableSchema | null;
+  columns: Column[] | null;
+  pending: PendingCells | null;
 };
 
 export const emptyContext = (version: string | null = null): ParseContext => ({
@@ -46,6 +57,8 @@ export const emptyContext = (version: string | null = null): ParseContext => ({
   generation: null,
   version,
   table: null,
+  columns: null,
+  pending: null,
 });
 
 
@@ -62,8 +75,10 @@ export type PageParse = {
 
 /* ------------------------------- Regroupement ----------------------------- */
 
+export type Row = { y: number; items: TextFragment[]; text: string };
+
 /** Regroupe les fragments par ligne (tolérance verticale) et les ordonne en X. */
-export function groupLines(fragments: TextFragment[], tolerance = 2): string[] {
+export function groupRows(fragments: TextFragment[], tolerance = 2): Row[] {
   const rows: { y: number; items: TextFragment[] }[] = [];
   for (const f of fragments) {
     if (!f.str.trim()) continue;
@@ -73,15 +88,19 @@ export function groupLines(fragments: TextFragment[], tolerance = 2): string[] {
   }
   return rows
     .sort((a, b) => b.y - a.y)
-    .map((r) =>
-      r.items
-        .sort((a, b) => a.x - b.x)
-        .map((i) => i.str)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim(),
-    )
-    .filter(Boolean);
+    .map((r) => {
+      const items = r.items.sort((a, b) => a.x - b.x);
+      return {
+        y: r.y,
+        items,
+        text: items.map((i) => i.str).join(" ").replace(/\s+/g, " ").trim(),
+      };
+    })
+    .filter((r) => r.text.length > 0);
+}
+
+export function groupLines(fragments: TextFragment[], tolerance = 2): string[] {
+  return groupRows(fragments, tolerance).map((r) => r.text);
 }
 
 /* --------------------------------- Profils -------------------------------- */
@@ -118,12 +137,30 @@ export function detectVersion(lines: string[]): string | null {
   return null;
 }
 
+/**
+ * Numéro de page IMPRIMÉ sur la page (« 248/249 », « page 248/249 »).
+ * Le PDF peut contenir des pages techniques : l'index pdfjs n'est alors pas le
+ * numéro que l'utilisateur lit sur le document.
+ */
+export function detectPrintedPage(lines: string[]): { page: number; total: number } | null {
+  for (const l of lines) {
+    const t = l.trim();
+    if (t.length > 40) continue;
+    const m = t.match(/(?:^|\s)(?:page\s*)?(\d{1,3})\s*\/\s*(\d{2,4})(?:\s|$)/i);
+    if (!m) continue;
+    const page = Number(m[1]);
+    const total = Number(m[2]);
+    if (page >= 1 && total >= page && total <= 2000) return { page, total };
+  }
+  return null;
+}
+
 const NOISE_RE =
   /^(sommaire|table des mati|page \d+|forfaits?$|tarifs?$|prix ttc$|prix ht$|code$|main.?d.?oeuvre$)/i;
 
 /** Motorisations telles qu'imprimées : « 1.3 16V », « 1.5 dCi », « E-TECH »… */
 const ENGINE_RE =
-  /\b(\d[.,]\d\s?(?:16V|8V|12V|dCi|DCI|TCe|TCE|SCe|SCE|Blue\s?dCi|CRZ|BVA)?|E-?TECH|ETECH|ELECTRIQUE|ÉLECTRIQUE|HYBRIDE|GPL)\b/i;
+  /\b(\d[.,]\d\s?(?:16V|8V|12V|dCi|DCI|TCe|TCE|SCe|SCE|Blue\s?dCi|CRZ|BVA)?|Z\.?E\.?|E-?TECH|ETECH|ELECTRIQUE|ÉLECTRIQUE|HYBRIDE|GPL)\b/i;
 
 /** Génération / déclinaison de gamme : « CAPTUR II », « CLIO V », « PHASE 2 ». */
 const GENERATION_RE = /\b(I|II|III|IV|V|VI|PHASE\s?\d)\b(?!\w)/;
@@ -170,7 +207,7 @@ export function norm(s: string): string {
     .trim();
 }
 
-const VEHICLE_HEADERS = ["vehicule", "modele", "gamme", "version vehicule"];
+const VEHICLE_HEADERS = ["vehicule", "vehicules", "modele", "gamme", "version vehicule"];
 const LABEL_HEADERS = ["libelle", "designation", "intitule", "operation", "prestation"];
 
 /**
@@ -189,18 +226,85 @@ export function detectTableSchema(row: string): TableSchema | null {
   return { hasVehicle, hasLabel: hasLabel && !hasVehicle, header: row.trim() };
 }
 
+/** Bornes X des colonnes déduites des mots de l'en-tête. */
+export function detectColumns(items: TextFragment[]): Column[] | null {
+  const cols: Column[] = [];
+  for (const it of items) {
+    for (const word of it.str.split(/\s+/).filter(Boolean)) {
+      const n = norm(word);
+      let name: ColumnName | null = null;
+      if (VEHICLE_HEADERS.includes(n)) name = "vehicle";
+      else if (/^motorisations?$|^moteurs?$|^energies?$/.test(n)) name = "engine";
+      else if (LABEL_HEADERS.includes(n) || /^(norme|huile)$/.test(n)) name = "label";
+      else if (n === "code") name = "code";
+      else if (/^(tarif|tarifs|prix|montant)$/.test(n)) name = "price";
+      if (!name) continue;
+      if (cols.some((c) => c.name === name)) continue;
+      cols.push({ name, x: it.x });
+    }
+  }
+  if (!cols.some((c) => c.name === "code") || !cols.some((c) => c.name === "price")) return null;
+  const sorted = cols.sort((a, b) => a.x - b.x);
+  // Colonnes indiscernables (tous les mots au même X) : pas de mode colonnes.
+  const distinct = new Set(sorted.map((c) => Math.round(c.x)));
+  if (distinct.size < sorted.length) return null;
+  return sorted;
+}
+
+function columnOf(columns: Column[], x: number): ColumnName {
+  let name: ColumnName = columns[0]?.name ?? "other";
+  for (const c of columns) {
+    if (x + 3 >= c.x) name = c.name;
+    else break;
+  }
+  return name;
+}
+
+/** Une ligne de données répartie sur les colonnes du tableau. */
+export function cellsFromRow(columns: Column[], items: TextFragment[]): PendingCells {
+  const cells: PendingCells = {};
+  for (const it of items) {
+    const str = it.str.trim();
+    if (!str) continue;
+    const name = columnOf(columns, it.x);
+    cells[name] = cells[name] ? `${cells[name]} ${str}` : str;
+  }
+  return cells;
+}
+
+function mergeCells(base: PendingCells, next: PendingCells): PendingCells {
+  const out: PendingCells = { ...base };
+  for (const [k, v] of Object.entries(next) as [ColumnName, string][]) {
+    out[k] = out[k] ? `${out[k]} ${v}` : v;
+  }
+  return out;
+}
+
+const cleanCell = (v: string | undefined | null): string | null => {
+  const t = (v ?? "").replace(/\s+/g, " ").replace(/^[,;·|]+|[,;·|]+$/g, "").trim();
+  return t || null;
+};
+
 /**
- * Décompose une ligne de tableau en champs séparés.
+ * Génération : renseignée uniquement lorsqu'elle est NON AMBIGUË, c'est-à-dire
+ * quand la cellule véhicule ne contient qu'un seul modèle. Sur
+ * « AUSTRAL / ESPACE VI / RAFALE », « VI » ne concerne qu'ESPACE.
+ */
+export function generationOf(model: string | null): string | null {
+  if (!model) return null;
+  if (/[/,]/.test(model)) return null;
+  const m = model.match(GENERATION_RE);
+  return m ? m[1]! : null;
+}
+
+/**
+ * Décompose une ligne de tableau en champs séparés (mode JETONS).
  * Retourne null si la ligne ne porte pas un couple code + prix fiable.
- * `schema` : quand le tableau n'a pas de colonne véhicule, le texte situé avant
- * le code est un LIBELLÉ de forfait, jamais un modèle.
  */
 export function parseRow(row: string, schema?: TableSchema | null): RowParse | null {
   const tokens = row.split(/\s+/).filter(Boolean);
   if (tokens.length < 2) return null;
 
-  // Dernier nombre de la ligne = prix ; les nombres qui suivent le code sont
-  // les valeurs chiffrées (temps éventuel puis prix).
   const numbers = [...row.matchAll(NUM_RE)].map((m) => m[1]!);
   if (!numbers.length) return null;
 
@@ -235,7 +339,7 @@ export function parseRow(row: string, schema?: TableSchema | null): RowParse | n
       model: null,
       generation: null,
       engine: null,
-      rowLabel: before || null,
+      rowLabel: cleanCell(before),
       description: description || null,
       price,
       hours,
@@ -243,17 +347,17 @@ export function parseRow(row: string, schema?: TableSchema | null): RowParse | n
   }
 
   const engineMatch = before.match(ENGINE_RE);
-  const engine = engineMatch ? engineMatch[0].replace(/\s+/g, " ").trim() : null;
-  const modelRaw = (engineMatch ? before.slice(0, engineMatch.index ?? 0) : before)
-    .replace(/[|·]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const generationMatch = modelRaw.match(GENERATION_RE);
+  // La motorisation est TOUTE la fin de cellule à partir du premier motif
+  // moteur (« 1.2, 1.2 12V »), jamais seulement le premier motif.
+  const engine = engineMatch ? cleanCell(before.slice(engineMatch.index ?? 0)) : null;
+  const modelRaw = cleanCell(
+    (engineMatch ? before.slice(0, engineMatch.index ?? 0) : before).replace(/[|·]/g, " "),
+  );
 
   return {
     code,
-    model: modelRaw || null,
-    generation: generationMatch ? generationMatch[1]! : null,
+    model: modelRaw,
+    generation: generationOf(modelRaw),
     engine,
     rowLabel: null,
     description: description || null,
@@ -280,6 +384,7 @@ export function titleKind(row: string): "famille" | "operation" | null {
   if (t.length < 4 || t.length > 70) return null;
   if (!/[A-Za-zÀ-ÿ]/.test(t)) return null;
   if (detectTableSchema(t)) return null;
+  if (isForbiddenTitle(t)) return null;
   if (/[:;,•]/.test(t)) return null; // ponctuation de contenu
   if (/\.\s*$/.test(t)) return null; // phrase terminée
   if (/\d{2,}/.test(t)) return null;
@@ -300,6 +405,21 @@ export function titleKind(row: string): "famille" | "operation" | null {
   return familyWord && words.length <= 3 ? "famille" : "operation";
 }
 
+/**
+ * GARDE-FOU : textes qui ne doivent JAMAIS être enregistrés comme libellé,
+ * titre d'opération ou famille, même si le parseur se trompe.
+ */
+const FORBIDDEN_TITLE_RE =
+  /(^v[ée]hicules? +motorisation +code +tarif$|^libell[ée] +norme +huile +code +tarif$|ce forfait comprend|^tarifs? +(ttc|ht)\b|^tarifs? +zone\b|^page +\d+ *\/ *\d+$)/;
+
+export function isForbiddenTitle(value: string | null | undefined): boolean {
+  const n = norm(value ?? "");
+  if (!n) return false;
+  if (FORBIDDEN_TITLE_RE.test(n)) return true;
+  // Tout en-tête de tableau reconnu est interdit comme libellé.
+  return detectTableSchema(n) != null;
+}
+
 
 /**
  * Extrait les forfaits d'une page en réutilisant le contexte des pages
@@ -313,12 +433,14 @@ export function parsePage(
     version: string | null;
     context?: ParseContext;
     model?: string | null;
+    /** Nombre de pages du PDF : invariant de source_page. */
+    pageCount?: number;
   },
 ): PageParse {
   const profile = PROFILES[opts.kind] ?? PROFILES.renault_public;
   const def = sourceDef(opts.kind);
   const basis = profile.basis ?? def.basis;
-  const rows = groupLines(page.fragments);
+  const rows = groupRows(page.fragments);
   const ctx: ParseContext = { ...(opts.context ?? emptyContext(opts.version)) };
   if (!ctx.version) ctx.version = opts.version;
 
@@ -334,16 +456,89 @@ export function parsePage(
 
   const lines: DetectedLine[] = [];
   const uncertain: string[] = [];
-  if (!ctx.version) ctx.version = detectVersion(rows);
+  const texts = rows.map((r) => r.text);
+  if (!ctx.version) ctx.version = detectVersion(texts);
+
+  // Numéro de page : IMPRIMÉ si le document en porte un, sinon index pdfjs.
+  const printed = detectPrintedPage(texts);
+  const maxPage = printed?.total ?? opts.pageCount ?? null;
+  let sourcePage: number | null = printed?.page ?? page.page;
+  if (sourcePage != null && (sourcePage < 1 || (maxPage != null && sourcePage > maxPage))) {
+    uncertain.push(
+      `page ${page.page} : numéro de page source hors document (${sourcePage} > ${maxPage}) — non enregistré`,
+    );
+    sourcePage = null;
+  }
+
+  let pending: PendingCells = ctx.pending ?? {};
+
+  const push = (p: {
+    code: string;
+    model: string | null;
+    generation: string | null;
+    engine: string | null;
+    rowLabel: string | null;
+    description: string | null;
+    price: number | null;
+    hours: number | null;
+  }) => {
+    const vehicleTable = ctx.table ? ctx.table.hasVehicle : true;
+    if (vehicleTable && p.model) {
+      ctx.model = p.model;
+      ctx.generation = p.generation ?? null;
+    }
+    const candidates = [p.rowLabel, ctx.operation, p.description, p.code];
+    const label = candidates.find((c) => c && !isForbiddenTitle(c)) ?? null;
+    if (!label) {
+      uncertain.push(`page ${sourcePage ?? page.page} : forfait ${p.code} sans libellé exploitable — à contrôler`);
+      return;
+    }
+    if (sourcePage == null) {
+      uncertain.push(`page ${page.page} : forfait ${p.code} sans page source fiable — à contrôler`);
+      return;
+    }
+    const operationTitle = ctx.operation && !isForbiddenTitle(ctx.operation) ? ctx.operation : null;
+    const family = ctx.family && !isForbiddenTitle(ctx.family) ? ctx.family : null;
+
+    lines.push({
+      source_kind: opts.kind,
+      source_file_name: opts.fileName,
+      source_version: ctx.version,
+      source_page: sourcePage,
+      brand: profile.brand,
+      model: vehicleTable ? (p.model ?? ctx.model ?? opts.model ?? null) : null,
+      generation: vehicleTable ? (p.generation ?? null) : null,
+      engine: p.engine,
+      family,
+      operation_title: operationTitle,
+      description: p.description && !isForbiddenTitle(p.description) ? p.description : null,
+      zone: def.zone,
+      tier: def.tier,
+      segment: null,
+      energies: [],
+      operation_code: p.code,
+      label,
+      price_value: p.price,
+      price_basis: basis,
+      hours: p.hours,
+      parts_ht: null,
+      year_from: null,
+      year_to: null,
+      notes: null,
+    });
+  };
 
   for (const row of rows) {
-    if (NOISE_RE.test(row)) continue;
+    const text = row.text;
+    if (NOISE_RE.test(text)) continue;
 
-    // Une ligne d'en-tête fixe le schéma du tableau pour toutes les lignes qui
-    // suivent, y compris sur les pages suivantes.
-    const schema = detectTableSchema(row);
+    // Une ligne d'en-tête fixe le schéma du tableau (et ses colonnes) pour
+    // toutes les lignes qui suivent, y compris sur les pages suivantes.
+    const schema = detectTableSchema(text);
     if (schema) {
       ctx.table = schema;
+      ctx.columns = detectColumns(row.items);
+      pending = {};
       if (!schema.hasVehicle) {
         ctx.model = null;
         ctx.generation = null;
@@ -351,60 +546,62 @@ export function parsePage(
       continue;
     }
 
-    const parsed = parseRow(row, ctx.table);
-
-    if (!parsed) {
-      const kind = titleKind(row);
-      if (kind === "famille") ctx.family = row.trim();
-      else if (kind === "operation") ctx.operation = row.trim();
-      else if (/\d/.test(row)) {
-        uncertain.push(`page ${page.page} : « ${row.slice(0, 70)} » — ligne non exploitable`);
+    /* ------------------------------ Mode colonnes ------------------------- */
+    if (ctx.columns) {
+      const cells = cellsFromRow(ctx.columns, row.items);
+      const isTitleRow =
+        !cells.code &&
+        !cells.price &&
+        !Object.keys(pending).length &&
+        titleKind(text) != null;
+      if (isTitleRow) {
+        const kind = titleKind(text);
+        if (kind === "famille") ctx.family = text.trim();
+        else ctx.operation = text.trim();
+        continue;
+      }
+      pending = mergeCells(pending, cells);
+      const codeCell = cleanCell(pending.code);
+      const priceCell = cleanCell(pending.price);
+      const codeMatch = codeCell?.split(/\s+/).find((t) => CODE_TOKEN.test(t) && !CODE_STOPWORDS.has(t));
+      const priceNums = priceCell ? [...priceCell.matchAll(NUM_RE)].map((m) => m[1]!) : [];
+      if (codeMatch && priceNums.length) {
+        const price = toNum(priceNums[priceNums.length - 1]!);
+        const model = ctx.table?.hasVehicle ? cleanCell(pending.vehicle) : null;
+        push({
+          code: codeMatch,
+          model,
+          generation: generationOf(model),
+          engine: cleanCell(pending.engine),
+          rowLabel: cleanCell(pending.label),
+          description: null,
+          price,
+          hours: null,
+        });
+        pending = {};
       }
       continue;
     }
 
-    const vehicleTable = ctx.table ? ctx.table.hasVehicle : true;
-    if (vehicleTable && parsed.model) {
-      ctx.model = parsed.model;
-      ctx.generation = parsed.generation ?? ctx.generation;
-    }
-    const label = parsed.rowLabel || ctx.operation || parsed.description || parsed.code;
-    if (!label) {
-      uncertain.push(`page ${page.page} : forfait ${parsed.code} sans libellé d'opération`);
+    /* ------------------------------- Mode jetons -------------------------- */
+    const parsed = parseRow(text, ctx.table);
+
+    if (!parsed) {
+      const kind = titleKind(text);
+      if (kind === "famille") ctx.family = text.trim();
+      else if (kind === "operation") ctx.operation = text.trim();
+      else if (/\d/.test(text)) {
+        uncertain.push(`page ${sourcePage ?? page.page} : « ${text.slice(0, 70)} » — ligne non exploitable`);
+      }
       continue;
     }
-
-    lines.push({
-      source_kind: opts.kind,
-      source_file_name: opts.fileName,
-      source_version: ctx.version,
-      source_page: page.page,
-      brand: profile.brand,
-      model: vehicleTable ? (parsed.model ?? ctx.model ?? opts.model ?? null) : null,
-      generation: vehicleTable ? (parsed.generation ?? ctx.generation ?? null) : null,
-      engine: parsed.engine,
-      family: ctx.family,
-      operation_title: ctx.operation,
-      description: parsed.description,
-      zone: def.zone,
-      tier: def.tier,
-      segment: null,
-      energies: [],
-      operation_code: parsed.code,
-      label,
-      price_value: parsed.price,
-      price_basis: basis,
-      hours: parsed.hours,
-      parts_ht: null,
-      year_from: null,
-      year_to: null,
-      notes: null,
-    });
+    push(parsed);
   }
 
+  ctx.pending = Object.keys(pending).length ? pending : null;
 
   if (!lines.length && !uncertain.length) {
-    uncertain.push(`page ${page.page} : aucun forfait reconnu — à contrôler`);
+    uncertain.push(`page ${sourcePage ?? page.page} : aucun forfait reconnu — à contrôler`);
   }
   return { page: page.page, lines, uncertain, scanned: false, context: ctx };
 }
@@ -421,7 +618,13 @@ export type DocumentParse = {
 /** Parse une série de pages déjà extraites en texte, en gardant le contexte. */
 export function parseDocument(
   pages: PageText[],
-  opts: { kind: SourceKind; fileName: string; version: string | null; context?: ParseContext },
+  opts: {
+    kind: SourceKind;
+    fileName: string;
+    version: string | null;
+    context?: ParseContext;
+    pageCount?: number;
+  },
 ): DocumentParse {
   const lines: DetectedLine[] = [];
   const uncertain: string[] = [];
