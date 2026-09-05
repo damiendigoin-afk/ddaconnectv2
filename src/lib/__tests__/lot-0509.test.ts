@@ -20,8 +20,12 @@ describe("parseur mémento : champs séparés", () => {
     expect(r!.code).toBe("RXMNAK");
     expect(r!.engine).toBe("1.3 16V");
     expect(r!.model).toBe("CAPTUR II EUROPE / SYMBIOZ");
-    expect(r!.generation).toBe("II");
+    // Plusieurs modèles dans la cellule : « II » ne concerne que CAPTUR,
+    // aucune génération globale n'est déduite.
+    expect(r!.generation).toBeNull();
+    expect(parseRow("MEGANE IV 1.5 dCi RXMNAP 1899")?.generation).toBe("IV");
     expect(r!.price).toBe(1739);
+
   });
 
   it("ne confond pas un mot du modèle avec un code forfait", () => {

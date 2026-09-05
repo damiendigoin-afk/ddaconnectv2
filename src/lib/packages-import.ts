@@ -6,7 +6,9 @@
  * sans doublon dans `service_packages` avec historique des versions.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { isForbiddenLabel } from "./packages-guard";
 import type { ServicePackage } from "./pricing-engine";
+
 
 export const VAT = 0.2;
 
@@ -324,7 +326,7 @@ export type PackageRow = ServicePackage & {
   dedupe_key: string | null;
 };
 
-export function rowFromLine(line: DetectedLine, userId: string | null) {
+export function rowFromLine(line: DetectedLine, userId: string | null, importId?: string | null) {
   const { price_ht, price_ttc } = toPrices(line.price_value, line.price_basis);
   return {
     brand: line.brand,
@@ -349,15 +351,53 @@ export function rowFromLine(line: DetectedLine, userId: string | null) {
     year_to: line.year_to,
     notes: line.notes,
     active: true,
+    archived_at: null,
     source_kind: line.source_kind,
     source_file_name: line.source_file_name,
     source_version: line.source_version,
     source_page: line.source_page,
+    import_id: importId ?? null,
     imported_at: new Date().toISOString(),
     imported_by: userId,
     dedupe_key: dedupeKey(line),
   };
 }
+
+/**
+ * GARDE-FOU DE PERSISTANCE. Une ligne dont le libellé, le titre d'opération ou
+ * la famille est en réalité un en-tête de tableau ou une ligne de contenu n'est
+ * jamais enregistrée : elle part « à contrôler ». Idem pour une page source
+ * impossible (hors 1..pageCount).
+ */
+export function sanitizeLines(
+  lines: DetectedLine[],
+  opts?: { pageCount?: number | null },
+): ParseOutcome {
+  const kept: DetectedLine[] = [];
+  const warnings: string[] = [];
+  const max = opts?.pageCount ?? null;
+  for (const l of lines) {
+    if (isForbiddenLabel(l.label)) {
+      warnings.push(`Forfait ${l.operation_code} écarté : libellé non exploitable (« ${l.label} »).`);
+      continue;
+    }
+    const page = l.source_page;
+    if (page != null && (!Number.isInteger(page) || page < 1 || (max != null && page > max))) {
+      warnings.push(
+        `Forfait ${l.operation_code} écarté : page source ${page} impossible (document de ${max ?? "?"} pages).`,
+      );
+      continue;
+    }
+    kept.push({
+      ...l,
+      operation_title: isForbiddenLabel(l.operation_title) ? null : (l.operation_title ?? null),
+      family: isForbiddenLabel(l.family) ? null : (l.family ?? null),
+      description: isForbiddenLabel(l.description) ? null : (l.description ?? null),
+    });
+  }
+  return { lines: kept, warnings };
+}
+
 
 /** Vrai si la version importée modifie le prix, le temps ou la période. */
 export function hasChanged(
@@ -391,12 +431,21 @@ export async function importLines(
     version: string | null;
     /** Import déjà ouvert (écriture progressive par lots de pages). */
     importId?: string | null;
+    /** Nombre de pages du document source : invariant de page. */
+    pageCount?: number | null;
   },
-): Promise<ImportResult & { importId: string | null }> {
-  const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
-  if (!lines.length) return { ...result, importId: opts.importId ?? null };
 
-  if (opts.importId) return { ...(await writeLines(lines, opts, opts.importId)), importId: opts.importId };
+): Promise<ImportResult & { importId: string | null; rejected: number; warnings: string[] }> {
+  const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
+  const safe = sanitizeLines(lines, { pageCount: opts.pageCount ?? null });
+  const rejected = lines.length - safe.lines.length;
+  const base = { rejected, warnings: safe.warnings };
+  if (!safe.lines.length) return { ...result, importId: opts.importId ?? null, ...base };
+  lines = safe.lines;
+
+  if (opts.importId)
+    return { ...(await writeLines(lines, opts, opts.importId)), importId: opts.importId, ...base };
+
 
   const { data: importRow } = await supabase
     .from("service_package_imports")
@@ -421,8 +470,9 @@ export async function importLines(
       .update({ lines_imported: result.inserted, lines_updated: result.updated })
       .eq("id", importId);
   }
-  return { ...result, importId };
+  return { ...result, importId, ...base };
 }
+
 
 /** Écriture idempotente d'un lot de lignes (rapprochement par clé). */
 async function writeLines(
@@ -441,7 +491,7 @@ async function writeLines(
   );
 
   for (const line of lines) {
-    const payload = rowFromLine(line, opts.userId);
+    const payload = rowFromLine(line, opts.userId, importId);
     const prior = byKey.get(payload.dedupe_key) ?? legacy.get(`${norm(line.brand)}|${norm(line.operation_code)}`);
 
     if (!prior) {
@@ -452,6 +502,8 @@ async function writeLines(
 
     result.matched += 1;
     if (!hasChanged(prior, payload)) {
+      // Ligne inchangée mais TOUCHÉE par ce run : elle porte l'import courant,
+      // ce qui la protège du nettoyage de fin d'import.
       await supabase
         .from("service_packages")
         .update({
@@ -459,11 +511,20 @@ async function writeLines(
           source_file_name: payload.source_file_name,
           source_version: payload.source_version,
           source_page: payload.source_page,
+          label: payload.label,
+          operation_title: payload.operation_title,
+          family: payload.family,
+          engine: payload.engine,
+          generation: payload.generation,
+          active: true,
+          archived_at: null,
+          import_id: importId,
           dedupe_key: payload.dedupe_key,
           imported_at: payload.imported_at,
           imported_by: payload.imported_by,
         } as never)
         .eq("id", prior.id);
+
       result.unchanged += 1;
       continue;
     }
@@ -543,12 +604,67 @@ export async function archivePreviousVersions(sourceKind: SourceKind, version: s
   return (data ?? []).length;
 }
 
-/** Recherche simple : code, opération/libellé, famille, modèle, moteur, mots-clés. */
-export async function searchPackages(query: string, limit = 60): Promise<PackageRow[]> {
+/**
+ * Prédicat pur du nettoyage de fin d'import (miroir exact du filtre SQL de
+ * `retireStaleLines`) : vrai pour une ligne du même référentiel et de la même
+ * version, encore active, mais non touchée par le run courant.
+ */
+export function isStaleAfterRun(
+  row: {
+    source_kind: string | null;
+    source_version: string | null;
+    active: boolean | null;
+    import_id?: string | null;
+  },
+  run: { sourceKind: SourceKind; version: string | null; importId: string | null },
+): boolean {
+  if (!run.version || !run.importId) return false;
+  if (row.source_kind !== run.sourceKind) return false;
+  if (row.source_version !== run.version) return false;
+  if (row.active === false) return false;
+  return (row.import_id ?? null) !== run.importId;
+}
+
+
+/**
+ * FIN D'IMPORT COMPLET RÉUSSI : un réimport de la MÊME version remplace
+ * réellement l'import précédent. Toutes les lignes générées du même
+ * `source_kind` + `source_version` qui n'ont PAS été touchées par ce run sont
+ * archivées. Les forfaits manuels (sans `source_kind`) et les autres
+ * référentiels / versions ne sont jamais concernés. À n'appeler qu'après un
+ * import complet, jamais après une interruption.
+ */
+export async function retireStaleLines(opts: {
+  sourceKind: SourceKind;
+  version: string | null;
+  importId: string | null;
+}): Promise<number> {
+  if (!opts.version || !opts.importId) return 0;
+  const { data } = await supabase
+    .from("service_packages")
+    .update({ active: false, archived_at: new Date().toISOString() } as never)
+    .eq("source_kind", opts.sourceKind)
+    .eq("source_version", opts.version)
+    .eq("active", true)
+    .or(`import_id.is.null,import_id.neq.${opts.importId}`)
+    .select("id");
+  return (data ?? []).length;
+}
+
+/**
+ * Recherche simple : code, opération/libellé, famille, modèle, moteur.
+ * Par défaut, seules les lignes ACTIVES (version en vigueur) remontent ;
+ * les archives restent consultables via `includeArchived`.
+ */
+export async function searchPackages(
+  query: string,
+  limit = 60,
+  opts?: { includeArchived?: boolean },
+): Promise<PackageRow[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const like = `%${q.replace(/[%,]/g, " ")}%`;
-  const { data, error } = await supabase
+  let req = supabase
     .from("service_packages")
     .select("*")
     .or(
@@ -561,9 +677,10 @@ export async function searchPackages(query: string, limit = 60): Promise<Package
         `engine.ilike.${like}`,
         `description.ilike.${like}`,
       ].join(","),
-    )
-    .order("active", { ascending: false })
-    .limit(limit);
+    );
+  if (!opts?.includeArchived) req = req.eq("active", true);
+  const { data, error } = await req.order("active", { ascending: false }).limit(limit);
+
   if (error) throw error;
   return (data ?? []) as PackageRow[];
 }
