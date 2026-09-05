@@ -540,14 +540,30 @@ export function parsePage(
     });
   };
 
+  /** Ajoute une ligne au contenu du forfait en cours. */
+  const addDescription = (text: string) => {
+    const t = text.trim();
+    if (!t || isForbiddenTitle(t) || isForbiddenLabel(t)) return;
+    const next = ctx.description ? `${ctx.description} ${t}` : t;
+    ctx.description = next.replace(/\s+/g, " ").slice(0, 600);
+  };
+
   for (const row of rows) {
     const text = row.text;
     if (NOISE_RE.test(text)) continue;
+
+    // « ce forfait comprend : » ouvre le contenu du forfait courant.
+    if (isComprendMarker(text)) {
+      ctx.capturingDescription = true;
+      ctx.description = null;
+      continue;
+    }
 
     // Une ligne d'en-tête fixe le schéma du tableau (et ses colonnes) pour
     // toutes les lignes qui suivent, y compris sur les pages suivantes.
     const schema = detectTableSchema(text);
     if (schema) {
+      ctx.capturingDescription = false;
       ctx.table = schema;
       ctx.columns = detectColumns(row.items);
       pending = {};
@@ -557,6 +573,16 @@ export function parsePage(
       }
       continue;
     }
+
+    // Lignes de contenu : accumulées jusqu'au tableau ou au prochain titre.
+    if (ctx.capturingDescription) {
+      if (titleKind(text) == null && !/\b\d{2,}\b/.test(text)) {
+        addDescription(text);
+        continue;
+      }
+      ctx.capturingDescription = false;
+    }
+
 
     /* ------------------------------ Mode colonnes ------------------------- */
     if (ctx.columns) {
