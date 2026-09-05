@@ -134,6 +134,8 @@ export type Database = {
           last_shown_at: string | null
           mime_type: string | null
           shown_count: number
+          site_id: string | null
+          started_at: string | null
           starts_on: string | null
           storage_path: string
           title: string
@@ -152,6 +154,8 @@ export type Database = {
           last_shown_at?: string | null
           mime_type?: string | null
           shown_count?: number
+          site_id?: string | null
+          started_at?: string | null
           starts_on?: string | null
           storage_path: string
           title: string
@@ -170,12 +174,22 @@ export type Database = {
           last_shown_at?: string | null
           mime_type?: string | null
           shown_count?: number
+          site_id?: string | null
+          started_at?: string | null
           starts_on?: string | null
           storage_path?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ad_assets_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agreements: {
         Row: {
@@ -459,6 +473,7 @@ export type Database = {
       api_settings: {
         Row: {
           active: boolean
+          category: string
           created_at: string
           endpoint: string | null
           id: string
@@ -469,11 +484,13 @@ export type Database = {
           last_test_ok: boolean | null
           secret_name: string | null
           service: string
+          sort_order: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           active?: boolean
+          category?: string
           created_at?: string
           endpoint?: string | null
           id?: string
@@ -484,11 +501,13 @@ export type Database = {
           last_test_ok?: boolean | null
           secret_name?: string | null
           service: string
+          sort_order?: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           active?: boolean
+          category?: string
           created_at?: string
           endpoint?: string | null
           id?: string
@@ -499,6 +518,7 @@ export type Database = {
           last_test_ok?: boolean | null
           secret_name?: string | null
           service?: string
+          sort_order?: number
           updated_at?: string
           updated_by?: string | null
         }
@@ -1317,6 +1337,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      communication_settings: {
+        Row: {
+          created_at: string
+          gbp_url: string | null
+          monthly_budget: number | null
+          radius_km: number | null
+          site_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          gbp_url?: string | null
+          monthly_budget?: number | null
+          radius_km?: number | null
+          site_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          gbp_url?: string | null
+          monthly_budget?: number | null
+          radius_km?: number | null
+          site_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_settings_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_note_lines: {
         Row: {
@@ -5082,18 +5140,25 @@ export type Database = {
       service_packages: {
         Row: {
           active: boolean
+          archived_at: string | null
           brand: string
           created_at: string
           dedupe_key: string | null
+          description: string | null
           energies: string[]
+          engine: string | null
+          family: string | null
+          generation: string | null
           hours: number | null
           id: string
+          import_id: string | null
           imported_at: string | null
           imported_by: string | null
           label: string
           model: string | null
           notes: string | null
           operation_code: string
+          operation_title: string | null
           parts_ht: number | null
           price_basis: string
           price_ht: number | null
@@ -5104,24 +5169,33 @@ export type Database = {
           source_kind: string | null
           source_page: number | null
           source_version: string | null
+          tier: string | null
           updated_at: string
           year_from: number | null
           year_to: number | null
+          zone: string | null
         }
         Insert: {
           active?: boolean
+          archived_at?: string | null
           brand: string
           created_at?: string
           dedupe_key?: string | null
+          description?: string | null
           energies?: string[]
+          engine?: string | null
+          family?: string | null
+          generation?: string | null
           hours?: number | null
           id?: string
+          import_id?: string | null
           imported_at?: string | null
           imported_by?: string | null
           label: string
           model?: string | null
           notes?: string | null
           operation_code: string
+          operation_title?: string | null
           parts_ht?: number | null
           price_basis?: string
           price_ht?: number | null
@@ -5132,24 +5206,33 @@ export type Database = {
           source_kind?: string | null
           source_page?: number | null
           source_version?: string | null
+          tier?: string | null
           updated_at?: string
           year_from?: number | null
           year_to?: number | null
+          zone?: string | null
         }
         Update: {
           active?: boolean
+          archived_at?: string | null
           brand?: string
           created_at?: string
           dedupe_key?: string | null
+          description?: string | null
           energies?: string[]
+          engine?: string | null
+          family?: string | null
+          generation?: string | null
           hours?: number | null
           id?: string
+          import_id?: string | null
           imported_at?: string | null
           imported_by?: string | null
           label?: string
           model?: string | null
           notes?: string | null
           operation_code?: string
+          operation_title?: string | null
           parts_ht?: number | null
           price_basis?: string
           price_ht?: number | null
@@ -5160,9 +5243,11 @@ export type Database = {
           source_kind?: string | null
           source_page?: number | null
           source_version?: string | null
+          tier?: string | null
           updated_at?: string
           year_from?: number | null
           year_to?: number | null
+          zone?: string | null
         }
         Relationships: []
       }
@@ -5741,6 +5826,69 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vehicle_equivalences: {
+        Row: {
+          active: boolean
+          body_type: string | null
+          brand_a: string
+          brand_b: string
+          confidence: string
+          created_at: string
+          created_by: string | null
+          engine: string | null
+          generation: string | null
+          id: string
+          model_a: string
+          model_b: string
+          reason: string | null
+          scope: string
+          segment: string | null
+          updated_at: string
+          year_from: number | null
+          year_to: number | null
+        }
+        Insert: {
+          active?: boolean
+          body_type?: string | null
+          brand_a: string
+          brand_b: string
+          confidence?: string
+          created_at?: string
+          created_by?: string | null
+          engine?: string | null
+          generation?: string | null
+          id?: string
+          model_a: string
+          model_b: string
+          reason?: string | null
+          scope?: string
+          segment?: string | null
+          updated_at?: string
+          year_from?: number | null
+          year_to?: number | null
+        }
+        Update: {
+          active?: boolean
+          body_type?: string | null
+          brand_a?: string
+          brand_b?: string
+          confidence?: string
+          created_at?: string
+          created_by?: string | null
+          engine?: string | null
+          generation?: string | null
+          id?: string
+          model_a?: string
+          model_b?: string
+          reason?: string | null
+          scope?: string
+          segment?: string | null
+          updated_at?: string
+          year_from?: number | null
+          year_to?: number | null
         }
         Relationships: []
       }
