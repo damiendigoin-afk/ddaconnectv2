@@ -14,7 +14,13 @@ export type ImportJobPayload = {
   importId?: string | null;
   /** Compteurs déjà écrits (reprise d'un gros mémento). */
   totals?: { detected: number; inserted: number; updated: number; unchanged: number } | null;
+  /**
+   * Contexte de lecture en cours (famille, opération, schéma de tableau…),
+   * pour qu'une reprise au milieu d'un tableau conserve les titres.
+   */
+  context?: ParseContext | null;
 };
+
 
 export type ImportJob = {
   id: string;
