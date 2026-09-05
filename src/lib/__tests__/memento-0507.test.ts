@@ -47,8 +47,7 @@ const ctx = () => {
 };
 
 describe("page 248 (index pdfjs 248)", () => {
-  // Le PDF contient des pages techniques : l'index pdfjs dépasse le numéro
-  // imprimé. C'est la cause exacte des « p.252 / p.264 » observés en base.
+  // source_page = index PDF réel ; le numéro imprimé n'est qu'un contrôle.
   const out = parsePage(
     columnPage(
       248,
@@ -239,7 +238,7 @@ describe("descriptif de section", () => {
     ]);
     const l = out.lines[0];
     expect(l?.description).toBe(
-      "la collection de freins ar, les garnitures, le réglage, essai inclus.",
+      "ce forfait comprend : la collection de freins ar, les garnitures, le réglage, essai inclus.",
     );
   });
 
@@ -254,7 +253,7 @@ describe("descriptif de section", () => {
       "CLIO V 1.0 12V RBOUG1 129",
     ]);
     const d = out.lines[0]?.description ?? "";
-    expect(d).toBe("les bougies d'allumage, la main-d'oeuvre.");
+    expect(d).toBe("ce forfait comprend : les bougies d'allumage, la main-d'oeuvre.");
     expect(d).not.toMatch(/tarif|zone|page|code/i);
   });
 
@@ -287,6 +286,8 @@ describe("descriptif de section", () => {
       ]),
       { ...OPTS, pageCount: 260, context: p2.context },
     );
-    expect(p3.lines[0]?.description).toBe("les bougies d'allumage, la main-d'oeuvre.");
+    expect(p3.lines[0]?.description).toBe(
+      "ce forfait comprend : les bougies d'allumage, la main-d'oeuvre.",
+    );
   });
 });
