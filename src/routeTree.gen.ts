@@ -52,6 +52,7 @@ import { Route as ParametrageIndexRouteImport } from './routes/parametrage.index
 import { Route as ParametrageApiRouteImport } from './routes/parametrage.api'
 import { Route as ParametrageChiffrageRouteImport } from './routes/parametrage.chiffrage'
 import { Route as ParametrageCoutsRouteImport } from './routes/parametrage.couts'
+import { Route as ParametrageEquivalencesRouteImport } from './routes/parametrage.equivalences'
 import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.global'
 import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.messages'
 import { Route as ParametrageNotificationsRouteImport } from './routes/parametrage.notifications'
@@ -301,6 +302,11 @@ const ParametrageCoutsRoute = ParametrageCoutsRouteImport.update({
   path: '/parametrage/couts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageEquivalencesRoute = ParametrageEquivalencesRouteImport.update({
+  id: '/parametrage/equivalences',
+  path: '/parametrage/equivalences',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametrageGlobalRoute = ParametrageGlobalRouteImport.update({
   id: '/parametrage/global',
   path: '/parametrage/global',
@@ -498,6 +504,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
+  '/parametrage/equivalences': typeof ParametrageEquivalencesRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -575,6 +582,7 @@ export interface FileRoutesByTo {
   '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
+  '/parametrage/equivalences': typeof ParametrageEquivalencesRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -653,6 +661,7 @@ export interface FileRoutesById {
   '/parametrage/api': typeof ParametrageApiRoute
   '/parametrage/chiffrage': typeof ParametrageChiffrageRoute
   '/parametrage/couts': typeof ParametrageCoutsRoute
+  '/parametrage/equivalences': typeof ParametrageEquivalencesRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
@@ -732,6 +741,7 @@ export interface FileRouteTypes {
     | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
+    | '/parametrage/equivalences'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -809,6 +819,7 @@ export interface FileRouteTypes {
     | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
+    | '/parametrage/equivalences'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -886,6 +897,7 @@ export interface FileRouteTypes {
     | '/parametrage/api'
     | '/parametrage/chiffrage'
     | '/parametrage/couts'
+    | '/parametrage/equivalences'
     | '/parametrage/global'
     | '/parametrage/messages'
     | '/parametrage/notifications'
@@ -964,6 +976,7 @@ export interface RootRouteChildren {
   ParametrageApiRoute: typeof ParametrageApiRoute
   ParametrageChiffrageRoute: typeof ParametrageChiffrageRoute
   ParametrageCoutsRoute: typeof ParametrageCoutsRoute
+  ParametrageEquivalencesRoute: typeof ParametrageEquivalencesRoute
   ParametrageGlobalRoute: typeof ParametrageGlobalRoute
   ParametrageMessagesRoute: typeof ParametrageMessagesRoute
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
@@ -1314,6 +1327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageCoutsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/equivalences': {
+      id: '/parametrage/equivalences'
+      path: '/parametrage/equivalences'
+      fullPath: '/parametrage/equivalences'
+      preLoaderRoute: typeof ParametrageEquivalencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametrage/global': {
       id: '/parametrage/global'
       path: '/parametrage/global'
@@ -1572,6 +1592,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageApiRoute: ParametrageApiRoute,
   ParametrageChiffrageRoute: ParametrageChiffrageRoute,
   ParametrageCoutsRoute: ParametrageCoutsRoute,
+  ParametrageEquivalencesRoute: ParametrageEquivalencesRoute,
   ParametrageGlobalRoute: ParametrageGlobalRoute,
   ParametrageMessagesRoute: ParametrageMessagesRoute,
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,

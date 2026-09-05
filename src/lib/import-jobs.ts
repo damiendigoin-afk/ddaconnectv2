@@ -10,6 +10,10 @@ export type ImportJobPayload = {
   donePages: number[];
   lines: unknown[];
   uncertain: string[];
+  /** Import ouvert côté base, pour reprendre sans dupliquer. */
+  importId?: string | null;
+  /** Compteurs déjà écrits (reprise d'un gros mémento). */
+  totals?: { detected: number; inserted: number; updated: number; unchanged: number } | null;
 };
 
 export type ImportJob = {

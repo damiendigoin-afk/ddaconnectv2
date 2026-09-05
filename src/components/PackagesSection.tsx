@@ -65,8 +65,13 @@ export function PackagesSection({
     return map;
   }, [packages]);
 
+  /**
+   * Le référentiel complet n'est plus déroulé sous le bloc d'import : il se
+   * consulte par recherche (code, opération, famille, modèle, moteur, mots-clés).
+   */
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
+    if (q.length < 2) return [];
     return packages.filter((p) => {
       if (onlyActive && !p.active) return false;
       if (filter === "renault" && !/renault/i.test(p.brand)) return false;
@@ -74,8 +79,18 @@ export function PackagesSection({
       if (filter === "manuel" && p.source_kind) return false;
       if ((filter === "renault_public" || filter === "renault_pro_lld") && p.source_kind !== filter)
         return false;
-      if (!q) return true;
-      return [p.operation_code, p.label, p.model, p.segment, p.brand]
+      return [
+        p.operation_code,
+        p.label,
+        p.operation_title,
+        p.family,
+        p.model,
+        p.engine,
+        p.generation,
+        p.description,
+        p.segment,
+        p.brand,
+      ]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
@@ -137,7 +152,7 @@ export function PackagesSection({
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Rechercher un code, un libellé ou un modèle"
+    placeholder="Rechercher : code, opération, famille, modèle, motorisation, mot-clé"
         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
       />
 
@@ -170,19 +185,26 @@ export function PackagesSection({
         </div>
       ) : null}
 
-      {visible.length === 0 ? (
+      {search.trim().length < 2 ? (
         <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-          Aucun forfait pour ce filtre : importez un mémento Renault / Dacia pour activer le
-          chiffrage mécanique automatique.
+          Saisissez au moins 2 caractères pour retrouver un forfait (code, opération, famille,
+          modèle, motorisation).
+        </p>
+      ) : visible.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          Aucun forfait ne correspond à cette recherche.
         </p>
       ) : (
         <ul className="space-y-1 text-sm">
-          {visible.map((p) => (
+          {visible.slice(0, 200).map((p) => (
             <li key={p.id} className="rounded-lg border border-border px-3 py-2">
               <div className="flex justify-between gap-2">
                 <span>
                   <span className="font-bold">{p.operation_code}</span> · {p.label} · {p.brand}{" "}
                   {p.model ?? p.segment ?? ""}
+                  {p.generation ? ` ${p.generation}` : ""}
+                  {p.engine ? ` · ${p.engine}` : ""}
+                  {p.family ? ` · ${p.family}` : ""}
                 </span>
                 <span className="whitespace-nowrap font-bold">
                   {p.price_ttc != null

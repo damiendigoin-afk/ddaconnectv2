@@ -29,6 +29,13 @@
       "when": 1788502250971,
       "tag": "0003_add_renault_battery_package_rspncc",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788620478198,
+      "tag": "0004_lot_0509_forfaits_equivalences_communication",
+      "breakpoints": true
     }
   ]
 }

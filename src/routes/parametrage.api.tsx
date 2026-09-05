@@ -5,6 +5,8 @@ import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { IntegrationCard } from "@/components/IntegrationCard";
+import { IxellioSettings } from "@/components/IxellioSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -31,6 +33,7 @@ type ApiSetting = {
   service: string;
   label: string;
   active: boolean;
+  category?: string | null;
   endpoint: string | null;
   secret_name: string | null;
   key_hint: string | null;
@@ -51,7 +54,7 @@ function ApiSettings() {
   const [busy, setBusy] = useState<string | null>(null);
 
   async function patch(row: ApiSetting, p: Partial<ApiSetting>) {
-    const { error } = await supabase.from("api_settings").update(p).eq("id", row.id);
+    const { error } = await supabase.from("api_settings").update(p as never).eq("id", row.id);
     if (error) toast.error("Enregistrement impossible.");
     await q.refetch();
   }
@@ -97,7 +100,7 @@ function ApiSettings() {
           Les clés ne sont jamais affichées : elles restent stockées côté serveur. Sans clé configurée, l'application
           reste utilisable en mode manuel.
         </p>
-        {(q.data ?? []).map((s) => (
+        {(q.data ?? []).filter((s) => s.service !== "ixellio" && (s.category ?? "cle") === "cle").map((s) => (
           <section key={s.id} className="card-surface space-y-2 p-4 text-xs">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm font-extrabold uppercase">
@@ -148,6 +151,55 @@ function ApiSettings() {
             </div>
           </section>
         ))}
+
+        <section className="card-surface space-y-3 p-4">
+          <h2 className="text-sm font-extrabold uppercase">Connexion IXELLIO</h2>
+          <IxellioSettings />
+        </section>
+
+        <section className="card-surface space-y-3 p-4">
+          <h2 className="text-sm font-extrabold uppercase">Communication</h2>
+          <p className="text-xs text-muted-foreground">
+            Ces comptes se relient par bouton : aucun identifiant n'est saisi ici et aucun jeton
+            n'est affiché. Tant que l'application Meta ou Google n'est pas déclarée côté serveur, la
+            connexion reste impossible — aucun succès n'est simulé.
+          </p>
+          {(q.data ?? [])
+            .filter((s) => (s.category ?? "cle") === "oauth")
+            .map((s) => (
+              <IntegrationCard
+                key={s.id}
+                title={s.label}
+                description={
+                  s.service === "meta"
+                    ? "Pages Facebook, comptes Instagram et compte publicitaire du groupe."
+                    : "Fiches d'établissement Google : avis, appels et itinéraires."
+                }
+                status={{
+                  configured: !!s.key_hint,
+                  active: s.active,
+                  lastCheckOk: s.last_test_ok,
+                  lastCheckMessage: s.last_test_message,
+                  lastCheckAt: s.last_test_at,
+                }}
+                actions={
+                  <button
+                    disabled
+                    title="Application non déclarée côté serveur"
+                    className="rounded-lg border-2 border-border px-3 py-2 text-[10px] font-extrabold uppercase opacity-50"
+                  >
+                    {s.service === "meta" ? "Connecter avec Meta" : "Connecter avec Google"}
+                  </button>
+                }
+              >
+                <p className="text-[11px] text-muted-foreground">
+                  À connecter : les identifiants d'application ne sont pas encore enregistrés côté
+                  serveur. Une fois disponibles, la connexion se fera par ce bouton et les pages ou
+                  établissements pourront être affectés à chaque site.
+                </p>
+              </IntegrationCard>
+            ))}
+        </section>
       </div>
     </AppShell>
   );

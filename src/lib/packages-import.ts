@@ -18,10 +18,14 @@ export const SOURCE_KINDS: {
   label: string;
   brand: string;
   basis: PriceBasis;
+  /** Zone tarifaire du mémento. */
+  zone: string;
+  /** Périmètre commercial : Public ou Pro / LLD. */
+  tier: string;
 }[] = [
-  { key: "renault_public", label: "Renault Public Zone C", brand: "Renault", basis: "ttc" },
-  { key: "renault_pro_lld", label: "Renault Pro / LLD Zone C", brand: "Renault", basis: "ht" },
-  { key: "dacia_public", label: "Dacia Public Zone C", brand: "Dacia", basis: "ttc" },
+  { key: "renault_public", label: "Renault Public Zone C", brand: "Renault", basis: "ttc", zone: "C", tier: "public" },
+  { key: "renault_pro_lld", label: "Renault Pro / LLD Zone C", brand: "Renault", basis: "ht", zone: "C", tier: "pro_lld" },
+  { key: "dacia_public", label: "Dacia Public Zone C", brand: "Dacia", basis: "ttc", zone: "C", tier: "public" },
 ];
 
 export const SOURCE_LABEL: Record<SourceKind, string> = Object.fromEntries(
@@ -39,6 +43,18 @@ export type DetectedLine = {
   source_page: number | null;
   brand: string;
   model: string | null;
+  /** Génération / déclinaison de gamme si identifiable (ex. « II »). */
+  generation?: string | null;
+  /** Motorisation telle qu'imprimée (ex. « 1.3 16V »). */
+  engine?: string | null;
+  /** Famille de prestation (titre de chapitre du mémento). */
+  family?: string | null;
+  /** Libellé d'opération du tableau en cours. */
+  operation_title?: string | null;
+  /** Descriptif / contenu de la ligne. */
+  description?: string | null;
+  zone?: string | null;
+  tier?: string | null;
   segment: string | null;
   energies: string[];
   operation_code: string;
@@ -98,6 +114,7 @@ export function dedupeKey(l: {
   brand: string;
   operation_code: string;
   model?: string | null;
+  engine?: string | null;
   segment?: string | null;
   energies?: string[] | null;
   year_from?: number | null;
@@ -108,6 +125,7 @@ export function dedupeKey(l: {
     norm(l.brand),
     norm(l.operation_code),
     norm(l.model ?? ""),
+    norm(l.engine ?? ""),
     norm(l.segment ?? ""),
     [...(l.energies ?? [])].map(norm).sort().join("+"),
     l.year_from ?? "",
@@ -292,6 +310,14 @@ export type PackageRow = ServicePackage & {
   source_file_name: string | null;
   source_version: string | null;
   source_page: number | null;
+  family?: string | null;
+  operation_title?: string | null;
+  description?: string | null;
+  engine?: string | null;
+  generation?: string | null;
+  zone?: string | null;
+  tier?: string | null;
+  archived_at?: string | null;
   price_ht: number | null;
   price_basis: string;
   imported_at: string | null;
@@ -303,6 +329,13 @@ export function rowFromLine(line: DetectedLine, userId: string | null) {
   return {
     brand: line.brand,
     model: line.model,
+    generation: line.generation ?? null,
+    engine: line.engine ?? null,
+    family: line.family ?? null,
+    operation_title: line.operation_title ?? null,
+    description: line.description ?? null,
+    zone: line.zone ?? null,
+    tier: line.tier ?? null,
     segment: line.segment,
     energies: line.energies,
     operation_code: line.operation_code,
@@ -349,10 +382,21 @@ export type ImportResult = { inserted: number; updated: number; unchanged: numbe
  */
 export async function importLines(
   lines: DetectedLine[],
-  opts: { userId: string | null; userName: string | null; warnings: string[]; sourceKind: SourceKind; fileName: string; version: string | null },
+  opts: {
+    userId: string | null;
+    userName: string | null;
+    warnings: string[];
+    sourceKind: SourceKind;
+    fileName: string;
+    version: string | null;
+    /** Import déjà ouvert (écriture progressive par lots de pages). */
+    importId?: string | null;
+  },
 ): Promise<ImportResult & { importId: string | null }> {
   const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
-  if (!lines.length) return { ...result, importId: null };
+  if (!lines.length) return { ...result, importId: opts.importId ?? null };
+
+  if (opts.importId) return { ...(await writeLines(lines, opts, opts.importId)), importId: opts.importId };
 
   const { data: importRow } = await supabase
     .from("service_package_imports")
@@ -368,7 +412,25 @@ export async function importLines(
     .select("id")
     .maybeSingle();
   const importId = (importRow?.id as string | undefined) ?? null;
+  const written = await writeLines(lines, opts, importId);
+  Object.assign(result, written);
 
+  if (importId) {
+    await supabase
+      .from("service_package_imports")
+      .update({ lines_imported: result.inserted, lines_updated: result.updated })
+      .eq("id", importId);
+  }
+  return { ...result, importId };
+}
+
+/** Écriture idempotente d'un lot de lignes (rapprochement par clé). */
+async function writeLines(
+  lines: DetectedLine[],
+  opts: { userId: string | null },
+  importId: string | null,
+): Promise<ImportResult> {
+  const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
   const { data: existingRaw } = await supabase.from("service_packages").select("*");
   const existing = (existingRaw ?? []) as PackageRow[];
   const byKey = new Map(existing.filter((p) => p.dedupe_key).map((p) => [p.dedupe_key!, p]));
@@ -420,11 +482,88 @@ export async function importLines(
     if (!error) result.updated += 1;
   }
 
-  if (importId) {
-    await supabase
-      .from("service_package_imports")
-      .update({ lines_imported: result.inserted, lines_updated: result.updated })
-      .eq("id", importId);
-  }
-  return { ...result, importId };
+  return result;
+}
+
+
+/* ----------------------- Versions actives / archivées ---------------------- */
+
+/** Ouvre un import (utilisé pour l'écriture progressive d'un gros mémento). */
+export async function createImportRun(opts: {
+  sourceKind: SourceKind;
+  fileName: string;
+  version: string | null;
+  userId: string | null;
+  userName: string | null;
+}): Promise<string | null> {
+  const { data } = await supabase
+    .from("service_package_imports")
+    .insert({
+      source_kind: opts.sourceKind,
+      file_name: opts.fileName,
+      version_label: opts.version,
+      lines_detected: 0,
+      imported_by: opts.userId,
+      imported_by_name: opts.userName,
+    })
+    .select("id")
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+export async function updateImportRun(
+  importId: string,
+  totals: { detected: number; inserted: number; updated: number; warnings: string[] },
+) {
+  await supabase
+    .from("service_package_imports")
+    .update({
+      lines_detected: totals.detected,
+      lines_imported: totals.inserted,
+      lines_updated: totals.updated,
+      warnings: totals.warnings.slice(0, 500) as never,
+    })
+    .eq("id", importId);
+}
+
+/**
+ * Le dernier mémento d'un même périmètre devient ACTIF : les forfaits des
+ * versions antérieures du même référentiel sont archivés (consultables), jamais
+ * supprimés. Sans version identifiée, rien n'est archivé.
+ */
+export async function archivePreviousVersions(sourceKind: SourceKind, version: string | null): Promise<number> {
+  if (!version) return 0;
+  const { data } = await supabase
+    .from("service_packages")
+    .update({ active: false, archived_at: new Date().toISOString() } as never)
+    .eq("source_kind", sourceKind)
+    .eq("active", true)
+    .neq("source_version", version)
+    .select("id");
+  return (data ?? []).length;
+}
+
+/** Recherche simple : code, opération/libellé, famille, modèle, moteur, mots-clés. */
+export async function searchPackages(query: string, limit = 60): Promise<PackageRow[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const like = `%${q.replace(/[%,]/g, " ")}%`;
+  const { data, error } = await supabase
+    .from("service_packages")
+    .select("*")
+    .or(
+      [
+        `operation_code.ilike.${like}`,
+        `label.ilike.${like}`,
+        `operation_title.ilike.${like}`,
+        `family.ilike.${like}`,
+        `model.ilike.${like}`,
+        `engine.ilike.${like}`,
+        `description.ilike.${like}`,
+      ].join(","),
+    )
+    .order("active", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as PackageRow[];
 }
