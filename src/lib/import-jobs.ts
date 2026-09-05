@@ -4,6 +4,8 @@
  * coupure, changement de poste) reprend sans retraiter les pages terminées.
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { ParseContext } from "./packages-parse";
+
 
 export type ImportJobPayload = {
   version: string | null;
