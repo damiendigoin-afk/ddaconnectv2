@@ -518,16 +518,22 @@ export function parsePage(
   const texts = rows.map((r) => r.text);
   if (!ctx.version) ctx.version = detectVersion(texts);
 
-  // Numéro de page : IMPRIMÉ si le document en porte un, sinon index pdfjs.
+  // Numéro de page : TOUJOURS l'index réel du PDF (pdfjs). Le numéro imprimé
+  // en pied de page ne sert que de contrôle, jamais de source.
   const printed = detectPrintedPage(texts);
-  const maxPage = printed?.total ?? opts.pageCount ?? null;
-  let sourcePage: number | null = printed?.page ?? page.page;
-  if (sourcePage != null && (sourcePage < 1 || (maxPage != null && sourcePage > maxPage))) {
+  const maxPage = opts.pageCount ?? null;
+  let sourcePage: number | null = page.page;
+  if (sourcePage < 1 || (maxPage != null && sourcePage > maxPage)) {
     uncertain.push(
       `page ${page.page} : numéro de page source hors document (${sourcePage} > ${maxPage}) — non enregistré`,
     );
     sourcePage = null;
+  } else if (printed && printed.page !== sourcePage) {
+    uncertain.push(
+      `page ${page.page} : numéro imprimé ${printed.page} différent de l'index PDF — à contrôler`,
+    );
   }
+
 
   let pending: PendingCells = ctx.pending ?? {};
 
