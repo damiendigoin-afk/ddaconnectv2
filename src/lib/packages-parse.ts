@@ -44,6 +44,14 @@ export type PendingCells = Partial<Record<ColumnName, string>>;
 export type ParseContext = {
   family: string | null;
   operation: string | null;
+  /**
+   * Contenu du forfait : le texte qui suit « ce forfait comprend : », valable
+   * pour toutes les lignes de la section, y compris sur plusieurs pages,
+   * jusqu'au prochain forfait / prochaine rubrique.
+   */
+  description: string | null;
+  /** true tant que les lignes lues alimentent le contenu du forfait. */
+  capturingDescription: boolean;
   model: string | null;
   generation: string | null;
   version: string | null;
@@ -55,6 +63,8 @@ export type ParseContext = {
 export const emptyContext = (version: string | null = null): ParseContext => ({
   family: null,
   operation: null,
+  description: null,
+  capturingDescription: false,
   model: null,
   generation: null,
   version,
@@ -62,6 +72,12 @@ export const emptyContext = (version: string | null = null): ParseContext => ({
   columns: null,
   pending: null,
 });
+
+/** « ce forfait comprend », « ces forfaits comprennent : », ponctuation tolérée. */
+export function isComprendMarker(row: string): boolean {
+  return /^ces? +forfaits? +(comprend|comprennent)\s*[:.\-–]?\s*$/.test(norm(row));
+}
+
 
 
 export type PageParse = {
@@ -507,7 +523,10 @@ export function parsePage(
       engine: p.engine,
       family,
       operation_title: operationTitle,
-      description: p.description && !isForbiddenTitle(p.description) ? p.description : null,
+      // Le descriptif est le contenu de la SECTION (« ce forfait comprend : »),
+      // jamais le texte résiduel d'une ligne de tableau.
+      description: ctx.description && !isForbiddenLabel(ctx.description) ? ctx.description : null,
+
       zone: def.zone,
       tier: def.tier,
       segment: null,
@@ -524,14 +543,30 @@ export function parsePage(
     });
   };
 
+  /** Ajoute une ligne au contenu du forfait en cours. */
+  const addDescription = (text: string) => {
+    const t = text.trim();
+    if (!t || isForbiddenTitle(t) || isForbiddenLabel(t)) return;
+    const next = ctx.description ? `${ctx.description} ${t}` : t;
+    ctx.description = next.replace(/\s+/g, " ").slice(0, 600);
+  };
+
   for (const row of rows) {
     const text = row.text;
     if (NOISE_RE.test(text)) continue;
+
+    // « ce forfait comprend : » ouvre le contenu du forfait courant.
+    if (isComprendMarker(text)) {
+      ctx.capturingDescription = true;
+      ctx.description = null;
+      continue;
+    }
 
     // Une ligne d'en-tête fixe le schéma du tableau (et ses colonnes) pour
     // toutes les lignes qui suivent, y compris sur les pages suivantes.
     const schema = detectTableSchema(text);
     if (schema) {
+      ctx.capturingDescription = false;
       ctx.table = schema;
       ctx.columns = detectColumns(row.items);
       pending = {};
@@ -541,6 +576,16 @@ export function parsePage(
       }
       continue;
     }
+
+    // Lignes de contenu : accumulées jusqu'au tableau ou au prochain titre.
+    if (ctx.capturingDescription) {
+      if (titleKind(text) == null && !/\b\d{2,}\b/.test(text)) {
+        addDescription(text);
+        continue;
+      }
+      ctx.capturingDescription = false;
+    }
+
 
     /* ------------------------------ Mode colonnes ------------------------- */
     if (ctx.columns) {
@@ -554,6 +599,11 @@ export function parsePage(
         const kind = titleKind(text);
         if (kind === "famille") ctx.family = text.trim();
         else ctx.operation = text.trim();
+        // Nouveau forfait / nouvelle rubrique : le contenu précédent ne
+        // s'applique plus.
+        ctx.description = null;
+        ctx.capturingDescription = false;
+
         continue;
       }
       pending = mergeCells(pending, cells);
@@ -584,8 +634,16 @@ export function parsePage(
 
     if (!parsed) {
       const kind = titleKind(text);
-      if (kind === "famille") ctx.family = text.trim();
-      else if (kind === "operation") ctx.operation = text.trim();
+      if (kind === "famille") {
+        ctx.family = text.trim();
+        ctx.description = null;
+        ctx.capturingDescription = false;
+      } else if (kind === "operation") {
+        ctx.operation = text.trim();
+        ctx.description = null;
+        ctx.capturingDescription = false;
+      }
+
       else if (/\d/.test(text)) {
         uncertain.push(`page ${sourcePage ?? page.page} : « ${text.slice(0, 70)} » — ligne non exploitable`);
       }

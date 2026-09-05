@@ -191,3 +191,102 @@ describe("réimport de la même version", () => {
     expect(isStaleAfterRun(row({}), { ...run, importId: null })).toBe(false);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * Contenu du forfait (« ce forfait comprend : ») : contexte de section, jamais
+ * le texte résiduel d'une ligne de tableau, jamais un en-tête ou un pied de page.
+ * ------------------------------------------------------------------------- */
+
+/** Page texte simple : une ligne par entrée, ordre du document. */
+function textPage(pdfIndex: number, rows: string[]): PageText {
+  return {
+    page: pdfIndex,
+    fragments: rows.map((str, i) => ({ str, x: 40, y: 800 - i * 14 })),
+  };
+}
+
+describe("descriptif de section", () => {
+  const run = (rows: string[], pageIndex = 246) =>
+    parsePage(textPage(pageIndex, rows), { ...OPTS, pageCount: 260 });
+
+  it("descriptif simple : silencieux", () => {
+    const out = run([
+      "forfaits avantage",
+      "remplacement du silencieux",
+      "ce forfait comprend :",
+      "le remplacement du silencieux, la main-d'oeuvre.",
+      "véhicule motorisation code tarif",
+      "AUSTRAL / ESPACE VI / RAFALE 1.2, 1.2 12V RXMNA9 583",
+      "tarifs ttc zone c",
+      "246/249",
+    ]);
+    const l = out.lines.find((x) => x.operation_code === "RXMNA9");
+    expect(l?.operation_title).toBe("remplacement du silencieux");
+    expect(l?.description).toBe("le remplacement du silencieux, la main-d'oeuvre.");
+    expect(l?.price_value).toBe(583);
+    expect(l?.source_page).toBe(246);
+  });
+
+  it("descriptif multi-lignes : collections de freins", () => {
+    const out = run([
+      "freinage",
+      "remplacement des collections de freins ar à tambours",
+      "ce forfait comprend :",
+      "la collection de freins ar, les garnitures,",
+      "le réglage, essai inclus.",
+      "véhicule motorisation code tarif",
+      "CLIO V 1.0 12V RFMNBD 259",
+    ]);
+    const l = out.lines[0];
+    expect(l?.description).toBe(
+      "la collection de freins ar, les garnitures, le réglage, essai inclus.",
+    );
+  });
+
+  it("ni en-tête, ni tarif, ni pied de page dans le descriptif", () => {
+    const out = run([
+      "remplacement des bougies d'allumage",
+      "ce forfait comprend :",
+      "les bougies d'allumage, la main-d'oeuvre.",
+      "tarifs ttc zone c",
+      "page 12/249",
+      "véhicule motorisation code tarif",
+      "CLIO V 1.0 12V RBOUG1 129",
+    ]);
+    const d = out.lines[0]?.description ?? "";
+    expect(d).toBe("les bougies d'allumage, la main-d'oeuvre.");
+    expect(d).not.toMatch(/tarif|zone|page|code/i);
+  });
+
+  it("le descriptif suit le forfait d'une page à l'autre puis est remplacé", () => {
+    const p1 = parsePage(
+      textPage(100, [
+        "remplacement du liquide de refroidissement(os)",
+        "ce forfait comprend :",
+        "la vidange du circuit, le liquide,",
+        "le contrôle d'étanchéité.",
+        "véhicule motorisation code tarif",
+        "CLIO V 1.0 12V RLIQ01 149",
+      ]),
+      { ...OPTS, pageCount: 260 },
+    );
+    const p2 = parsePage(textPage(101, ["MEGANE 4 1.5 DCI RLIQ02 169"]), {
+      ...OPTS,
+      pageCount: 260,
+      context: p1.context,
+    });
+    expect(p2.lines[0]?.description).toBe(p1.lines[0]?.description);
+    expect(p2.lines[0]?.operation_title).toBe("remplacement du liquide de refroidissement(os)");
+
+    const p3 = parsePage(
+      textPage(102, [
+        "remplacement des bougies d'allumage",
+        "ce forfait comprend :",
+        "les bougies d'allumage, la main-d'oeuvre.",
+        "CLIO V 1.0 12V RBOUG1 129",
+      ]),
+      { ...OPTS, pageCount: 260, context: p2.context },
+    );
+    expect(p3.lines[0]?.description).toBe("les bougies d'allumage, la main-d'oeuvre.");
+  });
+});
