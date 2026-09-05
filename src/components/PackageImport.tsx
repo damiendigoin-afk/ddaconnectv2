@@ -33,7 +33,9 @@ import {
   importLines,
   linesFromAi,
   linesFromRows,
+  retireStaleLines,
   updateImportRun,
+
   type DetectedLine,
   type SourceKind,
 } from "@/lib/packages-import";
