@@ -33,7 +33,7 @@ type ApiSetting = {
   service: string;
   label: string;
   active: boolean;
-  category: string | null;
+  category?: string | null;
   endpoint: string | null;
   secret_name: string | null;
   key_hint: string | null;
@@ -54,7 +54,7 @@ function ApiSettings() {
   const [busy, setBusy] = useState<string | null>(null);
 
   async function patch(row: ApiSetting, p: Partial<ApiSetting>) {
-    const { error } = await supabase.from("api_settings").update(p).eq("id", row.id);
+    const { error } = await supabase.from("api_settings").update(p as never).eq("id", row.id);
     if (error) toast.error("Enregistrement impossible.");
     await q.refetch();
   }

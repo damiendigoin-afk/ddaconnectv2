@@ -105,7 +105,9 @@ export async function fetchEquivalences(): Promise<VehicleEquivalence[]> {
   return (data ?? []) as VehicleEquivalence[];
 }
 
-export async function saveEquivalence(row: Partial<VehicleEquivalence> & { id?: string }) {
+export async function saveEquivalence(
+  row: Partial<VehicleEquivalence> & { id?: string; created_by?: string | null },
+) {
   const payload = { ...row, updated_at: new Date().toISOString() };
   if (row.id) {
     const { error } = await supabase.from("vehicle_equivalences").update(payload as never).eq("id", row.id);
