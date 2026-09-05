@@ -6,7 +6,9 @@
  * sans doublon dans `service_packages` avec historique des versions.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { isForbiddenLabel } from "./packages-guard";
 import type { ServicePackage } from "./pricing-engine";
+
 
 export const VAT = 0.2;
 
