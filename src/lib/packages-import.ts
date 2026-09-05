@@ -468,8 +468,9 @@ export async function importLines(
       .update({ lines_imported: result.inserted, lines_updated: result.updated })
       .eq("id", importId);
   }
-  return { ...result, importId };
+  return { ...result, importId, ...base };
 }
+
 
 /** Écriture idempotente d'un lot de lignes (rapprochement par clé). */
 async function writeLines(
