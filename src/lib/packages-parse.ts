@@ -21,7 +21,14 @@ import { sourceDef } from "./packages-import";
 import { isForbiddenLabel } from "./packages-guard";
 
 
-export type TextFragment = { str: string; x: number; y: number };
+export type TextFragment = {
+  str: string;
+  x: number;
+  y: number;
+  /** Largeur PDF du fragment (pdfjs `width`), utilisée pour les centres. */
+  width?: number;
+  height?: number;
+};
 export type PageText = { page: number; fragments: TextFragment[] };
 
 /**
@@ -35,10 +42,21 @@ export type TableSchema = {
   header: string;
 };
 
-export type ColumnName = "vehicle" | "engine" | "label" | "code" | "price" | "other";
-export type Column = { name: ColumnName; x: number };
+export type ColumnName =
+  | "vehicle"
+  | "engine"
+  | "label"
+  | "norm"
+  | "oil"
+  | "battery"
+  | "code"
+  | "price"
+  | "other";
+/** Colonne du tableau : `x` = début du titre, `center` = centre géométrique. */
+export type Column = { name: ColumnName; x: number; center: number };
 /** Cellules en cours d'accumulation (tableau à cellules multi-lignes). */
 export type PendingCells = Partial<Record<ColumnName, string>>;
+
 
 /** Contexte transporté d'une page à l'autre (titres de tableau en cours). */
 export type ParseContext = {
