@@ -489,7 +489,7 @@ async function writeLines(
   );
 
   for (const line of lines) {
-    const payload = rowFromLine(line, opts.userId);
+    const payload = rowFromLine(line, opts.userId, importId);
     const prior = byKey.get(payload.dedupe_key) ?? legacy.get(`${norm(line.brand)}|${norm(line.operation_code)}`);
 
     if (!prior) {
@@ -500,6 +500,8 @@ async function writeLines(
 
     result.matched += 1;
     if (!hasChanged(prior, payload)) {
+      // Ligne inchangée mais TOUCHÉE par ce run : elle porte l'import courant,
+      // ce qui la protège du nettoyage de fin d'import.
       await supabase
         .from("service_packages")
         .update({
@@ -507,11 +509,20 @@ async function writeLines(
           source_file_name: payload.source_file_name,
           source_version: payload.source_version,
           source_page: payload.source_page,
+          label: payload.label,
+          operation_title: payload.operation_title,
+          family: payload.family,
+          engine: payload.engine,
+          generation: payload.generation,
+          active: true,
+          archived_at: null,
+          import_id: importId,
           dedupe_key: payload.dedupe_key,
           imported_at: payload.imported_at,
           imported_by: payload.imported_by,
         } as never)
         .eq("id", prior.id);
+
       result.unchanged += 1;
       continue;
     }
