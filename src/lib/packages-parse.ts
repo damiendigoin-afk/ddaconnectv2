@@ -523,7 +523,10 @@ export function parsePage(
       engine: p.engine,
       family,
       operation_title: operationTitle,
-      description: p.description && !isForbiddenTitle(p.description) ? p.description : null,
+      // Le descriptif est le contenu de la SECTION (« ce forfait comprend : »),
+      // jamais le texte résiduel d'une ligne de tableau.
+      description: ctx.description && !isForbiddenLabel(ctx.description) ? ctx.description : null,
+
       zone: def.zone,
       tier: def.tier,
       segment: null,
