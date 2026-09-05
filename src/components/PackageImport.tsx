@@ -174,7 +174,9 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
           uncertain: warns.slice(0, 500),
           importId,
           totals: { ...running },
+          context: ctx,
         },
+
         userId: user?.id ?? null,
       });
     }
