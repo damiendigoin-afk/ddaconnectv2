@@ -46,19 +46,19 @@ const ctx = () => {
   return c;
 };
 
-describe("page 248 imprimée (index pdfjs 252)", () => {
+describe("page 248 (index pdfjs 248)", () => {
   // Le PDF contient des pages techniques : l'index pdfjs dépasse le numéro
   // imprimé. C'est la cause exacte des « p.252 / p.264 » observés en base.
   const out = parsePage(
     columnPage(
-      252,
+      248,
       [
         ["AUSTRAL / ESPACE VI / RAFALE", "1.2, 1.2 12V", "RXMNAO", "4289"],
         ["MEGANE 4", "1.5 DCI", "RXMNAP", "1899"],
       ],
       "248/249",
     ),
-    { ...OPTS, context: ctx(), pageCount: 260 },
+    { ...OPTS, context: ctx(), pageCount: 249 },
   );
   const l = out.lines.find((x) => x.operation_code === "RXMNAO");
 
@@ -89,7 +89,7 @@ describe("page 248 imprimée (index pdfjs 252)", () => {
 describe("cellule motorisation sur plusieurs lignes (RFMNBD)", () => {
   const out = parsePage(
     columnPage(
-      234,
+      230,
       [
         ["AUSTRAL / ESPACE VI / RAFALE", "1.2, 1.2 12V,", "", ""],
         ["", "1.3 16V", "RFMNBD", "59"],
@@ -97,7 +97,7 @@ describe("cellule motorisation sur plusieurs lignes (RFMNBD)", () => {
       ],
       "230/249",
     ),
-    { ...OPTS, context: ctx(), pageCount: 260 },
+    { ...OPTS, context: ctx(), pageCount: 249 },
   );
 
   it("accumule toute la cellule motorisation jusqu'au code + tarif", () => {
@@ -222,7 +222,7 @@ describe("descriptif de section", () => {
     ]);
     const l = out.lines.find((x) => x.operation_code === "RXMNA9");
     expect(l?.operation_title).toBe("remplacement du silencieux");
-    expect(l?.description).toBe("le remplacement du silencieux, la main-d'oeuvre.");
+    expect(l?.description).toBe("ce forfait comprend : le remplacement du silencieux, la main-d'oeuvre.");
     expect(l?.price_value).toBe(583);
     expect(l?.source_page).toBe(246);
   });
