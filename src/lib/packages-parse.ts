@@ -634,8 +634,16 @@ export function parsePage(
 
     if (!parsed) {
       const kind = titleKind(text);
-      if (kind === "famille") ctx.family = text.trim();
-      else if (kind === "operation") ctx.operation = text.trim();
+      if (kind === "famille") {
+        ctx.family = text.trim();
+        ctx.description = null;
+        ctx.capturingDescription = false;
+      } else if (kind === "operation") {
+        ctx.operation = text.trim();
+        ctx.description = null;
+        ctx.capturingDescription = false;
+      }
+
       else if (/\d/.test(text)) {
         uncertain.push(`page ${sourcePage ?? page.page} : « ${text.slice(0, 70)} » — ligne non exploitable`);
       }
