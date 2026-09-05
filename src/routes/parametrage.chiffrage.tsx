@@ -410,6 +410,23 @@ function PricingSettings() {
 
         <PackagesSection packages={packages.data ?? []} refetch={() => packages.refetch()} />
 
+        <Link
+          to="/parametrage/equivalences"
+          className="flex items-center justify-between gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]"
+        >
+          <span>
+            <span className="block text-base font-extrabold uppercase tracking-wide">
+              Équivalences véhicules
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              Rapprochements entre modèles (2008 ↔ Captur, 208 / C3 ↔ Clio) pour les opérations
+              généralistes
+            </span>
+          </span>
+          <span aria-hidden>›</span>
+        </Link>
+
+
 
         <section className="card-surface space-y-3 p-4">
           <h2 className="text-sm font-bold uppercase tracking-widest">Catalogue pneumatiques</h2>
