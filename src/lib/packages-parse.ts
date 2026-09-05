@@ -317,10 +317,7 @@ function indexAt(boundaries: number[], value: number): number {
   return i;
 }
 
-function columnOf(columns: Column[], x: number): ColumnName {
-  const b = boundariesOf(columns);
-  return columns[indexAt(b, x)]?.name ?? columns[columns.length - 1]?.name ?? "other";
-}
+
 
 /** Une ligne de données répartie sur les colonnes du tableau. */
 export function cellsFromRow(columns: Column[], items: TextFragment[]): PendingCells {
