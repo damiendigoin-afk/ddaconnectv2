@@ -106,8 +106,13 @@ export function PackageImport({ onImported }: { onImported: () => void | Promise
 
     let importId = resume?.state?.importId ?? null;
     let docVersion = version.trim() || resume?.state?.version || null;
-    let ctx: ParseContext = emptyContext(docVersion);
+    // Reprise au milieu d'un tableau : on repart du contexte enregistré
+    // (famille, libellé d'opération, schéma de colonnes) et non d'un contexte vide.
+    let ctx: ParseContext = resume?.state?.context
+      ? { ...emptyContext(docVersion), ...resume.state.context }
+      : emptyContext(docVersion);
     const scannedPages: number[] = [];
+
 
     setPhase("enregistrement");
     const writeStart = Date.now();
