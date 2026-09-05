@@ -409,16 +409,10 @@ export function titleKind(row: string): "famille" | "operation" | null {
  * GARDE-FOU : textes qui ne doivent JAMAIS être enregistrés comme libellé,
  * titre d'opération ou famille, même si le parseur se trompe.
  */
-const FORBIDDEN_TITLE_RE =
-  /(^v[ée]hicules? +motorisation +code +tarif$|^libell[ée] +norme +huile +code +tarif$|ce forfait comprend|^tarifs? +(ttc|ht)\b|^tarifs? +zone\b|^page +\d+ *\/ *\d+$)/;
-
 export function isForbiddenTitle(value: string | null | undefined): boolean {
-  const n = norm(value ?? "");
-  if (!n) return false;
-  if (FORBIDDEN_TITLE_RE.test(n)) return true;
-  // Tout en-tête de tableau reconnu est interdit comme libellé.
-  return detectTableSchema(n) != null;
+  return isForbiddenLabel(value);
 }
+
 
 
 /**
