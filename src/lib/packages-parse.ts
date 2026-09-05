@@ -21,7 +21,14 @@ import { sourceDef } from "./packages-import";
 import { isForbiddenLabel } from "./packages-guard";
 
 
-export type TextFragment = { str: string; x: number; y: number };
+export type TextFragment = {
+  str: string;
+  x: number;
+  y: number;
+  /** Largeur PDF du fragment (pdfjs `width`), utilisée pour les centres. */
+  width?: number | undefined;
+  height?: number | undefined;
+};
 export type PageText = { page: number; fragments: TextFragment[] };
 
 /**
@@ -35,10 +42,21 @@ export type TableSchema = {
   header: string;
 };
 
-export type ColumnName = "vehicle" | "engine" | "label" | "code" | "price" | "other";
-export type Column = { name: ColumnName; x: number };
+export type ColumnName =
+  | "vehicle"
+  | "engine"
+  | "label"
+  | "norm"
+  | "oil"
+  | "battery"
+  | "code"
+  | "price"
+  | "other";
+/** Colonne du tableau : `x` = début du titre, `center` = centre géométrique. */
+export type Column = { name: ColumnName; x: number; center: number };
 /** Cellules en cours d'accumulation (tableau à cellules multi-lignes). */
 export type PendingCells = Partial<Record<ColumnName, string>>;
+
 
 /** Contexte transporté d'une page à l'autre (titres de tableau en cours). */
 export type ParseContext = {
@@ -244,51 +262,80 @@ export function detectTableSchema(row: string): TableSchema | null {
   return { hasVehicle, hasLabel: hasLabel && !hasVehicle, header: row.trim() };
 }
 
-/** Bornes X des colonnes déduites des mots de l'en-tête. */
+/** Nom de colonne correspondant à un mot d'en-tête, sinon null. */
+function headerColumnName(word: string): ColumnName | null {
+  const n = norm(word);
+  if (VEHICLE_HEADERS.includes(n)) return "vehicle";
+  if (/^motorisations?$|^moteurs?$|^energies?$/.test(n)) return "engine";
+  if (LABEL_HEADERS.includes(n)) return "label";
+  if (n === "norme" || n === "normes") return "norm";
+  if (n === "huile" || n === "huiles") return "oil";
+  if (n === "batterie" || n === "batteries") return "battery";
+  if (n === "code") return "code";
+  if (/^(tarif|tarifs|prix|montant)$/.test(n)) return "price";
+  return null;
+}
+
+/**
+ * Colonnes déduites des FRAGMENTS de la ligne d'en-tête.
+ * Les titres étant centrés, on retient le CENTRE de chaque titre
+ * (x + width/2) : les frontières réelles sont les milieux entre centres
+ * voisins. Un en-tête livré en un seul fragment n'est pas géométrisable :
+ * on ne fabrique alors aucune colonne fictive (repli en mode jetons).
+ */
 export function detectColumns(items: TextFragment[]): Column[] | null {
   const cols: Column[] = [];
   for (const it of items) {
-    for (const word of it.str.split(/\s+/).filter(Boolean)) {
-      const n = norm(word);
-      let name: ColumnName | null = null;
-      if (VEHICLE_HEADERS.includes(n)) name = "vehicle";
-      else if (/^motorisations?$|^moteurs?$|^energies?$/.test(n)) name = "engine";
-      else if (LABEL_HEADERS.includes(n) || /^(norme|huile)$/.test(n)) name = "label";
-      else if (n === "code") name = "code";
-      else if (/^(tarif|tarifs|prix|montant)$/.test(n)) name = "price";
-      if (!name) continue;
-      if (cols.some((c) => c.name === name)) continue;
-      cols.push({ name, x: it.x });
-    }
+    const words = it.str.split(/\s+/).filter(Boolean);
+    const named = words.map(headerColumnName).filter((n): n is ColumnName => n != null);
+    if (named.length > 1) return null; // en-tête non géométrisable
+    const name = named[0];
+    if (!name) continue;
+    if (cols.some((c) => c.name === name)) continue;
+    cols.push({ name, x: it.x, center: it.x + (it.width ?? 0) / 2 });
   }
   if (!cols.some((c) => c.name === "code") || !cols.some((c) => c.name === "price")) return null;
-  const sorted = cols.sort((a, b) => a.x - b.x);
-  // Colonnes indiscernables (tous les mots au même X) : pas de mode colonnes.
-  const distinct = new Set(sorted.map((c) => Math.round(c.x)));
+  const sorted = cols.sort((a, b) => a.center - b.center);
+  // Colonnes indiscernables (tous les titres au même centre) : pas de colonnes.
+  const distinct = new Set(sorted.map((c) => Math.round(c.center)));
   if (distinct.size < sorted.length) return null;
   return sorted;
 }
 
-function columnOf(columns: Column[], x: number): ColumnName {
-  let name: ColumnName = columns[0]?.name ?? "other";
-  for (const c of columns) {
-    if (x + 3 >= c.x) name = c.name;
-    else break;
+/** Frontières = milieux entre centres de titres voisins. */
+function boundariesOf(columns: Column[]): number[] {
+  const b: number[] = [];
+  for (let i = 0; i < columns.length - 1; i += 1) {
+    b.push((columns[i]!.center + columns[i + 1]!.center) / 2);
   }
-  return name;
+  return b;
 }
+
+function indexAt(boundaries: number[], value: number): number {
+  let i = 0;
+  while (i < boundaries.length && value >= boundaries[i]!) i += 1;
+  return i;
+}
+
+
 
 /** Une ligne de données répartie sur les colonnes du tableau. */
 export function cellsFromRow(columns: Column[], items: TextFragment[]): PendingCells {
   const cells: PendingCells = {};
+  const b = boundariesOf(columns);
   for (const it of items) {
     const str = it.str.trim();
     if (!str) continue;
-    const name = columnOf(columns, it.x);
+    const w = it.width ?? 0;
+    // Jeton court (code, tarif) : le centre décide. Bloc de texte large et
+    // aligné à gauche (modèles, motorisations) : le début décide.
+    const ref = w > 0 && w <= 30 ? it.x + w / 2 : it.x;
+    const name = columns[indexAt(b, ref)]?.name ?? "other";
     cells[name] = cells[name] ? `${cells[name]} ${str}` : str;
   }
   return cells;
 }
+
 
 function mergeCells(base: PendingCells, next: PendingCells): PendingCells {
   const out: PendingCells = { ...base };
@@ -471,16 +518,22 @@ export function parsePage(
   const texts = rows.map((r) => r.text);
   if (!ctx.version) ctx.version = detectVersion(texts);
 
-  // Numéro de page : IMPRIMÉ si le document en porte un, sinon index pdfjs.
+  // Numéro de page : TOUJOURS l'index réel du PDF (pdfjs). Le numéro imprimé
+  // en pied de page ne sert que de contrôle, jamais de source.
   const printed = detectPrintedPage(texts);
-  const maxPage = printed?.total ?? opts.pageCount ?? null;
-  let sourcePage: number | null = printed?.page ?? page.page;
-  if (sourcePage != null && (sourcePage < 1 || (maxPage != null && sourcePage > maxPage))) {
+  const maxPage = opts.pageCount ?? null;
+  let sourcePage: number | null = page.page;
+  if (sourcePage < 1 || (maxPage != null && sourcePage > maxPage)) {
     uncertain.push(
       `page ${page.page} : numéro de page source hors document (${sourcePage} > ${maxPage}) — non enregistré`,
     );
     sourcePage = null;
+  } else if (printed && printed.page !== sourcePage) {
+    uncertain.push(
+      `page ${page.page} : numéro imprimé ${printed.page} différent de l'index PDF — à contrôler`,
+    );
   }
+
 
   let pending: PendingCells = ctx.pending ?? {};
 
@@ -523,9 +576,10 @@ export function parsePage(
       engine: p.engine,
       family,
       operation_title: operationTitle,
-      // Le descriptif est le contenu de la SECTION (« ce forfait comprend : »),
+      // Le descriptif est le contenu de la SECTION (« ce forfait comprend : … »),
       // jamais le texte résiduel d'une ligne de tableau.
-      description: ctx.description && !isForbiddenLabel(ctx.description) ? ctx.description : null,
+      description: ctx.description,
+
 
       zone: def.zone,
       tier: def.tier,
@@ -543,10 +597,15 @@ export function parsePage(
     });
   };
 
-  /** Ajoute une ligne au contenu du forfait en cours. */
+  /**
+   * Ajoute une ligne au contenu du forfait en cours. La ligne « ce forfait
+   * comprend : » fait partie du descriptif (mais jamais d'un libellé) ;
+   * en-têtes, tarifs et pieds de page en sont toujours exclus.
+   */
   const addDescription = (text: string) => {
     const t = text.trim();
-    if (!t || isForbiddenTitle(t) || isForbiddenLabel(t)) return;
+    if (!t) return;
+    if (!isComprendMarker(t) && (isForbiddenTitle(t) || isForbiddenLabel(t))) return;
     const next = ctx.description ? `${ctx.description} ${t}` : t;
     ctx.description = next.replace(/\s+/g, " ").slice(0, 600);
   };
@@ -555,12 +614,15 @@ export function parsePage(
     const text = row.text;
     if (NOISE_RE.test(text)) continue;
 
-    // « ce forfait comprend : » ouvre le contenu du forfait courant.
-    if (isComprendMarker(text)) {
+    // « ce forfait comprend : » ouvre le contenu du forfait courant et en
+    // fait partie ; ce n'est jamais un titre.
+    if (isComprendMarker(text) || /^ces? +forfaits? +(comprend|comprennent)\b/.test(norm(text))) {
       ctx.capturingDescription = true;
       ctx.description = null;
+      addDescription(text);
       continue;
     }
+
 
     // Une ligne d'en-tête fixe le schéma du tableau (et ses colonnes) pour
     // toutes les lignes qui suivent, y compris sur les pages suivantes.
