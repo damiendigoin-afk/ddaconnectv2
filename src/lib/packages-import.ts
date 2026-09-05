@@ -602,12 +602,45 @@ export async function archivePreviousVersions(sourceKind: SourceKind, version: s
   return (data ?? []).length;
 }
 
-/** Recherche simple : code, opération/libellé, famille, modèle, moteur, mots-clés. */
-export async function searchPackages(query: string, limit = 60): Promise<PackageRow[]> {
+/**
+ * FIN D'IMPORT COMPLET RÉUSSI : un réimport de la MÊME version remplace
+ * réellement l'import précédent. Toutes les lignes générées du même
+ * `source_kind` + `source_version` qui n'ont PAS été touchées par ce run sont
+ * archivées. Les forfaits manuels (sans `source_kind`) et les autres
+ * référentiels / versions ne sont jamais concernés. À n'appeler qu'après un
+ * import complet, jamais après une interruption.
+ */
+export async function retireStaleLines(opts: {
+  sourceKind: SourceKind;
+  version: string | null;
+  importId: string | null;
+}): Promise<number> {
+  if (!opts.version || !opts.importId) return 0;
+  const { data } = await supabase
+    .from("service_packages")
+    .update({ active: false, archived_at: new Date().toISOString() } as never)
+    .eq("source_kind", opts.sourceKind)
+    .eq("source_version", opts.version)
+    .eq("active", true)
+    .or(`import_id.is.null,import_id.neq.${opts.importId}`)
+    .select("id");
+  return (data ?? []).length;
+}
+
+/**
+ * Recherche simple : code, opération/libellé, famille, modèle, moteur.
+ * Par défaut, seules les lignes ACTIVES (version en vigueur) remontent ;
+ * les archives restent consultables via `includeArchived`.
+ */
+export async function searchPackages(
+  query: string,
+  limit = 60,
+  opts?: { includeArchived?: boolean },
+): Promise<PackageRow[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const like = `%${q.replace(/[%,]/g, " ")}%`;
-  const { data, error } = await supabase
+  let req = supabase
     .from("service_packages")
     .select("*")
     .or(
@@ -620,9 +653,10 @@ export async function searchPackages(query: string, limit = 60): Promise<Package
         `engine.ilike.${like}`,
         `description.ilike.${like}`,
       ].join(","),
-    )
-    .order("active", { ascending: false })
-    .limit(limit);
+    );
+  if (!opts?.includeArchived) req = req.eq("active", true);
+  const { data, error } = await req.order("active", { ascending: false }).limit(limit);
+
   if (error) throw error;
   return (data ?? []) as PackageRow[];
 }
