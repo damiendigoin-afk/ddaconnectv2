@@ -429,7 +429,10 @@ export async function importLines(
     version: string | null;
     /** Import déjà ouvert (écriture progressive par lots de pages). */
     importId?: string | null;
+    /** Nombre de pages du document source : invariant de page. */
+    pageCount?: number | null;
   },
+
 ): Promise<ImportResult & { importId: string | null; rejected: number; warnings: string[] }> {
   const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
   const safe = sanitizeLines(lines, { pageCount: opts.pageCount ?? null });
