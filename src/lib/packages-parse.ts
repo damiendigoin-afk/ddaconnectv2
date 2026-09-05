@@ -599,6 +599,11 @@ export function parsePage(
         const kind = titleKind(text);
         if (kind === "famille") ctx.family = text.trim();
         else ctx.operation = text.trim();
+        // Nouveau forfait / nouvelle rubrique : le contenu précédent ne
+        // s'applique plus.
+        ctx.description = null;
+        ctx.capturingDescription = false;
+
         continue;
       }
       pending = mergeCells(pending, cells);
