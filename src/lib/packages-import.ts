@@ -18,10 +18,14 @@ export const SOURCE_KINDS: {
   label: string;
   brand: string;
   basis: PriceBasis;
+  /** Zone tarifaire du mémento. */
+  zone: string;
+  /** Périmètre commercial : Public ou Pro / LLD. */
+  tier: string;
 }[] = [
-  { key: "renault_public", label: "Renault Public Zone C", brand: "Renault", basis: "ttc" },
-  { key: "renault_pro_lld", label: "Renault Pro / LLD Zone C", brand: "Renault", basis: "ht" },
-  { key: "dacia_public", label: "Dacia Public Zone C", brand: "Dacia", basis: "ttc" },
+  { key: "renault_public", label: "Renault Public Zone C", brand: "Renault", basis: "ttc", zone: "C", tier: "public" },
+  { key: "renault_pro_lld", label: "Renault Pro / LLD Zone C", brand: "Renault", basis: "ht", zone: "C", tier: "pro_lld" },
+  { key: "dacia_public", label: "Dacia Public Zone C", brand: "Dacia", basis: "ttc", zone: "C", tier: "public" },
 ];
 
 export const SOURCE_LABEL: Record<SourceKind, string> = Object.fromEntries(
@@ -39,6 +43,18 @@ export type DetectedLine = {
   source_page: number | null;
   brand: string;
   model: string | null;
+  /** Génération / déclinaison de gamme si identifiable (ex. « II »). */
+  generation?: string | null;
+  /** Motorisation telle qu'imprimée (ex. « 1.3 16V »). */
+  engine?: string | null;
+  /** Famille de prestation (titre de chapitre du mémento). */
+  family?: string | null;
+  /** Libellé d'opération du tableau en cours. */
+  operation_title?: string | null;
+  /** Descriptif / contenu de la ligne. */
+  description?: string | null;
+  zone?: string | null;
+  tier?: string | null;
   segment: string | null;
   energies: string[];
   operation_code: string;
@@ -98,6 +114,7 @@ export function dedupeKey(l: {
   brand: string;
   operation_code: string;
   model?: string | null;
+  engine?: string | null;
   segment?: string | null;
   energies?: string[] | null;
   year_from?: number | null;
@@ -108,6 +125,7 @@ export function dedupeKey(l: {
     norm(l.brand),
     norm(l.operation_code),
     norm(l.model ?? ""),
+    norm(l.engine ?? ""),
     norm(l.segment ?? ""),
     [...(l.energies ?? [])].map(norm).sort().join("+"),
     l.year_from ?? "",
@@ -292,6 +310,14 @@ export type PackageRow = ServicePackage & {
   source_file_name: string | null;
   source_version: string | null;
   source_page: number | null;
+  family?: string | null;
+  operation_title?: string | null;
+  description?: string | null;
+  engine?: string | null;
+  generation?: string | null;
+  zone?: string | null;
+  tier?: string | null;
+  archived_at?: string | null;
   price_ht: number | null;
   price_basis: string;
   imported_at: string | null;
@@ -303,6 +329,13 @@ export function rowFromLine(line: DetectedLine, userId: string | null) {
   return {
     brand: line.brand,
     model: line.model,
+    generation: line.generation ?? null,
+    engine: line.engine ?? null,
+    family: line.family ?? null,
+    operation_title: line.operation_title ?? null,
+    description: line.description ?? null,
+    zone: line.zone ?? null,
+    tier: line.tier ?? null,
     segment: line.segment,
     energies: line.energies,
     operation_code: line.operation_code,
