@@ -18,6 +18,17 @@ import { sourceDef } from "./packages-import";
 export type TextFragment = { str: string; x: number; y: number };
 export type PageText = { page: number; fragments: TextFragment[] };
 
+/**
+ * Schéma du tableau en cours, déduit de sa ligne d'en-tête.
+ * `hasVehicle` : il existe une vraie colonne véhicule / modèle / gamme.
+ * `hasLabel`   : la colonne de gauche est un libellé de forfait (révisions…).
+ */
+export type TableSchema = {
+  hasVehicle: boolean;
+  hasLabel: boolean;
+  header: string;
+};
+
 /** Contexte transporté d'une page à l'autre (titres de tableau en cours). */
 export type ParseContext = {
   family: string | null;
@@ -25,6 +36,7 @@ export type ParseContext = {
   model: string | null;
   generation: string | null;
   version: string | null;
+  table: TableSchema | null;
 };
 
 export const emptyContext = (version: string | null = null): ParseContext => ({
@@ -33,7 +45,9 @@ export const emptyContext = (version: string | null = null): ParseContext => ({
   model: null,
   generation: null,
   version,
+  table: null,
 });
+
 
 export type PageParse = {
   page: number;
