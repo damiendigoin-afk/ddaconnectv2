@@ -324,7 +324,7 @@ export type PackageRow = ServicePackage & {
   dedupe_key: string | null;
 };
 
-export function rowFromLine(line: DetectedLine, userId: string | null) {
+export function rowFromLine(line: DetectedLine, userId: string | null, importId?: string | null) {
   const { price_ht, price_ttc } = toPrices(line.price_value, line.price_basis);
   return {
     brand: line.brand,
@@ -349,15 +349,53 @@ export function rowFromLine(line: DetectedLine, userId: string | null) {
     year_to: line.year_to,
     notes: line.notes,
     active: true,
+    archived_at: null,
     source_kind: line.source_kind,
     source_file_name: line.source_file_name,
     source_version: line.source_version,
     source_page: line.source_page,
+    import_id: importId ?? null,
     imported_at: new Date().toISOString(),
     imported_by: userId,
     dedupe_key: dedupeKey(line),
   };
 }
+
+/**
+ * GARDE-FOU DE PERSISTANCE. Une ligne dont le libellé, le titre d'opération ou
+ * la famille est en réalité un en-tête de tableau ou une ligne de contenu n'est
+ * jamais enregistrée : elle part « à contrôler ». Idem pour une page source
+ * impossible (hors 1..pageCount).
+ */
+export function sanitizeLines(
+  lines: DetectedLine[],
+  opts?: { pageCount?: number | null },
+): ParseOutcome {
+  const kept: DetectedLine[] = [];
+  const warnings: string[] = [];
+  const max = opts?.pageCount ?? null;
+  for (const l of lines) {
+    if (isForbiddenLabel(l.label)) {
+      warnings.push(`Forfait ${l.operation_code} écarté : libellé non exploitable (« ${l.label} »).`);
+      continue;
+    }
+    const page = l.source_page;
+    if (page != null && (!Number.isInteger(page) || page < 1 || (max != null && page > max))) {
+      warnings.push(
+        `Forfait ${l.operation_code} écarté : page source ${page} impossible (document de ${max ?? "?"} pages).`,
+      );
+      continue;
+    }
+    kept.push({
+      ...l,
+      operation_title: isForbiddenLabel(l.operation_title) ? null : (l.operation_title ?? null),
+      family: isForbiddenLabel(l.family) ? null : (l.family ?? null),
+      description: isForbiddenLabel(l.description) ? null : (l.description ?? null),
+    });
+  }
+  return { lines: kept, warnings };
+}
+
 
 /** Vrai si la version importée modifie le prix, le temps ou la période. */
 export function hasChanged(
