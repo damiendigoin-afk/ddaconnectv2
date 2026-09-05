@@ -1,3 +1,8 @@
+/**
+ * Communication — un seul site à la fois.
+ * Bibliothèque, rotation 7 jours glissants, budget, rayon et statistiques
+ * appartiennent au site sélectionné à l'entrée de la page.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -6,30 +11,33 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
+import { useSite } from "@/lib/site-context";
 import {
-  AD_BRANDS,
-  adUrl,
-  fetchAdAssets,
-  isRunning,
-  markShown,
-  nextInRotation,
-  updateAdAsset,
-  uploadAdAsset,
-  type AdAsset,
-  type AdBrand,
-} from "@/lib/communication";
+  ROTATION_DAYS,
+  assetUrl,
+  currentRotation,
+  fetchSettings,
+  fetchSiteAssets,
+  saveSettings,
+  setAssetActive,
+  startRotationIfNeeded,
+  type SiteAdAsset,
+} from "@/lib/communication-site";
 
 export const Route = createFileRoute("/communication/")({
   head: () => ({
     meta: [
-      { title: "Communication — Bibliothèque publicitaire DDA Connect" },
+      { title: "Communication — Publicité locale par site DDA Connect" },
       {
         name: "description",
         content:
-          "Bibliothèque des supports publicitaires Renault et Dacia : ajout, période de diffusion, activation et rotation linéaire.",
+          "Visuels publicitaires d'un site : rotation automatique de 7 jours, budget, rayon de diffusion et résultats réels.",
       },
-      { property: "og:title", content: "Communication — Bibliothèque publicitaire DDA Connect" },
-      { property: "og:description", content: "Supports publicitaires du garage et rotation d'affichage." },
+      { property: "og:title", content: "Communication — Publicité locale par site DDA Connect" },
+      {
+        property: "og:description",
+        content: "Visuels, rotation 7 jours, budget et rayon de diffusion du site.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -37,254 +45,280 @@ export const Route = createFileRoute("/communication/")({
   component: CommunicationPage,
 });
 
-function CommunicationPage() {
-  const { user, displayName } = useAuth();
-  const [showArchived, setShowArchived] = useState(false);
-  const assets = useQuery({
-    queryKey: ["ad-assets", showArchived],
-    queryFn: () => fetchAdAssets(showArchived),
-  });
-  const list = useMemo(() => assets.data ?? [], [assets.data]);
+const fmtDate = (d: Date | null) =>
+  d ? d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 
-  const [title, setTitle] = useState("");
-  const [brand, setBrand] = useState<AdBrand>("renault");
-  const [startsOn, setStartsOn] = useState("");
-  const [endsOn, setEndsOn] = useState("");
+function CommunicationPage() {
+  const { user } = useAuth();
+  const { sites, site, active, isGroup, setActive } = useSite();
+  const siteId = isGroup ? "" : (site?.id ?? "");
+
+  const assets = useQuery({
+    queryKey: ["com-assets", siteId],
+    queryFn: () => fetchSiteAssets(siteId),
+    enabled: !!siteId,
+  });
+  const settings = useQuery({
+    queryKey: ["com-settings", siteId],
+    queryFn: () => fetchSettings(siteId),
+    enabled: !!siteId,
+  });
+
+  const list = useMemo(() => (assets.data ?? []) as SiteAdAsset[], [assets.data]);
+  const rotation = useMemo(() => currentRotation(list), [list]);
+
+  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const [current, setCurrent] = useState<AdAsset | null>(null);
-  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!list.length) {
-      setCurrent(null);
-      return;
-    }
-    setCurrent((c) => c ?? nextInRotation(list));
-  }, [list]);
+  const [budget, setBudget] = useState("");
+  const [radius, setRadius] = useState("");
+  const [gbp, setGbp] = useState("");
 
   useEffect(() => {
-    if (!current) {
+    setBudget(settings.data?.monthly_budget != null ? String(settings.data.monthly_budget) : "");
+    setRadius(settings.data?.radius_km != null ? String(settings.data.radius_km) : "");
+    setGbp(settings.data?.gbp_url ?? "");
+  }, [settings.data]);
+
+  useEffect(() => {
+    const cur = rotation.current;
+    if (!cur) {
       setCurrentUrl(null);
       return;
     }
-    void adUrl(current.storage_path).then(setCurrentUrl);
-  }, [current]);
+    void assetUrl(cur.storage_path).then(setCurrentUrl);
+    void startRotationIfNeeded(cur);
+  }, [rotation.current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(
+      list.map(async (a) => [a.id, await assetUrl(a.storage_path)] as const),
+    ).then((pairs) => {
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      for (const [id, url] of pairs) if (url) map[id] = url;
+      setThumbs(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [list]);
 
   async function add() {
-    if (!file || !title.trim()) {
-      toast.error("Titre et fichier obligatoires.");
+    if (!file || !siteId) {
+      toast.error("Choisissez une image.");
       return;
     }
     setBusy(true);
     try {
-      await uploadAdAsset({
-        file,
-        title: title.trim(),
-        brand,
-        startsOn: startsOn || null,
-        endsOn: endsOn || null,
-        userId: user?.id ?? null,
-        userName: displayName ?? null,
-      });
-      setTitle("");
+      await uploadImage(file, siteId, user?.id ?? null);
       setFile(null);
-      setStartsOn("");
-      setEndsOn("");
-      toast.success("Support ajouté");
+      toast.success("Visuel ajouté");
       await assets.refetch();
     } catch {
-      toast.error("Ajout impossible : vérifiez le fichier.");
+      toast.error("Ajout impossible : choisissez une image (JPG ou PNG).");
     } finally {
       setBusy(false);
     }
   }
 
-  async function patch(a: AdAsset, p: Partial<AdAsset>) {
-    await updateAdAsset(a.id, p);
+  async function toggle(a: SiteAdAsset) {
+    await setAssetActive(a.id, !a.active);
     await assets.refetch();
   }
 
-  async function rotate() {
-    if (current) await markShown(current);
-    const refreshed = await assets.refetch();
-    const fresh = refreshed.data ?? [];
-    setCurrent(nextInRotation(fresh));
+  async function persistSettings() {
+    if (!siteId) return;
+    try {
+      await saveSettings(
+        {
+          site_id: siteId,
+          monthly_budget: budget.trim() ? Number(budget.replace(",", ".")) : null,
+          radius_km: radius.trim() ? Number(radius) : null,
+          gbp_url: gbp.trim() || null,
+        },
+        user?.id ?? null,
+      );
+      toast.success("Réglages du site enregistrés");
+      await settings.refetch();
+    } catch {
+      toast.error("Enregistrement impossible.");
+    }
+  }
+
+  if (!siteId) {
+    return (
+      <AppShell title="Communication" subtitle="Publicité locale" back={{ to: "/" }}>
+        <section className="card-surface space-y-3 p-4">
+          <h2 className="text-sm font-extrabold uppercase">Choisir le site</h2>
+          <p className="text-xs text-muted-foreground">
+            La communication se pilote site par site : visuels, rotation, budget, rayon et résultats
+            sont propres à chaque garage.
+          </p>
+          {sites.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActive(s.id)}
+              className="w-full rounded-lg border-2 border-border px-4 py-3 text-xs font-extrabold uppercase"
+            >
+              {s.name}
+            </button>
+          ))}
+        </section>
+      </AppShell>
+    );
   }
 
   return (
-    <AppShell title="Communication" subtitle="Bibliothèque publicitaire" back={{ to: "/" }}>
+    <AppShell title="Communication" subtitle={site?.name ?? active} back={{ to: "/" }}>
       <div className="space-y-4">
         <section className="card-surface space-y-3 p-4">
           <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase">
             <Megaphone className="h-4 w-4 text-brand" /> Rotation en cours
           </h2>
-          {current ? (
+          {rotation.current ? (
             <>
-              {currentUrl && (current.mime_type ?? "").startsWith("image/") ? (
+              {currentUrl ? (
                 <img
                   src={currentUrl}
-                  alt={`Support publicitaire ${current.title}`}
+                  alt={`Visuel publicitaire diffusé pour ${site?.name ?? "le site"}`}
                   className="max-h-64 w-full rounded-lg border border-border object-contain"
                 />
-              ) : currentUrl ? (
-                <a href={currentUrl} target="_blank" rel="noopener" className="text-sm font-bold text-brand underline">
-                  Ouvrir « {current.title} »
-                </a>
               ) : null}
               <p className="text-xs text-muted-foreground">
-                {current.title} · {current.brand} · diffusé {current.shown_count} fois
+                Diffusion pendant {ROTATION_DAYS} jours, jusqu'au {fmtDate(rotation.endsAt)}. Le
+                visuel suivant démarre automatiquement ensuite.
               </p>
             </>
           ) : (
-            <p className="text-xs text-muted-foreground">Aucun support actif dans sa période de diffusion.</p>
+            <p className="text-xs text-muted-foreground">
+              Aucun visuel actif pour ce site : ajoutez une image ci-dessous.
+            </p>
           )}
-          <button
-            onClick={() => void rotate()}
-            className="w-full rounded-lg border-2 border-border px-4 py-3 text-xs font-extrabold uppercase"
-          >
-            Support suivant
-          </button>
+          {rotation.next.length ? (
+            <div className="text-xs">
+              <div className="font-extrabold uppercase">File des suivants</div>
+              <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-muted-foreground">
+                {rotation.next.map((a) => (
+                  <li key={a.id}>{a.file_name ?? a.title}</li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
         </section>
 
         <section className="card-surface space-y-2 p-4">
-          <h2 className="text-sm font-extrabold uppercase">Ajouter un support</h2>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Titre du support"
-            className="w-full rounded-lg border-2 border-border px-3 py-2 text-sm"
-          />
-          <div className="flex gap-2">
-            {AD_BRANDS.map((b) => (
-              <button
-                key={b.key}
-                onClick={() => setBrand(b.key)}
-                className={`flex-1 rounded-lg px-3 py-2 text-xs font-extrabold uppercase ${
-                  brand === b.key ? "bg-brand text-brand-foreground" : "border-2 border-border"
-                }`}
-              >
-                {b.label}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs text-muted-foreground">
-              Début (facultatif)
-              <input
-                type="date"
-                value={startsOn}
-                onChange={(e) => setStartsOn(e.target.value)}
-                className="mt-1 w-full rounded-lg border-2 border-border px-2 py-2 text-sm"
-              />
-            </label>
-            <label className="text-xs text-muted-foreground">
-              Fin (facultatif)
-              <input
-                type="date"
-                value={endsOn}
-                onChange={(e) => setEndsOn(e.target.value)}
-                className="mt-1 w-full rounded-lg border-2 border-border px-2 py-2 text-sm"
-              />
-            </label>
-          </div>
+          <h2 className="text-sm font-extrabold uppercase">Ajouter un visuel</h2>
           <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-border px-3 py-3 text-xs font-bold uppercase">
             <Upload className="h-4 w-4 text-brand" />
-            {file ? file.name : "Choisir un PDF ou une image"}
+            {file ? file.name : "Choisir une image"}
             <input
               type="file"
-              accept="application/pdf,image/*"
+              accept="image/*"
               className="hidden"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </label>
           <button
-            disabled={busy}
+            disabled={busy || !file}
             onClick={() => void add()}
             className="w-full rounded-lg bg-brand px-4 py-3 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-50"
           >
-            Ajouter le support
+            Ajouter
           </button>
         </section>
 
         <section className="card-surface space-y-2 p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-extrabold uppercase">Supports ({list.length})</h2>
-            <button
-              onClick={() => setShowArchived((v) => !v)}
-              className="text-xs font-bold uppercase text-muted-foreground underline"
-            >
-              {showArchived ? "Masquer archivés" : "Voir archivés"}
-            </button>
-          </div>
+          <h2 className="text-sm font-extrabold uppercase">Réglages du site</h2>
+          <label className="block text-xs text-muted-foreground">
+            Budget mensuel (€)
+            <input
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              inputMode="decimal"
+              placeholder="montant libre"
+              className="mt-1 w-full rounded-lg border-2 border-border px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="block text-xs text-muted-foreground">
+            Rayon de diffusion (km)
+            <input
+              value={radius}
+              onChange={(e) => setRadius(e.target.value)}
+              inputMode="numeric"
+              className="mt-1 w-full rounded-lg border-2 border-border px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <label className="block text-xs text-muted-foreground">
+            Fiche Google Business du site (destination au clic)
+            <input
+              value={gbp}
+              onChange={(e) => setGbp(e.target.value)}
+              placeholder="https://…"
+              className="mt-1 w-full rounded-lg border-2 border-border px-3 py-2 text-sm text-foreground"
+            />
+          </label>
+          <button
+            onClick={() => void persistSettings()}
+            className="w-full rounded-lg border-2 border-border px-4 py-3 text-xs font-extrabold uppercase"
+          >
+            Enregistrer
+          </button>
+          <p className="text-[11px] text-muted-foreground">
+            Toutes les publicités de ce site renvoient vers cette fiche. Les commentaires reçus
+            restent sur Facebook et Instagram.
+          </p>
+        </section>
+
+        <section className="card-surface space-y-2 p-4">
+          <h2 className="text-sm font-extrabold uppercase">Résultats</h2>
+          <p className="text-xs text-muted-foreground">
+            Dépense, portée, clics, appels et itinéraires s'afficheront ici une fois les comptes
+            Meta et Google Business reliés dans Paramètres API. Aucun chiffre n'est estimé :
+            actuellement indisponible — comptes non connectés.
+          </p>
+        </section>
+
+        <section className="card-surface space-y-2 p-4">
+          <h2 className="text-sm font-extrabold uppercase">Visuels du site ({list.length})</h2>
           {list.map((a) => (
-            <div key={a.id} className="space-y-2 border-t border-border pt-2 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="font-extrabold uppercase">{a.title}</div>
-                  <div className="text-muted-foreground">
-                    {a.brand} · {a.starts_on ?? "—"} → {a.ends_on ?? "—"} ·{" "}
-                    {a.archived ? "archivé" : isRunning(a) ? "en diffusion" : "hors diffusion"}
-                  </div>
+            <div key={a.id} className="flex items-center gap-3 border-t border-border pt-2 text-xs">
+              {thumbs[a.id] ? (
+                <img
+                  src={thumbs[a.id]}
+                  alt={`Aperçu du visuel ${a.file_name ?? a.title}`}
+                  className="h-16 w-24 rounded border border-border object-cover"
+                />
+              ) : (
+                <div className="h-16 w-24 rounded border border-dashed border-border" />
+              )}
+              <div className="flex-1">
+                <div className="font-extrabold">{a.file_name ?? a.title}</div>
+                <div className="text-muted-foreground">
+                  {a.active ? "Dans la rotation" : "Hors rotation"}
+                  {a.started_at ? ` · lancé le ${fmtDate(new Date(a.started_at))}` : ""}
                 </div>
-                <button
-                  onClick={() => void patch(a, { active: !a.active })}
-                  className={`rounded-lg px-3 py-2 font-extrabold uppercase ${
-                    a.active ? "bg-brand text-brand-foreground" : "border-2 border-border"
-                  }`}
-                >
-                  {a.active ? "Actif" : "Inactif"}
-                </button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  defaultValue={a.title}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (v && v !== a.title) void patch(a, { title: v });
-                  }}
-                  className="min-w-[8rem] flex-1 rounded border border-border px-2 py-1"
-                  aria-label={`Titre de ${a.title}`}
-                />
-                <select
-                  defaultValue={a.brand}
-                  onChange={(e) => void patch(a, { brand: e.target.value })}
-                  className="rounded border border-border px-2 py-1"
-                  aria-label={`Marque de ${a.title}`}
-                >
-                  {AD_BRANDS.map((b) => (
-                    <option key={b.key} value={b.key}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="date"
-                  defaultValue={a.starts_on ?? ""}
-                  onChange={(e) => void patch(a, { starts_on: e.target.value || null })}
-                  className="rounded border border-border px-2 py-1"
-                  aria-label={`Début de ${a.title}`}
-                />
-                <input
-                  type="date"
-                  defaultValue={a.ends_on ?? ""}
-                  onChange={(e) => void patch(a, { ends_on: e.target.value || null })}
-                  className="rounded border border-border px-2 py-1"
-                  aria-label={`Fin de ${a.title}`}
-                />
-                <button
-                  onClick={() => void patch(a, { archived: !a.archived })}
-                  className="rounded border border-border px-2 py-1 font-bold uppercase"
-                >
-                  {a.archived ? "Restaurer" : "Archiver"}
-                </button>
-              </div>
+              <button
+                onClick={() => void toggle(a)}
+                className={`rounded-lg px-3 py-2 font-extrabold uppercase ${
+                  a.active ? "bg-brand text-brand-foreground" : "border-2 border-border"
+                }`}
+              >
+                {a.active ? "Actif" : "Désactivé"}
+              </button>
             </div>
           ))}
-          {!list.length ? <p className="text-xs text-muted-foreground">Aucun support enregistré.</p> : null}
+          {!list.length ? <p className="text-xs text-muted-foreground">Aucun visuel enregistré.</p> : null}
         </section>
       </div>
     </AppShell>
   );
+}
+
+async function uploadImage(file: File, siteId: string, userId: string | null) {
+  const { uploadSiteAsset } = await import("@/lib/communication-site");
+  await uploadSiteAsset({ file, siteId, userId });
 }
