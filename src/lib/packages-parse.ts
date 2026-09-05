@@ -26,8 +26,8 @@ export type TextFragment = {
   x: number;
   y: number;
   /** Largeur PDF du fragment (pdfjs `width`), utilisée pour les centres. */
-  width?: number;
-  height?: number;
+  width?: number | undefined;
+  height?: number | undefined;
 };
 export type PageText = { page: number; fragments: TextFragment[] };
 

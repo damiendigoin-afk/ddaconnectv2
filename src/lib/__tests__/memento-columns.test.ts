@@ -10,7 +10,7 @@ import { emptyContext, parsePage, type PageText, type TextFragment } from "../pa
 
 const OPTS = { kind: "renault_public" as const, fileName: "memento.pdf", version: "07/2026" };
 
-type Cell = { str: string; x: number; width?: number };
+type Cell = { str: string; x: number; width?: number | undefined };
 
 function build(pdfPage: number, rows: Cell[][]): PageText {
   const fragments: TextFragment[] = [];
