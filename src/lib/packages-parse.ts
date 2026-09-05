@@ -44,6 +44,14 @@ export type PendingCells = Partial<Record<ColumnName, string>>;
 export type ParseContext = {
   family: string | null;
   operation: string | null;
+  /**
+   * Contenu du forfait : le texte qui suit « ce forfait comprend : », valable
+   * pour toutes les lignes de la section, y compris sur plusieurs pages,
+   * jusqu'au prochain forfait / prochaine rubrique.
+   */
+  description: string | null;
+  /** true tant que les lignes lues alimentent le contenu du forfait. */
+  capturingDescription: boolean;
   model: string | null;
   generation: string | null;
   version: string | null;
@@ -55,6 +63,8 @@ export type ParseContext = {
 export const emptyContext = (version: string | null = null): ParseContext => ({
   family: null,
   operation: null,
+  description: null,
+  capturingDescription: false,
   model: null,
   generation: null,
   version,
@@ -62,6 +72,12 @@ export const emptyContext = (version: string | null = null): ParseContext => ({
   columns: null,
   pending: null,
 });
+
+/** « ce forfait comprend », « ces forfaits comprennent : », ponctuation tolérée. */
+export function isComprendMarker(row: string): boolean {
+  return /^ces? +forfaits? +(comprend|comprennent)\s*[:.\-–]?\s*$/.test(norm(row));
+}
+
 
 
 export type PageParse = {
