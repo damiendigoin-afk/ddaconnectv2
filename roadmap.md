@@ -33,3 +33,10 @@ Reste à faire :
 - [x] Nettoyage : forfaits 39 / 79 / 199 € TTC avec pré-estimation modifiable
 - [x] Carrosserie : niveaux mineur / réparation MO à déterminer / redressage / remplacement, temps jamais figé
 - [x] Import forfaits : non modifié dans ce lot (sujet repris séparément)
+
+## Lot 05/09
+- [x] Import forfaits : mémento complet sans découpage, lecture + enregistrement par lots de 20 pages, progression pages/% + estimation, reprise idempotente, contexte famille/opération conservé entre pages, champs séparés (modèle, génération, motorisation, code, prix, page), versions antérieures archivées, recherche par code/opération/famille/modèle/moteur, liste brute supprimée sous le bloc d'import.
+- [x] Équivalences véhicules : référentiel générique consultable (/parametrage/equivalences), lien depuis Chiffrage & pneumatiques.
+- [x] Paramètres API : IXELLIO déplacé depuis Paramétrage global (mêmes identifiants chiffrés, aucun doublon), cartes Meta et Google Business avec statuts Non configuré / Configuré / Testé / Actif / Erreur.
+- [x] Communication par site : contexte site unique, rotation 7 jours glissants sans forçage, ajout par image seule, activation/désactivation, budget et rayon par site, destination fiche Google Business, statistiques réelles uniquement.
+- Limite : Meta et Google Business restent « à connecter » tant que les identifiants d'application ne sont pas enregistrés côté serveur.
