@@ -18,6 +18,17 @@ import { sourceDef } from "./packages-import";
 export type TextFragment = { str: string; x: number; y: number };
 export type PageText = { page: number; fragments: TextFragment[] };
 
+/**
+ * Schéma du tableau en cours, déduit de sa ligne d'en-tête.
+ * `hasVehicle` : il existe une vraie colonne véhicule / modèle / gamme.
+ * `hasLabel`   : la colonne de gauche est un libellé de forfait (révisions…).
+ */
+export type TableSchema = {
+  hasVehicle: boolean;
+  hasLabel: boolean;
+  header: string;
+};
+
 /** Contexte transporté d'une page à l'autre (titres de tableau en cours). */
 export type ParseContext = {
   family: string | null;
@@ -25,6 +36,7 @@ export type ParseContext = {
   model: string | null;
   generation: string | null;
   version: string | null;
+  table: TableSchema | null;
 };
 
 export const emptyContext = (version: string | null = null): ParseContext => ({
@@ -33,7 +45,9 @@ export const emptyContext = (version: string | null = null): ParseContext => ({
   model: null,
   generation: null,
   version,
+  table: null,
 });
+
 
 export type PageParse = {
   page: number;
@@ -139,16 +153,49 @@ export type RowParse = {
   model: string | null;
   generation: string | null;
   engine: string | null;
+  /** Libellé porté par la ligne elle-même (tableaux « libellé … code tarif »). */
+  rowLabel: string | null;
   description: string | null;
   price: number | null;
   hours: number | null;
 };
 
+/** Comparaison insensible aux accents / à la casse. */
+export function norm(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const VEHICLE_HEADERS = ["vehicule", "modele", "gamme", "version vehicule"];
+const LABEL_HEADERS = ["libelle", "designation", "intitule", "operation", "prestation"];
+
+/**
+ * Reconnaît la ligne d'en-tête d'un tableau et en déduit le schéma de colonnes.
+ * Sans colonne véhicule reconnue, aucun modèle ne sera jamais inventé.
+ */
+export function detectTableSchema(row: string): TableSchema | null {
+  const n = norm(row);
+  if (n.length > 90) return null;
+  const hasCode = /\bcode\b/.test(n);
+  const hasPrice = /\b(tarif|tarifs|prix|prix ttc|prix ht|montant)\b/.test(n);
+  if (!hasCode || !hasPrice) return null;
+  if (/\d{2,}/.test(n)) return null; // une vraie ligne de données, pas un en-tête
+  const hasVehicle = VEHICLE_HEADERS.some((h) => n.includes(h));
+  const hasLabel = LABEL_HEADERS.some((h) => n.includes(h)) || /\b(norme|huile)\b/.test(n);
+  return { hasVehicle, hasLabel: hasLabel && !hasVehicle, header: row.trim() };
+}
+
 /**
  * Décompose une ligne de tableau en champs séparés.
  * Retourne null si la ligne ne porte pas un couple code + prix fiable.
+ * `schema` : quand le tableau n'a pas de colonne véhicule, le texte situé avant
+ * le code est un LIBELLÉ de forfait, jamais un modèle.
  */
-export function parseRow(row: string): RowParse | null {
+export function parseRow(row: string, schema?: TableSchema | null): RowParse | null {
   const tokens = row.split(/\s+/).filter(Boolean);
   if (tokens.length < 2) return null;
 
@@ -178,6 +225,22 @@ export function parseRow(row: string): RowParse | null {
   if (price == null || price <= 0) return null;
   const hoursRaw = afterNums.length >= 2 ? toNum(afterNums[0]!) : null;
   const hours = hoursRaw != null && hoursRaw > 0 && hoursRaw <= 50 ? hoursRaw : null;
+  const description = after.replace(NUM_RE, " ").replace(/[€]/g, " ").replace(/\s+/g, " ").trim();
+
+  // Tableau sans colonne véhicule : le texte de gauche est un libellé de forfait.
+  const vehicleColumn = schema ? schema.hasVehicle : true;
+  if (!vehicleColumn) {
+    return {
+      code,
+      model: null,
+      generation: null,
+      engine: null,
+      rowLabel: before || null,
+      description: description || null,
+      price,
+      hours,
+    };
+  }
 
   const engineMatch = before.match(ENGINE_RE);
   const engine = engineMatch ? engineMatch[0].replace(/\s+/g, " ").trim() : null;
@@ -186,30 +249,57 @@ export function parseRow(row: string): RowParse | null {
     .replace(/\s+/g, " ")
     .trim();
   const generationMatch = modelRaw.match(GENERATION_RE);
-  const description = after.replace(NUM_RE, " ").replace(/[€]/g, " ").replace(/\s+/g, " ").trim();
 
   return {
     code,
     model: modelRaw || null,
     generation: generationMatch ? generationMatch[1]! : null,
     engine,
+    rowLabel: null,
     description: description || null,
     price,
     hours,
   };
 }
 
-/** Une ligne sans code ni prix qui ressemble à un titre de tableau. */
-function titleKind(row: string): "famille" | "operation" | null {
+/** Débuts de phrase descriptive : jamais un titre de rubrique. */
+const SENTENCE_START =
+  /^(la |le |les |l'|un |une |des |du |de |ce |cet |cette |ces |il |elle |nous |vous |y |dont |avec |sans |sous |pour |selon |soit |hors |voir |dans |en cas|nb |remarque)/;
+
+/** Lignes de contenu / pied de page à ne jamais promouvoir en titre. */
+const NEVER_TITLE =
+  /(comprend|compris|prix indicat|tarif conseill|main.?d.?(?:oe|œ)uvre incluse|hors |page \d|zone \d|^zone\b|^tarifs?\b|^prix\b|^sommaire|^v[ée]hicule\b|^edition|^mise ?à ?jour|^valable|^©)/;
+
+/**
+ * Une ligne sans code ni prix qui ressemble à un titre de rubrique.
+ * Volontairement restrictif : une phrase descriptive, une ligne de contenu
+ * (« ce forfait comprend : ») ou un en-tête de tableau n'en est jamais un.
+ */
+export function titleKind(row: string): "famille" | "operation" | null {
   const t = row.trim();
-  if (t.length < 4 || t.length > 90) return null;
+  if (t.length < 4 || t.length > 70) return null;
   if (!/[A-Za-zÀ-ÿ]/.test(t)) return null;
-  if (/\d{2,}[.,]\d{2}/.test(t)) return null;
+  if (detectTableSchema(t)) return null;
+  if (/[:;,•]/.test(t)) return null; // ponctuation de contenu
+  if (/\.\s*$/.test(t)) return null; // phrase terminée
+  if (/\d{2,}/.test(t)) return null;
+  const n = norm(t);
+  if (SENTENCE_START.test(n)) return null;
+  if (NEVER_TITLE.test(n)) return null;
+  const words = n.split(" ").filter(Boolean);
+  if (words.length > 9) return null;
+
   const letters = t.replace(/[^A-Za-zÀ-ÿ]/g, "");
   if (!letters) return null;
   const hasLower = /[a-zà-ÿ]/.test(letters);
-  return hasLower ? "operation" : "famille";
+  const familyWord =
+    /^(forfaits?|entretien|revision|revisions|pneumatiques?|carrosserie|climatisation|freinage|distribution|vidange|diagnostic|accessoires?)\b/.test(
+      n,
+    );
+  if (!hasLower) return "famille";
+  return familyWord && words.length <= 3 ? "famille" : "operation";
 }
+
 
 /**
  * Extrait les forfaits d'une page en réutilisant le contexte des pages
@@ -248,7 +338,20 @@ export function parsePage(
 
   for (const row of rows) {
     if (NOISE_RE.test(row)) continue;
-    const parsed = parseRow(row);
+
+    // Une ligne d'en-tête fixe le schéma du tableau pour toutes les lignes qui
+    // suivent, y compris sur les pages suivantes.
+    const schema = detectTableSchema(row);
+    if (schema) {
+      ctx.table = schema;
+      if (!schema.hasVehicle) {
+        ctx.model = null;
+        ctx.generation = null;
+      }
+      continue;
+    }
+
+    const parsed = parseRow(row, ctx.table);
 
     if (!parsed) {
       const kind = titleKind(row);
@@ -260,11 +363,12 @@ export function parsePage(
       continue;
     }
 
-    if (parsed.model) {
+    const vehicleTable = ctx.table ? ctx.table.hasVehicle : true;
+    if (vehicleTable && parsed.model) {
       ctx.model = parsed.model;
       ctx.generation = parsed.generation ?? ctx.generation;
     }
-    const label = ctx.operation || parsed.description || parsed.code;
+    const label = parsed.rowLabel || ctx.operation || parsed.description || parsed.code;
     if (!label) {
       uncertain.push(`page ${page.page} : forfait ${parsed.code} sans libellé d'opération`);
       continue;
@@ -276,8 +380,8 @@ export function parsePage(
       source_version: ctx.version,
       source_page: page.page,
       brand: profile.brand,
-      model: parsed.model ?? ctx.model ?? opts.model ?? null,
-      generation: parsed.generation ?? ctx.generation ?? null,
+      model: vehicleTable ? (parsed.model ?? ctx.model ?? opts.model ?? null) : null,
+      generation: vehicleTable ? (parsed.generation ?? ctx.generation ?? null) : null,
       engine: parsed.engine,
       family: ctx.family,
       operation_title: ctx.operation,
@@ -297,6 +401,7 @@ export function parsePage(
       notes: null,
     });
   }
+
 
   if (!lines.length && !uncertain.length) {
     uncertain.push(`page ${page.page} : aucun forfait reconnu — à contrôler`);
