@@ -430,11 +430,17 @@ export async function importLines(
     /** Import déjà ouvert (écriture progressive par lots de pages). */
     importId?: string | null;
   },
-): Promise<ImportResult & { importId: string | null }> {
+): Promise<ImportResult & { importId: string | null; rejected: number; warnings: string[] }> {
   const result: ImportResult = { inserted: 0, updated: 0, unchanged: 0, matched: 0 };
-  if (!lines.length) return { ...result, importId: opts.importId ?? null };
+  const safe = sanitizeLines(lines, { pageCount: opts.pageCount ?? null });
+  const rejected = lines.length - safe.lines.length;
+  const base = { rejected, warnings: safe.warnings };
+  if (!safe.lines.length) return { ...result, importId: opts.importId ?? null, ...base };
+  lines = safe.lines;
 
-  if (opts.importId) return { ...(await writeLines(lines, opts, opts.importId)), importId: opts.importId };
+  if (opts.importId)
+    return { ...(await writeLines(lines, opts, opts.importId)), importId: opts.importId, ...base };
+
 
   const { data: importRow } = await supabase
     .from("service_package_imports")
