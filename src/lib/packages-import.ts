@@ -605,6 +605,28 @@ export async function archivePreviousVersions(sourceKind: SourceKind, version: s
 }
 
 /**
+ * Prédicat pur du nettoyage de fin d'import (miroir exact du filtre SQL de
+ * `retireStaleLines`) : vrai pour une ligne du même référentiel et de la même
+ * version, encore active, mais non touchée par le run courant.
+ */
+export function isStaleAfterRun(
+  row: {
+    source_kind: string | null;
+    source_version: string | null;
+    active: boolean | null;
+    import_id?: string | null;
+  },
+  run: { sourceKind: SourceKind; version: string | null; importId: string | null },
+): boolean {
+  if (!run.version || !run.importId) return false;
+  if (row.source_kind !== run.sourceKind) return false;
+  if (row.source_version !== run.version) return false;
+  if (row.active === false) return false;
+  return (row.import_id ?? null) !== run.importId;
+}
+
+
+/**
  * FIN D'IMPORT COMPLET RÉUSSI : un réimport de la MÊME version remplace
  * réellement l'import précédent. Toutes les lignes générées du même
  * `source_kind` + `source_version` qui n'ont PAS été touchées par ce run sont
