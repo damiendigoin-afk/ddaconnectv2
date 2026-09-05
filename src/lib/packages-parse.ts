@@ -597,10 +597,15 @@ export function parsePage(
     });
   };
 
-  /** Ajoute une ligne au contenu du forfait en cours. */
+  /**
+   * Ajoute une ligne au contenu du forfait en cours. La ligne « ce forfait
+   * comprend : » fait partie du descriptif (mais jamais d'un libellé) ;
+   * en-têtes, tarifs et pieds de page en sont toujours exclus.
+   */
   const addDescription = (text: string) => {
     const t = text.trim();
-    if (!t || isForbiddenTitle(t) || isForbiddenLabel(t)) return;
+    if (!t) return;
+    if (!isComprendMarker(t) && (isForbiddenTitle(t) || isForbiddenLabel(t))) return;
     const next = ctx.description ? `${ctx.description} ${t}` : t;
     ctx.description = next.replace(/\s+/g, " ").slice(0, 600);
   };
@@ -609,12 +614,15 @@ export function parsePage(
     const text = row.text;
     if (NOISE_RE.test(text)) continue;
 
-    // « ce forfait comprend : » ouvre le contenu du forfait courant.
-    if (isComprendMarker(text)) {
+    // « ce forfait comprend : » ouvre le contenu du forfait courant et en
+    // fait partie ; ce n'est jamais un titre.
+    if (isComprendMarker(text) || /^ces? +forfaits? +(comprend|comprennent)\b/.test(norm(text))) {
       ctx.capturingDescription = true;
       ctx.description = null;
+      addDescription(text);
       continue;
     }
+
 
     // Une ligne d'en-tête fixe le schéma du tableau (et ses colonnes) pour
     // toutes les lignes qui suivent, y compris sur les pages suivantes.
