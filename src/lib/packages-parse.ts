@@ -262,51 +262,83 @@ export function detectTableSchema(row: string): TableSchema | null {
   return { hasVehicle, hasLabel: hasLabel && !hasVehicle, header: row.trim() };
 }
 
-/** Bornes X des colonnes déduites des mots de l'en-tête. */
+/** Nom de colonne correspondant à un mot d'en-tête, sinon null. */
+function headerColumnName(word: string): ColumnName | null {
+  const n = norm(word);
+  if (VEHICLE_HEADERS.includes(n)) return "vehicle";
+  if (/^motorisations?$|^moteurs?$|^energies?$/.test(n)) return "engine";
+  if (LABEL_HEADERS.includes(n)) return "label";
+  if (n === "norme" || n === "normes") return "norm";
+  if (n === "huile" || n === "huiles") return "oil";
+  if (n === "batterie" || n === "batteries") return "battery";
+  if (n === "code") return "code";
+  if (/^(tarif|tarifs|prix|montant)$/.test(n)) return "price";
+  return null;
+}
+
+/**
+ * Colonnes déduites des FRAGMENTS de la ligne d'en-tête.
+ * Les titres étant centrés, on retient le CENTRE de chaque titre
+ * (x + width/2) : les frontières réelles sont les milieux entre centres
+ * voisins. Un en-tête livré en un seul fragment n'est pas géométrisable :
+ * on ne fabrique alors aucune colonne fictive (repli en mode jetons).
+ */
 export function detectColumns(items: TextFragment[]): Column[] | null {
   const cols: Column[] = [];
   for (const it of items) {
-    for (const word of it.str.split(/\s+/).filter(Boolean)) {
-      const n = norm(word);
-      let name: ColumnName | null = null;
-      if (VEHICLE_HEADERS.includes(n)) name = "vehicle";
-      else if (/^motorisations?$|^moteurs?$|^energies?$/.test(n)) name = "engine";
-      else if (LABEL_HEADERS.includes(n) || /^(norme|huile)$/.test(n)) name = "label";
-      else if (n === "code") name = "code";
-      else if (/^(tarif|tarifs|prix|montant)$/.test(n)) name = "price";
-      if (!name) continue;
-      if (cols.some((c) => c.name === name)) continue;
-      cols.push({ name, x: it.x });
-    }
+    const words = it.str.split(/\s+/).filter(Boolean);
+    const named = words.map(headerColumnName).filter((n): n is ColumnName => n != null);
+    if (named.length > 1) return null; // en-tête non géométrisable
+    const name = named[0];
+    if (!name) continue;
+    if (cols.some((c) => c.name === name)) continue;
+    cols.push({ name, x: it.x, center: it.x + (it.width ?? 0) / 2 });
   }
   if (!cols.some((c) => c.name === "code") || !cols.some((c) => c.name === "price")) return null;
-  const sorted = cols.sort((a, b) => a.x - b.x);
-  // Colonnes indiscernables (tous les mots au même X) : pas de mode colonnes.
-  const distinct = new Set(sorted.map((c) => Math.round(c.x)));
+  const sorted = cols.sort((a, b) => a.center - b.center);
+  // Colonnes indiscernables (tous les titres au même centre) : pas de colonnes.
+  const distinct = new Set(sorted.map((c) => Math.round(c.center)));
   if (distinct.size < sorted.length) return null;
   return sorted;
 }
 
-function columnOf(columns: Column[], x: number): ColumnName {
-  let name: ColumnName = columns[0]?.name ?? "other";
-  for (const c of columns) {
-    if (x + 3 >= c.x) name = c.name;
-    else break;
+/** Frontières = milieux entre centres de titres voisins. */
+function boundariesOf(columns: Column[]): number[] {
+  const b: number[] = [];
+  for (let i = 0; i < columns.length - 1; i += 1) {
+    b.push((columns[i]!.center + columns[i + 1]!.center) / 2);
   }
-  return name;
+  return b;
+}
+
+function indexAt(boundaries: number[], value: number): number {
+  let i = 0;
+  while (i < boundaries.length && value >= boundaries[i]!) i += 1;
+  return i;
+}
+
+function columnOf(columns: Column[], x: number): ColumnName {
+  const b = boundariesOf(columns);
+  return columns[indexAt(b, x)]?.name ?? columns[columns.length - 1]?.name ?? "other";
 }
 
 /** Une ligne de données répartie sur les colonnes du tableau. */
 export function cellsFromRow(columns: Column[], items: TextFragment[]): PendingCells {
   const cells: PendingCells = {};
+  const b = boundariesOf(columns);
   for (const it of items) {
     const str = it.str.trim();
     if (!str) continue;
-    const name = columnOf(columns, it.x);
+    const w = it.width ?? 0;
+    // Jeton court (code, tarif) : le centre décide. Bloc de texte large et
+    // aligné à gauche (modèles, motorisations) : le début décide.
+    const ref = w > 0 && w <= 30 ? it.x + w / 2 : it.x;
+    const name = columns[indexAt(b, ref)]?.name ?? "other";
     cells[name] = cells[name] ? `${cells[name]} ${str}` : str;
   }
   return cells;
 }
+
 
 function mergeCells(base: PendingCells, next: PendingCells): PendingCells {
   const out: PendingCells = { ...base };
