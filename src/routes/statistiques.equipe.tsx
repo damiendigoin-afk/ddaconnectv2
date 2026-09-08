@@ -10,14 +10,10 @@ import { fetchModuleAccess } from "@/lib/access";
 import { useSite } from "@/lib/site-context";
 import {
   aggregate,
-  aggregateTours,
   defaultRange,
-  durationLabel,
-  fetchCompletedToursInRange,
   fetchEntriesInRange,
   fetchImports,
   groupByOperator,
-  groupToursByOperator,
   hours,
   openReportFile,
   pct,
