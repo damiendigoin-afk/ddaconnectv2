@@ -66,6 +66,18 @@ function TeamStats() {
   const rows = useMemo(() => groupByOperator(scoped), [scoped]);
   const totals = useMemo(() => aggregate(scoped), [scoped]);
 
+  // Tours véhicule terminés : même période et même périmètre société.
+  const tours = useQuery({
+    queryKey: ["tours-range", range.start, range.end],
+    queryFn: () => fetchCompletedToursInRange(range),
+  });
+  const scopedTours = useMemo(
+    () => (tours.data ?? []).filter((t) => isGroup || t.site_id === activeSite),
+    [tours.data, isGroup, activeSite],
+  );
+  const tourRows = useMemo(() => groupToursByOperator(scopedTours), [scopedTours]);
+  const tourTotals = useMemo(() => aggregateTours(scopedTours), [scopedTours]);
+
 
   const allowed = isManager || access.data?.has("stats_equipe");
   if (!allowed) {
