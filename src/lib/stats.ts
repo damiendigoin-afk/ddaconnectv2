@@ -466,3 +466,63 @@ export function groupByOperator(entries: ProdEntry[]): { name: string; userId: s
     .map(([name, list]) => ({ name, userId: list.find((l) => l.user_id)?.user_id ?? null, agg: aggregate(list) }))
     .sort((a, b) => (b.agg.productivity ?? 0) - (a.agg.productivity ?? 0));
 }
+
+/* ------------------------------------ tours véhicule terminés (par période) */
+
+export type TourRow = {
+  site_id: string | null;
+  completed_by_name: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  completed_at: string | null;
+  duration_seconds: number | null;
+};
+
+export type TourAgg = { count: number; avgSeconds: number | null };
+
+/** Durée d'un tour terminé : début → fin réels (secours : duration_seconds). */
+export function tourDuration(t: TourRow): number | null {
+  if (t.started_at && (t.finished_at ?? t.completed_at)) {
+    const s = new Date(t.started_at).getTime();
+    const e = new Date((t.finished_at ?? t.completed_at) as string).getTime();
+    const d = Math.round((e - s) / 1000);
+    if (Number.isFinite(d) && d > 0) return d;
+  }
+  return t.duration_seconds && t.duration_seconds > 0 ? t.duration_seconds : null;
+}
+
+export function aggregateTours(rows: TourRow[]): TourAgg {
+  const durations = rows.map(tourDuration).filter((d): d is number => d !== null);
+  return {
+    count: rows.length,
+    avgSeconds: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
+  };
+}
+
+export function groupToursByOperator(rows: TourRow[]): { name: string; agg: TourAgg }[] {
+  const map = new Map<string, TourRow[]>();
+  for (const r of rows) {
+    const name = (r.completed_by_name ?? "").trim() || "Non rattaché";
+    const list = map.get(name) ?? [];
+    list.push(r);
+    map.set(name, list);
+  }
+  return [...map.entries()]
+    .map(([name, list]) => ({ name, agg: aggregateTours(list) }))
+    .sort((a, b) => b.agg.count - a.agg.count);
+}
+
+/** Tours terminés sur la période (bornes de mois inclusives). */
+export async function fetchCompletedToursInRange(range: PeriodRange): Promise<TourRow[]> {
+  const from = new Date(`${range.start}T00:00:00`).toISOString();
+  const to = new Date(`${endOfMonth(range.end)}T23:59:59`).toISOString();
+  const { data, error } = await supabase
+    .from("vehicle_inspections")
+    .select("site_id, completed_by_name, started_at, finished_at, completed_at, duration_seconds")
+    .eq("status", "completed")
+    .is("archived_at", null)
+    .gte("completed_at", from)
+    .lte("completed_at", to);
+  if (error) throw error;
+  return (data ?? []) as TourRow[];
+}
