@@ -66,17 +66,6 @@ function TeamStats() {
   const rows = useMemo(() => groupByOperator(scoped), [scoped]);
   const totals = useMemo(() => aggregate(scoped), [scoped]);
 
-  // Tours véhicule terminés : même période et même périmètre société.
-  const tours = useQuery({
-    queryKey: ["tours-range", range.start, range.end],
-    queryFn: () => fetchCompletedToursInRange(range),
-  });
-  const scopedTours = useMemo(
-    () => (tours.data ?? []).filter((t) => isGroup || t.site_id === activeSite),
-    [tours.data, isGroup, activeSite],
-  );
-  const tourRows = useMemo(() => groupToursByOperator(scopedTours), [scopedTours]);
-  const tourTotals = useMemo(() => aggregateTours(scopedTours), [scopedTours]);
 
 
   const allowed = isManager || access.data?.has("stats_equipe");
@@ -172,49 +161,6 @@ function TeamStats() {
             </div>
           </div>
         ) : null}
-
-        <div className="card-surface space-y-2 p-4">
-          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Tours véhicule — {rangeLabel(range)}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Kpi label="Tours terminés" value={String(tourTotals.count)} />
-            <Kpi label="Durée moyenne" value={durationLabel(tourTotals.avgSeconds)} />
-          </div>
-          {tourRows.length ? (
-            <div className="overflow-x-auto pt-2">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-left text-muted-foreground">
-                    <th className="py-1">Compagnon</th>
-                    <th className="py-1 text-right">Tours</th>
-                    <th className="py-1 text-right">Durée moy.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tourRows.map((r) => (
-                    <tr key={r.name} className="border-t border-border">
-                      <td className="py-2 font-bold">{r.name}</td>
-                      <td className="py-2 text-right font-bold">{r.agg.count}</td>
-                      <td className="py-2 text-right">{durationLabel(r.agg.avgSeconds)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-border font-extrabold">
-                    <td className="py-2 uppercase">Total</td>
-                    <td className="py-2 text-right">{tourTotals.count}</td>
-                    <td className="py-2 text-right">{durationLabel(tourTotals.avgSeconds)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              Aucun tour véhicule terminé sur cette période.
-            </p>
-          )}
-        </div>
 
         <div className="space-y-2">
           <div className="px-1 text-sm font-extrabold uppercase tracking-wide">Historique des imports</div>
