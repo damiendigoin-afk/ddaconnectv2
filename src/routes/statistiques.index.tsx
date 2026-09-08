@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { BarChart3, Upload, Users2 } from "lucide-react";
+import { BarChart3, Car, Upload, Users2 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { PeriodPicker } from "@/components/PeriodPicker";
@@ -10,10 +10,8 @@ import { fetchModuleAccess } from "@/lib/access";
 import {
   aggregate,
   defaultRange,
-  durationLabel,
   fetchMissingReports,
   fetchMyEntries,
-  fetchTourStats,
   hours,
   pct,
   periodLabel,
