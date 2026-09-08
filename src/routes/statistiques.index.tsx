@@ -42,7 +42,7 @@ function MyStats() {
   const { user, isManager, displayName } = useAuth();
   const uid = user?.id ?? "";
   const entries = useQuery({ queryKey: ["prod-mine", uid], queryFn: () => fetchMyEntries(uid), enabled: !!uid });
-  const tours = useQuery({ queryKey: ["tour-stats", uid], queryFn: () => fetchTourStats(uid), enabled: !!uid });
+  
   const access = useQuery({ queryKey: ["access", uid], queryFn: () => fetchModuleAccess(uid), enabled: !!uid });
   const missing = useQuery({ queryKey: ["prod-missing"], queryFn: () => fetchMissingReports() });
 
