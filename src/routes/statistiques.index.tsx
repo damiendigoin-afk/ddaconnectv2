@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { BarChart3, Upload, Users2 } from "lucide-react";
+import { BarChart3, Car, Upload, Users2 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { PeriodPicker } from "@/components/PeriodPicker";
@@ -10,10 +10,8 @@ import { fetchModuleAccess } from "@/lib/access";
 import {
   aggregate,
   defaultRange,
-  durationLabel,
   fetchMissingReports,
   fetchMyEntries,
-  fetchTourStats,
   hours,
   pct,
   periodLabel,
@@ -42,7 +40,7 @@ function MyStats() {
   const { user, isManager, displayName } = useAuth();
   const uid = user?.id ?? "";
   const entries = useQuery({ queryKey: ["prod-mine", uid], queryFn: () => fetchMyEntries(uid), enabled: !!uid });
-  const tours = useQuery({ queryKey: ["tour-stats", uid], queryFn: () => fetchTourStats(uid), enabled: !!uid });
+  
   const access = useQuery({ queryKey: ["access", uid], queryFn: () => fetchModuleAccess(uid), enabled: !!uid });
   const missing = useQuery({ queryKey: ["prod-missing"], queryFn: () => fetchMissingReports() });
 
@@ -83,6 +81,32 @@ function MyStats() {
         ) : null}
 
         <Link
+          to="/statistiques/clientele"
+          className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
+        >
+          <BarChart3 className="h-5 w-5 text-brand" />
+          <div className="flex-1 text-sm font-extrabold uppercase">Clientèle & véhicules</div>
+        </Link>
+
+        <Link
+          to="/statistiques/tours"
+          className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
+        >
+          <Car className="h-5 w-5 text-brand" />
+          <div className="flex-1 text-sm font-extrabold uppercase">Tour de véhicule</div>
+        </Link>
+
+        {canTeam ? (
+          <Link
+            to="/statistiques/equipe"
+            className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
+          >
+            <Users2 className="h-5 w-5 text-brand" />
+            <div className="flex-1 text-sm font-extrabold uppercase">Productivité</div>
+          </Link>
+        ) : null}
+
+        <Link
           to="/statistiques/activite"
           className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
         >
@@ -90,13 +114,6 @@ function MyStats() {
           <div className="flex-1 text-sm font-extrabold uppercase">Suivi d'activité mensuel</div>
         </Link>
 
-        <Link
-          to="/statistiques/clientele"
-          className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
-        >
-          <BarChart3 className="h-5 w-5 text-brand" />
-          <div className="flex-1 text-sm font-extrabold uppercase">Clientèle & véhicules</div>
-        </Link>
 
         <PeriodPicker value={range} onChange={setRange} />
 
@@ -120,15 +137,6 @@ function MyStats() {
           </p>
         )}
 
-        <div className="card-surface space-y-3 p-4">
-          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Activité DDA Connect</div>
-          <div className="grid grid-cols-2 gap-3">
-            <Kpi label="Tours aujourd'hui" value={String(tours.data?.today ?? 0)} />
-            <Kpi label="Cette semaine" value={String(tours.data?.week ?? 0)} />
-            <Kpi label="Ce mois" value={String(tours.data?.month ?? 0)} />
-            <Kpi label="Durée moyenne" value={durationLabel(tours.data?.avgSeconds ?? null)} />
-          </div>
-        </div>
 
         {list.length > 1 ? (
           <div className="card-surface space-y-2 p-4">
@@ -158,18 +166,7 @@ function MyStats() {
           </div>
         ) : null}
 
-        {canTeam ? (
-          <Link
-            to="/statistiques/equipe"
-            className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
-          >
-            <Users2 className="h-5 w-5 text-brand" />
-            <div className="flex-1 text-sm font-extrabold uppercase">Statistiques équipe</div>
-            <BarChart3 className="h-5 w-5 text-muted-foreground" />
-          </Link>
-        ) : null}
-
-        {canImport ? (
+        {!canTeam && canImport ? (
           <Link
             to="/statistiques/import"
             className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
@@ -178,6 +175,7 @@ function MyStats() {
             <div className="flex-1 text-sm font-extrabold uppercase">Importer productivité Winmotor</div>
           </Link>
         ) : null}
+
       </div>
     </AppShell>
   );

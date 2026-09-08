@@ -18,7 +18,7 @@ export const MODULES = [
   { key: "pilotage", label: "Gestion" },
   { key: "automatisations", label: "Automatisations" },
   { key: "communication", label: "Communication" },
-  { key: "stats_equipe", label: "Statistiques équipe" },
+  { key: "stats_equipe", label: "Productivité" },
   { key: "stats_import", label: "Import statistiques" },
 ] as const;
 

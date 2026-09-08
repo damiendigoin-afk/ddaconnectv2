@@ -29,12 +29,12 @@ import {
 export const Route = createFileRoute("/statistiques/equipe")({
   head: () => ({
     meta: [
-      { title: "Statistiques équipe — DDA Connect" },
+      { title: "Productivité — DDA Connect" },
       {
         name: "description",
         content: "Productivité et rentabilité de l'atelier par collaborateur et par mois, issues des rapports Winmotor.",
       },
-      { property: "og:title", content: "Statistiques équipe — DDA Connect" },
+      { property: "og:title", content: "Productivité — DDA Connect" },
       { property: "og:description", content: "Suivi mensuel de la productivité de l'atelier." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -82,7 +82,7 @@ function TeamStats() {
   const allowed = isManager || access.data?.has("stats_equipe");
   if (!allowed) {
     return (
-      <AppShell title="Statistiques équipe" back={{ to: "/statistiques" }}>
+      <AppShell title="Productivité" back={{ to: "/statistiques" }}>
         <div className="card-surface p-5 text-sm">
           <p className="font-bold uppercase">Accès réservé</p>
           <p className="mt-1 text-muted-foreground">Les statistiques de l'équipe ne sont pas activées sur votre profil.</p>
@@ -92,7 +92,7 @@ function TeamStats() {
   }
 
   return (
-    <AppShell title="Statistiques équipe" subtitle="Productivité atelier" back={{ to: "/statistiques" }}>
+    <AppShell title="Productivité" subtitle="Atelier par collaborateur" back={{ to: "/statistiques" }}>
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {[...sites.map((s) => ({ id: s.id, label: shortSite(s.code, s.name) })), { id: "groupe", label: "GROUPE" }].map(
