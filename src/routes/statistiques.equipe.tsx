@@ -92,7 +92,7 @@ function TeamStats() {
   }
 
   return (
-    <AppShell title="Productivité" subtitle="Productivité atelier" back={{ to: "/statistiques" }}>
+    <AppShell title="Productivité" subtitle="Atelier par collaborateur" back={{ to: "/statistiques" }}>
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {[...sites.map((s) => ({ id: s.id, label: shortSite(s.code, s.name) })), { id: "groupe", label: "GROUPE" }].map(
