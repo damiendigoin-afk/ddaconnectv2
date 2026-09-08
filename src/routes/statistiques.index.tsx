@@ -120,15 +120,6 @@ function MyStats() {
           </p>
         )}
 
-        <div className="card-surface space-y-3 p-4">
-          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Activité DDA Connect</div>
-          <div className="grid grid-cols-2 gap-3">
-            <Kpi label="Tours aujourd'hui" value={String(tours.data?.today ?? 0)} />
-            <Kpi label="Cette semaine" value={String(tours.data?.week ?? 0)} />
-            <Kpi label="Ce mois" value={String(tours.data?.month ?? 0)} />
-            <Kpi label="Durée moyenne" value={durationLabel(tours.data?.avgSeconds ?? null)} />
-          </div>
-        </div>
 
         {list.length > 1 ? (
           <div className="card-surface space-y-2 p-4">
