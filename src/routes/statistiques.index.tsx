@@ -83,6 +83,32 @@ function MyStats() {
         ) : null}
 
         <Link
+          to="/statistiques/clientele"
+          className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
+        >
+          <BarChart3 className="h-5 w-5 text-brand" />
+          <div className="flex-1 text-sm font-extrabold uppercase">Clientèle & véhicules</div>
+        </Link>
+
+        <Link
+          to="/statistiques/tours"
+          className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
+        >
+          <Car className="h-5 w-5 text-brand" />
+          <div className="flex-1 text-sm font-extrabold uppercase">Tour de véhicule</div>
+        </Link>
+
+        {canTeam ? (
+          <Link
+            to="/statistiques/equipe"
+            className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
+          >
+            <Users2 className="h-5 w-5 text-brand" />
+            <div className="flex-1 text-sm font-extrabold uppercase">Productivité</div>
+          </Link>
+        ) : null}
+
+        <Link
           to="/statistiques/activite"
           className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
         >
@@ -90,13 +116,6 @@ function MyStats() {
           <div className="flex-1 text-sm font-extrabold uppercase">Suivi d'activité mensuel</div>
         </Link>
 
-        <Link
-          to="/statistiques/clientele"
-          className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
-        >
-          <BarChart3 className="h-5 w-5 text-brand" />
-          <div className="flex-1 text-sm font-extrabold uppercase">Clientèle & véhicules</div>
-        </Link>
 
         <PeriodPicker value={range} onChange={setRange} />
 
