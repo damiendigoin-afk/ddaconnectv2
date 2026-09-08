@@ -67,6 +67,7 @@ import { Route as StatistiquesIndexRouteImport } from './routes/statistiques.ind
 import { Route as StatistiquesClienteleRouteImport } from './routes/statistiques.clientele'
 import { Route as StatistiquesEquipeRouteImport } from './routes/statistiques.equipe'
 import { Route as StatistiquesImportRouteImport } from './routes/statistiques.import'
+import { Route as StatistiquesToursRouteImport } from './routes/statistiques.tours'
 import { Route as VehiculeVehIdRouteImport } from './routes/vehicule.$vehId'
 import { Route as ApiPublicApiCheckRouteImport } from './routes/api/public/api-check'
 import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
@@ -378,6 +379,11 @@ const StatistiquesImportRoute = StatistiquesImportRouteImport.update({
   path: '/statistiques/import',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatistiquesToursRoute = StatistiquesToursRouteImport.update({
+  id: '/statistiques/tours',
+  path: '/statistiques/tours',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VehiculeVehIdRoute = VehiculeVehIdRouteImport.update({
   id: '/vehicule/$vehId',
   path: '/vehicule/$vehId',
@@ -515,6 +521,7 @@ export interface FileRoutesByFullPath {
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
+  '/statistiques/tours': typeof StatistiquesToursRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
@@ -593,6 +600,7 @@ export interface FileRoutesByTo {
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
+  '/statistiques/tours': typeof StatistiquesToursRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/automatisations': typeof AutomatisationsIndexRoute
   '/base': typeof BaseIndexRoute
@@ -672,6 +680,7 @@ export interface FileRoutesById {
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
+  '/statistiques/tours': typeof StatistiquesToursRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
@@ -752,6 +761,7 @@ export interface FileRouteTypes {
     | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
+    | '/statistiques/tours'
     | '/vehicule/$vehId'
     | '/automatisations/'
     | '/base/'
@@ -830,6 +840,7 @@ export interface FileRouteTypes {
     | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
+    | '/statistiques/tours'
     | '/vehicule/$vehId'
     | '/automatisations'
     | '/base'
@@ -908,6 +919,7 @@ export interface FileRouteTypes {
     | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
+    | '/statistiques/tours'
     | '/vehicule/$vehId'
     | '/automatisations/'
     | '/base/'
@@ -987,6 +999,7 @@ export interface RootRouteChildren {
   StatistiquesClienteleRoute: typeof StatistiquesClienteleRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
   StatistiquesImportRoute: typeof StatistiquesImportRoute
+  StatistiquesToursRoute: typeof StatistiquesToursRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
   AutomatisationsIndexRoute: typeof AutomatisationsIndexRoute
   BaseIndexRoute: typeof BaseIndexRoute
@@ -1432,6 +1445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StatistiquesImportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/statistiques/tours': {
+      id: '/statistiques/tours'
+      path: '/statistiques/tours'
+      fullPath: '/statistiques/tours'
+      preLoaderRoute: typeof StatistiquesToursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vehicule/$vehId': {
       id: '/vehicule/$vehId'
       path: '/vehicule/$vehId'
@@ -1603,6 +1623,7 @@ const rootRouteChildren: RootRouteChildren = {
   StatistiquesClienteleRoute: StatistiquesClienteleRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
   StatistiquesImportRoute: StatistiquesImportRoute,
+  StatistiquesToursRoute: StatistiquesToursRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
   AutomatisationsIndexRoute: AutomatisationsIndexRoute,
   BaseIndexRoute: BaseIndexRoute,

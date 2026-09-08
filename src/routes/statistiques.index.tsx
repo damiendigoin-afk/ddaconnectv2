@@ -158,18 +158,7 @@ function MyStats() {
           </div>
         ) : null}
 
-        {canTeam ? (
-          <Link
-            to="/statistiques/equipe"
-            className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
-          >
-            <Users2 className="h-5 w-5 text-brand" />
-            <div className="flex-1 text-sm font-extrabold uppercase">Statistiques équipe</div>
-            <BarChart3 className="h-5 w-5 text-muted-foreground" />
-          </Link>
-        ) : null}
-
-        {canImport ? (
+        {!canTeam && canImport ? (
           <Link
             to="/statistiques/import"
             className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-4"
@@ -178,6 +167,7 @@ function MyStats() {
             <div className="flex-1 text-sm font-extrabold uppercase">Importer productivité Winmotor</div>
           </Link>
         ) : null}
+
       </div>
     </AppShell>
   );
