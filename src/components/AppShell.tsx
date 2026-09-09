@@ -22,7 +22,8 @@ function BackButton({ to, params }: { to: string; params?: Record<string, string
         else void navigate({ to, params: params as never });
       }}
       className="-ml-2 flex h-10 w-10 items-center justify-center rounded-lg text-foreground hover:bg-secondary"
-      aria-label="Retour"
+      aria-label={to === "/" ? "Accueil" : "Retour"}
+      title={to === "/" ? "Accueil" : "Retour"}
     >
       <ChevronLeft className="h-6 w-6" />
     </button>
