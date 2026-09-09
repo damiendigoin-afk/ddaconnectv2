@@ -47,14 +47,7 @@ export function AppShell({
       <header className="sticky top-10 z-30 border-b border-border bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
           {back ? (
-            <Link
-              to={back.to}
-              params={back.params as never}
-              className="-ml-2 flex h-10 w-10 items-center justify-center rounded-lg text-foreground hover:bg-secondary"
-              aria-label="Retour"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </Link>
+            <BackButton to={back.to} {...(back.params ? { params: back.params } : {})} />
           ) : (
             <div className="h-9 w-1.5 rounded-full bg-brand" aria-hidden />
           )}
