@@ -143,7 +143,7 @@ function ImportPage() {
 
   if (!allowed) {
     return (
-      <AppShell title="Import productivité" back={{ to: "/statistiques" }}>
+      <AppShell title="Import productivité" back={{ to: "/statistiques/equipe" }}>
         <div className="card-surface p-5 text-sm">
           <p className="font-bold uppercase">Accès réservé</p>
           <p className="mt-1 text-muted-foreground">L'import des statistiques Winmotor n'est pas activé sur votre profil.</p>
@@ -153,7 +153,7 @@ function ImportPage() {
   }
 
   return (
-    <AppShell title="Import productivité" subtitle="Rapport Winmotor mensuel" back={{ to: "/statistiques" }}>
+    <AppShell title="Import productivité" subtitle="Rapport Winmotor mensuel" back={{ to: "/statistiques/equipe" }}>
       <div className="space-y-4">
         {!draft ? (
           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border bg-card px-4 py-10 text-center">
