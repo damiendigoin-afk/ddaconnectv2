@@ -20,6 +20,8 @@ import { prepareCapture } from "@/lib/photo-capture";
 import { useSite } from "@/lib/site-context";
 import { suggestBrands } from "@/lib/tire-brands";
 import { analyzeTireLabelPhoto, analyzeWheelPhotos } from "@/lib/tire-ai.functions";
+import { buildTireQuotePdf, openPdfBlob } from "@/lib/tire-quote-pdf";
+
 import {
   EMPTY_TIRE_QUOTE_FORM,
   fetchTireEngine,
