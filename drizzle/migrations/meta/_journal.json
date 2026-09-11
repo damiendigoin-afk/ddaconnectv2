@@ -50,6 +50,13 @@
       "when": 1789105902330,
       "tag": "0006_add_tire_mount_price_ht",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789114370001,
+      "tag": "0007_tire_quotes_margin_adjustment",
+      "breakpoints": true
     }
   ]
 }
