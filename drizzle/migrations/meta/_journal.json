@@ -43,6 +43,13 @@
       "when": 1789104547985,
       "tag": "0005_devis_pneus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789105902330,
+      "tag": "0006_add_tire_mount_price_ht",
+      "breakpoints": true
     }
   ]
 }
