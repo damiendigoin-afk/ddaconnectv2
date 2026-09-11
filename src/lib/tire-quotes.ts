@@ -40,6 +40,7 @@ export type TireQuoteRow = {
   plate: string | null;
   vehicle_label: string | null;
   quantity: number;
+  margin_adjustment_pct: number | null;
   offers: SevenOffer[];
 };
 
