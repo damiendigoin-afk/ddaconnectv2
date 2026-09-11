@@ -154,7 +154,7 @@ function TireQuotePage() {
 
   const offers = result ? quoteOffers(result) : [];
 
-  /** Impression : le devis est archivé puis ouvert en document client A4. */
+  /** Impression : le devis est archivé puis un vrai PDF A4 est ouvert. */
   const [printing, setPrinting] = useState(false);
   async function openPdf() {
     if (!result || !size) return;
@@ -171,15 +171,32 @@ function TireQuotePage() {
           userId: user?.id ?? null,
           userName: displayName ?? "",
         }));
-      if (!id) throw new Error("Devis non enregistré");
-      setSavedId(id);
-      await navigate({ to: "/devis/pneus/$quoteId/pdf", params: { quoteId: id } });
+      if (id) setSavedId(id);
+      const blob = await buildTireQuotePdf(
+        {
+          site: site ?? null,
+          siteLabel,
+          createdAt: new Date().toISOString(),
+          userName: displayName ?? null,
+          size: result.size,
+          quantity: result.quantity,
+          requestedBrand: result.requestedBrand,
+          customerName: form.customerName.trim() || null,
+          plate: form.plate.trim().toUpperCase() || null,
+          vehicleLabel: form.vehicleLabel.trim() || null,
+          loadIndex: form.load.trim() || null,
+          speedIndex: form.speed.trim().toUpperCase() || null,
+        },
+        offers,
+      );
+      openPdfBlob(blob, `devis-pneus-${result.size.replace(/\W+/g, "-")}.pdf`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Impression impossible");
     } finally {
       setPrinting(false);
     }
   }
+
 
   return (
     <AppShell
