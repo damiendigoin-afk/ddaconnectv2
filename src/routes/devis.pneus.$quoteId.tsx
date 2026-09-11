@@ -36,16 +36,18 @@ function QuoteDetail() {
       back={{ to: "/devis/pneus/historique" }}
       right={
         row ? (
-          <button
-            onClick={() => window.print()}
+          <Link
+            to="/devis/pneus/$quoteId/pdf"
+            params={{ quoteId }}
             aria-label="Imprimer le devis"
             className="rounded-lg border border-border p-2 text-muted-foreground print:hidden"
           >
             <Printer className="h-4 w-4" />
-          </button>
+          </Link>
         ) : null
       }
     >
+
       {q.isLoading ? <p className="text-sm text-muted-foreground">Chargement…</p> : null}
       {!q.isLoading && !row ? <p className="text-sm text-muted-foreground">Devis introuvable.</p> : null}
       {row ? (
