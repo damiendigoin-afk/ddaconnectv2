@@ -69,6 +69,9 @@ function QuoteDetail() {
       {!q.isLoading && !row ? <p className="text-sm text-muted-foreground">Devis introuvable.</p> : null}
       {row ? (
         <div className="space-y-4">
+          <p className="text-xs font-bold uppercase text-muted-foreground print:hidden">
+            {marginAdjustmentLabel(Number(row.margin_adjustment_pct ?? 0))}
+          </p>
           <TireQuoteSheet header={headerOf(row, site ?? null)} offers={row.offers ?? []} />
           <button
             type="button"
