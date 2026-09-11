@@ -33,7 +33,7 @@ import {
 } from "@/lib/tire-quotes";
 import type { TireLabelAi, TireWheelAi } from "@/lib/tire-types";
 
-export const Route = createFileRoute("/devis/pneus")({
+export const Route = createFileRoute("/devis/pneus/")({
   head: () => ({
     meta: [
       { title: "Devis pneus — DDA Connect" },
