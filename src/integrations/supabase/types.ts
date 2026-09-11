@@ -1299,6 +1299,7 @@ export type Database = {
           tire_depth_good_mm: number
           tire_depth_legal_mm: number
           tire_depth_soon_mm: number
+          tire_mount_price_ht: number
           tire_provider_last_ok_at: string | null
           tire_provider_message: string | null
           tire_provider_status: string | null
@@ -1314,6 +1315,7 @@ export type Database = {
           tire_depth_good_mm?: number
           tire_depth_legal_mm?: number
           tire_depth_soon_mm?: number
+          tire_mount_price_ht?: number
           tire_provider_last_ok_at?: string | null
           tire_provider_message?: string | null
           tire_provider_status?: string | null
@@ -1329,6 +1331,7 @@ export type Database = {
           tire_depth_good_mm?: number
           tire_depth_legal_mm?: number
           tire_depth_soon_mm?: number
+          tire_mount_price_ht?: number
           tire_provider_last_ok_at?: string | null
           tire_provider_message?: string | null
           tire_provider_status?: string | null

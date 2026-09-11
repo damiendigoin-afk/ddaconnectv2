@@ -82,7 +82,9 @@ function PricingSettings() {
 
   const [pct, setPct] = useState("");
   const [minHt, setMinHt] = useState("");
+  const [mountHt, setMountHt] = useState("");
   const [supplier, setSupplier] = useState("catalogue_local");
+
   const [severity, setSeverity] = useState<SeverityLevel>("standard");
   const [good, setGood] = useState("4");
   const [soon, setSoon] = useState("3");
@@ -95,7 +97,9 @@ function PricingSettings() {
     if (!s) return;
     setPct(String(s.margin_pct));
     setMinHt(String(s.min_margin_ht));
+    setMountHt(String(s.tire_mount_price_ht));
     setSupplier(s.tire_supplier);
+
     setSeverity((s.ai_severity_level as SeverityLevel) ?? "standard");
     setGood(String(s.tire_depth_good_mm));
     setSoon(String(s.tire_depth_soon_mm));
@@ -110,7 +114,9 @@ function PricingSettings() {
       .update({
         margin_pct: Number(pct) || 0,
         min_margin_ht: Number(minHt) || 0,
+        tire_mount_price_ht: Number(mountHt.replace(",", ".")) || 0,
         tire_supplier: supplier,
+
         tire_supplier_configured: supplier === "catalogue_local",
         ai_severity_level: severity,
         tire_depth_good_mm: Number(good.replace(",", ".")) || 4,
@@ -195,7 +201,16 @@ function PricingSettings() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Pourcentage de marge (%)" value={pct} onChange={setPct} />
             <Field label="Marge minimale fixe (€ HT)" value={minHt} onChange={setMinHt} />
+            <Field label="Prix montage par pneu (€ HT)" value={mountHt} onChange={setMountHt} />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Le prix de montage couvre montage + équilibrage + valve. Il est appliqué par pneu :{" "}
+            {(Number(mountHt.replace(",", ".")) || 0).toFixed(2)} € HT × quantité (2 pneus ={" "}
+            {((Number(mountHt.replace(",", ".")) || 0) * 2).toFixed(2)} € HT, 4 pneus ={" "}
+            {((Number(mountHt.replace(",", ".")) || 0) * 4).toFixed(2)} € HT). Aucune autre
+            prestation n'est ajoutée automatiquement au prix des pneus.
+          </p>
+
           {Number(pct) === 0 && Number(minHt) === 0 ? (
             <p className="text-xs text-amber-700">
               Politique commerciale non renseignée : les prix de revente sont affichés au prix

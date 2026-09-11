@@ -1,5 +1,5 @@
 /** Réouverture et réimpression d'un devis pneus archivé. */
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 
@@ -36,16 +36,18 @@ function QuoteDetail() {
       back={{ to: "/devis/pneus/historique" }}
       right={
         row ? (
-          <button
-            onClick={() => window.print()}
+          <Link
+            to="/devis/pneus/$quoteId/pdf"
+            params={{ quoteId }}
             aria-label="Imprimer le devis"
             className="rounded-lg border border-border p-2 text-muted-foreground print:hidden"
           >
             <Printer className="h-4 w-4" />
-          </button>
+          </Link>
         ) : null
       }
     >
+
       {q.isLoading ? <p className="text-sm text-muted-foreground">Chargement…</p> : null}
       {!q.isLoading && !row ? <p className="text-sm text-muted-foreground">Devis introuvable.</p> : null}
       {row ? (
@@ -67,13 +69,14 @@ function QuoteDetail() {
             }}
             offers={row.offers ?? []}
           />
-          <button
-            type="button"
-            onClick={() => window.print()}
+          <Link
+            to="/devis/pneus/$quoteId/pdf"
+            params={{ quoteId }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground print:hidden"
           >
             <Printer className="h-5 w-5" /> Imprimer le devis
-          </button>
+          </Link>
+
         </div>
       ) : null}
     </AppShell>

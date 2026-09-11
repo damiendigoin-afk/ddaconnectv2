@@ -85,8 +85,16 @@ function TireQuotePage() {
   const [result, setResult] = useState<ManualQuoteResult | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const navigate = Route.useNavigate();
+
+  // Passage de focus au fil de la saisie (largeur → hauteur → diamètre → charge → vitesse).
+  const heightRef = useRef<HTMLInputElement>(null);
+  const diameterRef = useRef<HTMLInputElement>(null);
+  const loadRef = useRef<HTMLInputElement>(null);
+  const speedRef = useRef<HTMLInputElement>(null);
 
   const engine = useQuery({ queryKey: ["tire-engine"], queryFn: fetchTireEngine, staleTime: 60_000 });
+
 
   const set = (patch: Partial<TireQuoteForm>) => {
     setForm((f) => ({ ...f, ...patch }));
@@ -139,6 +147,33 @@ function TireQuotePage() {
 
   const offers = result ? quoteOffers(result) : [];
 
+  /** Impression : le devis est archivé puis ouvert en document client A4. */
+  const [printing, setPrinting] = useState(false);
+  async function openPdf() {
+    if (!result || !size) return;
+    setPrinting(true);
+    try {
+      const id =
+        savedId ??
+        (await saveTireQuote({
+          form,
+          size,
+          offers,
+          siteId: site?.id ?? null,
+          siteLabel,
+          userId: user?.id ?? null,
+          userName: displayName ?? "",
+        }));
+      if (!id) throw new Error("Devis non enregistré");
+      setSavedId(id);
+      await navigate({ to: "/devis/pneus/$quoteId/pdf", params: { quoteId: id } });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Impression impossible");
+    } finally {
+      setPrinting(false);
+    }
+  }
+
   return (
     <AppShell
       title="Devis pneus"
@@ -147,7 +182,7 @@ function TireQuotePage() {
       right={
         offers.length ? (
           <button
-            onClick={() => window.print()}
+            onClick={() => void openPdf()}
             aria-label="Imprimer le devis"
             className="rounded-lg border border-border p-2 text-muted-foreground print:hidden"
           >
@@ -170,11 +205,62 @@ function TireQuotePage() {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <Field label="Largeur" value={form.width} onChange={(v) => set({ width: v.replace(/\D/g, "").slice(0, 3) })} placeholder="205" inputMode="numeric" />
-            <Field label="Série" value={form.height} onChange={(v) => set({ height: v.replace(/\D/g, "").slice(0, 2) })} placeholder="55" inputMode="numeric" />
-            <Field label="Diamètre" value={form.diameter} onChange={(v) => set({ diameter: v.replace(/\D/g, "").slice(0, 2) })} placeholder="16" inputMode="numeric" />
-            <Field label="Charge" value={form.load} onChange={(v) => set({ load: v.replace(/\D/g, "").slice(0, 3) })} placeholder="91" inputMode="numeric" />
-            <Field label="Vitesse" value={form.speed} onChange={(v) => set({ speed: v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 1) })} placeholder="V" />
+            <Field
+              label="Largeur"
+              value={form.width}
+              onChange={(v) => {
+                const n = v.replace(/\D/g, "").slice(0, 3);
+                set({ width: n });
+                if (n.length === 3 && form.width.length < 3) heightRef.current?.focus();
+              }}
+              placeholder="205"
+              inputMode="numeric"
+            />
+            <Field
+              inputRef={heightRef}
+              label="Hauteur"
+              value={form.height}
+              onChange={(v) => {
+                const n = v.replace(/\D/g, "").slice(0, 2);
+                set({ height: n });
+                if (n.length === 2 && form.height.length < 2) diameterRef.current?.focus();
+              }}
+              placeholder="55"
+              inputMode="numeric"
+            />
+            <Field
+              inputRef={diameterRef}
+              label="Diamètre"
+              value={form.diameter}
+              onChange={(v) => {
+                const n = v.replace(/\D/g, "").slice(0, 2);
+                set({ diameter: n });
+                if (n.length === 2 && form.diameter.length < 2) loadRef.current?.focus();
+              }}
+              placeholder="16"
+              inputMode="numeric"
+            />
+            <Field
+              inputRef={loadRef}
+              label="Charge"
+              value={form.load}
+              onChange={(v) => {
+                const n = v.replace(/\D/g, "").slice(0, 3);
+                set({ load: n });
+                // Certains indices comportent 3 caractères : on n'avance jamais à 2.
+                if (n.length === 3 && form.load.length < 3) speedRef.current?.focus();
+              }}
+              placeholder="91"
+              inputMode="numeric"
+            />
+            <Field
+              inputRef={speedRef}
+              label="Vitesse"
+              value={form.speed}
+              onChange={(v) => set({ speed: v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 1) })}
+              placeholder="V"
+            />
+
             <label className="block">
               <span className="mb-1 block text-xs font-bold uppercase text-muted-foreground">Quantité</span>
               <select
@@ -243,11 +329,14 @@ function TireQuotePage() {
             <div className="grid grid-cols-2 gap-2 print:hidden">
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground"
+                disabled={printing}
+                onClick={() => void openPdf()}
+                className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
               >
-                <Printer className="h-5 w-5" /> Imprimer le devis
+                {printing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
+                Imprimer le devis
               </button>
+
               <button
                 type="button"
                 disabled={save.isPending || !!savedId}
@@ -286,17 +375,20 @@ function Field({
   onChange,
   placeholder,
   inputMode,
+  inputRef,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   inputMode?: "numeric";
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-bold uppercase text-muted-foreground">{label}</span>
       <input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? ""}
@@ -306,6 +398,7 @@ function Field({
     </label>
   );
 }
+
 
 /** Autocomplétion de marque : aide à la saisie, jamais imposée. */
 function BrandField({ value, onChange }: { value: string; onChange: (v: string) => void }) {

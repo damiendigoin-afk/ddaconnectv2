@@ -634,26 +634,41 @@ export function sourceHtOf(offer: Pick<TireOffer, "purchase_price_ht" | "price_k
   return offer.price_kind === "public_ttc" ? Math.round((raw / 1.2) * 100) / 100 : raw;
 }
 
+/**
+ * Montage pneumatique — règle unique et traçable : prix HT par pneu issu du
+ * paramétrage global (« Prix montage par pneu HT »), multiplié par la quantité.
+ * Il couvre montage + équilibrage + valve : aucune autre prestation n'est
+ * ajoutée automatiquement au prix pneus.
+ */
+export const MOUNT_LABEL = "Montage, équilibrage, valve";
+
+export function mountPriceFor(
+  settings: Pick<CommercialSettings, "tire_mount_price_ht"> | null,
+  quantity: number,
+): { label: string; unitHt: number; unitTtc: number; totalHt: number; totalTtc: number } | null {
+  const unitHt = Number(settings?.tire_mount_price_ht);
+  if (!Number.isFinite(unitHt) || unitHt <= 0) return null;
+  const totalHt = Math.round(unitHt * quantity * 100) / 100;
+  return {
+    label: MOUNT_LABEL,
+    unitHt: Math.round(unitHt * 100) / 100,
+    unitTtc: Math.round(unitHt * (1 + VAT) * 100) / 100,
+    totalHt,
+    totalTtc: Math.round(totalHt * (1 + VAT) * 100) / 100,
+  };
+}
+
 function priceOffer(
   offer: TireOffer,
   quantity: number,
   settings: CommercialSettings | null,
-  packages: ServicePackage[],
   required: { size: string | null; load: string | null; speed: string | null },
 ) {
   const sourceHt = sourceHtOf(offer);
   const { sellHt, marginHt } = applyMargin(sourceHt, settings);
   const tiresHt = Math.round(sellHt * quantity * 100) / 100;
   const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;
-  const mount =
-    mountPackageLevel0(packages, quantity) ??
-    (offer.mount_price_ttc != null
-      ? {
-          label: "Montage catalogue pneumatiques",
-          unitTtc: Number(offer.mount_price_ttc),
-          totalTtc: Math.round(Number(offer.mount_price_ttc) * quantity * 100) / 100,
-        }
-      : null);
+  const mount = mountPriceFor(settings, quantity);
   const mountTtc = mount?.totalTtc ?? null;
   const totalTtc = mountTtc == null ? tiresTtc : Math.round((tiresTtc + mountTtc) * 100) / 100;
   const totalHt = Math.round((totalTtc / (1 + VAT)) * 100) / 100;
@@ -691,40 +706,53 @@ function priceOffer(
   };
 }
 
+
+/** Marques d'une gamme d'après le paramétrage : marque par défaut en premier. */
+export function brandsOfTier(rows: BrandTierRow[], tier: TireTier): string[] {
+  return rows
+    .filter((r) => r.tier === tier && r.active)
+    .slice()
+    .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.sort_order - b.sort_order)
+    .map((r) => r.brand);
+}
+
 /**
  * 1 remplacement à l'identique + 6 alternatives (entrée / milieu / haut × été / 4 saisons).
  * Aucune substitution silencieuse : une gamme sans offre reste affichée « indisponible ».
+ * Le produit retenu pour une gamme est réellement chiffré : parmi les produits
+ * consultés (CentralePneus + catalogue local) dont la marque appartient à la
+ * gamme, on prend la marque préférée puis le tarif le plus bas.
  */
 export function buildSevenOffers(args: {
   offers: TireOffer[];
   brands: BrandTierRow[];
-  packages: ServicePackage[];
+  /** Conservé pour compatibilité : le montage vient désormais du paramétrage global. */
+  packages?: ServicePackage[];
   settings: CommercialSettings | null;
   quantity: number;
   mounted: { brand: string | null; model: string | null; size: string | null; season: TireSeason | null };
   required: { size: string | null; load: string | null; speed: string | null };
 }): SevenOffer[] {
-  const { offers, brands, packages, settings, quantity, mounted, required } = args;
+  const { offers, brands, settings, quantity, mounted, required } = args;
   const sizeMatch = (o: TireOffer) =>
     !required.size || !o.size || normalizeTireSize(o.size) === normalizeTireSize(required.size);
+  const cheapest = (list: TireOffer[]) =>
+    list.slice().sort((a, b) => sourceHtOf(a) - sourceHtOf(b))[0] ?? null;
 
   const out: SevenOffer[] = [];
 
   /* 1. Remplacement à l'identique (même marque/modèle, même saison). */
-  const b = (mounted.brand ?? "").toLowerCase();
-  const m = (mounted.model ?? "").toLowerCase();
+  const b = (mounted.brand ?? "").trim().toLowerCase();
+  const m = (mounted.model ?? "").trim().toLowerCase();
+  const sameBrand = b
+    ? offers.filter((o) => o.active && sizeMatch(o) && o.brand.trim().toLowerCase() === b)
+    : [];
   const identical =
-    (b &&
-      offers.find(
-        (o) =>
-          o.active &&
-          sizeMatch(o) &&
-          o.brand.toLowerCase() === b &&
-          (!m || o.model.toLowerCase() === m) &&
-          (!mounted.season || o.season === mounted.season),
-      )) ||
-    (b && offers.find((o) => o.active && sizeMatch(o) && o.brand.toLowerCase() === b)) ||
-    null;
+    cheapest(
+      sameBrand.filter(
+        (o) => (!m || o.model.toLowerCase() === m) && (!mounted.season || o.season === mounted.season),
+      ),
+    ) ?? cheapest(sameBrand);
 
   out.push(
     identical
@@ -737,8 +765,9 @@ export function buildSevenOffers(args: {
           available: true,
           unavailableReason: "",
           quantity,
-          ...priceOffer(identical, quantity, settings, packages, required),
+          ...priceOffer(identical, quantity, settings, required),
         }
+
       : {
           slot: "identique",
           kind: "identique",
@@ -775,21 +804,28 @@ export function buildSevenOffers(args: {
         },
   );
 
-  /* 2 à 7. Trois gammes × été et 4 saisons, marque issue du paramétrage global. */
+  /* 2 à 7. Trois gammes × été et 4 saisons, marques issues du paramétrage global. */
+  const used = new Set<string>();
   for (const tier of ["entree", "milieu", "haut"] as TireTier[]) {
     for (const season of ["ete", "quatre_saisons"] as TireSeason[]) {
-      const brand = defaultBrandOf(brands, tier);
+      const tierBrands = brandsOfTier(brands, tier);
+      const brand = tierBrands[0] ?? null;
+      const rank = (o: TireOffer) => {
+        const i = tierBrands.findIndex((x) => x.trim().toLowerCase() === o.brand.trim().toLowerCase());
+        return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+      };
+      const pool = offers.filter(
+        (o) => o.active && sizeMatch(o) && !used.has(String(o.id)) && rank(o) !== Number.MAX_SAFE_INTEGER,
+      );
+      const exact = pool.filter((o) => o.season === season);
+      // Un produit dont la saison n'est pas publiée reste exploitable : il est
+      // proposé à défaut, jamais à la place d'une offre de saison identifiée.
+      const candidates = exact.length ? exact : pool.filter((o) => !o.season);
       const offer =
-        offers.find(
-          (o) =>
-            o.active &&
-            sizeMatch(o) &&
-            o.tier === tier &&
-            o.season === season &&
-            (!brand || o.brand.toLowerCase() === brand.toLowerCase()),
-        ) ?? null;
+        candidates.slice().sort((a, b) => rank(a) - rank(b) || sourceHtOf(a) - sourceHtOf(b))[0] ?? null;
       const title = `${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`;
       if (offer) {
+        used.add(String(offer.id));
         out.push({
           slot: `${tier}_${season}`,
           kind: "gamme",
@@ -799,9 +835,10 @@ export function buildSevenOffers(args: {
           available: true,
           unavailableReason: "",
           quantity,
-          ...priceOffer(offer, quantity, settings, packages, required),
+          ...priceOffer(offer, quantity, settings, required),
         });
       } else {
+
         out.push({
           slot: `${tier}_${season}`,
           kind: "gamme",
