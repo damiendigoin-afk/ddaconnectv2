@@ -85,6 +85,17 @@ function mockLogoFetch() {
 
 afterEach(() => vi.unstubAllGlobals());
 
+async function pdfText(bytes: ArrayBuffer): Promise<string> {
+  const realFetch = globalThis.fetch;
+  vi.unstubAllGlobals();
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+  const page = await doc.getPage(1);
+  const content = await page.getTextContent();
+  vi.stubGlobal("fetch", realFetch);
+  return content.items.map((i) => ("str" in i ? i.str : "")).join(" ");
+}
+
 describe("maquette PDF devis pneus", () => {
   it("génère un PDF A4 d'une seule page avec 6 offres", async () => {
     mockLogoFetch();
