@@ -16,6 +16,7 @@ import type { TireLabelAi, TireWheelAi } from "./tire-types";
 import {
   axleKindOf,
   buildSevenOffers,
+  defaultBrandOf,
   fetchBrandTiers,
   publicItemsToOffers,
   requiredFromLabel,
@@ -24,6 +25,7 @@ import {
   type TireOffer,
   type TireSeason,
 } from "./tires";
+
 
 type PointRow = {
   id: string;
