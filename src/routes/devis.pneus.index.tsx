@@ -183,24 +183,12 @@ function TireQuotePage() {
   }, [savedId, adjust]);
 
 
-  /** Impression : le devis est archivé puis un vrai PDF A4 est ouvert. */
+  /** Impression : le devis est déjà auto-enregistré, on ouvre le PDF A4. */
   const [printing, setPrinting] = useState(false);
   async function openPdf() {
     if (!result || !size) return;
     setPrinting(true);
     try {
-      const id =
-        savedId ??
-        (await saveTireQuote({
-          form,
-          size,
-          offers,
-          siteId: site?.id ?? null,
-          siteLabel,
-          userId: user?.id ?? null,
-          userName: displayName ?? "",
-        }));
-      if (id) setSavedId(id);
       const blob = await buildTireQuotePdf(
         {
           site: site ?? null,
