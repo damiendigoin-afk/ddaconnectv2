@@ -36,6 +36,13 @@
       "when": 1788620478198,
       "tag": "0004_lot_0509_forfaits_equivalences_communication",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789104547985,
+      "tag": "0005_devis_pneus",
+      "breakpoints": true
     }
   ]
 }

@@ -5696,6 +5696,77 @@ export type Database = {
           },
         ]
       }
+      tire_quotes: {
+        Row: {
+          created_at: string
+          customer_name: string | null
+          diameter: string | null
+          height: string | null
+          id: string
+          load_index: string | null
+          offers: Json
+          plate: string | null
+          quantity: number
+          requested_brand: string | null
+          site_id: string | null
+          site_label: string | null
+          size: string
+          speed_index: string | null
+          user_id: string | null
+          user_name: string | null
+          vehicle_label: string | null
+          width: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_name?: string | null
+          diameter?: string | null
+          height?: string | null
+          id?: string
+          load_index?: string | null
+          offers?: Json
+          plate?: string | null
+          quantity?: number
+          requested_brand?: string | null
+          site_id?: string | null
+          site_label?: string | null
+          size: string
+          speed_index?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          vehicle_label?: string | null
+          width?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string | null
+          diameter?: string | null
+          height?: string | null
+          id?: string
+          load_index?: string | null
+          offers?: Json
+          plate?: string | null
+          quantity?: number
+          requested_brand?: string | null
+          site_id?: string | null
+          site_label?: string | null
+          size?: string
+          speed_index?: string | null
+          user_id?: string | null
+          user_name?: string | null
+          vehicle_label?: string | null
+          width?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_quotes_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tour_notification_recipients: {
         Row: {
           active: boolean
