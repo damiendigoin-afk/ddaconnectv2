@@ -102,13 +102,28 @@ export function extractItems(html: string, sourceUrl: string, consultedAt: strin
   return [...byRef.values()];
 }
 
-/** Consultation publique réelle, refaite à chaque chiffrage/recalcul. */
-export async function fetchPublicTires(size: string): Promise<PublicTireResult> {
-  const consultedAt = new Date().toISOString();
-  const url = providerUrlFor(size);
-  if (!url) {
-    return { ok: false, error: "Dimension non exploitable pour la consultation tarifaire.", sourceUrl: BASE, consultedAt };
+/**
+ * Filtres de marque publiés dans la page de dimension : marque → identifiant
+ * fournisseur. Ils servent à consulter directement les résultats d'une marque
+ * qui n'apparaît pas sur la première page de la dimension.
+ */
+export function extractBrandFilters(html: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const re = /id="brands_(\d+)"[^>]*value="(\d+)"[^>]*>[\s\S]{0,120}?for="brands_\1"[^>]*>([^<]+)</g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const label = m[3]!.trim();
+    if (label) out.set(label.toLowerCase(), m[2]!);
   }
+  return out;
+}
+
+/** URL des résultats d'une dimension filtrés sur une marque du fournisseur. */
+export function brandFilterUrl(sizeUrl: string, brandId: string): string {
+  return `${sizeUrl}?brands%5B%5D=${brandId}`;
+}
+
+async function getHtml(url: string): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -121,24 +136,62 @@ export async function fetchPublicTires(size: string): Promise<PublicTireResult> 
         Accept: "text/html,application/xhtml+xml",
       },
     });
-    if (!res.ok) {
-      return { ok: false, error: `Tarif actuellement indisponible (HTTP ${res.status}).`, sourceUrl: url, consultedAt };
-    }
-    const html = await res.text();
-    const items = extractItems(html, url, consultedAt);
-    if (!items.length) {
-      return { ok: false, error: "Tarif actuellement indisponible pour cette dimension.", sourceUrl: url, consultedAt };
-    }
-    return { ok: true, items, sourceUrl: url, consultedAt };
-  } catch (e) {
-    const aborted = e instanceof Error && e.name === "AbortError";
-    return {
-      ok: false,
-      error: aborted ? "Tarif actuellement indisponible (délai dépassé)." : "Tarif actuellement indisponible.",
-      sourceUrl: url,
-      consultedAt,
-    };
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
   } finally {
     clearTimeout(timer);
   }
 }
+
+/**
+ * Consultation publique réelle, refaite à chaque chiffrage/recalcul.
+ * `brands` : marques réellement nécessaires au chiffrage (gammes paramétrées +
+ * marque demandée). La page générique ne montrant que les premiers produits,
+ * ces marques sont consultées via leur filtre fournisseur, puis fusionnées.
+ */
+export async function fetchPublicTires(size: string, brands: string[] = []): Promise<PublicTireResult> {
+  const consultedAt = new Date().toISOString();
+  const url = providerUrlFor(size);
+  if (!url) {
+    return { ok: false, error: "Dimension non exploitable pour la consultation tarifaire.", sourceUrl: BASE, consultedAt };
+  }
+  const html = await getHtml(url);
+  if (html == null) {
+    return { ok: false, error: "Tarif actuellement indisponible.", sourceUrl: url, consultedAt };
+  }
+  const items = extractItems(html, url, consultedAt);
+  if (!items.length) {
+    return { ok: false, error: "Tarif actuellement indisponible pour cette dimension.", sourceUrl: url, consultedAt };
+  }
+
+  const wanted = [...new Set(brands.map((b) => b.trim().toLowerCase()).filter(Boolean))];
+  if (wanted.length) {
+    const present = new Set(items.map((i) => i.brand.trim().toLowerCase()));
+    const filters = extractBrandFilters(html);
+    const missing = wanted
+      .filter((b) => !present.has(b))
+      .map((b) => ({ brand: b, id: filters.get(b) }))
+      .filter((x): x is { brand: string; id: string } => Boolean(x.id))
+      .slice(0, 6);
+    const pages = await Promise.all(
+      missing.map(async (x) => {
+        const brandUrl = brandFilterUrl(url, x.id);
+        const page = await getHtml(brandUrl);
+        return page ? extractItems(page, brandUrl, consultedAt) : [];
+      }),
+    );
+    const seen = new Set(items.map((i) => i.supplierRef));
+    for (const list of pages) {
+      for (const it of list) {
+        if (seen.has(it.supplierRef)) continue;
+        seen.add(it.supplierRef);
+        items.push(it);
+      }
+    }
+  }
+
+  return { ok: true, items, sourceUrl: url, consultedAt };
+}
+

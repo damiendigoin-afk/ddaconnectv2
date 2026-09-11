@@ -6,13 +6,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const input = z.object({ size: z.string().min(3) });
+const input = z.object({
+  size: z.string().min(3),
+  /** Marques nécessaires au chiffrage (gammes paramétrées + marque demandée). */
+  brands: z.array(z.string().min(1)).max(12).optional(),
+});
 
 export const fetchPublicTireOffers = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => input.parse(data))
   .handler(async ({ data }) => {
     const { fetchPublicTires } = await import("./tire-provider.server");
-    const result = await fetchPublicTires(data.size);
+    const result = await fetchPublicTires(data.size, data.brands ?? []);
+
 
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

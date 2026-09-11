@@ -11,6 +11,7 @@ import type { CommercialSettings, ServicePackage } from "./pricing-engine";
 import { fetchPublicTireOffers } from "./tire-provider.functions";
 import {
   buildSevenOffers,
+  defaultBrandOf,
   fetchBrandTiers,
   normalizeTireSize,
   publicItemsToOffers,
@@ -19,6 +20,7 @@ import {
   type SevenOffer,
   type TireOffer,
 } from "./tires";
+
 
 export type TireQuoteRow = {
   id: string;
@@ -147,9 +149,15 @@ export async function quoteManualTires(args: {
   const { engine } = args;
   let warning = "";
   let items: PublicTireItem[] = [];
-  const res = await fetchPublicTireOffers({ data: { size: args.size } });
+  // Marques réellement nécessaires : gammes paramétrées + marque demandée.
+  const neededBrands = [
+    ...(["entree", "milieu", "haut"] as const).map((t) => defaultBrandOf(engine.brands, t)),
+    args.requestedBrand,
+  ].filter((b): b is string => Boolean(b && b.trim()));
+  const res = await fetchPublicTireOffers({ data: { size: args.size, brands: neededBrands } });
   if (res.ok) items = res.items as PublicTireItem[];
   else warning = res.error;
+
 
   const offers = buildSevenOffers({
     offers: [...publicItemsToOffers(items, engine.brands), ...engine.catalog],
