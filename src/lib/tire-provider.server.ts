@@ -177,18 +177,8 @@ export async function fetchPublicTires(size: string, brands: string[] = []): Pro
   const wanted = [...new Set(brands.map((b) => b.trim().toLowerCase()).filter(Boolean))];
   if (wanted.length) {
     const filters = extractBrandFilters(html);
-    // Une marque peut n'apparaître sur la première page que dans une seule
-    // saison : la consultation filtrée est donc déclenchée dès qu'une saison
-    // nécessaire (été / 4 saisons) manque, pas seulement si la marque est absente.
-    const complete = (brand: string) =>
-      REQUIRED_SEASONS.every((s) =>
-        items.some((i) => i.brand.trim().toLowerCase() === brand && i.season === s),
-      );
-    const missing = wanted
-      .filter((b) => !complete(b))
-      .map((b) => ({ brand: b, id: filters.get(b) }))
-      .filter((x): x is { brand: string; id: string } => Boolean(x.id))
-      .slice(0, 6);
+    const missing = brandsToRefetch(items, wanted, filters);
+
 
     const pages = await Promise.all(
       missing.map(async (x) => {
