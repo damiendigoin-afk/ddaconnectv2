@@ -131,6 +131,29 @@ export function brandFilterUrl(sizeUrl: string, brandId: string): string {
   return `${sizeUrl}?brands%5B%5D=${brandId}`;
 }
 
+/**
+ * Marques à consulter via leur filtre fournisseur. Une marque peut n'apparaître
+ * sur la première page que dans une seule saison : la consultation filtrée est
+ * déclenchée dès qu'une saison nécessaire (été / 4 saisons) manque, et pas
+ * seulement quand la marque est totalement absente.
+ */
+export function brandsToRefetch(
+  items: PublicTireItem[],
+  wanted: string[],
+  filters: Map<string, string>,
+): { brand: string; id: string }[] {
+  const complete = (brand: string) =>
+    REQUIRED_SEASONS.every((s) =>
+      items.some((i) => i.brand.trim().toLowerCase() === brand && i.season === s),
+    );
+  return wanted
+    .filter((b) => !complete(b))
+    .map((b) => ({ brand: b, id: filters.get(b) }))
+    .filter((x): x is { brand: string; id: string } => Boolean(x.id))
+    .slice(0, 6);
+}
+
+
 async function getHtml(url: string): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
