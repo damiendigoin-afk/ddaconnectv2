@@ -387,6 +387,9 @@ export async function buildTireQuotePdf(
   }
 
   /* ------------------------------- Mentions ------------------------------ */
+  // Les mentions restent ancrées bas de page : le document garde la même
+  // silhouette avec 6 ou 7 offres, toujours sur une seule feuille A4.
+  y = Math.min(y, 108);
   page.drawLine({ start: { x: M, y: y - 2 }, end: { x: rightX, y: y - 2 }, thickness: 1, color: BLACK });
   y -= 16;
   draw(page, `${MOUNT_LABEL} compris.`, M, y, { font: bold, size: 9.5 });
