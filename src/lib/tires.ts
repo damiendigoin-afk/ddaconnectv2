@@ -634,26 +634,41 @@ export function sourceHtOf(offer: Pick<TireOffer, "purchase_price_ht" | "price_k
   return offer.price_kind === "public_ttc" ? Math.round((raw / 1.2) * 100) / 100 : raw;
 }
 
+/**
+ * Montage pneumatique — règle unique et traçable : prix HT par pneu issu du
+ * paramétrage global (« Prix montage par pneu HT »), multiplié par la quantité.
+ * Il couvre montage + équilibrage + valve : aucune autre prestation n'est
+ * ajoutée automatiquement au prix pneus.
+ */
+export const MOUNT_LABEL = "Montage, équilibrage, valve";
+
+export function mountPriceFor(
+  settings: Pick<CommercialSettings, "tire_mount_price_ht"> | null,
+  quantity: number,
+): { label: string; unitHt: number; unitTtc: number; totalHt: number; totalTtc: number } | null {
+  const unitHt = Number(settings?.tire_mount_price_ht);
+  if (!Number.isFinite(unitHt) || unitHt <= 0) return null;
+  const totalHt = Math.round(unitHt * quantity * 100) / 100;
+  return {
+    label: MOUNT_LABEL,
+    unitHt: Math.round(unitHt * 100) / 100,
+    unitTtc: Math.round(unitHt * (1 + VAT) * 100) / 100,
+    totalHt,
+    totalTtc: Math.round(totalHt * (1 + VAT) * 100) / 100,
+  };
+}
+
 function priceOffer(
   offer: TireOffer,
   quantity: number,
   settings: CommercialSettings | null,
-  packages: ServicePackage[],
   required: { size: string | null; load: string | null; speed: string | null },
 ) {
   const sourceHt = sourceHtOf(offer);
   const { sellHt, marginHt } = applyMargin(sourceHt, settings);
   const tiresHt = Math.round(sellHt * quantity * 100) / 100;
   const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;
-  const mount =
-    mountPackageLevel0(packages, quantity) ??
-    (offer.mount_price_ttc != null
-      ? {
-          label: "Montage catalogue pneumatiques",
-          unitTtc: Number(offer.mount_price_ttc),
-          totalTtc: Math.round(Number(offer.mount_price_ttc) * quantity * 100) / 100,
-        }
-      : null);
+  const mount = mountPriceFor(settings, quantity);
   const mountTtc = mount?.totalTtc ?? null;
   const totalTtc = mountTtc == null ? tiresTtc : Math.round((tiresTtc + mountTtc) * 100) / 100;
   const totalHt = Math.round((totalTtc / (1 + VAT)) * 100) / 100;
@@ -690,6 +705,7 @@ function priceOffer(
     offerId: offer.id,
   };
 }
+
 
 /**
  * 1 remplacement à l'identique + 6 alternatives (entrée / milieu / haut × été / 4 saisons).
