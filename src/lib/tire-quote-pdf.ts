@@ -194,23 +194,16 @@ export async function buildTireQuotePdf(
   if (bytes) {
     try {
       const img = await pdf.embedJpg(bytes);
-      const boxH = 52;
-      const w = (img.width / img.height) * boxH;
-      const logoW = Math.min(w, 130);
+      // Le logo est déjà sur fond noir : il se pose directement sur l'en-tête.
+      const logoW = 190;
       const logoH = (img.height / img.width) * logoW;
-      page.drawRectangle({
-        x: M - 4,
-        y: A4.h - headH + 34,
-        width: logoW + 8,
-        height: logoH + 8,
-        color: PAPER,
-      });
-      page.drawImage(img, { x: M, y: A4.h - headH + 38, width: logoW, height: logoH });
+      page.drawImage(img, { x: M, y: A4.h - headH + 44, width: logoW, height: logoH });
       textX = M;
     } catch {
       /* Logo indisponible : le document reste valide sans image. */
     }
   }
+
 
   let gy = A4.h - headH + 26;
   draw(page, garage, textX, gy, { font: bold, size: 10.5, color: PAPER, maxWidth: 320 });
