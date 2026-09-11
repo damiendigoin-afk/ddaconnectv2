@@ -921,9 +921,20 @@ export function buildSevenOffers(args: {
               o.active &&
               sizeMatch(o) &&
               !used.has(String(o.id)) &&
-              o.brand.trim().toLowerCase() === brandKey,
+              o.brand.trim().toLowerCase() === brandKey &&
+              // Charge et vitesse demandées : un produit clairement non conforme
+              // n'est jamais proposé, même s'il est le moins cher.
+              offerMeetsRequirement({
+                offerLoad: o.load_index,
+                offerSpeed: o.speed_index,
+                season,
+                is3pmsf: offerIs3pmsf(o),
+                requiredLoad: required.load,
+                requiredSpeed: required.speed,
+              }),
           )
         : [];
+
       const exact = pool.filter((o) => o.season === season);
       // Un produit dont la saison n'est pas publiée reste exploitable : il est
       // proposé à défaut, jamais à la place d'une offre de saison identifiée.
