@@ -74,7 +74,7 @@ const tire = (id: string, brand: string, season: string, ttc: number) =>
     load_index: "91",
     speed_index: "V",
     price_kind: "public_ttc",
-    public_ttc: ttc,
+    purchase_price_ht: ttc,
     availability: null,
     supplier_key: "centralepneus",
     supplier_ref: id,
