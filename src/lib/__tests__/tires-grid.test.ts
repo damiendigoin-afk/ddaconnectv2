@@ -112,7 +112,7 @@ describe("prix pneus", () => {
     expect(byBrand).toContain("Michelin");
     // 2 × 60 € TTC de pneus + 2 × 17 € HT de montage (20,40 € TTC).
     const sailun = grid.find((o) => o.brand === "Sailun")!;
-    expect(sailun.totalTtc).toBeCloseTo(60 * 2 + 34 * 1.2, 2);
+    expect(sailun.totalTtc).toBeCloseTo(120 + 40.8, 2);
     expect(sailun.mountTtc).toBeCloseTo(40.8, 2);
   });
 });
