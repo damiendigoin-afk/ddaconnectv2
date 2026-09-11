@@ -35,6 +35,7 @@ import { Route as ConnaissancesIndexRouteImport } from './routes/connaissances.i
 import { Route as CrmIndexRouteImport } from './routes/crm.index'
 import { Route as DarvaIndexRouteImport } from './routes/darva.index'
 import { Route as DevisTokenRouteImport } from './routes/devis.$token'
+import { Route as DevisPneusRouteImport } from './routes/devis.pneus'
 import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
@@ -215,6 +216,11 @@ const DarvaIndexRoute = DarvaIndexRouteImport.update({
 const DevisTokenRoute = DevisTokenRouteImport.update({
   id: '/devis/$token',
   path: '/devis/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevisPneusRoute = DevisPneusRouteImport.update({
+  id: '/devis/pneus',
+  path: '/devis/pneus',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmailsIndexRoute = EmailsIndexRouteImport.update({
@@ -499,6 +505,7 @@ export interface FileRoutesByFullPath {
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
   '/devis/$token': typeof DevisTokenRoute
+  '/devis/pneus': typeof DevisPneusRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -578,6 +585,7 @@ export interface FileRoutesByTo {
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
   '/devis/$token': typeof DevisTokenRoute
+  '/devis/pneus': typeof DevisPneusRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -658,6 +666,7 @@ export interface FileRoutesById {
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
   '/devis/$token': typeof DevisTokenRoute
+  '/devis/pneus': typeof DevisPneusRoute
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -739,6 +748,7 @@ export interface FileRouteTypes {
     | '/carrosserie/referentiels'
     | '/client/$clientId'
     | '/devis/$token'
+    | '/devis/pneus'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -818,6 +828,7 @@ export interface FileRouteTypes {
     | '/carrosserie/referentiels'
     | '/client/$clientId'
     | '/devis/$token'
+    | '/devis/pneus'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -897,6 +908,7 @@ export interface FileRouteTypes {
     | '/carrosserie/referentiels'
     | '/client/$clientId'
     | '/devis/$token'
+    | '/devis/pneus'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -977,6 +989,7 @@ export interface RootRouteChildren {
   CarrosserieReferentielsRoute: typeof CarrosserieReferentielsRoute
   ClientClientIdRoute: typeof ClientClientIdRoute
   DevisTokenRoute: typeof DevisTokenRoute
+  DevisPneusRoute: typeof DevisPneusRoute
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
@@ -1219,6 +1232,13 @@ declare module '@tanstack/react-router' {
       path: '/devis/$token'
       fullPath: '/devis/$token'
       preLoaderRoute: typeof DevisTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/devis/pneus': {
+      id: '/devis/pneus'
+      path: '/devis/pneus'
+      fullPath: '/devis/pneus'
+      preLoaderRoute: typeof DevisPneusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/emails/': {
@@ -1601,6 +1621,7 @@ const rootRouteChildren: RootRouteChildren = {
   CarrosserieReferentielsRoute: CarrosserieReferentielsRoute,
   ClientClientIdRoute: ClientClientIdRoute,
   DevisTokenRoute: DevisTokenRoute,
+  DevisPneusRoute: DevisPneusRoute,
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
