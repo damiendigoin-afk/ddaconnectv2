@@ -145,6 +145,13 @@ function TireQuotePage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Enregistrement impossible"),
   });
 
+  /** Validation du formulaire : bouton « Chiffrer » et touche Entrée. */
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!size || quote.isPending) return;
+    quote.mutate();
+  }
+
   const offers = result ? quoteOffers(result) : [];
 
   /** Impression : le devis est archivé puis ouvert en document client A4. */
@@ -192,7 +199,7 @@ function TireQuotePage() {
       }
     >
       <div className="space-y-4">
-        <section className="card-surface space-y-3 p-4 print:hidden">
+        <form onSubmit={submit} className="card-surface space-y-3 p-4 print:hidden">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold uppercase tracking-wide">Dimension</h2>
             <button
@@ -291,9 +298,8 @@ function TireQuotePage() {
           </details>
 
           <button
-            type="button"
+            type="submit"
             disabled={!size || quote.isPending}
-            onClick={() => quote.mutate()}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-5 text-base font-extrabold uppercase tracking-wide text-brand-foreground disabled:opacity-50"
           >
             {quote.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
@@ -304,7 +310,7 @@ function TireQuotePage() {
               Renseignez largeur, série et diamètre (ex. 205 / 55 / 16) ou prenez une photo du flanc.
             </p>
           ) : null}
-        </section>
+        </form>
 
         {result ? (
           <>
