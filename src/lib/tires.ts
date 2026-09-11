@@ -1021,6 +1021,9 @@ export type PublicTireItem = {
   loadIndex: string | null;
   speedIndex: string | null;
   season: TireSeason | null;
+  /** Marquage hiver 3PMSF lu dans le libellé fournisseur. */
+  is3pmsf?: boolean;
+
   publicPriceTtc: number;
   availability: string | null;
   sourceUrl: string;
@@ -1044,6 +1047,8 @@ export function publicItemsToOffers(items: PublicTireItem[], brands: BrandTierRo
     id: `centralepneus:${it.supplierRef}`,
     tier: tierOfBrand(brands, it.brand) ?? "",
     season: it.season ?? "",
+    is3pmsf: it.is3pmsf === true,
+
     brand: it.brand,
     model: it.model,
     size: it.size,
