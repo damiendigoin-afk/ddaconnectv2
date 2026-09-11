@@ -10,6 +10,7 @@ import { TireQuoteSheet } from "@/components/TireQuoteSheet";
 import { useSite } from "@/lib/site-context";
 import { buildTireQuotePdf, openPdfBlob } from "@/lib/tire-quote-pdf";
 import { fetchTireQuote, type TireQuoteRow } from "@/lib/tire-quotes";
+import { marginAdjustmentLabel } from "@/lib/tires";
 import type { Site } from "@/lib/sites";
 
 export const Route = createFileRoute("/devis/pneus/$quoteId")({
