@@ -206,6 +206,7 @@ export async function saveTireQuote(args: {
   siteLabel: string;
   userId: string | null;
   userName: string;
+  marginAdjustmentPct?: number;
 }): Promise<string | null> {
   const { form } = args;
   const { data, error } = await supabase
