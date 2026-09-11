@@ -329,11 +329,14 @@ function TireQuotePage() {
             <div className="grid grid-cols-2 gap-2 print:hidden">
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground"
+                disabled={printing}
+                onClick={() => void openPdf()}
+                className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
               >
-                <Printer className="h-5 w-5" /> Imprimer le devis
+                {printing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
+                Imprimer le devis
               </button>
+
               <button
                 type="button"
                 disabled={save.isPending || !!savedId}
@@ -372,17 +375,20 @@ function Field({
   onChange,
   placeholder,
   inputMode,
+  inputRef,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   inputMode?: "numeric";
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-bold uppercase text-muted-foreground">{label}</span>
       <input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? ""}
@@ -392,6 +398,7 @@ function Field({
     </label>
   );
 }
+
 
 /** Autocomplétion de marque : aide à la saisie, jamais imposée. */
 function BrandField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
