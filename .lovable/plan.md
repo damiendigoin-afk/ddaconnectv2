@@ -1,49 +1,60 @@
-# Devis pneus 205/55R16 91V — pourquoi seul Kleber est chiffré
+# Devis 195/55R16 87H — pourquoi « Haut de gamme · 4 saisons » est vide en Michelin
 
-## Diagnostic (vérifié en direct sur le site fournisseur)
+## Ce qui a été exécuté (consultation réelle, sans rien modifier)
 
-La consultation du fournisseur a été relancée telle qu'elle est faite aujourd'hui, sur l'adresse
-`https://www.centralepneus.fr/pneu-auto-205-55-16/`.
+Consultation telle qu'elle existe aujourd'hui, dimension 195/55R16, marque ciblée Michelin :
+50 produits lus au total, dont **3 Michelin, tous en été** :
 
-Résultat réel :
-- réponse correcte (200), page complète reçue ;
-- 59 pneus lus, sur les 1 519 annoncés par le fournisseur pour cette dimension ;
-- marques obtenues : Hankook, Dunlop, Kumho, Kleber, Keter, Rotalla, Nereus, Kpatos, Greentrac,
-  Mazzini, Forceland, Dovroad, Saferich, Lanvigator, Kustone, Rauffan, Blackarrow, Landspider,
-  Sonix, Trazano, Nexen, Tracmax, Tomket, Aplus, Uniroyal ;
-- Michelin et Sailun n'apparaissent nulle part dans les prix de cette page : ils n'existent que
-  dans la liste déroulante des filtres de marque.
+| Saison | Modèle | Dimension | Charge | Vitesse | Référence | Prix TTC |
+|---|---|---|---|---|---|---|
+| Été | E Primacy | 195/55R16 | 91 | H | tyre1678242 | 73,99 € |
+| Été | Primacy 4 | 195/55R16 | 87 | H | tyre1803075 | 73,99 € |
+| Été | E Primacy | 195/55R16 | 91 | H | tyre1249003 | 112,57 € |
 
-**Cause racine : la pagination.** Le fournisseur n'affiche que la première page de résultats
-(les moins chers d'abord). Kleber y figure, Michelin et Sailun non. Nous ne lisons donc jamais
-leurs prix, alors qu'ils existent bien.
+Aucun Michelin 4 saisons n'arrive donc jusqu'au chiffrage.
 
-Ce n'est donc :
-- ni un filtrage par notre lecture (les produits ne sont pas dans la page) ;
-- ni du chargement différé/JavaScript (les prix de la page 1 sont bien dans la page reçue) ;
-- ni un besoin d'indices charge/vitesse (l'adresse avec « 91v » renvoie une page inexistante).
+## Ce que le fournisseur propose réellement
 
-Vérifications complémentaires faites :
-- page 2 (`?p=2`) : 50 pneus, dont 4 Michelin et 1 Sailun ;
-- filtre marque Michelin : 39 produits ;
-- filtre marque Sailun : 27 produits.
+En interrogeant la page filtrée sur la marque Michelin (adresse déjà connue de l'application),
+**33 Michelin** reviennent, dont **8 en 4 saisons** :
 
-Conclusion : les marques présélectionnées sont disponibles, mais hors de la seule page que nous
-consultons. L'affichage « indisponible » est donc exact vis-à-vis de ce que nous lisons, et faux
-vis-à-vis de la réalité du fournisseur.
+| Modèle | Dimension | Charge | Vitesse | Référence | Prix TTC |
+|---|---|---|---|---|---|
+| CrossClimate 2 | 195/55R16 | 87 | H | tyre1179161 | 96,91 € |
+| CrossClimate 2 | 195/55R16 | 87 | V | tyre1179162 | 96,82 € |
+| CrossClimate 2 | 195/55R16 | 91 | H | tyre1707409 | 100,32 € |
+| CrossClimate 2 | 195/55R16 | 91 | V | tyre1182151 | 100,91 € |
+| CrossClimate 3 | 195/55R16 | 87 | H | tyre1909470 | 104,41 € |
+| CrossClimate 3 | 195/55R16 | 87 | V | tyre1909465 | 97,91 € |
+| CrossClimate 3 | 195/55R16 | 91 | H | tyre1910971 | 101,57 € |
+| CrossClimate 3 | 195/55R16 | 91 | V | tyre1909483 | 100,32 € |
 
-## Correction proposée (à valider, non appliquée)
+Un CrossClimate 2 en 87 H existe donc bien, exactement à l'indice demandé.
 
-Interroger le fournisseur **par marque attendue** plutôt qu'une seule page générique :
-pour chaque gamme (entrée / milieu / haut) et pour la marque éventuellement demandée, appeler
-l'adresse filtrée sur cette marque, puis fusionner les résultats avant le chiffrage habituel.
+## Cause racine
 
-Détails techniques :
-- `src/lib/tire-provider.server.ts` : ajouter la construction d'URL avec filtre marque
-  (`?brands[]=<id>`), une table de correspondance marque → identifiant fournisseur (lisible depuis
-  la page de dimension, où chaque marque porte son identifiant), et une consultation en parallèle
-  limitée aux marques réellement nécessaires ; conserver la lecture actuelle en repli.
-- `src/lib/tire-provider.functions.ts` : passer la liste de marques attendues à la consultation.
-- Aucun changement du moteur de chiffrage partagé, du paramétrage global ni des Tours Véhicule.
-- Tests : marque présente hors première page → offre chiffrée ; marque réellement absente de la
-  dimension → toujours « indisponible », sans substitution.
+Ce n'est **ni** une absence réelle, **ni** un problème de lecture de la saison (les CrossClimate
+sont correctement lus « 4 saisons »), **ni** un filtre charge/vitesse (le moteur ne filtre que sur
+la dimension, pas sur 87H).
+
+La cause est dans la **condition qui déclenche la consultation par marque** :
+l'application ne consulte la page filtrée d'une marque que si cette marque est **totalement
+absente** de la première page de la dimension. Michelin y figure — avec trois produits été
+seulement — donc l'application considère Michelin « déjà obtenu » et n'interroge jamais sa page
+complète. Les Michelin 4 saisons ne sont jamais lus, et le créneau « Haut de gamme · 4 saisons »
+s'affiche « indisponible dans cette marque ».
+
+Le contrôle est fait par marque, alors qu'il devrait l'être **par marque et par saison** (été et
+4 saisons étant deux créneaux distincts à chiffrer).
+
+## Correction envisagée (non appliquée)
+
+Dans la consultation fournisseur (`src/lib/tire-provider.server.ts`) : remplacer le test
+« marque déjà présente » par « marque présente **pour chaque saison nécessaire** ». Si une marque
+attendue n'a aucun produit dans l'une des saisons chiffrées, consulter sa page filtrée et
+fusionner comme aujourd'hui. Aucune autre logique ne change : pas de nouvelle source, pas de
+modification des marges, du montage, des gammes, ni du moteur partagé avec les Tours Véhicule.
+Une marque réellement absente doit rester « indisponible », sans substitution.
+
+Tests à ajouter : marque présente en été mais pas en 4 saisons sur la première page → l'offre
+4 saisons est bien chiffrée ; marque réellement absente → toujours indisponible.
