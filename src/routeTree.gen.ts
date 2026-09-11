@@ -89,6 +89,7 @@ import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rap
 import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/emails.ingest'
 import { Route as ApiPublicGmailCallbackRouteImport } from './routes/api/public/gmail/callback'
 import { Route as ApiPublicHooksGmailSyncRouteImport } from './routes/api/public/hooks/gmail-sync'
+import { Route as DevisPneusQuoteIdPdfRouteImport } from './routes/devis.pneus.$quoteId.pdf'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -496,6 +497,11 @@ const ApiPublicHooksGmailSyncRoute = ApiPublicHooksGmailSyncRouteImport.update({
   path: '/api/public/hooks/gmail-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevisPneusQuoteIdPdfRoute = DevisPneusQuoteIdPdfRouteImport.update({
+  id: '/pdf',
+  path: '/pdf',
+  getParentRoute: () => DevisPneusQuoteIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -562,7 +568,7 @@ export interface FileRoutesByFullPath {
   '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
-  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRoute
+  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRouteWithChildren
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
@@ -578,6 +584,7 @@ export interface FileRoutesByFullPath {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -644,7 +651,7 @@ export interface FileRoutesByTo {
   '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
-  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRoute
+  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRouteWithChildren
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
@@ -660,6 +667,7 @@ export interface FileRoutesByTo {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -727,7 +735,7 @@ export interface FileRoutesById {
   '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
-  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRoute
+  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRouteWithChildren
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
@@ -743,6 +751,7 @@ export interface FileRoutesById {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -827,6 +836,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/devis/pneus/$quoteId/pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -909,6 +919,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/devis/pneus/$quoteId/pdf'
   id:
     | '__root__'
     | '/'
@@ -991,6 +1002,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/devis/pneus/$quoteId/pdf'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1636,16 +1648,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksGmailSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/devis/pneus/$quoteId/pdf': {
+      id: '/devis/pneus/$quoteId/pdf'
+      path: '/pdf'
+      fullPath: '/devis/pneus/$quoteId/pdf'
+      preLoaderRoute: typeof DevisPneusQuoteIdPdfRouteImport
+      parentRoute: typeof DevisPneusQuoteIdRoute
+    }
   }
 }
 
+interface DevisPneusQuoteIdRouteChildren {
+  DevisPneusQuoteIdPdfRoute: typeof DevisPneusQuoteIdPdfRoute
+}
+
+const DevisPneusQuoteIdRouteChildren: DevisPneusQuoteIdRouteChildren = {
+  DevisPneusQuoteIdPdfRoute: DevisPneusQuoteIdPdfRoute,
+}
+
+const DevisPneusQuoteIdRouteWithChildren =
+  DevisPneusQuoteIdRoute._addFileChildren(DevisPneusQuoteIdRouteChildren)
+
 interface DevisPneusRouteChildren {
-  DevisPneusQuoteIdRoute: typeof DevisPneusQuoteIdRoute
+  DevisPneusQuoteIdRoute: typeof DevisPneusQuoteIdRouteWithChildren
   DevisPneusHistoriqueRoute: typeof DevisPneusHistoriqueRoute
 }
 
 const DevisPneusRouteChildren: DevisPneusRouteChildren = {
-  DevisPneusQuoteIdRoute: DevisPneusQuoteIdRoute,
+  DevisPneusQuoteIdRoute: DevisPneusQuoteIdRouteWithChildren,
   DevisPneusHistoriqueRoute: DevisPneusHistoriqueRoute,
 }
 

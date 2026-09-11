@@ -3,7 +3,9 @@
  * exactement celles produites par le moteur de chiffrage existant.
  */
 import type { SevenOffer } from "@/lib/tires";
+import { MOUNT_LABEL } from "@/lib/tires";
 import { siteHeader, type Site } from "@/lib/sites";
+
 
 export type TireQuoteHeader = {
   site: Site | null;
@@ -109,10 +111,10 @@ export function TireQuoteSheet({ header, offers }: { header: TireQuoteHeader; of
             {o.available ? (
               <div className="text-xs text-muted-foreground">
                 {o.quantity} pneu{o.quantity > 1 ? "s" : ""} {euro(o.tiresTtc)}
-                {o.mountTtc != null ? ` · ${o.mountLabel ?? "Montage"} ${euro(o.mountTtc)}` : ""} — TTC prestation
-                comprise
+                {o.mountTtc != null ? ` · ${MOUNT_LABEL} ${euro(o.mountTtc)}` : " · montage non paramétré"}
               </div>
             ) : null}
+
           </div>
         ))}
       </div>
