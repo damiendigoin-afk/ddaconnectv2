@@ -115,4 +115,28 @@ describe("prix pneus", () => {
     expect(sailun.totalTtc).toBeCloseTo(120 + 40.8, 2);
     expect(sailun.mountTtc).toBeCloseTo(40.8, 2);
   });
+
+  it("respecte strictement la marque présélectionnée de chaque gamme", () => {
+    const offers = [
+      tire("s1", "Sailun", "ete", 60),
+      tire("d1", "Dunlop", "ete", 20), // moins chère : ne doit jamais être retenue
+      tire("d2", "Dunlop", "quatre_saisons", 25),
+    ];
+    const grid = buildSevenOffers({
+      offers,
+      brands: brandRows,
+      settings,
+      quantity: 2,
+      mounted: { brand: null, model: null, size: "205/55R16", season: null },
+      required: { size: "205/55R16", load: "91", speed: "V" },
+    }).slice(1);
+    expect(grid.map((o) => o.brand)).not.toContain("Dunlop");
+    const entreeEte = grid.find((o) => o.slot === "entree_ete")!;
+    expect(entreeEte.available).toBe(true);
+    expect(entreeEte.brand).toBe("Sailun");
+    // Marque de gamme absente de la dimension : offre indisponible, sans substitution.
+    const milieu = grid.find((o) => o.slot === "milieu_ete")!;
+    expect(milieu.available).toBe(false);
+    expect(milieu.brand).toBe("Kleber");
+  });
 });
