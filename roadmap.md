@@ -40,3 +40,10 @@ Reste à faire :
 - [x] Paramètres API : IXELLIO déplacé depuis Paramétrage global (mêmes identifiants chiffrés, aucun doublon), cartes Meta et Google Business avec statuts Non configuré / Configuré / Testé / Actif / Erreur.
 - [x] Communication par site : contexte site unique, rotation 7 jours glissants sans forçage, ajout par image seule, activation/désactivation, budget et rayon par site, destination fiche Google Business, statistiques réelles uniquement.
 - Limite : Meta et Google Business restent « à connecter » tant que les identifiants d'application ne sont pas enregistrés côté serveur.
+
+# Correctif moteur de sélection pneus (11/09)
+
+- [x] Consultation fournisseur par marque ET saison (été / 4 saisons)
+- [x] Conformité indice de charge et de vitesse, tolérance 3PMSF (un cran, 4 saisons)
+- [x] Choix du moins cher parmi les produits conformes
+- [x] Tests, typecheck, build
