@@ -12,14 +12,14 @@ export const TIRE_BRANDS: string[] = [
   "General Tire", "Giti", "Goodride", "Goodyear", "GT Radial", "Gislaved", "Hankook", "Headway",
   "Hifly", "Ilink", "Imperial", "Infinity", "Insa Turbo", "Interstate", "Jinyu", "Kama", "Kapsen",
   "Kenda", "Kingstar", "Kleber", "Kormoran", "Kumho", "Lassa", "Landsail", "Laufenn", "Leao",
-  "Linglong", "マ Marangoni", "Marshal", "Matador", "Maxxis", "Mazzini", "Michelin", "Milestone",
-  "Minerva", "Mirage", "Momo", "Nankang", "Nexen", "Nokian", "Nordexx", "Ovation", "パ Paxaro",
+  "Linglong", "Marangoni", "Marshal", "Matador", "Maxxis", "Mazzini", "Michelin", "Milestone",
+  "Minerva", "Mirage", "Momo", "Nankang", "Nexen", "Nokian", "Nordexx", "Ovation", "Paxaro",
   "Pace", "Petlas", "Pirelli", "Platin", "Point S", "Powertrac", "Premiorri", "Riken", "Roadhog",
   "Roadstone", "Roadx", "Rotalla", "Royal Black", "Sailun", "Sava", "Security", "Semperit",
   "Sonar", "Starmaxx", "Sumitomo", "Sunfull", "Sunny", "Superia", "Syron", "Taurus", "Tigar",
   "Tomket", "Torque", "Toyo", "Tracmax", "Triangle", "Tristar", "Uniroyal", "Vredestein",
   "Wanli", "Westlake", "Windforce", "Yokohama", "Zeetex", "Zeta",
-].map((b) => b.replace(/^[^A-Za-z]+\s/, ""));
+];
 
 /** Suggestions de marques pour une saisie partielle (insensible aux accents/casse). */
 export function suggestBrands(input: string, limit = 8): string[] {
