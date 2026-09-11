@@ -97,7 +97,9 @@ function PricingSettings() {
     if (!s) return;
     setPct(String(s.margin_pct));
     setMinHt(String(s.min_margin_ht));
+    setMountHt(String(s.tire_mount_price_ht));
     setSupplier(s.tire_supplier);
+
     setSeverity((s.ai_severity_level as SeverityLevel) ?? "standard");
     setGood(String(s.tire_depth_good_mm));
     setSoon(String(s.tire_depth_soon_mm));
@@ -112,7 +114,9 @@ function PricingSettings() {
       .update({
         margin_pct: Number(pct) || 0,
         min_margin_ht: Number(minHt) || 0,
+        tire_mount_price_ht: Number(mountHt.replace(",", ".")) || 0,
         tire_supplier: supplier,
+
         tire_supplier_configured: supplier === "catalogue_local",
         ai_severity_level: severity,
         tire_depth_good_mm: Number(good.replace(",", ".")) || 4,
