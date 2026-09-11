@@ -804,21 +804,28 @@ export function buildSevenOffers(args: {
         },
   );
 
-  /* 2 à 7. Trois gammes × été et 4 saisons, marque issue du paramétrage global. */
+  /* 2 à 7. Trois gammes × été et 4 saisons, marques issues du paramétrage global. */
+  const used = new Set<string>();
   for (const tier of ["entree", "milieu", "haut"] as TireTier[]) {
     for (const season of ["ete", "quatre_saisons"] as TireSeason[]) {
-      const brand = defaultBrandOf(brands, tier);
+      const tierBrands = brandsOfTier(brands, tier);
+      const brand = tierBrands[0] ?? null;
+      const rank = (o: TireOffer) => {
+        const i = tierBrands.findIndex((x) => x.trim().toLowerCase() === o.brand.trim().toLowerCase());
+        return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+      };
+      const pool = offers.filter(
+        (o) => o.active && sizeMatch(o) && !used.has(String(o.id)) && rank(o) !== Number.MAX_SAFE_INTEGER,
+      );
+      const exact = pool.filter((o) => o.season === season);
+      // Un produit dont la saison n'est pas publiée reste exploitable : il est
+      // proposé à défaut, jamais à la place d'une offre de saison identifiée.
+      const candidates = exact.length ? exact : pool.filter((o) => !o.season);
       const offer =
-        offers.find(
-          (o) =>
-            o.active &&
-            sizeMatch(o) &&
-            o.tier === tier &&
-            o.season === season &&
-            (!brand || o.brand.toLowerCase() === brand.toLowerCase()),
-        ) ?? null;
+        candidates.slice().sort((a, b) => rank(a) - rank(b) || sourceHtOf(a) - sourceHtOf(b))[0] ?? null;
       const title = `${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`;
       if (offer) {
+        used.add(String(offer.id));
         out.push({
           slot: `${tier}_${season}`,
           kind: "gamme",
@@ -828,9 +835,10 @@ export function buildSevenOffers(args: {
           available: true,
           unavailableReason: "",
           quantity,
-          ...priceOffer(offer, quantity, settings, packages, required),
+          ...priceOffer(offer, quantity, settings, required),
         });
       } else {
+
         out.push({
           slot: `${tier}_${season}`,
           kind: "gamme",
