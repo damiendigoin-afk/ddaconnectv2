@@ -50,7 +50,7 @@ export function MarginLever({
         value={value}
         aria-label="Levier de marge"
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-8 w-full cursor-pointer accent-[hsl(var(--brand))]"
+        className="h-8 w-full cursor-pointer text-brand accent-current"
       />
 
       <div className="flex items-center justify-between text-[11px] font-bold uppercase text-muted-foreground">
