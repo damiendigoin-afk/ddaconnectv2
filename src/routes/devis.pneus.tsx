@@ -85,8 +85,16 @@ function TireQuotePage() {
   const [result, setResult] = useState<ManualQuoteResult | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const navigate = Route.useNavigate();
+
+  // Passage de focus au fil de la saisie (largeur → hauteur → diamètre → charge → vitesse).
+  const heightRef = useRef<HTMLInputElement>(null);
+  const diameterRef = useRef<HTMLInputElement>(null);
+  const loadRef = useRef<HTMLInputElement>(null);
+  const speedRef = useRef<HTMLInputElement>(null);
 
   const engine = useQuery({ queryKey: ["tire-engine"], queryFn: fetchTireEngine, staleTime: 60_000 });
+
 
   const set = (patch: Partial<TireQuoteForm>) => {
     setForm((f) => ({ ...f, ...patch }));
