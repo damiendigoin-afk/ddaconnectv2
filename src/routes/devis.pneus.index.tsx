@@ -8,12 +8,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Camera, History, Loader2, Printer, Save } from "lucide-react";
-import { useRef, useState } from "react";
+import { Camera, History, Loader2, Printer } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { MarginLever } from "@/components/MarginLever";
 import { TireQuoteSheet } from "@/components/TireQuoteSheet";
+import { adjustOffersMargin } from "@/lib/tires";
 import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { prepareCapture } from "@/lib/photo-capture";
