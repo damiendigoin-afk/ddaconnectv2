@@ -97,7 +97,8 @@ async function logoBytes(): Promise<ArrayBuffer | null> {
     const res = await fetch(ddaRenaultLogo.url);
     if (!res.ok) return null;
     return await res.arrayBuffer();
-  } catch {
+  } catch (e) {
+    console.log("FETCH ERR", e);
     return null;
   }
 }
