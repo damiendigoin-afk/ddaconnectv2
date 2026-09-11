@@ -130,29 +130,10 @@ function TireQuotePage() {
     onSuccess: (r) => {
       setResult(r);
       setSavedId(null);
+      setAdjust(0);
       if (r.warning) toast.warning(r.warning);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Chiffrage impossible"),
-  });
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!result || !size) throw new Error("Aucun chiffrage à enregistrer");
-      return saveTireQuote({
-        form,
-        size,
-        offers: quoteOffers(result),
-        siteId: site?.id ?? null,
-        siteLabel,
-        userId: user?.id ?? null,
-        userName: displayName ?? "",
-      });
-    },
-    onSuccess: (id) => {
-      setSavedId(id);
-      toast.success("Devis enregistré dans l'historique");
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Enregistrement impossible"),
   });
 
   /** Validation du formulaire : bouton « Chiffrer » et touche Entrée. */
@@ -162,7 +143,45 @@ function TireQuotePage() {
     quote.mutate();
   }
 
-  const offers = result ? quoteOffers(result) : [];
+  /** Prix affichés : offres standard du moteur partagé + levier de marge. */
+  const offers = useMemo(
+    () => (result ? adjustOffersMargin(quoteOffers(result), adjust) : []),
+    [result, adjust],
+  );
+
+  /* Enregistrement automatique : création unique, puis mise à jour de la même
+     ligne à chaque mouvement du levier (petit délai anti-rafale). */
+  useEffect(() => {
+    if (!result || !size || savedId || creatingRef.current === result) return;
+    creatingRef.current = result;
+    void saveTireQuote({
+      form,
+      size,
+      offers,
+      siteId: site?.id ?? null,
+      siteLabel,
+      userId: user?.id ?? null,
+      userName: displayName ?? "",
+      marginAdjustmentPct: adjust,
+    })
+      .then((id) => setSavedId(id))
+      .catch((e) =>
+        toast.error(e instanceof Error ? e.message : "Enregistrement automatique impossible"),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, size, savedId]);
+
+  useEffect(() => {
+    if (!savedId || !result) return undefined;
+    const t = window.setTimeout(() => {
+      void updateTireQuoteOffers({ id: savedId, offers, marginAdjustmentPct: adjust }).catch(() => {
+        /* la mise à jour repartira au prochain mouvement */
+      });
+    }, 500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedId, adjust]);
+
 
   /** Impression : le devis est archivé puis un vrai PDF A4 est ouvert. */
   const [printing, setPrinting] = useState(false);
