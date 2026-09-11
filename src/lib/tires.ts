@@ -554,9 +554,61 @@ export function mountPackageFor(
 
 /* ------------------------------ Compatibilité ----------------------------- */
 
-const SPEED_ORDER = "QRSTHVWY";
+/** Classement des indices de vitesse usuels, du plus faible au plus élevé. */
+export const SPEED_ORDER = "LMNPQRSTUHVWY";
+
+/** Indice de charge exploitable : un indice multiple (91/89) donne le principal. */
+export function loadIndexValue(v: string | null | undefined): number | null {
+  const m = /(\d{2,3})/.exec(String(v ?? ""));
+  return m ? Number(m[1]) : null;
+}
+
+/** Rang d'un indice de vitesse (null si inconnu / non classé). */
+export function speedRank(v: string | null | undefined): number | null {
+  const c = String(v ?? "").toUpperCase().trim().slice(0, 1);
+  const i = c ? SPEED_ORDER.indexOf(c) : -1;
+  return i < 0 ? null : i;
+}
+
+/**
+ * Conformité réelle d'un produit à la demande.
+ * — charge : jamais inférieure à la demande (aucune dérogation) ;
+ * — vitesse été : jamais inférieure ;
+ * — vitesse 4 saisons : un seul cran en dessous toléré si le pneu est 3PMSF.
+ * Un indice non publié n'est pas une non-conformité : il reste « à confirmer ».
+ */
+export function offerMeetsRequirement(args: {
+  offerLoad: string | null;
+  offerSpeed: string | null;
+  season: TireSeason | null;
+  is3pmsf?: boolean;
+  requiredLoad: string | null;
+  requiredSpeed: string | null;
+}): boolean {
+  const rl = loadIndexValue(args.requiredLoad);
+  if (rl != null) {
+    const ol = loadIndexValue(args.offerLoad);
+    if (ol != null && ol < rl) return false;
+  }
+  const rs = speedRank(args.requiredSpeed);
+  if (rs != null) {
+    const os = speedRank(args.offerSpeed);
+    if (os != null && os < rs) {
+      const tolerated =
+        args.season === "quatre_saisons" && args.is3pmsf === true && os === rs - 1;
+      if (!tolerated) return false;
+    }
+  }
+  return true;
+}
+
+/** Marquage 3PMSF porté par une offre consultée (absent du catalogue local). */
+export function offerIs3pmsf(offer: TireOffer): boolean {
+  return (offer as unknown as { is3pmsf?: boolean }).is3pmsf === true;
+}
 
 export type Compatibility = "compatible" | "a_confirmer";
+
 
 export function checkCompatibility(args: {
   offerSize: string | null;
@@ -869,9 +921,20 @@ export function buildSevenOffers(args: {
               o.active &&
               sizeMatch(o) &&
               !used.has(String(o.id)) &&
-              o.brand.trim().toLowerCase() === brandKey,
+              o.brand.trim().toLowerCase() === brandKey &&
+              // Charge et vitesse demandées : un produit clairement non conforme
+              // n'est jamais proposé, même s'il est le moins cher.
+              offerMeetsRequirement({
+                offerLoad: o.load_index,
+                offerSpeed: o.speed_index,
+                season,
+                is3pmsf: offerIs3pmsf(o),
+                requiredLoad: required.load,
+                requiredSpeed: required.speed,
+              }),
           )
         : [];
+
       const exact = pool.filter((o) => o.season === season);
       // Un produit dont la saison n'est pas publiée reste exploitable : il est
       // proposé à défaut, jamais à la place d'une offre de saison identifiée.
@@ -958,6 +1021,9 @@ export type PublicTireItem = {
   loadIndex: string | null;
   speedIndex: string | null;
   season: TireSeason | null;
+  /** Marquage hiver 3PMSF lu dans le libellé fournisseur. */
+  is3pmsf?: boolean;
+
   publicPriceTtc: number;
   availability: string | null;
   sourceUrl: string;
@@ -981,6 +1047,8 @@ export function publicItemsToOffers(items: PublicTireItem[], brands: BrandTierRo
     id: `centralepneus:${it.supplierRef}`,
     tier: tierOfBrand(brands, it.brand) ?? "",
     season: it.season ?? "",
+    is3pmsf: it.is3pmsf === true,
+
     brand: it.brand,
     model: it.model,
     size: it.size,

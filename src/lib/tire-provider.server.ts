@@ -15,7 +15,10 @@ export type PublicTireItem = {
   loadIndex: string | null;
   speedIndex: string | null;
   season: "ete" | "quatre_saisons" | "hiver" | null;
+  /** Marquage hiver 3PMSF lu dans le libellé fournisseur. */
+  is3pmsf: boolean;
   /** Prix public TTC réellement affiché (coût d'achat TTC du garage). */
+
   publicPriceTtc: number;
   availability: string | null;
   sourceUrl: string;
@@ -28,6 +31,9 @@ export type PublicTireResult =
 
 const BASE = "https://www.centralepneus.fr";
 const TIMEOUT_MS = 12_000;
+/** Saisons nécessaires au chiffrage des six gammes. */
+const REQUIRED_SEASONS = ["ete", "quatre_saisons"] as const;
+
 
 /** 205/55R16 → { width: 205, ratio: 55, diameter: 16 } */
 export function parseSize(size: string | null | undefined) {
@@ -92,6 +98,8 @@ export function extractItems(html: string, sourceUrl: string, consultedAt: strin
         loadIndex: idx ? idx[1]! : null,
         speedIndex: idx ? idx[2]!.toUpperCase() : null,
         season: seasonOf(raw.item_category4),
+        is3pmsf: /3\s*pmsf/i.test(name),
+
         publicPriceTtc: Math.round(price * 100) / 100,
         availability: null,
         sourceUrl,
@@ -122,6 +130,29 @@ export function extractBrandFilters(html: string): Map<string, string> {
 export function brandFilterUrl(sizeUrl: string, brandId: string): string {
   return `${sizeUrl}?brands%5B%5D=${brandId}`;
 }
+
+/**
+ * Marques à consulter via leur filtre fournisseur. Une marque peut n'apparaître
+ * sur la première page que dans une seule saison : la consultation filtrée est
+ * déclenchée dès qu'une saison nécessaire (été / 4 saisons) manque, et pas
+ * seulement quand la marque est totalement absente.
+ */
+export function brandsToRefetch(
+  items: PublicTireItem[],
+  wanted: string[],
+  filters: Map<string, string>,
+): { brand: string; id: string }[] {
+  const complete = (brand: string) =>
+    REQUIRED_SEASONS.every((s) =>
+      items.some((i) => i.brand.trim().toLowerCase() === brand && i.season === s),
+    );
+  return wanted
+    .filter((b) => !complete(b))
+    .map((b) => ({ brand: b, id: filters.get(b) }))
+    .filter((x): x is { brand: string; id: string } => Boolean(x.id))
+    .slice(0, 6);
+}
+
 
 async function getHtml(url: string): Promise<string | null> {
   const controller = new AbortController();
@@ -168,13 +199,10 @@ export async function fetchPublicTires(size: string, brands: string[] = []): Pro
 
   const wanted = [...new Set(brands.map((b) => b.trim().toLowerCase()).filter(Boolean))];
   if (wanted.length) {
-    const present = new Set(items.map((i) => i.brand.trim().toLowerCase()));
     const filters = extractBrandFilters(html);
-    const missing = wanted
-      .filter((b) => !present.has(b))
-      .map((b) => ({ brand: b, id: filters.get(b) }))
-      .filter((x): x is { brand: string; id: string } => Boolean(x.id))
-      .slice(0, 6);
+    const missing = brandsToRefetch(items, wanted, filters);
+
+
     const pages = await Promise.all(
       missing.map(async (x) => {
         const brandUrl = brandFilterUrl(url, x.id);
