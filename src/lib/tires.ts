@@ -808,21 +808,24 @@ export function buildSevenOffers(args: {
   const used = new Set<string>();
   for (const tier of ["entree", "milieu", "haut"] as TireTier[]) {
     for (const season of ["ete", "quatre_saisons"] as TireSeason[]) {
-      const tierBrands = brandsOfTier(brands, tier);
-      const brand = tierBrands[0] ?? null;
-      const rank = (o: TireOffer) => {
-        const i = tierBrands.findIndex((x) => x.trim().toLowerCase() === o.brand.trim().toLowerCase());
-        return i < 0 ? Number.MAX_SAFE_INTEGER : i;
-      };
-      const pool = offers.filter(
-        (o) => o.active && sizeMatch(o) && !used.has(String(o.id)) && rank(o) !== Number.MAX_SAFE_INTEGER,
-      );
+      // Marque présélectionnée de la gamme dans le paramétrage global : aucune
+      // substitution par une autre marque, même moins chère ou plus disponible.
+      const brand = defaultBrandOf(brands, tier);
+      const brandKey = (brand ?? "").trim().toLowerCase();
+      const pool = brandKey
+        ? offers.filter(
+            (o) =>
+              o.active &&
+              sizeMatch(o) &&
+              !used.has(String(o.id)) &&
+              o.brand.trim().toLowerCase() === brandKey,
+          )
+        : [];
       const exact = pool.filter((o) => o.season === season);
       // Un produit dont la saison n'est pas publiée reste exploitable : il est
       // proposé à défaut, jamais à la place d'une offre de saison identifiée.
       const candidates = exact.length ? exact : pool.filter((o) => !o.season);
-      const offer =
-        candidates.slice().sort((a, b) => rank(a) - rank(b) || sourceHtOf(a) - sourceHtOf(b))[0] ?? null;
+      const offer = cheapest(candidates);
       const title = `${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`;
       if (offer) {
         used.add(String(offer.id));
