@@ -74,6 +74,7 @@ import { Route as ApiPublicApiCheckRouteImport } from './routes/api/public/api-c
 import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
+import { Route as DevisPneusIndexRouteImport } from './routes/devis.pneus.index'
 import { Route as DevisPneusQuoteIdRouteImport } from './routes/devis.pneus.$quoteId'
 import { Route as DevisPneusHistoriqueRouteImport } from './routes/devis.pneus.historique'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
@@ -418,6 +419,11 @@ const BaseHistoriqueImportIdRoute = BaseHistoriqueImportIdRouteImport.update({
   path: '/base/historique/$importId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevisPneusIndexRoute = DevisPneusIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DevisPneusRoute,
+} as any)
 const DevisPneusQuoteIdRoute = DevisPneusQuoteIdRouteImport.update({
   id: '/$quoteId',
   path: '/$quoteId',
@@ -577,6 +583,7 @@ export interface FileRoutesByFullPath {
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique/': typeof BaseHistoriqueIndexRoute
+  '/devis/pneus/': typeof DevisPneusIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/statistiques/activite/': typeof StatistiquesActiviteIndexRoute
@@ -606,7 +613,6 @@ export interface FileRoutesByTo {
   '/carrosserie/referentiels': typeof CarrosserieReferentielsRoute
   '/client/$clientId': typeof ClientClientIdRoute
   '/devis/$token': typeof DevisTokenRoute
-  '/devis/pneus': typeof DevisPneusRouteWithChildren
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
@@ -660,6 +666,7 @@ export interface FileRoutesByTo {
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique': typeof BaseHistoriqueIndexRoute
+  '/devis/pneus': typeof DevisPneusIndexRoute
   '/expertise/$exId': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs': typeof ParametrageFournisseursIndexRoute
   '/statistiques/activite': typeof StatistiquesActiviteIndexRoute
@@ -744,6 +751,7 @@ export interface FileRoutesById {
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
   '/tour/$tourId/rapport': typeof TourTourIdRapportRoute
   '/base/historique/': typeof BaseHistoriqueIndexRoute
+  '/devis/pneus/': typeof DevisPneusIndexRoute
   '/expertise/$exId/': typeof ExpertiseExIdIndexRoute
   '/parametrage/fournisseurs/': typeof ParametrageFournisseursIndexRoute
   '/statistiques/activite/': typeof StatistiquesActiviteIndexRoute
@@ -829,6 +837,7 @@ export interface FileRouteTypes {
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique/'
+    | '/devis/pneus/'
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
     | '/statistiques/activite/'
@@ -858,7 +867,6 @@ export interface FileRouteTypes {
     | '/carrosserie/referentiels'
     | '/client/$clientId'
     | '/devis/$token'
-    | '/devis/pneus'
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
@@ -912,6 +920,7 @@ export interface FileRouteTypes {
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique'
+    | '/devis/pneus'
     | '/expertise/$exId'
     | '/parametrage/fournisseurs'
     | '/statistiques/activite'
@@ -995,6 +1004,7 @@ export interface FileRouteTypes {
     | '/tour/$tourId/presentation'
     | '/tour/$tourId/rapport'
     | '/base/historique/'
+    | '/devis/pneus/'
     | '/expertise/$exId/'
     | '/parametrage/fournisseurs/'
     | '/statistiques/activite/'
@@ -1543,6 +1553,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BaseHistoriqueImportIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/devis/pneus/': {
+      id: '/devis/pneus/'
+      path: '/'
+      fullPath: '/devis/pneus/'
+      preLoaderRoute: typeof DevisPneusIndexRouteImport
+      parentRoute: typeof DevisPneusRoute
+    }
     '/devis/pneus/$quoteId': {
       id: '/devis/pneus/$quoteId'
       path: '/$quoteId'
@@ -1672,11 +1689,13 @@ const DevisPneusQuoteIdRouteWithChildren =
 interface DevisPneusRouteChildren {
   DevisPneusQuoteIdRoute: typeof DevisPneusQuoteIdRouteWithChildren
   DevisPneusHistoriqueRoute: typeof DevisPneusHistoriqueRoute
+  DevisPneusIndexRoute: typeof DevisPneusIndexRoute
 }
 
 const DevisPneusRouteChildren: DevisPneusRouteChildren = {
   DevisPneusQuoteIdRoute: DevisPneusQuoteIdRouteWithChildren,
   DevisPneusHistoriqueRoute: DevisPneusHistoriqueRoute,
+  DevisPneusIndexRoute: DevisPneusIndexRoute,
 }
 
 const DevisPneusRouteWithChildren = DevisPneusRoute._addFileChildren(
