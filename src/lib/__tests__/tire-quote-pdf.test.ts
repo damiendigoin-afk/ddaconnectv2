@@ -113,20 +113,24 @@ describe("maquette PDF devis pneus", () => {
     expect(spy).toHaveBeenCalledWith(ddaRenaultLogo.url);
   });
 
-  it("n'imprime ni prix d'achat ni marge", async () => {
+  it("n'imprime ni prix d'achat ni marge, et affiche les gammes et le prix TTC", async () => {
     mockLogoFetch();
     const blob = await buildTireQuotePdf(header, six);
-    const text = new TextDecoder("latin1").decode(new Uint8Array(await blob.arrayBuffer()));
+    const text = await pdfText(await blob.arrayBuffer());
     expect(text).not.toContain("99,99");
     expect(text).not.toContain("33,33");
     expect(text).not.toContain("133,32");
     expect(text.toLowerCase()).not.toContain("marge");
+    expect(text).toContain("DEVIS");
+    expect(text).toContain("ENTR");
+    expect(text).toContain("HAUT DE GAMME");
+    expect(text).toContain("360,77");
   });
 
   it("affiche Indisponible pour une offre absente", async () => {
     mockLogoFetch();
     const blob = await buildTireQuotePdf(header, six);
-    const text = new TextDecoder("latin1").decode(new Uint8Array(await blob.arrayBuffer()));
+    const text = await pdfText(await blob.arrayBuffer());
     expect(text).toContain("Indisponible");
   });
 });
