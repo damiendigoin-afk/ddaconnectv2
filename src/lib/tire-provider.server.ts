@@ -31,6 +31,9 @@ export type PublicTireResult =
 
 const BASE = "https://www.centralepneus.fr";
 const TIMEOUT_MS = 12_000;
+/** Saisons nécessaires au chiffrage des six gammes. */
+const REQUIRED_SEASONS = ["ete", "quatre_saisons"] as const;
+
 
 /** 205/55R16 → { width: 205, ratio: 55, diameter: 16 } */
 export function parseSize(size: string | null | undefined) {
@@ -173,13 +176,20 @@ export async function fetchPublicTires(size: string, brands: string[] = []): Pro
 
   const wanted = [...new Set(brands.map((b) => b.trim().toLowerCase()).filter(Boolean))];
   if (wanted.length) {
-    const present = new Set(items.map((i) => i.brand.trim().toLowerCase()));
     const filters = extractBrandFilters(html);
+    // Une marque peut n'apparaître sur la première page que dans une seule
+    // saison : la consultation filtrée est donc déclenchée dès qu'une saison
+    // nécessaire (été / 4 saisons) manque, pas seulement si la marque est absente.
+    const complete = (brand: string) =>
+      REQUIRED_SEASONS.every((s) =>
+        items.some((i) => i.brand.trim().toLowerCase() === brand && i.season === s),
+      );
     const missing = wanted
-      .filter((b) => !present.has(b))
+      .filter((b) => !complete(b))
       .map((b) => ({ brand: b, id: filters.get(b) }))
       .filter((x): x is { brand: string; id: string } => Boolean(x.id))
       .slice(0, 6);
+
     const pages = await Promise.all(
       missing.map(async (x) => {
         const brandUrl = brandFilterUrl(url, x.id);
