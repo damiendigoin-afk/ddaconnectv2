@@ -82,7 +82,9 @@ function PricingSettings() {
 
   const [pct, setPct] = useState("");
   const [minHt, setMinHt] = useState("");
+  const [mountHt, setMountHt] = useState("");
   const [supplier, setSupplier] = useState("catalogue_local");
+
   const [severity, setSeverity] = useState<SeverityLevel>("standard");
   const [good, setGood] = useState("4");
   const [soon, setSoon] = useState("3");
