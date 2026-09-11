@@ -706,6 +706,57 @@ function priceOffer(
   };
 }
 
+/* ------------------------------ Levier de marge --------------------------- */
+
+/** Bornes du levier commercial : −50 % à +100 % de la marge STANDARD. */
+export const MARGIN_ADJ_MIN = -50;
+export const MARGIN_ADJ_MAX = 100;
+export const MARGIN_ADJ_STEP = 10;
+
+export function marginAdjustmentLabel(pct: number): string {
+  if (!pct) return "Marge standard";
+  return `Marge ${pct > 0 ? "+" : "−"}${Math.abs(Math.round(pct))} %`;
+}
+
+export function clampMarginAdjustment(pct: number): number {
+  if (!Number.isFinite(pct)) return 0;
+  return Math.min(MARGIN_ADJ_MAX, Math.max(MARGIN_ADJ_MIN, Math.round(pct)));
+}
+
+/**
+ * Applique le levier commercial à une offre chiffrée avec la marge STANDARD.
+ * On repart toujours du prix source + marge standard (jamais d'un prix déjà
+ * ajusté) : aucun effet cumulatif. Le montage n'est jamais modifié.
+ */
+export function adjustOfferMargin(offer: SevenOffer, adjustmentPct: number): SevenOffer {
+  const pct = clampMarginAdjustment(adjustmentPct);
+  if (!offer.available || offer.unitSourceHt == null || offer.marginHt == null) return offer;
+  if (pct === 0) return offer;
+  const factor = 1 + pct / 100;
+  const marginHt = Math.round(offer.marginHt * factor * 100) / 100;
+  const unitSellHt = Math.round((offer.unitSourceHt + marginHt) * 100) / 100;
+  const tiresHt = Math.round(unitSellHt * offer.quantity * 100) / 100;
+  const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;
+  const mountTtc = offer.mountTtc;
+  const totalTtc =
+    mountTtc == null ? tiresTtc : Math.round((tiresTtc + mountTtc) * 100) / 100;
+  const totalHt = Math.round((totalTtc / (1 + VAT)) * 100) / 100;
+  return {
+    ...offer,
+    marginHt,
+    unitSellHt,
+    tiresHt,
+    tiresTtc,
+    totalHt,
+    totalVat: Math.round((totalTtc - totalHt) * 100) / 100,
+    totalTtc,
+  };
+}
+
+/** Applique le levier à une liste d'offres standard. */
+export function adjustOffersMargin(offers: SevenOffer[], adjustmentPct: number): SevenOffer[] {
+  return offers.map((o) => adjustOfferMargin(o, adjustmentPct));
+}
 
 /** Marques d'une gamme d'après le paramétrage : marque par défaut en premier. */
 export function brandsOfTier(rows: BrandTierRow[], tier: TireTier): string[] {

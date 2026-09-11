@@ -10,6 +10,7 @@ import { TireQuoteSheet } from "@/components/TireQuoteSheet";
 import { useSite } from "@/lib/site-context";
 import { buildTireQuotePdf, openPdfBlob } from "@/lib/tire-quote-pdf";
 import { fetchTireQuote, type TireQuoteRow } from "@/lib/tire-quotes";
+import { marginAdjustmentLabel } from "@/lib/tires";
 import type { Site } from "@/lib/sites";
 
 export const Route = createFileRoute("/devis/pneus/$quoteId")({
@@ -69,6 +70,9 @@ function QuoteDetail() {
       {!q.isLoading && !row ? <p className="text-sm text-muted-foreground">Devis introuvable.</p> : null}
       {row ? (
         <div className="space-y-4">
+          <p className="text-xs font-bold uppercase text-muted-foreground print:hidden">
+            {marginAdjustmentLabel(Number(row.margin_adjustment_pct ?? 0))}
+          </p>
           <TireQuoteSheet header={headerOf(row, site ?? null)} offers={row.offers ?? []} />
           <button
             type="button"

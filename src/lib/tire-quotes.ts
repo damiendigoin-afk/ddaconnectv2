@@ -40,6 +40,7 @@ export type TireQuoteRow = {
   plate: string | null;
   vehicle_label: string | null;
   quantity: number;
+  margin_adjustment_pct: number | null;
   offers: SevenOffer[];
 };
 
@@ -205,6 +206,7 @@ export async function saveTireQuote(args: {
   siteLabel: string;
   userId: string | null;
   userName: string;
+  marginAdjustmentPct?: number;
 }): Promise<string | null> {
   const { form } = args;
   const { data, error } = await supabase
@@ -225,12 +227,32 @@ export async function saveTireQuote(args: {
       plate: form.plate.trim().toUpperCase() || null,
       vehicle_label: form.vehicleLabel.trim() || null,
       quantity: form.quantity,
+      margin_adjustment_pct: args.marginAdjustmentPct ?? 0,
       offers: args.offers as never,
     })
     .select("id")
     .single();
   if (error) throw error;
   return data?.id ?? null;
+}
+
+/**
+ * Mise à jour du devis déjà auto-enregistré (mouvement du levier de marge) :
+ * on modifie CETTE ligne, jamais de doublon dans l'historique.
+ */
+export async function updateTireQuoteOffers(args: {
+  id: string;
+  offers: SevenOffer[];
+  marginAdjustmentPct: number;
+}): Promise<void> {
+  const { error } = await supabase
+    .from("tire_quotes")
+    .update({
+      offers: args.offers as never,
+      margin_adjustment_pct: args.marginAdjustmentPct,
+    })
+    .eq("id", args.id);
+  if (error) throw error;
 }
 
 export async function fetchTireQuotes(search: string): Promise<TireQuoteRow[]> {

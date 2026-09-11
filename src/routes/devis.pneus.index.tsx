@@ -8,12 +8,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Camera, History, Loader2, Printer, Save } from "lucide-react";
-import { useRef, useState } from "react";
+import { Camera, History, Loader2, Printer } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { MarginLever } from "@/components/MarginLever";
 import { TireQuoteSheet } from "@/components/TireQuoteSheet";
+import { adjustOffersMargin } from "@/lib/tires";
 import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { prepareCapture } from "@/lib/photo-capture";
@@ -29,6 +31,7 @@ import {
   quoteManualTires,
   quoteOffers,
   saveTireQuote,
+  updateTireQuoteOffers,
   sizeFromForm,
   type ManualQuoteResult,
   type TireQuoteForm,
@@ -86,8 +89,12 @@ function TireQuotePage() {
   const [form, setForm] = useState<TireQuoteForm>(EMPTY_TIRE_QUOTE_FORM);
   const [result, setResult] = useState<ManualQuoteResult | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [adjust, setAdjust] = useState(0);
   const [cameraOpen, setCameraOpen] = useState(false);
   const navigate = Route.useNavigate();
+  /** Garde-fou anti-doublon : une seule création par chiffrage affiché. */
+  const creatingRef = useRef<ManualQuoteResult | null>(null);
+
 
   // Passage de focus au fil de la saisie (largeur → hauteur → diamètre → charge → vitesse).
   const heightRef = useRef<HTMLInputElement>(null);
@@ -102,6 +109,7 @@ function TireQuotePage() {
     setForm((f) => ({ ...f, ...patch }));
     setResult(null);
     setSavedId(null);
+    setAdjust(0);
   };
 
   const size = sizeFromForm(form);
@@ -122,29 +130,10 @@ function TireQuotePage() {
     onSuccess: (r) => {
       setResult(r);
       setSavedId(null);
+      setAdjust(0);
       if (r.warning) toast.warning(r.warning);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Chiffrage impossible"),
-  });
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!result || !size) throw new Error("Aucun chiffrage à enregistrer");
-      return saveTireQuote({
-        form,
-        size,
-        offers: quoteOffers(result),
-        siteId: site?.id ?? null,
-        siteLabel,
-        userId: user?.id ?? null,
-        userName: displayName ?? "",
-      });
-    },
-    onSuccess: (id) => {
-      setSavedId(id);
-      toast.success("Devis enregistré dans l'historique");
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Enregistrement impossible"),
   });
 
   /** Validation du formulaire : bouton « Chiffrer » et touche Entrée. */
@@ -154,26 +143,52 @@ function TireQuotePage() {
     quote.mutate();
   }
 
-  const offers = result ? quoteOffers(result) : [];
+  /** Prix affichés : offres standard du moteur partagé + levier de marge. */
+  const offers = useMemo(
+    () => (result ? adjustOffersMargin(quoteOffers(result), adjust) : []),
+    [result, adjust],
+  );
 
-  /** Impression : le devis est archivé puis un vrai PDF A4 est ouvert. */
+  /* Enregistrement automatique : création unique, puis mise à jour de la même
+     ligne à chaque mouvement du levier (petit délai anti-rafale). */
+  useEffect(() => {
+    if (!result || !size || savedId || creatingRef.current === result) return;
+    creatingRef.current = result;
+    void saveTireQuote({
+      form,
+      size,
+      offers,
+      siteId: site?.id ?? null,
+      siteLabel,
+      userId: user?.id ?? null,
+      userName: displayName ?? "",
+      marginAdjustmentPct: adjust,
+    })
+      .then((id) => setSavedId(id))
+      .catch((e) =>
+        toast.error(e instanceof Error ? e.message : "Enregistrement automatique impossible"),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, size, savedId]);
+
+  useEffect(() => {
+    if (!savedId || !result) return undefined;
+    const t = window.setTimeout(() => {
+      void updateTireQuoteOffers({ id: savedId, offers, marginAdjustmentPct: adjust }).catch(() => {
+        /* la mise à jour repartira au prochain mouvement */
+      });
+    }, 500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedId, adjust]);
+
+
+  /** Impression : le devis est déjà auto-enregistré, on ouvre le PDF A4. */
   const [printing, setPrinting] = useState(false);
   async function openPdf() {
     if (!result || !size) return;
     setPrinting(true);
     try {
-      const id =
-        savedId ??
-        (await saveTireQuote({
-          form,
-          size,
-          offers,
-          siteId: site?.id ?? null,
-          siteLabel,
-          userId: user?.id ?? null,
-          userName: displayName ?? "",
-        }));
-      if (id) setSavedId(id);
       const blob = await buildTireQuotePdf(
         {
           site: site ?? null,
@@ -333,6 +348,8 @@ function TireQuotePage() {
 
         {result ? (
           <>
+            <MarginLever value={adjust} onChange={setAdjust} />
+
             <TireQuoteSheet
               header={{
                 site,
@@ -351,27 +368,18 @@ function TireQuotePage() {
               offers={offers}
             />
 
-            <div className="grid grid-cols-2 gap-2 print:hidden">
-              <button
-                type="button"
-                disabled={printing}
-                onClick={() => void openPdf()}
-                className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
-              >
-                {printing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
-                Imprimer le devis
-              </button>
-
-              <button
-                type="button"
-                disabled={save.isPending || !!savedId}
-                onClick={() => save.mutate()}
-                className="flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-4 text-sm font-extrabold uppercase disabled:opacity-50"
-              >
-                {save.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                {savedId ? "Enregistré" : "Enregistrer"}
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={printing}
+              onClick={() => void openPdf()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50 print:hidden"
+            >
+              {printing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
+              Imprimer le devis
+            </button>
+            <p className="text-center text-xs text-muted-foreground print:hidden">
+              {savedId ? "Devis enregistré automatiquement dans l'historique." : "Enregistrement en cours…"}
+            </p>
           </>
         ) : null}
 

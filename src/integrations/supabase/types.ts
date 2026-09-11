@@ -5707,6 +5707,7 @@ export type Database = {
           height: string | null
           id: string
           load_index: string | null
+          margin_adjustment_pct: number
           offers: Json
           plate: string | null
           quantity: number
@@ -5727,6 +5728,7 @@ export type Database = {
           height?: string | null
           id?: string
           load_index?: string | null
+          margin_adjustment_pct?: number
           offers?: Json
           plate?: string | null
           quantity?: number
@@ -5747,6 +5749,7 @@ export type Database = {
           height?: string | null
           id?: string
           load_index?: string | null
+          margin_adjustment_pct?: number
           offers?: Json
           plate?: string | null
           quantity?: number
