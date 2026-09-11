@@ -195,7 +195,14 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
 
     let items = publicCache.get(required.size);
     if (!items) {
-      const res = await fetchPublicTireOffers({ data: { size: required.size } });
+      // Marques des gammes paramétrées : consultées explicitement chez le
+      // fournisseur, sinon elles restent invisibles au-delà de la 1re page.
+      const neededBrands = [
+        ...(["entree", "milieu", "haut"] as const).map((t) => defaultBrandOf(brands, t)),
+        mountedAi?.brand ?? null,
+      ].filter((b): b is string => Boolean(b && b.trim()));
+      const res = await fetchPublicTireOffers({ data: { size: required.size, brands: neededBrands } });
+
       if (!res.ok) {
         report.notes.push(`Tarifs publics indisponibles pour ${required.size} : ${res.error}`);
         items = [];
