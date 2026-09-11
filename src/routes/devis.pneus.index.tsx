@@ -89,8 +89,12 @@ function TireQuotePage() {
   const [form, setForm] = useState<TireQuoteForm>(EMPTY_TIRE_QUOTE_FORM);
   const [result, setResult] = useState<ManualQuoteResult | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [adjust, setAdjust] = useState(0);
   const [cameraOpen, setCameraOpen] = useState(false);
   const navigate = Route.useNavigate();
+  /** Garde-fou anti-doublon : une seule création par chiffrage affiché. */
+  const creatingRef = useRef<ManualQuoteResult | null>(null);
+
 
   // Passage de focus au fil de la saisie (largeur → hauteur → diamètre → charge → vitesse).
   const heightRef = useRef<HTMLInputElement>(null);
