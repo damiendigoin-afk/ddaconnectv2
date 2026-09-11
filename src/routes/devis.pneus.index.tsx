@@ -109,6 +109,7 @@ function TireQuotePage() {
     setForm((f) => ({ ...f, ...patch }));
     setResult(null);
     setSavedId(null);
+    setAdjust(0);
   };
 
   const size = sizeFromForm(form);
