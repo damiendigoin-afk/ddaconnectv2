@@ -199,7 +199,8 @@ export async function buildTireQuotePdf(
       const logoH = (img.height / img.width) * logoW;
       page.drawImage(img, { x: M, y: A4.h - headH + 44, width: logoW, height: logoH });
       textX = M;
-    } catch {
+    } catch (e) {
+      console.log('LOGO ERR', e);
       /* Logo indisponible : le document reste valide sans image. */
     }
   }
