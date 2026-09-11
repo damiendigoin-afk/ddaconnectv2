@@ -15,7 +15,10 @@ export type PublicTireItem = {
   loadIndex: string | null;
   speedIndex: string | null;
   season: "ete" | "quatre_saisons" | "hiver" | null;
+  /** Marquage hiver 3PMSF lu dans le libellé fournisseur. */
+  is3pmsf: boolean;
   /** Prix public TTC réellement affiché (coût d'achat TTC du garage). */
+
   publicPriceTtc: number;
   availability: string | null;
   sourceUrl: string;
@@ -92,6 +95,8 @@ export function extractItems(html: string, sourceUrl: string, consultedAt: strin
         loadIndex: idx ? idx[1]! : null,
         speedIndex: idx ? idx[2]!.toUpperCase() : null,
         season: seasonOf(raw.item_category4),
+        is3pmsf: /3\s*pmsf/i.test(name),
+
         publicPriceTtc: Math.round(price * 100) / 100,
         availability: null,
         sourceUrl,
