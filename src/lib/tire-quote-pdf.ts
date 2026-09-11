@@ -263,8 +263,8 @@ export async function buildTireQuotePdf(
 
   /* ------------------------- Cartes par gamme ---------------------------- */
   const cardW = (innerW - 12) / 2;
-  const cardH = 72;
-  const bandH = 15;
+  const cardH = 96;
+  const bandH = 17;
 
   const seasons: { key: string; label: string; color: Rgb; icon: "sun" | "snow" }[] = [
     { key: "ete", label: "ÉTÉ", color: SUN, icon: "sun" },
@@ -340,13 +340,13 @@ export async function buildTireQuotePdf(
       }
     });
 
-    y -= cardH + 10;
+    y -= cardH + 16;
   }
 
   /* --------------------- 7e offre : marque demandée ---------------------- */
   const extra = offers.find((o) => o.kind === "identique");
   if (extra) {
-    const barH = 34;
+    const barH = 40;
     page.drawRectangle({
       x: M,
       y: y - barH,
