@@ -97,8 +97,7 @@ async function logoBytes(): Promise<ArrayBuffer | null> {
     const res = await fetch(ddaRenaultLogo.url);
     if (!res.ok) return null;
     return await res.arrayBuffer();
-  } catch (e) {
-    console.log("FETCH ERR", e);
+  } catch {
     return null;
   }
 }
@@ -200,8 +199,7 @@ export async function buildTireQuotePdf(
       const logoH = (img.height / img.width) * logoW;
       page.drawImage(img, { x: M, y: A4.h - headH + 44, width: logoW, height: logoH });
       textX = M;
-    } catch (e) {
-      console.log('LOGO ERR', e);
+    } catch {
       /* Logo indisponible : le document reste valide sans image. */
     }
   }
