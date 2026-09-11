@@ -368,27 +368,18 @@ function TireQuotePage() {
               offers={offers}
             />
 
-            <div className="grid grid-cols-2 gap-2 print:hidden">
-              <button
-                type="button"
-                disabled={printing}
-                onClick={() => void openPdf()}
-                className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50"
-              >
-                {printing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
-                Imprimer le devis
-              </button>
-
-              <button
-                type="button"
-                disabled={save.isPending || !!savedId}
-                onClick={() => save.mutate()}
-                className="flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-card px-4 py-4 text-sm font-extrabold uppercase disabled:opacity-50"
-              >
-                {save.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                {savedId ? "Enregistré" : "Enregistrer"}
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={printing}
+              onClick={() => void openPdf()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50 print:hidden"
+            >
+              {printing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />}
+              Imprimer le devis
+            </button>
+            <p className="text-center text-xs text-muted-foreground print:hidden">
+              {savedId ? "Devis enregistré automatiquement dans l'historique." : "Enregistrement en cours…"}
+            </p>
           </>
         ) : null}
 
