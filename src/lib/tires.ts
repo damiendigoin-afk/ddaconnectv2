@@ -707,40 +707,52 @@ function priceOffer(
 }
 
 
+/** Marques d'une gamme d'après le paramétrage : marque par défaut en premier. */
+export function brandsOfTier(rows: BrandTierRow[], tier: TireTier): string[] {
+  return rows
+    .filter((r) => r.tier === tier && r.active)
+    .slice()
+    .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.sort_order - b.sort_order)
+    .map((r) => r.brand);
+}
+
 /**
  * 1 remplacement à l'identique + 6 alternatives (entrée / milieu / haut × été / 4 saisons).
  * Aucune substitution silencieuse : une gamme sans offre reste affichée « indisponible ».
+ * Le produit retenu pour une gamme est réellement chiffré : parmi les produits
+ * consultés (CentralePneus + catalogue local) dont la marque appartient à la
+ * gamme, on prend la marque préférée puis le tarif le plus bas.
  */
 export function buildSevenOffers(args: {
   offers: TireOffer[];
   brands: BrandTierRow[];
-  packages: ServicePackage[];
+  /** Conservé pour compatibilité : le montage vient désormais du paramétrage global. */
+  packages?: ServicePackage[];
   settings: CommercialSettings | null;
   quantity: number;
   mounted: { brand: string | null; model: string | null; size: string | null; season: TireSeason | null };
   required: { size: string | null; load: string | null; speed: string | null };
 }): SevenOffer[] {
-  const { offers, brands, packages, settings, quantity, mounted, required } = args;
+  const { offers, brands, settings, quantity, mounted, required } = args;
   const sizeMatch = (o: TireOffer) =>
     !required.size || !o.size || normalizeTireSize(o.size) === normalizeTireSize(required.size);
+  const cheapest = (list: TireOffer[]) =>
+    list.slice().sort((a, b) => sourceHtOf(a) - sourceHtOf(b))[0] ?? null;
 
   const out: SevenOffer[] = [];
 
   /* 1. Remplacement à l'identique (même marque/modèle, même saison). */
-  const b = (mounted.brand ?? "").toLowerCase();
-  const m = (mounted.model ?? "").toLowerCase();
+  const b = (mounted.brand ?? "").trim().toLowerCase();
+  const m = (mounted.model ?? "").trim().toLowerCase();
+  const sameBrand = b
+    ? offers.filter((o) => o.active && sizeMatch(o) && o.brand.trim().toLowerCase() === b)
+    : [];
   const identical =
-    (b &&
-      offers.find(
-        (o) =>
-          o.active &&
-          sizeMatch(o) &&
-          o.brand.toLowerCase() === b &&
-          (!m || o.model.toLowerCase() === m) &&
-          (!mounted.season || o.season === mounted.season),
-      )) ||
-    (b && offers.find((o) => o.active && sizeMatch(o) && o.brand.toLowerCase() === b)) ||
-    null;
+    cheapest(
+      sameBrand.filter(
+        (o) => (!m || o.model.toLowerCase() === m) && (!mounted.season || o.season === mounted.season),
+      ),
+    ) ?? cheapest(sameBrand);
 
   out.push(
     identical
@@ -753,8 +765,9 @@ export function buildSevenOffers(args: {
           available: true,
           unavailableReason: "",
           quantity,
-          ...priceOffer(identical, quantity, settings, packages, required),
+          ...priceOffer(identical, quantity, settings, required),
         }
+
       : {
           slot: "identique",
           kind: "identique",
