@@ -10,6 +10,7 @@ import {
   Hammer,
   Headphones,
   Megaphone,
+  CircleDot,
   LogOut,
   PackageOpen,
   SlidersHorizontal,
@@ -57,6 +58,13 @@ const FAMILIES: Family[] = [
         label: "Tour Véhicule",
         hint: "OR, contrôle guidé ou libre, rapport et envoi client",
         icon: Car,
+        module: "tour",
+      },
+      {
+        to: "/devis/pneus",
+        label: "Devis pneus",
+        hint: "Dimension par photo ou saisie, six ou sept offres chiffrées et impression client",
+        icon: CircleDot,
         module: "tour",
       },
       {
