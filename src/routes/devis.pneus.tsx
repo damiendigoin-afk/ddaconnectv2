@@ -5,7 +5,7 @@
  * marges, même consultation CentralePneus, mêmes forfaits de montage. Cette
  * page ne fait que saisir une dimension et afficher/archiver le résultat.
  */
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, History, Loader2, Printer, Save } from "lucide-react";
@@ -80,7 +80,6 @@ const SHOTS: { key: Shot; title: string; hint: string; optional: boolean }[] = [
 function TireQuotePage() {
   const { user, displayName } = useAuth();
   const { site, label: siteLabel } = useSite();
-  const navigate = useNavigate();
 
   const [form, setForm] = useState<TireQuoteForm>(EMPTY_TIRE_QUOTE_FORM);
   const [result, setResult] = useState<ManualQuoteResult | null>(null);
@@ -274,10 +273,7 @@ function TireQuotePage() {
         <TirePhotoFlow
           onClose={() => setCameraOpen(false)}
           onFields={(patch) => set(patch)}
-          onFinish={() => {
-            setCameraOpen(false);
-            void navigate({ to: "/devis/pneus" });
-          }}
+          onFinish={() => setCameraOpen(false)}
         />
       ) : null}
     </AppShell>

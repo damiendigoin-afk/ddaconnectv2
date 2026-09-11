@@ -74,6 +74,7 @@ import { Route as ApiPublicApiCheckRouteImport } from './routes/api/public/api-c
 import { Route as BaseCorrectionsImportIdRouteImport } from './routes/base.corrections.$importId'
 import { Route as BaseHistoriqueIndexRouteImport } from './routes/base.historique.index'
 import { Route as BaseHistoriqueImportIdRouteImport } from './routes/base.historique.$importId'
+import { Route as DevisPneusQuoteIdRouteImport } from './routes/devis.pneus.$quoteId'
 import { Route as DevisPneusHistoriqueRouteImport } from './routes/devis.pneus.historique'
 import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId.index'
 import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
@@ -416,6 +417,11 @@ const BaseHistoriqueImportIdRoute = BaseHistoriqueImportIdRouteImport.update({
   path: '/base/historique/$importId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevisPneusQuoteIdRoute = DevisPneusQuoteIdRouteImport.update({
+  id: '/$quoteId',
+  path: '/$quoteId',
+  getParentRoute: () => DevisPneusRoute,
+} as any)
 const DevisPneusHistoriqueRoute = DevisPneusHistoriqueRouteImport.update({
   id: '/historique',
   path: '/historique',
@@ -556,6 +562,7 @@ export interface FileRoutesByFullPath {
   '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
+  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRoute
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
@@ -637,6 +644,7 @@ export interface FileRoutesByTo {
   '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
+  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRoute
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
@@ -719,6 +727,7 @@ export interface FileRoutesById {
   '/api/public/api-check': typeof ApiPublicApiCheckRoute
   '/base/corrections/$importId': typeof BaseCorrectionsImportIdRoute
   '/base/historique/$importId': typeof BaseHistoriqueImportIdRoute
+  '/devis/pneus/$quoteId': typeof DevisPneusQuoteIdRoute
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
@@ -802,6 +811,7 @@ export interface FileRouteTypes {
     | '/api/public/api-check'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
+    | '/devis/pneus/$quoteId'
     | '/devis/pneus/historique'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
@@ -883,6 +893,7 @@ export interface FileRouteTypes {
     | '/api/public/api-check'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
+    | '/devis/pneus/$quoteId'
     | '/devis/pneus/historique'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
@@ -964,6 +975,7 @@ export interface FileRouteTypes {
     | '/api/public/api-check'
     | '/base/corrections/$importId'
     | '/base/historique/$importId'
+    | '/devis/pneus/$quoteId'
     | '/devis/pneus/historique'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
@@ -1519,6 +1531,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BaseHistoriqueImportIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/devis/pneus/$quoteId': {
+      id: '/devis/pneus/$quoteId'
+      path: '/$quoteId'
+      fullPath: '/devis/pneus/$quoteId'
+      preLoaderRoute: typeof DevisPneusQuoteIdRouteImport
+      parentRoute: typeof DevisPneusRoute
+    }
     '/devis/pneus/historique': {
       id: '/devis/pneus/historique'
       path: '/historique'
@@ -1621,10 +1640,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface DevisPneusRouteChildren {
+  DevisPneusQuoteIdRoute: typeof DevisPneusQuoteIdRoute
   DevisPneusHistoriqueRoute: typeof DevisPneusHistoriqueRoute
 }
 
 const DevisPneusRouteChildren: DevisPneusRouteChildren = {
+  DevisPneusQuoteIdRoute: DevisPneusQuoteIdRoute,
   DevisPneusHistoriqueRoute: DevisPneusHistoriqueRoute,
 }
 

@@ -9,6 +9,7 @@ export const MODULE_ROUTES: { prefix: string; module: ModuleKey }[] = [
   { prefix: "/tours", module: "tour" },
   { prefix: "/tour", module: "tour" },
   { prefix: "/ordres", module: "tour" },
+  { prefix: "/devis/pneus", module: "tour" },
   { prefix: "/or", module: "tour" },
   { prefix: "/expertises", module: "expertise" },
   { prefix: "/expertise", module: "expertise" },
