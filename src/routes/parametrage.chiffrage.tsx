@@ -201,7 +201,16 @@ function PricingSettings() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Pourcentage de marge (%)" value={pct} onChange={setPct} />
             <Field label="Marge minimale fixe (€ HT)" value={minHt} onChange={setMinHt} />
+            <Field label="Prix montage par pneu (€ HT)" value={mountHt} onChange={setMountHt} />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Le prix de montage couvre montage + équilibrage + valve. Il est appliqué par pneu :{" "}
+            {(Number(mountHt.replace(",", ".")) || 0).toFixed(2)} € HT × quantité (2 pneus ={" "}
+            {((Number(mountHt.replace(",", ".")) || 0) * 2).toFixed(2)} € HT, 4 pneus ={" "}
+            {((Number(mountHt.replace(",", ".")) || 0) * 4).toFixed(2)} € HT). Aucune autre
+            prestation n'est ajoutée automatiquement au prix des pneus.
+          </p>
+
           {Number(pct) === 0 && Number(minHt) === 0 ? (
             <p className="text-xs text-amber-700">
               Politique commerciale non renseignée : les prix de revente sont affichés au prix
