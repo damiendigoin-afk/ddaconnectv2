@@ -255,6 +255,7 @@ function Hub() {
             {f.entries.map((m) => {
               const Icon = m.icon;
               const primary = m.to === "/tour-vehicule";
+              const pending = m.to === "/notes-frais" ? (toValidate.data ?? 0) : 0;
               return (
                 <Link
                   key={m.to}
@@ -267,12 +268,20 @@ function Hub() {
                 >
                   <Icon className={`h-7 w-7 shrink-0 ${primary ? "" : "text-brand"}`} />
                   <div className="flex-1">
-                    <div className="text-base font-extrabold uppercase tracking-wide">{m.label}</div>
+                    <div className="flex items-center gap-2 text-base font-extrabold uppercase tracking-wide">
+                      {m.label}
+                      {pending ? (
+                        <span className="rounded-full bg-status-watch px-2 py-0.5 text-[11px] font-bold text-white">
+                          {pending} à valider
+                        </span>
+                      ) : null}
+                    </div>
                     <div className={`text-xs ${primary ? "font-medium opacity-80" : "text-muted-foreground"}`}>
                       {m.hint}
                     </div>
                   </div>
                   <ChevronRight className="h-5 w-5 shrink-0" />
+
                 </Link>
               );
             })}
