@@ -75,15 +75,23 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
 
   /* ------------------------------- Bandeau -------------------------------- */
   const personal = isPersonalPayment(note.payment_method);
+  const onAccount = isAccountPayment(note.payment_method);
   let y = A4.h - headH - 34;
   page.drawRectangle({
     x: M,
     y: y - 6,
     width: A4.w - 2 * M,
     height: 26,
-    color: personal ? YELLOW : rgb(0.9, 0.9, 0.9),
+    color: personal ? YELLOW : onAccount ? rgb(0.82, 0.9, 1) : rgb(0.9, 0.9, 0.9),
   });
-  text(personal ? "À REMBOURSER" : "DÉJÀ RÉGLÉ - À COMPTABILISER", M + 10, y + 1, 13, bold, BLACK);
+  text(
+    personal ? "À REMBOURSER" : onAccount ? "EN COMPTE - À RAPPROCHER" : "DÉJÀ RÉGLÉ - À COMPTABILISER",
+    M + 10,
+    y + 1,
+    13,
+    bold,
+    BLACK,
+  );
 
   /* ------------------------------- Détails -------------------------------- */
   y -= 30;
@@ -93,14 +101,19 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
     ["Fournisseur / enseigne", note.merchant || "—"],
     ["Motif", note.purpose || categoryLabel(note.category)],
     ["Moyen de règlement", paymentLabel(note.payment_method)],
+  ];
+  if (onAccount) rows.push(["Carte / compte utilisé", accountLabel(note.account_ref, note.account_other)]);
+  rows.push(
     ["Montant TTC", euros(note.amount_ttc)],
     ["Dont TVA", note.vat_amount != null ? euros(note.vat_amount) : "—"],
     ["Auteur", note.user_name || "—"],
-  ];
+  );
   if (note.notes) rows.push(["Commentaire", note.notes]);
   if (note.validated_at) rows.push(["VALIDÉ", `${note.validated_by_name ?? "—"} le ${frDateTime(note.validated_at)}`]);
   if (note.settled_at) rows.push(["Remboursement réglé le", frDate(note.settled_at)]);
+  if (note.reconciled_at) rows.push(["Rapprochée le", frDateTime(note.reconciled_at)]);
   if (note.accounted_at) rows.push(["Comptabilisée le", frDateTime(note.accounted_at)]);
+
 
   const boxTop = y;
   const lineH = 16;
