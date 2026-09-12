@@ -6688,6 +6688,10 @@ export type Database = {
         Args: { _site_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_expense: {
+        Args: { _action: string; _site_id: string; _user_id: string }
+        Returns: boolean
+      }
       finish_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }
         Returns: {

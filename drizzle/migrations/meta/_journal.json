@@ -78,6 +78,13 @@
       "when": 1789208963820,
       "tag": "0010_lock_expense_owner_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789209011323,
+      "tag": "0011_align_expense_action_permissions",
+      "breakpoints": true
     }
   ]
 }
