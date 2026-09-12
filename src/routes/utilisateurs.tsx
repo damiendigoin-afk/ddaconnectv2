@@ -357,24 +357,79 @@ function UserEditor({
       </p>
 
       <div className="space-y-1">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Accès aux modules</div>
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Périmètre sites autorisés</div>
         <div className="flex flex-wrap gap-2">
-          {MODULES.map((m) => {
-            const on = modules.has(m.key);
+          {sites.map((s) => {
+            const on = extraSites.has(s.id);
             return (
               <button
-                key={m.key}
-                onClick={() => onToggle(m.key, !on)}
+                key={s.id}
+                onClick={() => onToggleSite(s.id, !on)}
                 className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
                   on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
                 }`}
               >
-                {m.label}
+                {s.name}
               </button>
             );
           })}
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          En complément du site par défaut. Sans sélection, seul le site par défaut s'applique.
+        </p>
       </div>
+
+      <div className="space-y-1">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Fonctions / droits</div>
+        <div className="flex flex-wrap gap-2">
+          {USER_FUNCTIONS.map((f) => {
+            const on = functions.has(f.key);
+            return (
+              <button
+                key={f.key}
+                onClick={() => onToggleFunction(f.key, !on)}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
+                  on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Cumulables. « Validation notes de frais » ouvre la file À valider, « Comptabilité » le suivi des
+          remboursements. Aucun droit n'est déduit d'un nom ou d'un e-mail.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Accès aux modules</div>
+        {MODULE_GROUPS.map((group) => (
+          <div key={group} className="space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">{group}</div>
+            <div className="flex flex-wrap gap-2">
+              {MODULES.filter((m) => m.group === group).map((m) => {
+                const on = modules.has(m.key);
+                const action = "action" in m && m.action;
+                return (
+                  <button
+                    key={m.key}
+                    onClick={() => onToggle(m.key, !on)}
+                    title={"hint" in m ? (m.hint as string) : m.label}
+                    className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
+                      on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
+                    } ${action ? "italic" : ""}`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
 
       <button
         onClick={() => onSave({ firstName, lastName, alias: wmAlias, defaultSite: site })}
