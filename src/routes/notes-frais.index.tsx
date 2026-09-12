@@ -373,6 +373,24 @@ function ExpenseHub() {
               options={PAYMENT_METHODS.map((p) => ({ key: p.key, label: p.label }))}
               allowEmpty={false}
             />
+            {isAccountPayment(draft.payment_method) ? (
+              <>
+                <Select
+                  label="Carte / compte utilisé *"
+                  value={draft.account_ref}
+                  onChange={(v) => setDraft({ ...draft, account_ref: v })}
+                  options={EXPENSE_ACCOUNTS.map((a) => ({ key: a.key, label: a.label }))}
+                  allowEmpty
+                />
+                {draft.account_ref === "autre" ? (
+                  <Field
+                    label="Préciser le compte / fournisseur *"
+                    value={draft.account_other}
+                    onChange={(v) => setDraft({ ...draft, account_other: v })}
+                  />
+                ) : null}
+              </>
+            ) : null}
             <Select
               label="Établissement *"
               value={draft.site_id}
@@ -384,15 +402,26 @@ function ExpenseHub() {
             <p className="text-[11px] text-muted-foreground">
               {isPersonalPayment(draft.payment_method)
                 ? "Paiement personnel : un remboursement vous sera dû après validation."
-                : "Paiement entreprise : justificatif comptable uniquement, aucun remboursement."}
+                : isAccountPayment(draft.payment_method)
+                  ? "En compte : aucun remboursement, justificatif à rapprocher du relevé ou de la facture du fournisseur."
+                  : "Paiement entreprise : justificatif comptable uniquement, aucun remboursement."}
             </p>
             <button
               onClick={() => create.mutate()}
-              disabled={create.isPending || !draft.amount_ttc || !draft.site_id || !draft.payment_method || !draft.category}
+              disabled={
+                create.isPending ||
+                !draft.amount_ttc ||
+                !draft.site_id ||
+                !draft.payment_method ||
+                !draft.category ||
+                (isAccountPayment(draft.payment_method) &&
+                  (!draft.account_ref || (draft.account_ref === "autre" && !draft.account_other.trim())))
+              }
               className="w-full rounded-lg bg-brand py-3 font-bold uppercase text-brand-foreground disabled:opacity-60"
             >
               {create.isPending ? "Envoi…" : "Envoyer à la validation"}
             </button>
+
           </div>
         </Section>
       ) : null}
