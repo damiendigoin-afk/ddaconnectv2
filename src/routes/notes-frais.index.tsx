@@ -406,6 +406,7 @@ function ExpenseHub() {
         <div className="space-y-2">
           {list.map((e) => {
             const personal = isPersonalPayment(e.payment_method);
+            const onAccount = isAccountPayment(e.payment_method);
             const failed = e.send_status === "failed";
             return (
               <div key={e.id} className="rounded-xl border-2 border-border bg-card p-3">
@@ -415,8 +416,14 @@ function ExpenseHub() {
                   <Badge tone={personal ? "bg-brand/10 text-brand" : "bg-secondary text-muted-foreground"}>
                     {paymentLabel(e.payment_method)}
                   </Badge>
+                  {onAccount ? <Badge>{accountLabel(e.account_ref, e.account_other)}</Badge> : null}
+                  {onAccount && !e.reconciled_at ? (
+                    <Badge tone="bg-status-watch-soft text-status-watch">À rapprocher</Badge>
+                  ) : null}
+                  {e.archived_at ? <Badge>Archivée</Badge> : null}
                   <span className="ml-auto text-sm font-extrabold">{euros(e.amount_ttc)}</span>
                 </div>
+
                 <div className="mt-1 text-xs text-muted-foreground">
                   {frDate(e.spent_on)}
                   {e.merchant ? ` · ${e.merchant}` : ""}
