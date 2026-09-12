@@ -188,10 +188,18 @@ const FAMILIES: Family[] = [
 function Hub() {
   const { isManager, displayName, signOut } = useAuth();
   const { can } = useModuleAccess();
+  const perms = usePermissions();
   const missing = useQuery({
     queryKey: ["prod-missing"],
     queryFn: () => fetchMissingReports(),
     enabled: isManager,
+  });
+  // Pastille « À valider » sur Notes de frais, uniquement pour les valideurs.
+  const toValidate = useQuery({
+    queryKey: ["expenses", "to_validate", "count"],
+    queryFn: countToValidate,
+    enabled: perms.canValidateExpenses,
+    staleTime: 30_000,
   });
 
   const families = FAMILIES.map((f) => ({
