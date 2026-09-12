@@ -112,6 +112,23 @@ function UsersPage() {
     onError: (e) => toastError(e, "Modification des accès impossible"),
   });
 
+  const fn = useMutation({
+    mutationFn: (a: { id: string; key: string; on: boolean }) => setUserFunction(a.id, a.key, a.on),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["user-functions-all"] });
+      await qc.invalidateQueries({ queryKey: ["user-functions"] });
+    },
+    onError: (e) => toastError(e, "Modification des fonctions impossible"),
+  });
+
+  const scope = useMutation({
+    mutationFn: (a: { id: string; siteId: string; on: boolean }) => setUserSite(a.id, a.siteId, a.on),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["user-sites-all"] });
+    },
+    onError: (e) => toastError(e, "Modification du périmètre site impossible"),
+  });
+
   if (loading) {
     return (
       <AppShell title="Utilisateurs" back={{ to: "/" }}>
