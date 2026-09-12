@@ -71,6 +71,13 @@
       "when": 1789208767814,
       "tag": "0009_secure_expense_sites_and_freeze_pdf",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789208963820,
+      "tag": "0010_lock_expense_owner_writes",
+      "breakpoints": true
     }
   ]
 }
