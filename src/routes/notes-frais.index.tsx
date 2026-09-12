@@ -182,6 +182,10 @@ function ExpenseHub() {
         vat_amount: draft.vat_amount ? Number(draft.vat_amount) : null,
         vat_rate: draft.vat_rate ? Number(draft.vat_rate) : null,
         payment_method: draft.payment_method,
+        account_ref: isAccountPayment(draft.payment_method) ? draft.account_ref : null,
+        account_other:
+          isAccountPayment(draft.payment_method) && draft.account_ref === "autre" ? draft.account_other.trim() : null,
+
         receipt_path: path,
         receipt_mime: mime,
         notes: draft.notes || null,
