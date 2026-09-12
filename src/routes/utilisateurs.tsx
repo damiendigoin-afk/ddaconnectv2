@@ -251,6 +251,10 @@ function UsersPage() {
                     })
                   }
                   onToggle={(key, allowed) => perm.mutate({ id: u.id, key, allowed })}
+                  functions={functions.data?.get(u.id) ?? new Set<string>()}
+                  onToggleFunction={(key, on) => fn.mutate({ id: u.id, key, on })}
+                  extraSites={userSites.data?.get(u.id) ?? new Set<string>()}
+                  onToggleSite={(siteId, on) => scope.mutate({ id: u.id, siteId, on })}
                 />
               ) : null}
             </div>
