@@ -22,7 +22,8 @@ import type { LucideIcon } from "lucide-react";
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
 import { fetchMissingReports, periodLabel } from "@/lib/stats";
-import { useModuleAccess } from "@/lib/module-access";
+import { useModuleAccess, usePermissions } from "@/lib/module-access";
+import { countToValidate } from "@/lib/expenses";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -65,7 +66,7 @@ const FAMILIES: Family[] = [
         label: "Devis pneus",
         hint: "Dimension par photo ou saisie, six ou sept offres chiffrées et impression client",
         icon: CircleDot,
-        module: "tour",
+        module: "pneus",
       },
       {
         to: "/expertises",
@@ -187,10 +188,18 @@ const FAMILIES: Family[] = [
 function Hub() {
   const { isManager, displayName, signOut } = useAuth();
   const { can } = useModuleAccess();
+  const perms = usePermissions();
   const missing = useQuery({
     queryKey: ["prod-missing"],
     queryFn: () => fetchMissingReports(),
     enabled: isManager,
+  });
+  // Pastille « À valider » sur Notes de frais, uniquement pour les valideurs.
+  const toValidate = useQuery({
+    queryKey: ["expenses", "to_validate", "count"],
+    queryFn: countToValidate,
+    enabled: perms.canValidateExpenses,
+    staleTime: 30_000,
   });
 
   const families = FAMILIES.map((f) => ({
@@ -246,6 +255,7 @@ function Hub() {
             {f.entries.map((m) => {
               const Icon = m.icon;
               const primary = m.to === "/tour-vehicule";
+              const pending = m.to === "/notes-frais" ? (toValidate.data ?? 0) : 0;
               return (
                 <Link
                   key={m.to}
@@ -258,12 +268,20 @@ function Hub() {
                 >
                   <Icon className={`h-7 w-7 shrink-0 ${primary ? "" : "text-brand"}`} />
                   <div className="flex-1">
-                    <div className="text-base font-extrabold uppercase tracking-wide">{m.label}</div>
+                    <div className="flex items-center gap-2 text-base font-extrabold uppercase tracking-wide">
+                      {m.label}
+                      {pending ? (
+                        <span className="rounded-full bg-status-watch px-2 py-0.5 text-[11px] font-bold text-white">
+                          {pending} à valider
+                        </span>
+                      ) : null}
+                    </div>
                     <div className={`text-xs ${primary ? "font-medium opacity-80" : "text-muted-foreground"}`}>
                       {m.hint}
                     </div>
                   </div>
                   <ChevronRight className="h-5 w-5 shrink-0" />
+
                 </Link>
               );
             })}

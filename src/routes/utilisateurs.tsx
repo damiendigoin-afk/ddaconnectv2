@@ -18,7 +18,14 @@ import {
   STATUS_LABELS,
 } from "@/lib/users";
 import { fetchSites, guessSiteCode, GROUP_LABEL } from "@/lib/sites";
-import { fetchAllModuleAccess, MODULES, setModuleAccess } from "@/lib/access";
+import { fetchAllModuleAccess, MODULE_GROUPS, MODULES, setModuleAccess } from "@/lib/access";
+import {
+  fetchAllUserFunctions,
+  fetchAllUserSites,
+  setUserFunction,
+  setUserSite,
+  USER_FUNCTIONS,
+} from "@/lib/user-functions";
 import { fetchOperators, linkOperator, normPerson } from "@/lib/stats";
 import { toastError } from "@/lib/errors";
 
@@ -56,6 +63,8 @@ function UsersPage() {
   const access = useQuery({ queryKey: ["module-access"], queryFn: fetchAllModuleAccess, enabled: isManager });
   const operators = useQuery({ queryKey: ["winmotor-operators"], queryFn: fetchOperators, enabled: isManager });
   const sites = useQuery({ queryKey: ["sites"], queryFn: fetchSites, enabled: isManager });
+  const functions = useQuery({ queryKey: ["user-functions-all"], queryFn: fetchAllUserFunctions, enabled: isManager });
+  const userSites = useQuery({ queryKey: ["user-sites-all"], queryFn: fetchAllUserSites, enabled: isManager });
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,6 +110,23 @@ function UsersPage() {
       await qc.invalidateQueries({ queryKey: ["module-access"] });
     },
     onError: (e) => toastError(e, "Modification des accès impossible"),
+  });
+
+  const fn = useMutation({
+    mutationFn: (a: { id: string; key: string; on: boolean }) => setUserFunction(a.id, a.key, a.on),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["user-functions-all"] });
+      await qc.invalidateQueries({ queryKey: ["user-functions"] });
+    },
+    onError: (e) => toastError(e, "Modification des fonctions impossible"),
+  });
+
+  const scope = useMutation({
+    mutationFn: (a: { id: string; siteId: string; on: boolean }) => setUserSite(a.id, a.siteId, a.on),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["user-sites-all"] });
+    },
+    onError: (e) => toastError(e, "Modification du périmètre site impossible"),
   });
 
   if (loading) {
@@ -225,6 +251,10 @@ function UsersPage() {
                     })
                   }
                   onToggle={(key, allowed) => perm.mutate({ id: u.id, key, allowed })}
+                  functions={functions.data?.get(u.id) ?? new Set<string>()}
+                  onToggleFunction={(key, on) => fn.mutate({ id: u.id, key, on })}
+                  extraSites={userSites.data?.get(u.id) ?? new Set<string>()}
+                  onToggleSite={(siteId, on) => scope.mutate({ id: u.id, siteId, on })}
                 />
               ) : null}
             </div>
@@ -261,6 +291,10 @@ function UserEditor({
   defaultSite,
   onSave,
   onToggle,
+  functions,
+  onToggleFunction,
+  extraSites,
+  onToggleSite,
 }: {
   user: { first_name: string | null; last_name: string | null; email?: string | null };
   alias: string;
@@ -269,6 +303,10 @@ function UserEditor({
   defaultSite: string;
   onSave: (v: { firstName: string; lastName: string; alias: string; defaultSite: string }) => void;
   onToggle: (key: string, allowed: boolean) => void;
+  functions: Set<string>;
+  onToggleFunction: (key: string, on: boolean) => void;
+  extraSites: Set<string>;
+  onToggleSite: (siteId: string, on: boolean) => void;
 }) {
   const [firstName, setFirstName] = useState(user.first_name ?? "");
   const [lastName, setLastName] = useState(user.last_name ?? "");
@@ -319,24 +357,79 @@ function UserEditor({
       </p>
 
       <div className="space-y-1">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Accès aux modules</div>
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Périmètre sites autorisés</div>
         <div className="flex flex-wrap gap-2">
-          {MODULES.map((m) => {
-            const on = modules.has(m.key);
+          {sites.map((s) => {
+            const on = extraSites.has(s.id);
             return (
               <button
-                key={m.key}
-                onClick={() => onToggle(m.key, !on)}
+                key={s.id}
+                onClick={() => onToggleSite(s.id, !on)}
                 className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
                   on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
                 }`}
               >
-                {m.label}
+                {s.name}
               </button>
             );
           })}
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          En complément du site par défaut. Sans sélection, seul le site par défaut s'applique.
+        </p>
       </div>
+
+      <div className="space-y-1">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Fonctions / droits</div>
+        <div className="flex flex-wrap gap-2">
+          {USER_FUNCTIONS.map((f) => {
+            const on = functions.has(f.key);
+            return (
+              <button
+                key={f.key}
+                onClick={() => onToggleFunction(f.key, !on)}
+                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
+                  on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Cumulables. « Validation notes de frais » ouvre la file À valider, « Comptabilité » le suivi des
+          remboursements. Aucun droit n'est déduit d'un nom ou d'un e-mail.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Accès aux modules</div>
+        {MODULE_GROUPS.map((group) => (
+          <div key={group} className="space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">{group}</div>
+            <div className="flex flex-wrap gap-2">
+              {MODULES.filter((m) => m.group === group).map((m) => {
+                const on = modules.has(m.key);
+                const action = "action" in m && m.action;
+                return (
+                  <button
+                    key={m.key}
+                    onClick={() => onToggle(m.key, !on)}
+                    title={"hint" in m ? (m.hint as string) : m.label}
+                    className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
+                      on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
+                    } ${action ? "italic" : ""}`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
 
       <button
         onClick={() => onSave({ firstName, lastName, alias: wmAlias, defaultSite: site })}
