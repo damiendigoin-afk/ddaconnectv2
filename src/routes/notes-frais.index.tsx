@@ -270,7 +270,9 @@ function ExpenseHub() {
       ? [{ key: "to_validate" as ExpenseScope, label: "À valider", count: pending.data?.length ?? 0 }]
       : []),
     ...(perms.canAccountExpenses ? [{ key: "accounting" as ExpenseScope, label: "Comptabilité" }] : []),
+    { key: "archives" as ExpenseScope, label: "Archives" },
   ];
+
 
   return (
     <AppShell title="Notes de frais" subtitle="Justificatifs et remboursements" back={{ to: "/" }}>
