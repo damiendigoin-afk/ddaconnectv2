@@ -6,7 +6,18 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 
 import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
-import { categoryLabel, euros, frDate, frDateTime, isPersonalPayment, paymentLabel, type ExpenseNote } from "@/lib/expenses";
+import {
+  accountLabel,
+  categoryLabel,
+  euros,
+  frDate,
+  frDateTime,
+  isAccountPayment,
+  isPersonalPayment,
+  paymentLabel,
+  type ExpenseNote,
+} from "@/lib/expenses";
+
 
 const A4 = { w: 595.28, h: 841.89 };
 const M = 36;
