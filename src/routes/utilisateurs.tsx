@@ -18,7 +18,14 @@ import {
   STATUS_LABELS,
 } from "@/lib/users";
 import { fetchSites, guessSiteCode, GROUP_LABEL } from "@/lib/sites";
-import { fetchAllModuleAccess, MODULES, setModuleAccess } from "@/lib/access";
+import { fetchAllModuleAccess, MODULE_GROUPS, MODULES, setModuleAccess } from "@/lib/access";
+import {
+  fetchAllUserFunctions,
+  fetchAllUserSites,
+  setUserFunction,
+  setUserSite,
+  USER_FUNCTIONS,
+} from "@/lib/user-functions";
 import { fetchOperators, linkOperator, normPerson } from "@/lib/stats";
 import { toastError } from "@/lib/errors";
 
