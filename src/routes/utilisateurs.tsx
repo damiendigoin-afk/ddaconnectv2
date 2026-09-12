@@ -63,6 +63,8 @@ function UsersPage() {
   const access = useQuery({ queryKey: ["module-access"], queryFn: fetchAllModuleAccess, enabled: isManager });
   const operators = useQuery({ queryKey: ["winmotor-operators"], queryFn: fetchOperators, enabled: isManager });
   const sites = useQuery({ queryKey: ["sites"], queryFn: fetchSites, enabled: isManager });
+  const functions = useQuery({ queryKey: ["user-functions-all"], queryFn: fetchAllUserFunctions, enabled: isManager });
+  const userSites = useQuery({ queryKey: ["user-sites-all"], queryFn: fetchAllUserSites, enabled: isManager });
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
