@@ -66,11 +66,26 @@ export const EXPENSE_STATUS = [
   { key: "refuse", label: "Refusée / à corriger" },
 ] as const;
 
-/** Boîtes comptables par établissement (code du site existant en base). */
+/** Boîtes comptables par établissement (codes réels en base : dda, castillon). */
 export const ACCOUNTING_EMAILS: Record<string, string> = {
   dda: "compta@dda-lalinde.fr",
+  lalinde: "compta@dda-lalinde.fr",
   castillon: "compta@garagecastillon.fr",
+  st_cyprien: "compta@garagecastillon.fr",
 };
+
+/**
+ * Routage comptable robuste : on s'appuie d'abord sur le code réel du site,
+ * puis, si un site est renommé/recodé, sur son libellé. Aucun doublon d'adresse.
+ */
+export function accountingEmailFor(code: string | null | undefined, name?: string | null): string {
+  const key = (code ?? "").trim().toLowerCase();
+  if (ACCOUNTING_EMAILS[key]) return ACCOUNTING_EMAILS[key]!;
+  const label = `${code ?? ""} ${name ?? ""}`.toLowerCase();
+  if (/(castillon|cyprien)/.test(label)) return "compta@garagecastillon.fr";
+  if (/(lalinde|digoin|\bdda\b)/.test(label)) return "compta@dda-lalinde.fr";
+  return "";
+}
 
 export function isPersonalPayment(method: string | null | undefined): boolean {
   return (method ?? "perso") === "perso";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { expenseTransition, guessCategory, isPersonalPayment, paymentLabel } from "../expenses";
+import { expenseTransition, guessCategory, isPersonalPayment, paymentLabel, accountingEmailFor } from "../expenses";
 
 describe("workflow notes de frais", () => {
   it("distingue remboursement salarié et règlement professionnel", () => {
@@ -27,5 +27,12 @@ describe("workflow notes de frais", () => {
       accounted_at: now,
       employee_notified_at: null,
     });
+  });
+
+  it("route la comptabilité sur les codes de site réels, avec repli par libellé", () => {
+    expect(accountingEmailFor("dda", "Damien Digoin Automobile")).toBe("compta@dda-lalinde.fr");
+    expect(accountingEmailFor("castillon", "Castillon")).toBe("compta@garagecastillon.fr");
+    expect(accountingEmailFor("", "Garage de St-Cyprien")).toBe("compta@garagecastillon.fr");
+    expect(accountingEmailFor("", "Site inconnu")).toBe("");
   });
 });

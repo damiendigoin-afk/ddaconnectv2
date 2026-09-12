@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { ACCOUNTING_EMAILS, isPersonalPayment, paymentLabel, categoryLabel } from "./expenses";
+import { accountingEmailFor, isPersonalPayment, paymentLabel, categoryLabel } from "./expenses";
 
 const input = z.object({
   expenseId: z.string().uuid(),
@@ -60,7 +60,7 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
       : { data: null };
     const siteCode = (site as { code: string | null } | null)?.code ?? "";
     const siteLabel = (site as { name: string } | null)?.name ?? "Établissement non renseigné";
-    const to = ACCOUNTING_EMAILS[siteCode] ?? "";
+    const to = accountingEmailFor(siteCode, siteLabel);
     if (!to) {
       return {
         ok: false as const,
