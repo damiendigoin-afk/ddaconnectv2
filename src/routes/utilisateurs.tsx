@@ -291,6 +291,10 @@ function UserEditor({
   defaultSite,
   onSave,
   onToggle,
+  functions,
+  onToggleFunction,
+  extraSites,
+  onToggleSite,
 }: {
   user: { first_name: string | null; last_name: string | null; email?: string | null };
   alias: string;
@@ -299,6 +303,10 @@ function UserEditor({
   defaultSite: string;
   onSave: (v: { firstName: string; lastName: string; alias: string; defaultSite: string }) => void;
   onToggle: (key: string, allowed: boolean) => void;
+  functions: Set<string>;
+  onToggleFunction: (key: string, on: boolean) => void;
+  extraSites: Set<string>;
+  onToggleSite: (siteId: string, on: boolean) => void;
 }) {
   const [firstName, setFirstName] = useState(user.first_name ?? "");
   const [lastName, setLastName] = useState(user.last_name ?? "");
