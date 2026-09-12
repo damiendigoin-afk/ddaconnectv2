@@ -2478,16 +2478,27 @@ export type Database = {
       }
       expense_notes: {
         Row: {
+          accounted_at: string | null
+          accounted_by_name: string | null
+          accounting_email: string | null
           amount_ttc: number
           category: string
           created_at: string
           id: string
           merchant: string | null
           notes: string | null
+          payment_method: string
+          purpose: string | null
+          receipt_mime: string | null
           receipt_path: string | null
           reject_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          send_error: string | null
+          send_status: string | null
+          sent_at: string | null
+          settled_at: string | null
+          settled_by_name: string | null
           site_id: string | null
           spent_on: string
           status: string
@@ -2495,19 +2506,34 @@ export type Database = {
           updated_at: string
           user_id: string
           user_name: string | null
+          validated_at: string | null
+          validated_by: string | null
+          validated_by_name: string | null
           vat_amount: number | null
+          vat_rate: number | null
         }
         Insert: {
+          accounted_at?: string | null
+          accounted_by_name?: string | null
+          accounting_email?: string | null
           amount_ttc?: number
           category?: string
           created_at?: string
           id?: string
           merchant?: string | null
           notes?: string | null
+          payment_method?: string
+          purpose?: string | null
+          receipt_mime?: string | null
           receipt_path?: string | null
           reject_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          send_error?: string | null
+          send_status?: string | null
+          sent_at?: string | null
+          settled_at?: string | null
+          settled_by_name?: string | null
           site_id?: string | null
           spent_on?: string
           status?: string
@@ -2515,19 +2541,34 @@ export type Database = {
           updated_at?: string
           user_id: string
           user_name?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validated_by_name?: string | null
           vat_amount?: number | null
+          vat_rate?: number | null
         }
         Update: {
+          accounted_at?: string | null
+          accounted_by_name?: string | null
+          accounting_email?: string | null
           amount_ttc?: number
           category?: string
           created_at?: string
           id?: string
           merchant?: string | null
           notes?: string | null
+          payment_method?: string
+          purpose?: string | null
+          receipt_mime?: string | null
           receipt_path?: string | null
           reject_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          send_error?: string | null
+          send_status?: string | null
+          sent_at?: string | null
+          settled_at?: string | null
+          settled_by_name?: string | null
           site_id?: string | null
           spent_on?: string
           status?: string
@@ -2535,7 +2576,11 @@ export type Database = {
           updated_at?: string
           user_id?: string
           user_name?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validated_by_name?: string | null
           vat_amount?: number | null
+          vat_rate?: number | null
         }
         Relationships: [
           {
@@ -5858,6 +5903,27 @@ export type Database = {
           },
         ]
       }
+      user_functions: {
+        Row: {
+          created_at: string
+          function_key: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          function_key: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          function_key?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_module_access: {
         Row: {
           allowed: boolean
@@ -5905,6 +5971,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_sites: {
+        Row: {
+          created_at: string
+          id: string
+          site_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          site_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          site_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vehicle_equivalences: {
         Row: {
@@ -6634,6 +6729,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_user_function: {
+        Args: { _key: string; _user_id: string }
         Returns: boolean
       }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
