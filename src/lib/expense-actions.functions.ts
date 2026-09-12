@@ -6,9 +6,10 @@ import { expenseTransition, type ExpenseAction } from "./expenses";
 
 const actionInput = z.object({
   expenseId: z.string().uuid(),
-  action: z.enum(["resubmit", "reject", "settle", "account", "mark_seen"]),
+  action: z.enum(["resubmit", "reject", "settle", "account", "mark_seen", "archive", "restore", "reconcile"]),
   detail: z.string().max(500).optional(),
 });
+
 
 export const transitionExpense = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
