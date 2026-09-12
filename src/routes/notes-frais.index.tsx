@@ -228,8 +228,16 @@ function ExpenseHub() {
   });
 
   const change = useMutation({
-    mutationFn: ({ id, action, detail }: { id: string; action: "resubmit" | "reject" | "settle" | "account" | "mark_seen"; detail?: string }) =>
-      transitionExpense({ data: { expenseId: id, action, detail } }),
+    mutationFn: ({
+      id,
+      action,
+      detail,
+    }: {
+      id: string;
+      action: "resubmit" | "reject" | "settle" | "account" | "mark_seen" | "archive" | "restore" | "reconcile";
+      detail?: string;
+    }) => transitionExpense({ data: { expenseId: id, action, detail } }),
+
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["expenses"] }),
     onError: (e) => toastError(e, "Mise à jour impossible"),
   });
