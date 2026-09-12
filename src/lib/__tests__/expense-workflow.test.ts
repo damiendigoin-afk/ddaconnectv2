@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { expenseTransition, guessCategory, isPersonalPayment, paymentLabel, accountingEmailFor } from "../expenses";
+import { accountLabel, canDeleteExpense, expenseTransition, guessCategory, isAccountPayment, isPersonalPayment, paymentLabel, accountingEmailFor } from "../expenses";
 
 describe("workflow notes de frais", () => {
   it("distingue remboursement salarié et règlement professionnel", () => {
