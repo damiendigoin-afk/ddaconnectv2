@@ -31,10 +31,17 @@ export type ExpenseNote = {
   accounted_by_name: string | null;
   validated_pdf_path: string | null;
   employee_notified_at: string | null;
+  archived_at: string | null;
+  archived_by_name: string | null;
+  account_ref: string | null;
+  account_other: string | null;
+  reconciled_at: string | null;
+  reconciled_by_name: string | null;
 };
 
 const COLUMNS =
-  "id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, vat_amount, vat_rate, payment_method, receipt_path, receipt_mime, status, reject_reason, notes, created_at, validated_by_name, validated_at, accounting_email, sent_at, send_status, send_error, settled_at, settled_by_name, accounted_at, accounted_by_name, validated_pdf_path, employee_notified_at";
+  "id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, vat_amount, vat_rate, payment_method, receipt_path, receipt_mime, status, reject_reason, notes, created_at, validated_by_name, validated_at, accounting_email, sent_at, send_status, send_error, settled_at, settled_by_name, accounted_at, accounted_by_name, validated_pdf_path, employee_notified_at, archived_at, archived_by_name, account_ref, account_other, reconciled_at, reconciled_by_name";
+
 
 /** Motifs proposés par l'analyse du justificatif, toujours modifiables. */
 export const EXPENSE_CATEGORIES = [
