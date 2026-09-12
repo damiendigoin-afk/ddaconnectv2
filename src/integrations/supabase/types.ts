@@ -2478,10 +2478,15 @@ export type Database = {
       }
       expense_notes: {
         Row: {
+          account_other: string | null
+          account_ref: string | null
           accounted_at: string | null
           accounted_by_name: string | null
           accounting_email: string | null
           amount_ttc: number
+          archived_at: string | null
+          archived_by: string | null
+          archived_by_name: string | null
           category: string
           created_at: string
           employee_notified_at: string | null
@@ -2492,6 +2497,8 @@ export type Database = {
           purpose: string | null
           receipt_mime: string | null
           receipt_path: string | null
+          reconciled_at: string | null
+          reconciled_by_name: string | null
           reject_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -2515,10 +2522,15 @@ export type Database = {
           vat_rate: number | null
         }
         Insert: {
+          account_other?: string | null
+          account_ref?: string | null
           accounted_at?: string | null
           accounted_by_name?: string | null
           accounting_email?: string | null
           amount_ttc?: number
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_by_name?: string | null
           category?: string
           created_at?: string
           employee_notified_at?: string | null
@@ -2529,6 +2541,8 @@ export type Database = {
           purpose?: string | null
           receipt_mime?: string | null
           receipt_path?: string | null
+          reconciled_at?: string | null
+          reconciled_by_name?: string | null
           reject_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -2552,10 +2566,15 @@ export type Database = {
           vat_rate?: number | null
         }
         Update: {
+          account_other?: string | null
+          account_ref?: string | null
           accounted_at?: string | null
           accounted_by_name?: string | null
           accounting_email?: string | null
           amount_ttc?: number
+          archived_at?: string | null
+          archived_by?: string | null
+          archived_by_name?: string | null
           category?: string
           created_at?: string
           employee_notified_at?: string | null
@@ -2566,6 +2585,8 @@ export type Database = {
           purpose?: string | null
           receipt_mime?: string | null
           receipt_path?: string | null
+          reconciled_at?: string | null
+          reconciled_by_name?: string | null
           reject_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
