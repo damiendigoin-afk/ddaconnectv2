@@ -1,67 +1,58 @@
-# Diagnostic — devis 205/55R16 91V : Michelin été absent, Sailun proposé en 91H
+# Audit sécurité — alertes « données d'activité » (lecture seule)
 
-Consultations réelles effectuées chez le fournisseur, marque par marque. Aucun fichier modifié.
+Aucun code, aucune migration, aucune donnée n'a été modifié. Ce document est un rapport.
 
-## 1. Pourquoi Michelin été est « indisponible » alors que Michelin 4 saisons est trouvé
+## 1. Alertes en cours (5 au total, dont 2 critiques)
 
-Sur la page générale de la dimension (la seule consultée quand une marque y figure déjà),
-**un seul Michelin apparaît : un CrossClimate 2 94 V, 4 saisons.**
+| # | Alerte | Sévérité | Objet |
+|---|--------|----------|-------|
+| 1 | Toute personne connectée peut lire, modifier ou supprimer les données d'activité mensuelles | Critique | table `activity_months` |
+| 2 | Toute personne connectée peut lire, modifier ou supprimer les valeurs d'indicateurs | Critique | table `activity_values` |
+| 3 | Toute personne connectée peut lire/modifier l'historique des imports | Avertissement | table `activity_imports` |
+| 4 | Toute personne connectée peut lire/modifier les visuels publicitaires | Avertissement | table `ad_assets` |
+| 5 | Codes journaux internes lisibles par toute personne connectée | Avertissement | table `winmotor_journals` |
 
-L'application ne va chercher la page complète d'une marque que si cette marque est **totalement
-absente** de cette première page. Michelin y étant présent (par ce seul produit 4 saisons),
-la consultation complète Michelin n'est jamais lancée : aucun Michelin été n'entre dans le
-chiffrage, et le créneau été s'affiche « indisponible ».
+Alerte technique séparée (non liée à l'activité) : plusieurs fonctions internes de la base sont exécutables par les comptes connectés (avertissement, signalé par le contrôleur de la base). Aucun stockage de fichiers (bucket) n'est concerné.
 
-Sailun, lui, est **absent** de cette première page : sa page complète est donc consultée, d'où
-27 produits Sailun disponibles. Kleber apparaît partiellement (4 produits) — même angle mort que
-Michelin.
+## 2. Données exposées
 
-C'est exactement la même cause que le cas 195/55R16 déjà diagnostiqué : le contrôle se fait
-par marque, alors qu'il devrait se faire **par marque et par saison**.
+- `activity_months` : société (`dda` / `castillon`), mois, onglet source, statut (provisoire/définitif), date de mise à jour.
+- `activity_values` : toutes les valeurs d'indicateurs mensuels — chiffre d'affaires, marges, volumes, heures, etc.
+- `activity_imports` : nom du fichier importé, nom et identifiant de l'importateur, nombre de mois/valeurs, anomalies détectées.
+- `ad_assets` : visuels et textes publicitaires.
+- `winmotor_journals` : codes journaux comptables internes.
 
-## 2. Pourquoi Sailun est proposé en 91 H alors que la demande est 91 V
+## 3. Qui peut faire quoi aujourd'hui
 
-Le moteur de chiffrage ne filtre **que sur la dimension**. Les indices de charge et de vitesse
-demandés sont affichés sur le devis mais **ne servent à aucun filtrage** : pour chaque gamme et
-chaque saison, il retient simplement le produit le moins cher de la marque.
+- Les règles d'accès de ces tables sont écrites en « toujours vrai » pour le rôle « connecté » : lecture, insertion, modification et (pour les mois et valeurs) suppression sont ouvertes à **n'importe quel compte authentifié**, sans vérification de compte actif, de rôle ni de société.
+- Les visiteurs non connectés n'ont **aucun** accès : aucune règle ne les autorise.
+- État réel des comptes : 24 profils, tous actifs ; 7 managers et 17 salariés, aucun compte « client ».
+- Comparaison avec le reste du projet : Productivité, Sites, etc. exigent `is_active_user()` en lecture et le rôle manager en écriture. Les tables d'activité sont donc l'exception.
 
-Résultat : Sailun été = Atrezzo Elite 91 H à 42,16 € (le moins cher), Sailun 4 saisons =
-Atrezzo 4Seasons 91 H à 47,91 €, alors que des 91 V existent. Ce n'est pas un défaut de lecture
-des indices (ils sont correctement lus), c'est l'absence de règle de conformité charge/vitesse.
+## 4. Scénario de risque concret
 
-## 3. Des versions 91 V existent-elles ? Oui, sauf un cas
+Un salarié sans aucun droit sur le module Statistiques, ou un compte désactivé plus tard mais dont l'authentification reste valide, peut depuis un simple appel à l'API : lire l'intégralité du chiffre d'affaires et des marges des deux sociétés, modifier une valeur mensuelle, ou supprimer des mois entiers. La perte serait silencieuse (pas de journal sur ces tables) et ne se verrait qu'à la consultation des tableaux de bord.
 
-| Marque | Été | 4 saisons |
-|---|---|---|
-| Michelin | Primacy 4+ **91 V** 66,49 € · Primacy 5 91 V 71,91 € · E Primacy 91 V 71,91 € | CrossClimate 3 **91 V** 79,82 € · CrossClimate 2 91 V 78,82–102,49 € |
-| Sailun | Atrezzo Elite **91 V** 45,57 € · Atrezzo Elite 2 91 V 48,99 € | **aucun 91 V** — seulement 91 H, et 94 V (charge et vitesse supérieures) |
-| Kleber | Dynaxer HP5 **91 V** 58,83 € · Dynaxer HP4 91 V 72,99 € | Quadraxer 3 **91 V** 66,49 € |
+## 5. Exploitable réellement ou théorique ?
 
-Des indices supérieurs (94 V, 91 W, 91 Y) existent aussi partout et restent conformes.
-Le seul cas nécessitant un arbitrage est **Sailun 4 saisons**, où le choix se fait entre un
-91 H (vitesse inférieure) et un 94 V (conforme, légèrement plus cher : 47,99 €).
+Réellement exploitable, mais uniquement par une personne **déjà connectée** à DDA Connect. Dans l'application, l'accès à l'écran Statistiques est filtré par les droits modules, donc l'exposition n'est pas visible dans l'interface ; le contournement se fait hors interface, avec la clé publique de l'application et un compte valide. Risque externe anonyme : nul. Risque interne : réel, aggravé par la suppression possible.
 
-## 4. Le marquage 3PMSF est-il exposé par le fournisseur ?
+## 6. Correctif minimal recommandé (non appliqué)
 
-Oui, mais **pas dans un champ dédié** : il figure uniquement dans le libellé du produit
-(ex. « Michelin CrossClimate 3 205/55 R16 91V 3PMSF »). Il est donc lisible de façon fiable.
+Aligner ces 5 tables sur le modèle déjà utilisé ailleurs, par simple remplacement des règles d'accès (aucun changement de schéma, aucune donnée touchée) :
 
-Relevé réel sur les 4 saisons de la dimension :
-- Michelin : 11 produits, **tous marqués 3PMSF** ;
-- Kleber : 3 produits, **tous marqués 3PMSF** ;
-- Sailun : 7 produits, **6 marqués 3PMSF**, 1 non marqué (Atrezzo 4Seasons 94 V, réf. tyre1912635).
+- Lecture : réservée aux comptes actifs (`is_active_user(auth.uid())`).
+- Création / modification des mois, valeurs et imports : comptes actifs (l'import passe par la fonction `activity_import_apply`, qui s'exécute avec les droits de l'appelant — les imports continuent donc de fonctionner).
+- Suppression des mois et valeurs : réservée aux managers.
+- `ad_assets` : lecture/écriture comptes actifs, suppression déjà réservée aux managers.
+- `winmotor_journals` : lecture comptes actifs.
 
-La règle métier « 4 saisons certifié hiver → indice de vitesse inférieur toléré » est donc
-applicable, à condition de lire le marquage dans le libellé et non dans un champ structuré.
-Les champs techniques du fournisseur (catégories internes) ne portent pas cette information :
-ils indiquent seulement la saison et un niveau de gamme (premium / quality / discount).
+Option plus stricte possible ultérieurement : restreindre l'écriture d'activité aux seuls managers ou aux détenteurs du droit « Import statistiques ». À valider avec vous, car cela changerait qui peut importer.
 
-## Synthèse des trois causes distinctes
+## 7. Impact fonctionnel attendu
 
-1. Consultation par marque déclenchée trop rarement → Michelin (et Kleber) incomplets.
-2. Aucun contrôle charge/vitesse dans la sélection → 91 H retenu pour une demande 91 V.
-3. Marquage 3PMSF disponible mais non exploité → aucune tolérance hiver possible aujourd'hui.
+Aucun pour les 24 comptes actuels, tous actifs : Statistiques, Productivité, Tours, Activité et l'import Excel continuent de fonctionner à l'identique. Seule différence visible : un compte désactivé ne verrait plus ces données, et la suppression de mois deviendrait réservée aux managers.
 
-Aucune correction n'a été appliquée. Ces trois points peuvent être traités ensemble dans une
-passe ciblée sur la consultation fournisseur et la règle de sélection, sans toucher au moteur de
-marge, au montage ni au paramétrage global.
+## Suite
+
+Ce rapport est purement un diagnostic. Dites-moi si vous voulez que je prépare le correctif (variante standard ou variante stricte) ; rien ne sera modifié sans votre accord.
