@@ -197,7 +197,10 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
   text(
     personal
       ? "Remboursement salarié à effectuer - document généré par DDA Connect"
-      : "Dépense déjà réglée par l'entreprise - justificatif comptable - DDA Connect",
+      : onAccount
+        ? `En compte (${accountLabel(note.account_ref, note.account_other)}) - à rapprocher du relevé / de la facture - DDA Connect`
+        : "Dépense déjà réglée par l'entreprise - justificatif comptable - DDA Connect",
+
     M,
     22,
     8,
