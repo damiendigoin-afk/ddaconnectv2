@@ -60,11 +60,21 @@ export const transitionExpense = createServerFn({ method: "POST" })
     if (action === "mark_seen" && (!owner || !["reglee", "comptabilisee"].includes(note.status))) {
       throw new Error("Action non autorisée");
     }
+    if (action === "reconcile" && (!canAccount || note.status !== "transmise" || note.payment_method !== "en_compte")) {
+      throw new Error("Action non autorisée");
+    }
+    if ((action === "archive" || action === "restore") && !(owner || canValidate || canAccount)) {
+      throw new Error("Action non autorisée");
+    }
+    if (action === "archive" && note.archived_at) throw new Error("Note déjà archivée");
+    if (action === "restore" && !note.archived_at) throw new Error("Note non archivée");
 
     const p = profile as { first_name?: string | null; last_name?: string | null; email?: string | null } | null;
     const actorName = [p?.first_name, p?.last_name].filter(Boolean).join(" ") || p?.email || "Utilisateur";
     const patch = expenseTransition(action, new Date().toISOString(), actorName, data.detail);
+    if (action === "archive") (patch as Record<string, unknown>)["archived_by"] = context.userId;
     const { error } = await supabaseAdmin.from("expense_notes").update(patch as never).eq("id", data.expenseId);
+
     if (error) throw error;
     return { ok: true as const };
   });
