@@ -160,17 +160,19 @@ export function frDateTime(v: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
-export type ExpenseScope = "mine" | "to_validate" | "accounting" | "all";
+export type ExpenseScope = "mine" | "to_validate" | "accounting" | "archives" | "all";
 
 export async function listExpenses(scope: ExpenseScope, userId: string | null): Promise<ExpenseNote[]> {
   let q = supabase.from("expense_notes").select(COLUMNS).order("created_at", { ascending: false }).limit(400);
   if (scope === "mine" && userId) q = q.eq("user_id", userId);
   if (scope === "to_validate") q = q.eq("status", "soumis");
   if (scope === "accounting") q = q.in("status", ["transmise", "valide", "reglee", "comptabilisee"]);
+  q = scope === "archives" ? q.not("archived_at", "is", null) : q.is("archived_at", null);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as unknown as ExpenseNote[];
 }
+
 
 export async function countToValidate(): Promise<number> {
   const { count } = await supabase
