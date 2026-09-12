@@ -31,10 +31,17 @@ export type ExpenseNote = {
   accounted_by_name: string | null;
   validated_pdf_path: string | null;
   employee_notified_at: string | null;
+  archived_at: string | null;
+  archived_by_name: string | null;
+  account_ref: string | null;
+  account_other: string | null;
+  reconciled_at: string | null;
+  reconciled_by_name: string | null;
 };
 
 const COLUMNS =
-  "id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, vat_amount, vat_rate, payment_method, receipt_path, receipt_mime, status, reject_reason, notes, created_at, validated_by_name, validated_at, accounting_email, sent_at, send_status, send_error, settled_at, settled_by_name, accounted_at, accounted_by_name, validated_pdf_path, employee_notified_at";
+  "id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, vat_amount, vat_rate, payment_method, receipt_path, receipt_mime, status, reject_reason, notes, created_at, validated_by_name, validated_at, accounting_email, sent_at, send_status, send_error, settled_at, settled_by_name, accounted_at, accounted_by_name, validated_pdf_path, employee_notified_at, archived_at, archived_by_name, account_ref, account_other, reconciled_at, reconciled_by_name";
+
 
 /** Motifs proposés par l'analyse du justificatif, toujours modifiables. */
 export const EXPENSE_CATEGORIES = [
@@ -54,7 +61,33 @@ export const PAYMENT_METHODS = [
   { key: "pro_especes", label: "Pro — Espèces", pro: true },
   { key: "pro_cheque", label: "Pro — Chèque", pro: true },
   { key: "pro_virement", label: "Pro — Virement", pro: true },
+  { key: "en_compte", label: "En compte", pro: true },
 ] as const;
+
+/**
+ * Référentiel simple des cartes / comptes utilisables avec « En compte ».
+ * Extensible : le champ « Autre » reste toujours saisissable librement.
+ */
+export const EXPENSE_ACCOUNTS = [
+  { key: "carrefour_atelier", label: "Carrefour — Atelier" },
+  { key: "carrefour_vo", label: "Carrefour — VO" },
+  { key: "carrefour_direction", label: "Carrefour — Direction" },
+  { key: "intermarche_lalinde", label: "Intermarché — Lalinde" },
+  { key: "bricorama", label: "Bricorama" },
+  { key: "carrefour_fournisseur", label: "Carrefour — Compte fournisseur" },
+  { key: "autre", label: "Autre" },
+] as const;
+
+export function isAccountPayment(method: string | null | undefined): boolean {
+  return method === "en_compte";
+}
+
+export function accountLabel(ref: string | null | undefined, other?: string | null): string {
+  if (!ref) return other?.trim() || "—";
+  if (ref === "autre") return other?.trim() || "Autre";
+  return EXPENSE_ACCOUNTS.find((a) => a.key === ref)?.label ?? other?.trim() ?? ref;
+}
+
 
 export const EXPENSE_STATUS = [
   { key: "brouillon", label: "Brouillon" },
@@ -127,23 +160,26 @@ export function frDateTime(v: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
-export type ExpenseScope = "mine" | "to_validate" | "accounting" | "all";
+export type ExpenseScope = "mine" | "to_validate" | "accounting" | "archives" | "all";
 
 export async function listExpenses(scope: ExpenseScope, userId: string | null): Promise<ExpenseNote[]> {
   let q = supabase.from("expense_notes").select(COLUMNS).order("created_at", { ascending: false }).limit(400);
   if (scope === "mine" && userId) q = q.eq("user_id", userId);
   if (scope === "to_validate") q = q.eq("status", "soumis");
   if (scope === "accounting") q = q.in("status", ["transmise", "valide", "reglee", "comptabilisee"]);
+  q = scope === "archives" ? q.not("archived_at", "is", null) : q.is("archived_at", null);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as unknown as ExpenseNote[];
 }
 
+
 export async function countToValidate(): Promise<number> {
   const { count } = await supabase
     .from("expense_notes")
     .select("id", { count: "exact", head: true })
-    .eq("status", "soumis");
+    .eq("status", "soumis")
+    .is("archived_at", null);
   return count ?? 0;
 }
 
@@ -153,10 +189,12 @@ export async function countUnreadExpenseUpdates(userId: string): Promise<number>
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .in("status", ["reglee", "comptabilisee"])
-    .is("employee_notified_at", null);
+    .is("employee_notified_at", null)
+    .is("archived_at", null);
   if (error) throw error;
   return count ?? 0;
 }
+
 
 export async function createExpense(input: Record<string, unknown>): Promise<string> {
   const { data, error } = await supabase.from("expense_notes").insert(input as never).select("id").single();
@@ -174,7 +212,22 @@ export async function deleteExpense(id: string) {
   if (error) throw error;
 }
 
-export type ExpenseAction = "resubmit" | "reject" | "settle" | "account" | "mark_seen";
+export type ExpenseAction =
+  | "resubmit"
+  | "reject"
+  | "settle"
+  | "account"
+  | "mark_seen"
+  | "archive"
+  | "restore"
+  | "reconcile";
+
+/** Statuts encore supprimables définitivement : jamais une trace comptable finale. */
+export const DELETABLE_STATUS = ["brouillon", "soumis", "refuse"] as const;
+
+export function canDeleteExpense(status: string | null | undefined): boolean {
+  return (DELETABLE_STATUS as readonly string[]).includes(status ?? "");
+}
 
 export function expenseTransition(
   action: ExpenseAction,
@@ -190,8 +243,21 @@ export function expenseTransition(
   if (action === "account") {
     return { status: "comptabilisee", accounted_at: now, accounted_by_name: actorName, employee_notified_at: null };
   }
+  if (action === "reconcile") {
+    return {
+      status: "comptabilisee",
+      accounted_at: now,
+      accounted_by_name: actorName,
+      reconciled_at: now,
+      reconciled_by_name: actorName,
+      employee_notified_at: null,
+    };
+  }
+  if (action === "archive") return { archived_at: now, archived_by_name: actorName };
+  if (action === "restore") return { archived_at: null, archived_by: null, archived_by_name: null };
   return { employee_notified_at: now };
 }
+
 
 /** Devine un motif à partir du texte du justificatif (règles simples, sans IA). */
 export function guessCategory(text: string | null | undefined): string | null {

@@ -92,6 +92,13 @@
       "when": 1789209126015,
       "tag": "0012_expense_storage_module_rights",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789215752345,
+      "tag": "0013_expense_archive_and_en_compte",
+      "breakpoints": true
     }
   ]
 }

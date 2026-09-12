@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { accountingEmailFor, isPersonalPayment, paymentLabel, categoryLabel } from "./expenses";
+import { accountingEmailFor, accountLabel, isAccountPayment, isPersonalPayment, paymentLabel, categoryLabel } from "./expenses";
 
 const input = z.object({
   expenseId: z.string().uuid(),
@@ -40,7 +40,10 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: note, error } = await supabaseAdmin
       .from("expense_notes")
-      .select("id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, payment_method, status")
+      .select(
+        "id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, payment_method, status, account_ref, account_other",
+      )
+
       .eq("id", data.expenseId)
       .maybeSingle();
     if (error || !note) return { ok: false as const, error: "Note de frais introuvable." };
@@ -113,7 +116,13 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
       result = await sendExpenseToAccounting({
         to,
         personal,
+        onAccount: isAccountPayment(note.payment_method as string),
+        accountLabel: accountLabel(
+          (note as { account_ref?: string | null }).account_ref,
+          (note as { account_other?: string | null }).account_other,
+        ),
         amount,
+
         merchant: (note.merchant as string) || "—",
         siteLabel,
         spentOn: new Date(note.spent_on as string).toLocaleDateString("fr-FR"),

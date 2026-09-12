@@ -17,14 +17,18 @@ import { transitionExpense } from "@/lib/expense-actions.functions";
 import { buildExpenseNotePdf, pdfToBase64 } from "@/lib/expense-pdf";
 import { blobToDataUrl, receiptUrl, uploadReceipt } from "@/lib/expense-upload";
 import {
+  accountLabel,
+  canDeleteExpense,
   categoryLabel,
   createExpense,
   deleteExpense,
   euros,
+  EXPENSE_ACCOUNTS,
   EXPENSE_CATEGORIES,
   frDate,
   frDateTime,
   guessCategory,
+  isAccountPayment,
   isPersonalPayment,
   listExpenses,
   PAYMENT_METHODS,
@@ -34,6 +38,7 @@ import {
   type ExpenseNote,
   type ExpenseScope,
 } from "@/lib/expenses";
+
 
 export const Route = createFileRoute("/notes-frais/")({
   head: () => ({
@@ -62,6 +67,8 @@ type Draft = {
   vat_amount: string;
   vat_rate: string;
   payment_method: string;
+  account_ref: string;
+  account_other: string;
   site_id: string;
   notes: string;
 };
@@ -76,10 +83,13 @@ function emptyDraft(siteId: string): Draft {
     vat_amount: "",
     vat_rate: "",
     payment_method: "perso",
+    account_ref: "",
+    account_other: "",
     site_id: siteId,
     notes: "",
   };
 }
+
 
 function ExpenseHub() {
   const qc = useQueryClient();
@@ -146,6 +156,12 @@ function ExpenseHub() {
 
   const create = useMutation({
     mutationFn: async () => {
+      if (isAccountPayment(draft.payment_method)) {
+        if (!draft.account_ref) throw new Error("Indiquez la carte ou le compte utilisé.");
+        if (draft.account_ref === "autre" && !draft.account_other.trim()) {
+          throw new Error("Précisez le compte / fournisseur utilisé.");
+        }
+      }
       let path: string | null = null;
       let mime: string | null = null;
       if (receipt) {
@@ -154,6 +170,7 @@ function ExpenseHub() {
         mime = up.mime;
       }
       await createExpense({
+
         user_id: user!.id,
         user_name: displayName || null,
         site_id: draft.site_id || null,
@@ -165,6 +182,10 @@ function ExpenseHub() {
         vat_amount: draft.vat_amount ? Number(draft.vat_amount) : null,
         vat_rate: draft.vat_rate ? Number(draft.vat_rate) : null,
         payment_method: draft.payment_method,
+        account_ref: isAccountPayment(draft.payment_method) ? draft.account_ref : null,
+        account_other:
+          isAccountPayment(draft.payment_method) && draft.account_ref === "autre" ? draft.account_other.trim() : null,
+
         receipt_path: path,
         receipt_mime: mime,
         notes: draft.notes || null,
@@ -207,8 +228,16 @@ function ExpenseHub() {
   });
 
   const change = useMutation({
-    mutationFn: ({ id, action, detail }: { id: string; action: "resubmit" | "reject" | "settle" | "account" | "mark_seen"; detail?: string }) =>
-      transitionExpense({ data: { expenseId: id, action, detail } }),
+    mutationFn: ({
+      id,
+      action,
+      detail,
+    }: {
+      id: string;
+      action: "resubmit" | "reject" | "settle" | "account" | "mark_seen" | "archive" | "restore" | "reconcile";
+      detail?: string;
+    }) => transitionExpense({ data: { expenseId: id, action, detail } }),
+
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["expenses"] }),
     onError: (e) => toastError(e, "Mise à jour impossible"),
   });
@@ -241,7 +270,9 @@ function ExpenseHub() {
       ? [{ key: "to_validate" as ExpenseScope, label: "À valider", count: pending.data?.length ?? 0 }]
       : []),
     ...(perms.canAccountExpenses ? [{ key: "accounting" as ExpenseScope, label: "Comptabilité" }] : []),
+    { key: "archives" as ExpenseScope, label: "Archives" },
   ];
+
 
   return (
     <AppShell title="Notes de frais" subtitle="Justificatifs et remboursements" back={{ to: "/" }}>
@@ -342,6 +373,24 @@ function ExpenseHub() {
               options={PAYMENT_METHODS.map((p) => ({ key: p.key, label: p.label }))}
               allowEmpty={false}
             />
+            {isAccountPayment(draft.payment_method) ? (
+              <>
+                <Select
+                  label="Carte / compte utilisé *"
+                  value={draft.account_ref}
+                  onChange={(v) => setDraft({ ...draft, account_ref: v })}
+                  options={EXPENSE_ACCOUNTS.map((a) => ({ key: a.key, label: a.label }))}
+                  allowEmpty
+                />
+                {draft.account_ref === "autre" ? (
+                  <Field
+                    label="Préciser le compte / fournisseur *"
+                    value={draft.account_other}
+                    onChange={(v) => setDraft({ ...draft, account_other: v })}
+                  />
+                ) : null}
+              </>
+            ) : null}
             <Select
               label="Établissement *"
               value={draft.site_id}
@@ -353,15 +402,26 @@ function ExpenseHub() {
             <p className="text-[11px] text-muted-foreground">
               {isPersonalPayment(draft.payment_method)
                 ? "Paiement personnel : un remboursement vous sera dû après validation."
-                : "Paiement entreprise : justificatif comptable uniquement, aucun remboursement."}
+                : isAccountPayment(draft.payment_method)
+                  ? "En compte : aucun remboursement, justificatif à rapprocher du relevé ou de la facture du fournisseur."
+                  : "Paiement entreprise : justificatif comptable uniquement, aucun remboursement."}
             </p>
             <button
               onClick={() => create.mutate()}
-              disabled={create.isPending || !draft.amount_ttc || !draft.site_id || !draft.payment_method || !draft.category}
+              disabled={
+                create.isPending ||
+                !draft.amount_ttc ||
+                !draft.site_id ||
+                !draft.payment_method ||
+                !draft.category ||
+                (isAccountPayment(draft.payment_method) &&
+                  (!draft.account_ref || (draft.account_ref === "autre" && !draft.account_other.trim())))
+              }
               className="w-full rounded-lg bg-brand py-3 font-bold uppercase text-brand-foreground disabled:opacity-60"
             >
               {create.isPending ? "Envoi…" : "Envoyer à la validation"}
             </button>
+
           </div>
         </Section>
       ) : null}
@@ -375,6 +435,7 @@ function ExpenseHub() {
         <div className="space-y-2">
           {list.map((e) => {
             const personal = isPersonalPayment(e.payment_method);
+            const onAccount = isAccountPayment(e.payment_method);
             const failed = e.send_status === "failed";
             return (
               <div key={e.id} className="rounded-xl border-2 border-border bg-card p-3">
@@ -384,8 +445,14 @@ function ExpenseHub() {
                   <Badge tone={personal ? "bg-brand/10 text-brand" : "bg-secondary text-muted-foreground"}>
                     {paymentLabel(e.payment_method)}
                   </Badge>
+                  {onAccount ? <Badge>{accountLabel(e.account_ref, e.account_other)}</Badge> : null}
+                  {onAccount && !e.reconciled_at ? (
+                    <Badge tone="bg-status-watch-soft text-status-watch">À rapprocher</Badge>
+                  ) : null}
+                  {e.archived_at ? <Badge>Archivée</Badge> : null}
                   <span className="ml-auto text-sm font-extrabold">{euros(e.amount_ttc)}</span>
                 </div>
+
                 <div className="mt-1 text-xs text-muted-foreground">
                   {frDate(e.spent_on)}
                   {e.merchant ? ` · ${e.merchant}` : ""}
@@ -461,7 +528,7 @@ function ExpenseHub() {
                       }}
                     />
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && !personal ? (
+                  {perms.canAccountExpenses && e.status === "transmise" && !personal && !onAccount ? (
                     <Act
                       label="Marquer comptabilisé"
                       primary
@@ -473,12 +540,25 @@ function ExpenseHub() {
                       }
                     />
                   ) : null}
+                  {perms.canAccountExpenses && e.status === "transmise" && onAccount ? (
+                    <Act
+                      label="Rapprochée / comptabilisée"
+                      primary
+                      onClick={() => change.mutate({ id: e.id, action: "reconcile" })}
+                    />
+                  ) : null}
                   {e.user_id === user?.id && !e.employee_notified_at && (e.status === "reglee" || e.status === "comptabilisee") ? (
                     <Act label="Marquer comme lu" onClick={() => change.mutate({ id: e.id, action: "mark_seen" })} />
                   ) : null}
-                  {e.user_id === user?.id && (e.status === "brouillon" || e.status === "soumis" || e.status === "refuse") ? (
+                  {e.archived_at ? (
+                    <Act label="Restaurer" onClick={() => change.mutate({ id: e.id, action: "restore" })} />
+                  ) : (
+                    <Act label="Archiver" onClick={() => change.mutate({ id: e.id, action: "archive" })} />
+                  )}
+                  {e.user_id === user?.id && canDeleteExpense(e.status) ? (
                     <Act label="Supprimer" onClick={() => remove.mutate(e.id)} />
                   ) : null}
+
                 </div>
               </div>
             );

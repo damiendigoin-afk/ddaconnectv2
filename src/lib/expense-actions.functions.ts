@@ -6,9 +6,10 @@ import { expenseTransition, type ExpenseAction } from "./expenses";
 
 const actionInput = z.object({
   expenseId: z.string().uuid(),
-  action: z.enum(["resubmit", "reject", "settle", "account", "mark_seen"]),
+  action: z.enum(["resubmit", "reject", "settle", "account", "mark_seen", "archive", "restore", "reconcile"]),
   detail: z.string().max(500).optional(),
 });
+
 
 export const transitionExpense = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -32,9 +33,10 @@ export const transitionExpense = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: note } = await supabaseAdmin
       .from("expense_notes")
-      .select("id, user_id, site_id, status, payment_method")
+      .select("id, user_id, site_id, status, payment_method, archived_at")
       .eq("id", data.expenseId)
       .maybeSingle();
+
     if (!note) throw new Error("Note de frais introuvable");
 
     const owner = note.user_id === context.userId;
@@ -58,11 +60,21 @@ export const transitionExpense = createServerFn({ method: "POST" })
     if (action === "mark_seen" && (!owner || !["reglee", "comptabilisee"].includes(note.status))) {
       throw new Error("Action non autorisée");
     }
+    if (action === "reconcile" && (!canAccount || note.status !== "transmise" || note.payment_method !== "en_compte")) {
+      throw new Error("Action non autorisée");
+    }
+    if ((action === "archive" || action === "restore") && !(owner || canValidate || canAccount)) {
+      throw new Error("Action non autorisée");
+    }
+    if (action === "archive" && note.archived_at) throw new Error("Note déjà archivée");
+    if (action === "restore" && !note.archived_at) throw new Error("Note non archivée");
 
     const p = profile as { first_name?: string | null; last_name?: string | null; email?: string | null } | null;
     const actorName = [p?.first_name, p?.last_name].filter(Boolean).join(" ") || p?.email || "Utilisateur";
     const patch = expenseTransition(action, new Date().toISOString(), actorName, data.detail);
+    if (action === "archive") (patch as Record<string, unknown>)["archived_by"] = context.userId;
     const { error } = await supabaseAdmin.from("expense_notes").update(patch as never).eq("id", data.expenseId);
+
     if (error) throw error;
     return { ok: true as const };
   });
