@@ -212,7 +212,22 @@ export async function deleteExpense(id: string) {
   if (error) throw error;
 }
 
-export type ExpenseAction = "resubmit" | "reject" | "settle" | "account" | "mark_seen";
+export type ExpenseAction =
+  | "resubmit"
+  | "reject"
+  | "settle"
+  | "account"
+  | "mark_seen"
+  | "archive"
+  | "restore"
+  | "reconcile";
+
+/** Statuts encore supprimables définitivement : jamais une trace comptable finale. */
+export const DELETABLE_STATUS = ["brouillon", "soumis", "refuse"] as const;
+
+export function canDeleteExpense(status: string | null | undefined): boolean {
+  return (DELETABLE_STATUS as readonly string[]).includes(status ?? "");
+}
 
 export function expenseTransition(
   action: ExpenseAction,
@@ -228,8 +243,21 @@ export function expenseTransition(
   if (action === "account") {
     return { status: "comptabilisee", accounted_at: now, accounted_by_name: actorName, employee_notified_at: null };
   }
+  if (action === "reconcile") {
+    return {
+      status: "comptabilisee",
+      accounted_at: now,
+      accounted_by_name: actorName,
+      reconciled_at: now,
+      reconciled_by_name: actorName,
+      employee_notified_at: null,
+    };
+  }
+  if (action === "archive") return { archived_at: now, archived_by_name: actorName };
+  if (action === "restore") return { archived_at: null, archived_by: null, archived_by_name: null };
   return { employee_notified_at: now };
 }
+
 
 /** Devine un motif à partir du texte du justificatif (règles simples, sans IA). */
 export function guessCategory(text: string | null | undefined): string | null {
