@@ -67,6 +67,8 @@ type Draft = {
   vat_amount: string;
   vat_rate: string;
   payment_method: string;
+  account_ref: string;
+  account_other: string;
   site_id: string;
   notes: string;
 };
@@ -81,10 +83,13 @@ function emptyDraft(siteId: string): Draft {
     vat_amount: "",
     vat_rate: "",
     payment_method: "perso",
+    account_ref: "",
+    account_other: "",
     site_id: siteId,
     notes: "",
   };
 }
+
 
 function ExpenseHub() {
   const qc = useQueryClient();
