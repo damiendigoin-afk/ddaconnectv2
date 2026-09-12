@@ -33,9 +33,10 @@ export const transitionExpense = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: note } = await supabaseAdmin
       .from("expense_notes")
-      .select("id, user_id, site_id, status, payment_method")
+      .select("id, user_id, site_id, status, payment_method, archived_at")
       .eq("id", data.expenseId)
       .maybeSingle();
+
     if (!note) throw new Error("Note de frais introuvable");
 
     const owner = note.user_id === context.userId;
