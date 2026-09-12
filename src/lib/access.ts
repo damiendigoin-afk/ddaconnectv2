@@ -30,7 +30,7 @@ export const MODULES = [
   // ------------------------------------------------ Magasin & achats
   { key: "magasin", label: "Magasin", group: "Magasin & achats", prefixes: ["/magasin", "/factures-fournisseur"] },
   // ------------------------------------------- Clients & commercial
-  { key: "crm", label: "CRM", group: "Clients & commercial", prefixes: ["/crm"] },
+  { key: "crm", label: "CRM", group: "Clients & commercial", prefixes: ["/crm", "/client", "/vehicule"] },
   { key: "recuperation", label: "Ventes", group: "Clients & commercial", prefixes: ["/recuperation"] },
   { key: "darva", label: "Gestion DARVA", group: "Clients & commercial", prefixes: ["/darva"] },
   // --------------------------------------------------- Communication
@@ -69,6 +69,8 @@ export const MODULES = [
   { key: "emails", label: "Flux emails", group: "Paramétrage", prefixes: ["/emails"] },
   { key: "connaissances", label: "Base de connaissances", group: "Paramétrage", prefixes: ["/connaissances"] },
   { key: "automatisations", label: "Automatisations", group: "Paramétrage", prefixes: ["/automatisations"] },
+  { key: "parametrage", label: "Paramétrage général", group: "Paramétrage", prefixes: ["/parametrage"] },
+  { key: "utilisateurs", label: "Fiche & accès", group: "Paramétrage", prefixes: ["/utilisateurs"] },
 ] as const satisfies readonly ModuleDef[];
 
 export type ModuleKey = (typeof MODULES)[number]["key"];

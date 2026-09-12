@@ -29,10 +29,12 @@ export type ExpenseNote = {
   settled_by_name: string | null;
   accounted_at: string | null;
   accounted_by_name: string | null;
+  validated_pdf_path: string | null;
+  employee_notified_at: string | null;
 };
 
 const COLUMNS =
-  "id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, vat_amount, vat_rate, payment_method, receipt_path, receipt_mime, status, reject_reason, notes, created_at, validated_by_name, validated_at, accounting_email, sent_at, send_status, send_error, settled_at, settled_by_name, accounted_at, accounted_by_name";
+  "id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, vat_amount, vat_rate, payment_method, receipt_path, receipt_mime, status, reject_reason, notes, created_at, validated_by_name, validated_at, accounting_email, sent_at, send_status, send_error, settled_at, settled_by_name, accounted_at, accounted_by_name, validated_pdf_path, employee_notified_at";
 
 /** Motifs proposés par l'analyse du justificatif, toujours modifiables. */
 export const EXPENSE_CATEGORIES = [
@@ -130,6 +132,17 @@ export async function countToValidate(): Promise<number> {
   return count ?? 0;
 }
 
+export async function countUnreadExpenseUpdates(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("expense_notes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .in("status", ["reglee", "comptabilisee"])
+    .is("employee_notified_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function createExpense(input: Record<string, unknown>): Promise<string> {
   const { data, error } = await supabase.from("expense_notes").insert(input as never).select("id").single();
   if (error) throw error;
@@ -144,6 +157,25 @@ export async function updateExpense(id: string, patch: Record<string, unknown>) 
 export async function deleteExpense(id: string) {
   const { error } = await supabase.from("expense_notes").delete().eq("id", id);
   if (error) throw error;
+}
+
+export type ExpenseAction = "resubmit" | "reject" | "settle" | "account" | "mark_seen";
+
+export function expenseTransition(
+  action: ExpenseAction,
+  now: string,
+  actorName: string,
+  detail?: string,
+): Record<string, unknown> {
+  if (action === "resubmit") return { status: "soumis", submitted_at: now, reject_reason: null };
+  if (action === "reject") return { status: "refuse", reject_reason: detail?.trim() || "Correction demandée" };
+  if (action === "settle") {
+    return { status: "reglee", settled_at: detail || now.slice(0, 10), settled_by_name: actorName, employee_notified_at: null };
+  }
+  if (action === "account") {
+    return { status: "comptabilisee", accounted_at: now, accounted_by_name: actorName, employee_notified_at: null };
+  }
+  return { employee_notified_at: now };
 }
 
 /** Devine un motif à partir du texte du justificatif (règles simples, sans IA). */

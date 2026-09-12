@@ -2,11 +2,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { BUCKET, compressImage } from "@/lib/photo";
 
-export async function uploadReceipt(file: Blob, filename: string): Promise<{ path: string; mime: string }> {
+export async function uploadReceipt(file: Blob, filename: string, userId: string): Promise<{ path: string; mime: string }> {
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(filename);
   const body = isPdf ? file : await compressImage(file, 1800, 0.85);
   const mime = isPdf ? "application/pdf" : "image/jpeg";
-  const path = `notes-frais/${crypto.randomUUID()}.${isPdf ? "pdf" : "jpg"}`;
+  const path = `notes-frais/${userId}/${crypto.randomUUID()}.${isPdf ? "pdf" : "jpg"}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, body, { contentType: mime, upsert: false });
   if (error) throw error;
   return { path, mime };

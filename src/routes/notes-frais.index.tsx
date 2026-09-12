@@ -13,6 +13,7 @@ import { toastError } from "@/lib/errors";
 import { fetchSites, type Site } from "@/lib/sites";
 import { ocrExpenseReceipt } from "@/lib/expense-ocr.functions";
 import { validateAndSendExpense } from "@/lib/expense-mail.functions";
+import { transitionExpense } from "@/lib/expense-actions.functions";
 import { buildExpenseNotePdf, pdfToBase64 } from "@/lib/expense-pdf";
 import { blobToDataUrl, receiptUrl, uploadReceipt } from "@/lib/expense-upload";
 import {
@@ -149,7 +150,7 @@ function ExpenseHub() {
       let path: string | null = null;
       let mime: string | null = null;
       if (receipt) {
-        const up = await uploadReceipt(receipt.file, receipt.name);
+        const up = await uploadReceipt(receipt.file, receipt.name, user!.id);
         path = up.path;
         mime = up.mime;
       }
@@ -207,7 +208,8 @@ function ExpenseHub() {
   });
 
   const change = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Record<string, unknown> }) => updateExpense(id, patch),
+    mutationFn: ({ id, action, detail }: { id: string; action: "resubmit" | "reject" | "settle" | "account" | "mark_seen"; detail?: string }) =>
+      transitionExpense({ data: { expenseId: id, action, detail } }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["expenses"] }),
     onError: (e) => toastError(e, "Mise à jour impossible"),
   });
@@ -220,7 +222,12 @@ function ExpenseHub() {
 
   async function openPdf(note: ExpenseNote) {
     try {
-      const url = await receiptUrl(note.receipt_path);
+    const frozen = note.validated_pdf_path ? await receiptUrl(note.validated_pdf_path) : null;
+    if (frozen) {
+      window.open(frozen, "_blank");
+      return;
+    }
+    const url = await receiptUrl(note.receipt_path);
       const bytes = await buildExpenseNotePdf({ note, siteLabel: siteName(note.site_id), receiptUrl: url });
       const blob = new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
       window.open(URL.createObjectURL(blob), "_blank");
@@ -412,7 +419,7 @@ function ExpenseHub() {
                   {e.status === "brouillon" || e.status === "refuse" ? (
                     <Act
                       label="Soumettre"
-                      onClick={() => change.mutate({ id: e.id, patch: { status: "soumis", submitted_at: new Date().toISOString(), reject_reason: null } })}
+                       onClick={() => change.mutate({ id: e.id, action: "resubmit" })}
                     />
                   ) : null}
                   {perms.canValidateExpenses && (e.status === "soumis" || failed) ? (
@@ -427,7 +434,7 @@ function ExpenseHub() {
                           label="Refuser / à corriger"
                           onClick={() => {
                             const reason = window.prompt("Motif du refus ou correction demandée ?") ?? "";
-                            if (reason) change.mutate({ id: e.id, patch: { status: "refuse", reject_reason: reason } });
+                             if (reason) change.mutate({ id: e.id, action: "reject", detail: reason });
                           }}
                         />
                       ) : null}
@@ -442,7 +449,8 @@ function ExpenseHub() {
                         if (d)
                           change.mutate({
                             id: e.id,
-                            patch: { status: "reglee", settled_at: d, settled_by_name: displayName || null },
+                             action: "settle",
+                             detail: d,
                           });
                       }}
                     />
@@ -454,11 +462,7 @@ function ExpenseHub() {
                       onClick={() =>
                         change.mutate({
                           id: e.id,
-                          patch: {
-                            status: "comptabilisee",
-                            accounted_at: new Date().toISOString(),
-                            accounted_by_name: displayName || null,
-                          },
+                           action: "account",
                         })
                       }
                     />

@@ -161,6 +161,7 @@ const FAMILIES: Family[] = [
         label: "Mes statistiques",
         hint: "Productivité, rentabilité et activité du mois",
         icon: BarChart3,
+        module: "statistiques",
       },
       {
         to: "/pilotage",
@@ -179,7 +180,7 @@ const FAMILIES: Family[] = [
         label: "Paramétrage",
         hint: "Utilisateurs, base de données, flux emails, connaissances, qualité, automatisations, santé",
         icon: SlidersHorizontal,
-        managerOnly: true,
+        module: "parametrage",
       },
     ],
   },

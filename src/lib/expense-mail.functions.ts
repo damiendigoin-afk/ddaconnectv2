@@ -21,27 +21,42 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
 
-    const [{ data: roles }, { data: functions }] = await Promise.all([
+    const [{ data: roles }, { data: functions }, { data: modules }] = await Promise.all([
       sb.from("user_roles").select("role").eq("user_id", context.userId),
       sb.from("user_functions").select("function_key").eq("user_id", context.userId),
+      sb.from("user_module_access").select("module_key, allowed").eq("user_id", context.userId),
     ]);
     const isManager = ((roles ?? []) as { role: string }[]).some((r) => r.role === "manager");
     const canValidate =
       isManager ||
-      ((functions ?? []) as { function_key: string }[]).some((f) => f.function_key === "valider_notes_frais");
+      ((functions ?? []) as { function_key: string }[]).some((f) => f.function_key === "valider_notes_frais") ||
+      ((modules ?? []) as { module_key: string; allowed: boolean }[]).some(
+        (m) => m.module_key === "notes_frais_valider" && m.allowed,
+      );
     if (!canValidate) {
       return { ok: false as const, error: "Vous n'êtes pas autorisé à valider les notes de frais." };
     }
 
-    const { data: note, error } = await sb
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: note, error } = await supabaseAdmin
       .from("expense_notes")
-      .select("id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, payment_method, status")
+      .select("id, user_id, user_name, site_id, spent_on, category, purpose, merchant, amount_ttc, payment_method, status")
       .eq("id", data.expenseId)
       .maybeSingle();
     if (error || !note) return { ok: false as const, error: "Note de frais introuvable." };
+    if (!isManager && note.site_id) {
+      const { data: siteAllowed } = await sb.rpc("user_can_access_site", {
+        _user_id: context.userId,
+        _site_id: note.site_id,
+      });
+      if (!siteAllowed) return { ok: false as const, error: "Établissement non autorisé." };
+    }
+    if (note.status !== "soumis" && !(note.status === "valide" && data.attempt)) {
+      return { ok: false as const, error: "Cette note ne peut pas être validée dans son état actuel." };
+    }
 
     const { data: site } = note.site_id
-      ? await sb.from("sites").select("code, name").eq("id", note.site_id).maybeSingle()
+      ? await supabaseAdmin.from("sites").select("code, name").eq("id", note.site_id).maybeSingle()
       : { data: null };
     const siteCode = (site as { code: string | null } | null)?.code ?? "";
     const siteLabel = (site as { name: string } | null)?.name ?? "Établissement non renseigné";
@@ -69,7 +84,14 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
     const amount = Number(note.amount_ttc ?? 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 
     // Validation enregistrée avant l'envoi : le document A4 est figé « VALIDÉ ».
-    await sb
+    const pdfPath = `notes-frais/${note.id}/note-validee.pdf`;
+    const pdfBytes = Buffer.from(data.pdfBase64, "base64");
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("dda-media")
+      .upload(pdfPath, pdfBytes, { contentType: "application/pdf", upsert: true });
+    if (uploadError) return { ok: false as const, error: `Document validé non archivé : ${uploadError.message}` };
+
+    const { error: validationError } = await supabaseAdmin
       .from("expense_notes")
       .update({
         status: "valide",
@@ -80,8 +102,10 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
         reviewed_by: context.userId,
         reject_reason: null,
         accounting_email: to,
+        validated_pdf_path: pdfPath,
       } as never)
       .eq("id", data.expenseId);
+    if (validationError) return { ok: false as const, error: `Validation non enregistrée : ${validationError.message}` };
 
     const { sendExpenseToAccounting } = await import("./expense-mail.server");
     let result: { ok: boolean; error: string };
@@ -105,7 +129,7 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
       result = { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
 
-    await sb
+    const { error: finalError } = await supabaseAdmin
       .from("expense_notes")
       .update(
         result.ok
@@ -113,6 +137,7 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
           : { status: "valide", send_status: "failed", send_error: result.error.slice(0, 500) },
       )
       .eq("id", data.expenseId);
+    if (finalError) return { ok: false as const, error: `Statut d'envoi non enregistré : ${finalError.message}` };
 
     return result.ok
       ? { ok: true as const, error: "", to }
