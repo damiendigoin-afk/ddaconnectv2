@@ -492,7 +492,7 @@ function ExpenseHub() {
                       }}
                     />
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && !personal ? (
+                  {perms.canAccountExpenses && e.status === "transmise" && !personal && !onAccount ? (
                     <Act
                       label="Marquer comptabilisé"
                       primary
@@ -504,12 +504,25 @@ function ExpenseHub() {
                       }
                     />
                   ) : null}
+                  {perms.canAccountExpenses && e.status === "transmise" && onAccount ? (
+                    <Act
+                      label="Rapprochée / comptabilisée"
+                      primary
+                      onClick={() => change.mutate({ id: e.id, action: "reconcile" })}
+                    />
+                  ) : null}
                   {e.user_id === user?.id && !e.employee_notified_at && (e.status === "reglee" || e.status === "comptabilisee") ? (
                     <Act label="Marquer comme lu" onClick={() => change.mutate({ id: e.id, action: "mark_seen" })} />
                   ) : null}
-                  {e.user_id === user?.id && (e.status === "brouillon" || e.status === "soumis" || e.status === "refuse") ? (
+                  {e.archived_at ? (
+                    <Act label="Restaurer" onClick={() => change.mutate({ id: e.id, action: "restore" })} />
+                  ) : (
+                    <Act label="Archiver" onClick={() => change.mutate({ id: e.id, action: "archive" })} />
+                  )}
+                  {e.user_id === user?.id && canDeleteExpense(e.status) ? (
                     <Act label="Supprimer" onClick={() => remove.mutate(e.id)} />
                   ) : null}
+
                 </div>
               </div>
             );
