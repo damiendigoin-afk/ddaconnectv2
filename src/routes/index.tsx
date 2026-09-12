@@ -22,7 +22,8 @@ import type { LucideIcon } from "lucide-react";
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
 import { fetchMissingReports, periodLabel } from "@/lib/stats";
-import { useModuleAccess } from "@/lib/module-access";
+import { useModuleAccess, usePermissions } from "@/lib/module-access";
+import { countToValidate } from "@/lib/expenses";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -65,7 +66,7 @@ const FAMILIES: Family[] = [
         label: "Devis pneus",
         hint: "Dimension par photo ou saisie, six ou sept offres chiffrées et impression client",
         icon: CircleDot,
-        module: "tour",
+        module: "pneus",
       },
       {
         to: "/expertises",
