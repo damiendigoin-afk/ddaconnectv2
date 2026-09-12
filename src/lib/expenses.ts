@@ -61,7 +61,33 @@ export const PAYMENT_METHODS = [
   { key: "pro_especes", label: "Pro — Espèces", pro: true },
   { key: "pro_cheque", label: "Pro — Chèque", pro: true },
   { key: "pro_virement", label: "Pro — Virement", pro: true },
+  { key: "en_compte", label: "En compte", pro: true },
 ] as const;
+
+/**
+ * Référentiel simple des cartes / comptes utilisables avec « En compte ».
+ * Extensible : le champ « Autre » reste toujours saisissable librement.
+ */
+export const EXPENSE_ACCOUNTS = [
+  { key: "carrefour_atelier", label: "Carrefour — Atelier" },
+  { key: "carrefour_vo", label: "Carrefour — VO" },
+  { key: "carrefour_direction", label: "Carrefour — Direction" },
+  { key: "intermarche_lalinde", label: "Intermarché — Lalinde" },
+  { key: "bricorama", label: "Bricorama" },
+  { key: "carrefour_fournisseur", label: "Carrefour — Compte fournisseur" },
+  { key: "autre", label: "Autre" },
+] as const;
+
+export function isAccountPayment(method: string | null | undefined): boolean {
+  return method === "en_compte";
+}
+
+export function accountLabel(ref: string | null | undefined, other?: string | null): string {
+  if (!ref) return other?.trim() || "—";
+  if (ref === "autre") return other?.trim() || "Autre";
+  return EXPENSE_ACCOUNTS.find((a) => a.key === ref)?.label ?? other?.trim() ?? ref;
+}
+
 
 export const EXPENSE_STATUS = [
   { key: "brouillon", label: "Brouillon" },
