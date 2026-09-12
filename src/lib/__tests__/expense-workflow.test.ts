@@ -36,3 +36,35 @@ describe("workflow notes de frais", () => {
     expect(accountingEmailFor("", "Site inconnu")).toBe("");
   });
 });
+
+describe("archivage et règlement en compte", () => {
+  it("archive sans perdre la donnée puis restaure", () => {
+    const arch = expenseTransition("archive", "2026-01-05T10:00:00.000Z", "Manager");
+    expect(arch["archived_at"]).toBe("2026-01-05T10:00:00.000Z");
+    expect(arch["status"]).toBeUndefined();
+    const back = expenseTransition("restore", "2026-01-06T10:00:00.000Z", "Manager");
+    expect(back["archived_at"]).toBeNull();
+  });
+
+  it("n'autorise la suppression définitive que sur les notes non finalisées", () => {
+    expect(canDeleteExpense("brouillon")).toBe(true);
+    expect(canDeleteExpense("soumis")).toBe(true);
+    expect(canDeleteExpense("refuse")).toBe(true);
+    for (const s of ["valide", "transmise", "reglee", "comptabilisee"]) expect(canDeleteExpense(s)).toBe(false);
+  });
+
+  it("traite « en compte » comme une dépense sans remboursement à rapprocher", () => {
+    expect(isPersonalPayment("en_compte")).toBe(false);
+    expect(isAccountPayment("en_compte")).toBe(true);
+    expect(paymentLabel("en_compte")).toBe("En compte");
+    expect(accountLabel("carrefour_atelier")).toBe("Carrefour — Atelier");
+    expect(accountLabel("autre", "Station Avia")).toBe("Station Avia");
+  });
+
+  it("rapproche une note en compte en la comptabilisant", () => {
+    const p = expenseTransition("reconcile", "2026-02-01T09:00:00.000Z", "Compta");
+    expect(p["status"]).toBe("comptabilisee");
+    expect(p["reconciled_at"]).toBe("2026-02-01T09:00:00.000Z");
+    expect(p["reconciled_by_name"]).toBe("Compta");
+  });
+});
