@@ -31,7 +31,6 @@ import {
   paymentLabel,
   statusLabel,
   statusTone,
-  updateExpense,
   type ExpenseNote,
   type ExpenseScope,
 } from "@/lib/expenses";
@@ -407,6 +406,13 @@ function ExpenseHub() {
                 {e.accounted_at ? (
                   <p className="mt-1 text-[11px] font-bold text-status-ok">Comptabilisée le {frDateTime(e.accounted_at)}</p>
                 ) : null}
+                {e.user_id === user?.id && !e.employee_notified_at && (e.status === "reglee" || e.status === "comptabilisee") ? (
+                  <p className="mt-2 rounded-lg bg-status-ok-soft px-2 py-2 text-[11px] font-bold text-status-ok">
+                    {e.status === "reglee"
+                      ? `Votre remboursement a été réglé le ${frDate(e.settled_at)}.`
+                      : "Votre justificatif a été comptabilisé."}
+                  </p>
+                ) : null}
                 {e.reject_reason ? <p className="mt-1 text-xs text-status-watch">À corriger : {e.reject_reason}</p> : null}
                 {failed ? (
                   <p className="mt-2 flex items-center gap-2 rounded-lg bg-red-100 px-2 py-2 text-[11px] font-bold text-red-800">
@@ -466,6 +472,9 @@ function ExpenseHub() {
                         })
                       }
                     />
+                  ) : null}
+                  {e.user_id === user?.id && !e.employee_notified_at && (e.status === "reglee" || e.status === "comptabilisee") ? (
+                    <Act label="Marquer comme lu" onClick={() => change.mutate({ id: e.id, action: "mark_seen" })} />
                   ) : null}
                   {e.user_id === user?.id && (e.status === "brouillon" || e.status === "soumis" || e.status === "refuse") ? (
                     <Act label="Supprimer" onClick={() => remove.mutate(e.id)} />

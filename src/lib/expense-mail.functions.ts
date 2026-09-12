@@ -123,7 +123,9 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
         validatorName: validator,
         pdfBase64: data.pdfBase64,
         filename: `note-de-frais-${String(data.expenseId).slice(0, 8)}.pdf`,
-        idempotencyKey: `expense:${data.expenseId}:${data.attempt ?? "auto"}`,
+        // Stable across retries: a network timeout must never create a second
+        // accounting email for the same validated expense.
+        idempotencyKey: `expense:${data.expenseId}:accounting`,
       });
     } catch (e) {
       result = { ok: false, error: e instanceof Error ? e.message : String(e) };

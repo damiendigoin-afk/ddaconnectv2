@@ -23,7 +23,7 @@ import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
 import { fetchMissingReports, periodLabel } from "@/lib/stats";
 import { useModuleAccess, usePermissions } from "@/lib/module-access";
-import { countToValidate } from "@/lib/expenses";
+import { countToValidate, countUnreadExpenseUpdates } from "@/lib/expenses";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -187,7 +187,7 @@ const FAMILIES: Family[] = [
 ];
 
 function Hub() {
-  const { isManager, displayName, signOut } = useAuth();
+  const { user, isManager, displayName, signOut } = useAuth();
   const { can } = useModuleAccess();
   const perms = usePermissions();
   const missing = useQuery({
@@ -200,6 +200,12 @@ function Hub() {
     queryKey: ["expenses", "to_validate", "count"],
     queryFn: countToValidate,
     enabled: perms.canValidateExpenses,
+    staleTime: 30_000,
+  });
+  const expenseUpdates = useQuery({
+    queryKey: ["expenses", "employee-updates", user?.id],
+    queryFn: () => countUnreadExpenseUpdates(user?.id ?? ""),
+    enabled: !!user?.id,
     staleTime: 30_000,
   });
 
@@ -256,7 +262,8 @@ function Hub() {
             {f.entries.map((m) => {
               const Icon = m.icon;
               const primary = m.to === "/tour-vehicule";
-              const pending = m.to === "/notes-frais" ? (toValidate.data ?? 0) : 0;
+      const pending = m.to === "/notes-frais" ? (toValidate.data ?? 0) : 0;
+      const updates = m.to === "/notes-frais" ? (expenseUpdates.data ?? 0) : 0;
               return (
                 <Link
                   key={m.to}
@@ -276,6 +283,11 @@ function Hub() {
                           {pending} à valider
                         </span>
                       ) : null}
+              {updates ? (
+                <span className="rounded-full bg-status-ok px-2 py-0.5 text-[11px] font-bold text-white">
+                  {updates} mise{updates > 1 ? "s" : ""} à jour
+                </span>
+              ) : null}
                     </div>
                     <div className={`text-xs ${primary ? "font-medium opacity-80" : "text-muted-foreground"}`}>
                       {m.hint}
