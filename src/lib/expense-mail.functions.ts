@@ -116,7 +116,13 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
       result = await sendExpenseToAccounting({
         to,
         personal,
+        onAccount: isAccountPayment(note.payment_method as string),
+        accountLabel: accountLabel(
+          (note as { account_ref?: string | null }).account_ref,
+          (note as { account_other?: string | null }).account_other,
+        ),
         amount,
+
         merchant: (note.merchant as string) || "—",
         siteLabel,
         spentOn: new Date(note.spent_on as string).toLocaleDateString("fr-FR"),
