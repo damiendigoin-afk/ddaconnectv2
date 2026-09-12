@@ -178,7 +178,8 @@ export async function countToValidate(): Promise<number> {
   const { count } = await supabase
     .from("expense_notes")
     .select("id", { count: "exact", head: true })
-    .eq("status", "soumis");
+    .eq("status", "soumis")
+    .is("archived_at", null);
   return count ?? 0;
 }
 
@@ -188,10 +189,12 @@ export async function countUnreadExpenseUpdates(userId: string): Promise<number>
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .in("status", ["reglee", "comptabilisee"])
-    .is("employee_notified_at", null);
+    .is("employee_notified_at", null)
+    .is("archived_at", null);
   if (error) throw error;
   return count ?? 0;
 }
+
 
 export async function createExpense(input: Record<string, unknown>): Promise<string> {
   const { data, error } = await supabase.from("expense_notes").insert(input as never).select("id").single();
