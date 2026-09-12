@@ -17,14 +17,18 @@ import { transitionExpense } from "@/lib/expense-actions.functions";
 import { buildExpenseNotePdf, pdfToBase64 } from "@/lib/expense-pdf";
 import { blobToDataUrl, receiptUrl, uploadReceipt } from "@/lib/expense-upload";
 import {
+  accountLabel,
+  canDeleteExpense,
   categoryLabel,
   createExpense,
   deleteExpense,
   euros,
+  EXPENSE_ACCOUNTS,
   EXPENSE_CATEGORIES,
   frDate,
   frDateTime,
   guessCategory,
+  isAccountPayment,
   isPersonalPayment,
   listExpenses,
   PAYMENT_METHODS,
@@ -34,6 +38,7 @@ import {
   type ExpenseNote,
   type ExpenseScope,
 } from "@/lib/expenses";
+
 
 export const Route = createFileRoute("/notes-frais/")({
   head: () => ({
