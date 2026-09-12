@@ -2484,6 +2484,7 @@ export type Database = {
           amount_ttc: number
           category: string
           created_at: string
+          employee_notified_at: string | null
           id: string
           merchant: string | null
           notes: string | null
@@ -2509,6 +2510,7 @@ export type Database = {
           validated_at: string | null
           validated_by: string | null
           validated_by_name: string | null
+          validated_pdf_path: string | null
           vat_amount: number | null
           vat_rate: number | null
         }
@@ -2519,6 +2521,7 @@ export type Database = {
           amount_ttc?: number
           category?: string
           created_at?: string
+          employee_notified_at?: string | null
           id?: string
           merchant?: string | null
           notes?: string | null
@@ -2544,6 +2547,7 @@ export type Database = {
           validated_at?: string | null
           validated_by?: string | null
           validated_by_name?: string | null
+          validated_pdf_path?: string | null
           vat_amount?: number | null
           vat_rate?: number | null
         }
@@ -2554,6 +2558,7 @@ export type Database = {
           amount_ttc?: number
           category?: string
           created_at?: string
+          employee_notified_at?: string | null
           id?: string
           merchant?: string | null
           notes?: string | null
@@ -2579,6 +2584,7 @@ export type Database = {
           validated_at?: string | null
           validated_by?: string | null
           validated_by_name?: string | null
+          validated_pdf_path?: string | null
           vat_amount?: number | null
           vat_rate?: number | null
         }
@@ -6678,6 +6684,14 @@ export type Database = {
         }
         Returns: string
       }
+      can_create_expense: {
+        Args: { _site_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_manage_expense: {
+        Args: { _action: string; _site_id: string; _user_id: string }
+        Returns: boolean
+      }
       finish_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }
         Returns: {
@@ -6808,6 +6822,10 @@ export type Database = {
         Returns: boolean
       }
       unaccent: { Args: { "": string }; Returns: string }
+      user_can_access_site: {
+        Args: { _site_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "manager" | "salarie" | "client"

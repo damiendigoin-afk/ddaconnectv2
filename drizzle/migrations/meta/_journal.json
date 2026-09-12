@@ -64,6 +64,27 @@
       "when": 1789208191866,
       "tag": "0008_notes_frais_workflow_et_fonctions",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789208767814,
+      "tag": "0009_secure_expense_sites_and_freeze_pdf",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789208963820,
+      "tag": "0010_lock_expense_owner_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789209011323,
+      "tag": "0011_align_expense_action_permissions",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,6 @@ import { ChevronRight, Car, Database, History, Upload, User } from "lucide-react
 
 import { AppShell } from "@/components/AppShell";
 import { UniversalSearch } from "@/components/UniversalSearch";
-import { useAuth } from "@/lib/auth";
 import { countRef } from "@/lib/refbase";
 
 export const Route = createFileRoute("/base/")({
@@ -22,18 +21,7 @@ export const Route = createFileRoute("/base/")({
 });
 
 function BaseHub() {
-  const { isManager } = useAuth();
   const { data } = useQuery({ queryKey: ["ref-count"], queryFn: countRef });
-
-  if (!isManager) {
-    return (
-      <AppShell title="Base de données" back={{ to: "/" }}>
-        <p className="card-surface p-5 text-sm text-muted-foreground">
-          Ce module est réservé aux managers. Utilisez la recherche depuis l'accueil pour retrouver un client ou un véhicule.
-        </p>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell title="Base de données" subtitle="Référentiel clients & véhicules" back={{ to: "/" }}>
