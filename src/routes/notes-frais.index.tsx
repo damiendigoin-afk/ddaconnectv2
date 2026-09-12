@@ -156,6 +156,12 @@ function ExpenseHub() {
 
   const create = useMutation({
     mutationFn: async () => {
+      if (isAccountPayment(draft.payment_method)) {
+        if (!draft.account_ref) throw new Error("Indiquez la carte ou le compte utilisé.");
+        if (draft.account_ref === "autre" && !draft.account_other.trim()) {
+          throw new Error("Précisez le compte / fournisseur utilisé.");
+        }
+      }
       let path: string | null = null;
       let mime: string | null = null;
       if (receipt) {
@@ -164,6 +170,7 @@ function ExpenseHub() {
         mime = up.mime;
       }
       await createExpense({
+
         user_id: user!.id,
         user_name: displayName || null,
         site_id: draft.site_id || null,
