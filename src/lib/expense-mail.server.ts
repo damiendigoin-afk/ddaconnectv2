@@ -4,6 +4,8 @@ import { brandedEmail, sendEmailWithAttachments } from "./email.server";
 export type ExpenseMailInput = {
   to: string;
   personal: boolean;
+  onAccount?: boolean;
+  accountLabel?: string;
   amount: string;
   merchant: string;
   siteLabel: string;
@@ -20,11 +22,15 @@ export type ExpenseMailInput = {
 export async function sendExpenseToAccounting(input: ExpenseMailInput) {
   const subject = input.personal
     ? `Remboursement à effectuer — ${input.authorName} — ${input.amount} — ${input.siteLabel}`
-    : `Justificatif à comptabiliser — déjà réglé — ${input.authorName} — ${input.amount} — ${input.siteLabel}`;
+    : input.onAccount
+      ? `En compte — justificatif à rapprocher — ${input.authorName} — ${input.amount} — ${input.siteLabel}`
+      : `Justificatif à comptabiliser — déjà réglé — ${input.authorName} — ${input.amount} — ${input.siteLabel}`;
 
   const banner = input.personal
     ? `<p style="background:#fde047;color:#1a1a1a;padding:10px 14px;font-weight:700;margin:0 0 16px 0;">REMBOURSEMENT À EFFECTUER (paiement personnel du salarié)</p>`
-    : `<p style="background:#e4e4e7;color:#1a1a1a;padding:10px 14px;font-weight:700;margin:0 0 16px 0;">DÉJÀ RÉGLÉ — JUSTIFICATIF À COMPTABILISER</p>`;
+    : input.onAccount
+      ? `<p style="background:#dbeafe;color:#1a1a1a;padding:10px 14px;font-weight:700;margin:0 0 16px 0;">EN COMPTE — JUSTIFICATIF À RAPPROCHER DU RELEVÉ / DE LA FACTURE</p>`
+      : `<p style="background:#e4e4e7;color:#1a1a1a;padding:10px 14px;font-weight:700;margin:0 0 16px 0;">DÉJÀ RÉGLÉ — JUSTIFICATIF À COMPTABILISER</p>`;
 
   const rows: [string, string][] = [
     ["Établissement", input.siteLabel],
@@ -33,9 +39,11 @@ export async function sendExpenseToAccounting(input: ExpenseMailInput) {
     ["Fournisseur", input.merchant],
     ["Motif", input.purpose],
     ["Moyen de règlement", input.paymentLabel],
+    ...(input.onAccount ? ([["Carte / compte utilisé", input.accountLabel || "—"]] as [string, string][]) : []),
     ["Montant TTC", input.amount],
     ["Validée par", input.validatorName],
   ];
+
 
   const table = rows
     .map(
