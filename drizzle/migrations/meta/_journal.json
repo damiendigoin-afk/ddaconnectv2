@@ -64,6 +64,13 @@
       "when": 1789208191866,
       "tag": "0008_notes_frais_workflow_et_fonctions",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789208767814,
+      "tag": "0009_secure_expense_sites_and_freeze_pdf",
+      "breakpoints": true
     }
   ]
 }
