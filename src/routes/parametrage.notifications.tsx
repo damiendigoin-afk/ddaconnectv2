@@ -111,6 +111,12 @@ function NotificationsSettings() {
     onError: () => toast.error("Suppression impossible"),
   });
 
+  // Diagnostic visible : établissements sans aucun destinataire actif.
+  const missingSites = (sites.data ?? []).filter(
+    (site) =>
+      !(recipients.data ?? []).some((r) => r.active && (r.site_id === null || r.site_id === site.id)),
+  );
+
   if (!isManager) {
     return (
       <AppShell title="Notifications Front Office" back={{ to: "/parametrage" }}>
@@ -131,6 +137,13 @@ function NotificationsSettings() {
         Ces adresses reçoivent automatiquement un e-mail, avec le rapport PDF en pièce jointe, dès qu'un
         Tour Véhicule est terminé sur l'établissement concerné.
       </p>
+
+      {missingSites.length ? (
+        <p className="mb-4 rounded-lg bg-amber-100 px-3 py-3 text-sm font-semibold text-amber-950">
+          Aucun destinataire actif pour : {missingSites.map((s) => s.name).join(", ")}. Les tours terminés
+          sur ces établissements ne déclencheront aucun e-mail tant qu'une adresse n'est pas ajoutée.
+        </p>
+      ) : null}
 
       <section className="card-surface mb-6 space-y-2 p-4">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">

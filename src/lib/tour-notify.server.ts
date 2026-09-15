@@ -133,7 +133,18 @@ export async function notifyTourCompleted(args: {
     await sb.from("tour_notifications").update({ recipients }).eq("id", logId);
   }
   if (!recipients.length) {
-    return await logFail("Aucun destinataire Front Office configuré", [], "no_recipients");
+    // Diagnostic explicite : on nomme l'établissement concerné et l'écran de
+    // paramétrage, plutôt que de rediriger l'e-mail vers une autre adresse.
+    let siteName = "";
+    if (siteId) {
+      const { data: site } = await sb.from("sites").select("name").eq("id", siteId).single();
+      siteName = s((site as Row | null)?.["name"]);
+    }
+    return await logFail(
+      `Aucun destinataire Front Office configuré pour ${siteName ? `l'établissement ${siteName}` : "ce tour (aucun établissement rattaché)"} — à paramétrer dans Paramétrage > Notifications Front Office`,
+      [],
+      "no_recipients",
+    );
   }
 
   const [{ data: points }, { data: obs }, { data: media }] = await Promise.all([

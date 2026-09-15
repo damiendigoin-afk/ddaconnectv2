@@ -92,13 +92,44 @@ export const closeTour = createServerFn({ method: "POST" })
     } catch (e) {
       const message = `Notification Front Office impossible : ${e instanceof Error ? e.message : String(e)}`;
       console.error("[tour-close] notification impossible", e);
-      await failTourNotifyAttempt(logId, message);
-      return {
-        closed,
-        notified: false,
-        error: message,
-        recipients: [],
-        photoCount: 0,
-      };
+      // Filet de sécurité : si le service complet (PDF) ne peut pas être chargé
+      // ou échoue dans le runtime serveur, le Front Office est tout de même
+      // prévenu, avec les mêmes destinataires et la même clé d'idempotence.
+      try {
+        const { sendTourFallbackNotice } = await import("./tour-notify-fallback.server");
+        const fb = await sendTourFallbackNotice({
+          inspectionId: data.inspectionId,
+          origin: data.origin,
+          logId,
+          reason: e instanceof Error ? e.message : String(e),
+        });
+        if (fb.ok) {
+          return {
+            closed,
+            notified: true,
+            error: "",
+            recipients: fb.recipients,
+            photoCount: 0,
+          };
+        }
+        await failTourNotifyAttempt(logId, `${message} — secours : ${fb.error}`);
+        return {
+          closed,
+          notified: false,
+          error: `${message} — secours : ${fb.error}`,
+          recipients: fb.recipients,
+          photoCount: 0,
+        };
+      } catch (fallbackError) {
+        console.error("[tour-close] envoi de secours impossible", fallbackError);
+        await failTourNotifyAttempt(logId, message);
+        return {
+          closed,
+          notified: false,
+          error: message,
+          recipients: [],
+          photoCount: 0,
+        };
+      }
     }
   });
