@@ -66,6 +66,12 @@ export const closeTour = createServerFn({ method: "POST" })
       };
     }
 
+    // La tentative est journalisée AVANT le chargement du service de
+    // notification : si ce dernier échoue (dépendance, PDF, réseau), la panne
+    // reste visible dans l'historique du tour au lieu de disparaître.
+    const { openTourNotifyAttempt, failTourNotifyAttempt } = await import("./tour-notify-log.server");
+    const logId = await openTourNotifyAttempt(data.inspectionId);
+
     try {
       const { notifyTourCompleted } = await import("./tour-notify.server");
       const res = await notifyTourCompleted({
@@ -74,6 +80,7 @@ export const closeTour = createServerFn({ method: "POST" })
         // Clôture automatique : jamais deux notifications pour le même tour.
         skipIfAlreadySent: true,
         mode: "automatic",
+        logId,
       });
       return {
         closed,
@@ -83,11 +90,13 @@ export const closeTour = createServerFn({ method: "POST" })
         photoCount: res.photoCount,
       };
     } catch (e) {
+      const message = `Notification Front Office impossible : ${e instanceof Error ? e.message : String(e)}`;
       console.error("[tour-close] notification impossible", e);
+      await failTourNotifyAttempt(logId, message);
       return {
         closed,
         notified: false,
-        error: `Notification Front Office impossible : ${e instanceof Error ? e.message : String(e)}`,
+        error: message,
         recipients: [],
         photoCount: 0,
       };
