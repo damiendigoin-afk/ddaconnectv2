@@ -111,6 +111,12 @@ function NotificationsSettings() {
     onError: () => toast.error("Suppression impossible"),
   });
 
+  // Diagnostic visible : établissements sans aucun destinataire actif.
+  const missingSites = (sites.data ?? []).filter(
+    (site) =>
+      !(recipients.data ?? []).some((r) => r.active && (r.site_id === null || r.site_id === site.id)),
+  );
+
   if (!isManager) {
     return (
       <AppShell title="Notifications Front Office" back={{ to: "/parametrage" }}>
