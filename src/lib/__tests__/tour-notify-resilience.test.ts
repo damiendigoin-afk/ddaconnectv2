@@ -82,7 +82,7 @@ const sb = {
       Object.assign(api, {
         select: () => api,
         eq: () => api,
-        order: () => Promise.resolve(rows),
+        order: () => api,
         limit: () => Promise.resolve(rows),
         then: (r: (v: unknown) => unknown) => r(rows),
       });
