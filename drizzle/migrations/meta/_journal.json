@@ -99,6 +99,13 @@
       "when": 1789215752345,
       "tag": "0013_expense_archive_and_en_compte",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789590215001,
+      "tag": "0014_restrict_activity_rls",
+      "breakpoints": true
     }
   ]
 }
