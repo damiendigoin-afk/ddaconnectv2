@@ -1,58 +1,39 @@
-# Audit sécurité — alertes « données d'activité » (lecture seule)
+# Tours de véhicule — septembre 2026 : cause de l'écart
 
-Aucun code, aucune migration, aucune donnée n'a été modifié. Ce document est un rapport.
+## Ce que montrent les données
 
-## 1. Alertes en cours (5 au total, dont 2 critiques)
+Sur septembre 2026, 50 tours terminés (non archivés) existent réellement :
 
-| # | Alerte | Sévérité | Objet |
-|---|--------|----------|-------|
-| 1 | Toute personne connectée peut lire, modifier ou supprimer les données d'activité mensuelles | Critique | table `activity_months` |
-| 2 | Toute personne connectée peut lire, modifier ou supprimer les valeurs d'indicateurs | Critique | table `activity_values` |
-| 3 | Toute personne connectée peut lire/modifier l'historique des imports | Avertissement | table `activity_imports` |
-| 4 | Toute personne connectée peut lire/modifier les visuels publicitaires | Avertissement | table `ad_assets` |
-| 5 | Codes journaux internes lisibles par toute personne connectée | Avertissement | table `winmotor_journals` |
+| Site | Compagnon | Tours |
+|---|---|---|
+| Castillon | Styven Guillou | 12 |
+| Castillon | Erwann Pichard | 8 |
+| Castillon | Louis Hustache | 1 |
+| Castillon | Kylian Akrib | 1 |
+| Castillon | Hugo Paolozzi | 1 |
+| Damien Digoin Automobile | Allan Marchal | 11 |
+| Damien Digoin Automobile | Dominique Chataigner | 6 |
+| Damien Digoin Automobile | Julien Cordonnier | 1 |
+| *(aucun site enregistré)* | Romain Nicolas | 7 |
+| *(aucun site enregistré)* | Damien Digoin | 2 |
 
-Alerte technique séparée (non liée à l'activité) : plusieurs fonctions internes de la base sont exécutables par les comptes connectés (avertissement, signalé par le contrôleur de la base). Aucun stockage de fichiers (bucket) n'est concerné.
+Total : 23 Castillon + 18 Damien Digoin Automobile + 9 sans site.
 
-## 2. Données exposées
+## Cause exacte
 
-- `activity_months` : société (`dda` / `castillon`), mois, onglet source, statut (provisoire/définitif), date de mise à jour.
-- `activity_values` : toutes les valeurs d'indicateurs mensuels — chiffre d'affaires, marges, volumes, heures, etc.
-- `activity_imports` : nom du fichier importé, nom et identifiant de l'importateur, nombre de mois/valeurs, anomalies détectées.
-- `ad_assets` : visuels et textes publicitaires.
-- `winmotor_journals` : codes journaux comptables internes.
+Il n'y a **aucun problème de statut ni de date** : tous ces tours sont bien `completed`, non archivés, avec une date de fin et un compagnon renseignés.
 
-## 3. Qui peut faire quoi aujourd'hui
+1. **Les 18 affichés = exactement le site « Damien Digoin Automobile »** (11 + 6 + 1). La page filtre la liste sur le site actif ; Styven et Erwann travaillent sur Castillon, donc ils disparaissent tant que le site affiché n'est pas Castillon. Le comportement est « normal » au sens du code, mais l'écran n'indique nulle part que le tableau est limité à un site.
+2. **9 tours de septembre n'ont aucun site enregistré** (Romain Nicolas 7, Damien Digoin 2). Ceux-là sont invisibles dans *toutes* les vues par site, et n'apparaissent qu'en vue groupe. Même situation en août (5 tours sans site). C'est une vraie anomalie d'enregistrement à part.
 
-- Les règles d'accès de ces tables sont écrites en « toujours vrai » pour le rôle « connecté » : lecture, insertion, modification et (pour les mois et valeurs) suppression sont ouvertes à **n'importe quel compte authentifié**, sans vérification de compte actif, de rôle ni de société.
-- Les visiteurs non connectés n'ont **aucun** accès : aucune règle ne les autorise.
-- État réel des comptes : 24 profils, tous actifs ; 7 managers et 17 salariés, aucun compte « client ».
-- Comparaison avec le reste du projet : Productivité, Sites, etc. exigent `is_active_user()` en lecture et le rôle manager en écriture. Les tables d'activité sont donc l'exception.
+## Ce que je propose de faire ensuite (rien n'est encore modifié)
 
-## 4. Scénario de risque concret
+1. Afficher clairement le périmètre au-dessus du tableau : « Site : Castillon » ou « Tous les sites », pour que l'écart ne soit plus ambigu.
+2. Faire apparaître les tours sans site sur une ligne explicite « Site non renseigné » plutôt que de les faire disparaître silencieusement, avec le détail des compagnons concernés.
+3. Chercher pourquoi certains tours partent sans site (probable création depuis un écran qui ne transmet pas le site actif) et corriger la création, puis rattacher les tours existants au bon site après validation de votre part.
 
-Un salarié sans aucun droit sur le module Statistiques, ou un compte désactivé plus tard mais dont l'authentification reste valide, peut depuis un simple appel à l'API : lire l'intégralité du chiffre d'affaires et des marges des deux sociétés, modifier une valeur mensuelle, ou supprimer des mois entiers. La perte serait silencieuse (pas de journal sur ces tables) et ne se verrait qu'à la consultation des tableaux de bord.
+## Détails techniques
 
-## 5. Exploitable réellement ou théorique ?
-
-Réellement exploitable, mais uniquement par une personne **déjà connectée** à DDA Connect. Dans l'application, l'accès à l'écran Statistiques est filtré par les droits modules, donc l'exposition n'est pas visible dans l'interface ; le contournement se fait hors interface, avec la clé publique de l'application et un compte valide. Risque externe anonyme : nul. Risque interne : réel, aggravé par la suppression possible.
-
-## 6. Correctif minimal recommandé (non appliqué)
-
-Aligner ces 5 tables sur le modèle déjà utilisé ailleurs, par simple remplacement des règles d'accès (aucun changement de schéma, aucune donnée touchée) :
-
-- Lecture : réservée aux comptes actifs (`is_active_user(auth.uid())`).
-- Création / modification des mois, valeurs et imports : comptes actifs (l'import passe par la fonction `activity_import_apply`, qui s'exécute avec les droits de l'appelant — les imports continuent donc de fonctionner).
-- Suppression des mois et valeurs : réservée aux managers.
-- `ad_assets` : lecture/écriture comptes actifs, suppression déjà réservée aux managers.
-- `winmotor_journals` : lecture comptes actifs.
-
-Option plus stricte possible ultérieurement : restreindre l'écriture d'activité aux seuls managers ou aux détenteurs du droit « Import statistiques ». À valider avec vous, car cela changerait qui peut importer.
-
-## 7. Impact fonctionnel attendu
-
-Aucun pour les 24 comptes actuels, tous actifs : Statistiques, Productivité, Tours, Activité et l'import Excel continuent de fonctionner à l'identique. Seule différence visible : un compte désactivé ne verrait plus ces données, et la suppression de mois deviendrait réservée aux managers.
-
-## Suite
-
-Ce rapport est purement un diagnostic. Dites-moi si vous voulez que je prépare le correctif (variante standard ou variante stricte) ; rien ne sera modifié sans votre accord.
+- `src/lib/stats.ts` → `fetchCompletedToursInRange` : filtre `status = completed`, `archived_at is null`, bornes sur `completed_at`. Correct.
+- `src/routes/statistiques.tours.tsx` → `scopedTours` filtre `t.site_id === activeSite` hors vue groupe : c'est ce filtre qui masque Castillon et écarte définitivement `site_id = null`.
+- Aucun autre champ (`finished_at`, `started_at`, `completed_by`) n'intervient dans l'exclusion.
