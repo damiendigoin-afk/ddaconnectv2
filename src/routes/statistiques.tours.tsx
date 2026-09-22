@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
+import { GROUP_LABEL } from "@/lib/sites";
 import {
   aggregateTours,
   defaultRange,
@@ -13,6 +14,7 @@ import {
   fetchCompletedToursInRange,
   fetchTourStats,
   groupToursByOperator,
+  groupToursBySite,
   rangeLabel,
   type PeriodRange,
 } from "@/lib/stats";
@@ -84,6 +86,35 @@ function TourStatsPage() {
           </div>
         </div>
 
+        <div className="card-surface space-y-2 p-4">
+          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Périmètre
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setScope("groupe")}
+              className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                isGroupScope ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+              }`}
+            >
+              {GROUP_LABEL}
+            </button>
+            {sites.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setScope(s.id)}
+                className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                  scope === s.id ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <PeriodPicker value={range} onChange={setRange} />
 
         <div className="card-surface space-y-2 p-4">
@@ -128,6 +159,25 @@ function TourStatsPage() {
             </p>
           )}
         </div>
+
+        {isGroupScope && siteRows.length ? (
+          <div className="card-surface space-y-2 p-4">
+            <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Répartition par site
+            </div>
+            <table className="w-full text-xs">
+              <tbody>
+                {siteRows.map((r) => (
+                  <tr key={r.siteId ?? "sans-site"} className="border-t border-border">
+                    <td className="py-2 font-bold">{r.name}</td>
+                    <td className="py-2 text-right font-bold">{r.agg.count}</td>
+                    <td className="py-2 text-right">{durationLabel(r.agg.avgSeconds)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
     </AppShell>
   );
