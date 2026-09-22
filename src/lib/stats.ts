@@ -370,9 +370,6 @@ export async function fetchTourStats(siteId: string | null): Promise<TourStats> 
   const { data, error } = await q;
   if (error) throw error;
   const rows = (data ?? []) as { completed_at: string | null; duration_seconds: number | null }[];
-  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dow = (now.getDay() + 6) % 7;
-  const weekStart = new Date(day.getTime() - dow * 86400000);
   let today = 0;
   let week = 0;
   const durations: number[] = [];
