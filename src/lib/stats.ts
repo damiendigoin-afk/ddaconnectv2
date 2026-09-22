@@ -348,7 +348,7 @@ export async function fetchMissingReports(now = new Date()): Promise<MissingRepo
 
 /* ------------------------------------------------- statistiques DDA (tours) */
 
-export type TourStats = { today: number; week: number; month: number; avgSeconds: number | null };
+export type TourStats = { today: number; week: number };
 
 /**
  * Indicateurs temps réel des tours terminés, périmètre site actif (ou tous les
@@ -372,20 +372,13 @@ export async function fetchTourStats(siteId: string | null): Promise<TourStats> 
   const rows = (data ?? []) as { completed_at: string | null; duration_seconds: number | null }[];
   let today = 0;
   let week = 0;
-  const durations: number[] = [];
   for (const r of rows) {
     if (!r.completed_at) continue;
     const d = new Date(r.completed_at);
     if (d >= day) today++;
     if (d >= weekStart) week++;
-    if (r.duration_seconds && r.duration_seconds > 0) durations.push(r.duration_seconds);
   }
-  return {
-    today,
-    week,
-    month: rows.length,
-    avgSeconds: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
-  };
+  return { today, week };
 }
 
 export function durationLabel(seconds: number | null): string {
