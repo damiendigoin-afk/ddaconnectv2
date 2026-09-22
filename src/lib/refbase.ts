@@ -54,6 +54,24 @@ export type SearchResult = {
   orders: { id: string; or_number: string | null; or_date: string | null; plate: string | null }[];
 };
 
+/** Propriétaire courant de chaque véhicule : relation OWNER active la plus récente.
+ *  Retourne une map vehicle_id -> customer_id (jamais de relation inactive ou arbitraire). */
+async function fetchCurrentOwnerByVehicle(vehicleIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!vehicleIds.length) return map;
+  const { data } = await supabase
+    .from("customer_vehicle_relations")
+    .select("vehicle_id, customer_id, created_at")
+    .in("vehicle_id", [...new Set(vehicleIds)])
+    .eq("active", true)
+    .eq("relationship_type", "OWNER")
+    .order("created_at", { ascending: false });
+  for (const r of (data ?? []) as { vehicle_id: string; customer_id: string }[]) {
+    if (!map.has(r.vehicle_id)) map.set(r.vehicle_id, r.customer_id);
+  }
+  return map;
+}
+
 /** Recherche universelle : immat (même partielle), nom, société, n° client,
  *  téléphone, email, VIN, n° véhicule Winmotor ou n° OR. */
 export async function universalSearch(term: string, limit = 20): Promise<SearchResult> {
@@ -146,8 +164,8 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
   const allCustomers = new Map<string, RefCustomer>();
   for (const c of [...customers, ...((extraCust.data ?? []) as RefCustomer[])]) allCustomers.set(c.id, c);
 
-  const customerOfVehicle = new Map<string, string>();
-  for (const r of relations) if (!customerOfVehicle.has(r.vehicle_id)) customerOfVehicle.set(r.vehicle_id, r.customer_id);
+  // Propriétaire courant de chaque véhicule trouvé : relation OWNER active la plus récente
+  const customerOfVehicle = await fetchCurrentOwnerByVehicle(vehicles.map((v) => v.id));
 
   // coordonnées & ville pour l'affichage
   const custList = customers.slice(0, limit);
@@ -196,13 +214,7 @@ export async function findRefVehicleByPlate(plate: string): Promise<(RefVehicle 
   const { data } = await supabase.from("ref_vehicles").select(VEH_SELECT).eq("registration_normalized", reg).limit(1);
   const v = (data ?? [])[0] as RefVehicle | undefined;
   if (!v) return null;
-  const { data: rel } = await supabase
-    .from("customer_vehicle_relations")
-    .select("customer_id")
-    .eq("vehicle_id", v.id)
-    .eq("active", true)
-    .limit(1);
-  const cid = (rel ?? [])[0]?.customer_id;
+  const cid = (await fetchCurrentOwnerByVehicle([v.id])).get(v.id);
   if (!cid) return { ...v, customer: null };
   const { data: c } = await supabase.from("customers").select(CUST_SELECT).eq("id", cid).maybeSingle();
   return { ...v, customer: (c as RefCustomer) ?? null };
@@ -238,13 +250,22 @@ export async function fetchCustomer(id: string) {
 export async function fetchRefVehicle(id: string) {
   const [{ data: vehicle }, { data: rels }, { data: mileages }] = await Promise.all([
     supabase.from("ref_vehicles").select("*").eq("id", id).maybeSingle(),
-    supabase.from("customer_vehicle_relations").select("customer_id, relationship_type, active").eq("vehicle_id", id),
+    supabase
+      .from("customer_vehicle_relations")
+      .select("customer_id, relationship_type, active, created_at")
+      .eq("vehicle_id", id)
+      .eq("active", true)
+      .eq("relationship_type", "OWNER")
+      .order("created_at", { ascending: false }),
     supabase.from("vehicle_mileage_history").select("*").eq("vehicle_id", id).order("measured_at", { ascending: false }).limit(30),
   ]);
   const custIds = (rels ?? []).map((r) => r.customer_id);
-  const { data: customers } = custIds.length
+  const { data: customersRaw } = custIds.length
     ? await supabase.from("customers").select(CUST_SELECT).in("id", custIds)
     : { data: [] };
+  // Ordre = relation OWNER active la plus récente en premier (propriétaire courant)
+  const byId = new Map(((customersRaw ?? []) as RefCustomer[]).map((c) => [c.id, c]));
+  const customers = custIds.map((cid) => byId.get(cid)).filter((c): c is RefCustomer => Boolean(c));
 
   const v = vehicle as (RefVehicle & Record<string, unknown>) | null;
   // Historique DDA Connect rattaché par immatriculation normalisée
@@ -341,12 +362,7 @@ export async function refPrefillByVehicle(
   if (!v) return null;
   let cust = customer ?? null;
   if (!cust) {
-    const { data: rel } = await supabase
-      .from("customer_vehicle_relations")
-      .select("customer_id")
-      .eq("vehicle_id", vehicleId)
-      .limit(1);
-    const cid = (rel ?? [])[0]?.customer_id;
+    const cid = (await fetchCurrentOwnerByVehicle([vehicleId])).get(vehicleId);
     if (cid) {
       const { data: c } = await supabase.from("customers").select(CUST_SELECT).eq("id", cid).maybeSingle();
       cust = (c as RefCustomer) ?? null;
