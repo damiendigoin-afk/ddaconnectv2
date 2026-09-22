@@ -14,6 +14,8 @@ export async function finishTour(args: {
   userId: string;
   userName: string;
   source?: string;
+  /** Site actif : comble un site manquant sur le tour, sans jamais l'écraser. */
+  siteId?: string | null;
 }): Promise<boolean> {
   if (uploadsPending() > 0) {
     toast.error("Envoi de photos en cours. Patientez avant de terminer le Tour.");

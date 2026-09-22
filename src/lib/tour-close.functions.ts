@@ -9,6 +9,8 @@ const input = z.object({
   userName: z.string().max(120).optional(),
   /** Trace de l'action métier ayant clôturé le tour. */
   source: z.string().max(60).optional(),
+  /** Site actif de l'opérateur : sert uniquement à combler un site manquant. */
+  siteId: z.string().uuid().nullable().optional(),
 });
 
 export type CloseTourResult = {
@@ -56,6 +58,16 @@ export const closeTour = createServerFn({ method: "POST" })
           last_modified_by_name: userName,
         })
         .eq("id", data.inspectionId);
+      // Filet : un tour créé sans site (profil sans site rattaché) reçoit le
+      // site actif de l'opérateur à la clôture. Jamais d'écrasement d'un site
+      // déjà enregistré.
+      if (data.siteId) {
+        await context.supabase
+          .from("vehicle_inspections")
+          .update({ site_id: data.siteId })
+          .eq("id", data.inspectionId)
+          .is("site_id", null);
+      }
     } catch (e) {
       return {
         closed: false,
