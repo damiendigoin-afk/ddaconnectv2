@@ -54,6 +54,24 @@ export type SearchResult = {
   orders: { id: string; or_number: string | null; or_date: string | null; plate: string | null }[];
 };
 
+/** Propriétaire courant de chaque véhicule : relation OWNER active la plus récente.
+ *  Retourne une map vehicle_id -> customer_id (jamais de relation inactive ou arbitraire). */
+async function fetchCurrentOwnerByVehicle(vehicleIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!vehicleIds.length) return map;
+  const { data } = await supabase
+    .from("customer_vehicle_relations")
+    .select("vehicle_id, customer_id, created_at")
+    .in("vehicle_id", [...new Set(vehicleIds)])
+    .eq("active", true)
+    .eq("relationship_type", "OWNER")
+    .order("created_at", { ascending: false });
+  for (const r of (data ?? []) as { vehicle_id: string; customer_id: string }[]) {
+    if (!map.has(r.vehicle_id)) map.set(r.vehicle_id, r.customer_id);
+  }
+  return map;
+}
+
 /** Recherche universelle : immat (même partielle), nom, société, n° client,
  *  téléphone, email, VIN, n° véhicule Winmotor ou n° OR. */
 export async function universalSearch(term: string, limit = 20): Promise<SearchResult> {
