@@ -362,12 +362,7 @@ export async function refPrefillByVehicle(
   if (!v) return null;
   let cust = customer ?? null;
   if (!cust) {
-    const { data: rel } = await supabase
-      .from("customer_vehicle_relations")
-      .select("customer_id")
-      .eq("vehicle_id", vehicleId)
-      .limit(1);
-    const cid = (rel ?? [])[0]?.customer_id;
+    const cid = (await fetchCurrentOwnerByVehicle([vehicleId])).get(vehicleId);
     if (cid) {
       const { data: c } = await supabase.from("customers").select(CUST_SELECT).eq("id", cid).maybeSingle();
       cust = (c as RefCustomer) ?? null;
