@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
+import { GROUP_LABEL } from "@/lib/sites";
 import {
   aggregateTours,
   defaultRange,
@@ -13,6 +14,7 @@ import {
   fetchCompletedToursInRange,
   fetchTourStats,
   groupToursByOperator,
+  groupToursBySite,
   rangeLabel,
   type PeriodRange,
 } from "@/lib/stats";
@@ -36,26 +38,39 @@ export const Route = createFileRoute("/statistiques/tours")({
 
 function TourStatsPage() {
   const { displayName } = useAuth();
-  const { active: activeSite, isGroup } = useSite();
+  const { sites } = useSite();
   const [range, setRange] = useState<PeriodRange>(() => defaultRange());
+  // Périmètre propre à la page : Groupe par défaut, jamais hérité silencieusement
+  // du site individuel actif ailleurs dans l'application.
+  const [scope, setScope] = useState<string>("groupe");
+  const isGroupScope = scope === "groupe";
+  const siteNames = useMemo(
+    () => Object.fromEntries(sites.map((s) => [s.id, s.name])) as Record<string, string>,
+    [sites],
+  );
 
-  // Indicateurs temps réel (jour / semaine) : périmètre site actif (ou groupe),
-  // tous compagnons confondus, comme le bloc mensuel.
+  // Indicateurs temps réel (jour / semaine) : exactement le même périmètre que
+  // le filtre de la page, tous compagnons confondus.
   const live = useQuery({
-    queryKey: ["tour-stats", isGroup ? "groupe" : activeSite],
-    queryFn: () => fetchTourStats(isGroup ? null : activeSite),
+    queryKey: ["tour-stats", scope],
+    queryFn: () => fetchTourStats(isGroupScope ? null : scope),
   });
 
-  // Tours terminés sur la période sélectionnée, même périmètre société que la productivité.
+  // Tours terminés sur la période sélectionnée.
   const tours = useQuery({
     queryKey: ["tours-range", range.start, range.end],
     queryFn: () => fetchCompletedToursInRange(range),
   });
+  // Vue groupe : tous les tours, y compris ceux sans site. Vue site : ce site seul.
   const scopedTours = useMemo(
-    () => (tours.data ?? []).filter((t) => isGroup || t.site_id === activeSite),
-    [tours.data, isGroup, activeSite],
+    () => (tours.data ?? []).filter((t) => isGroupScope || t.site_id === scope),
+    [tours.data, isGroupScope, scope],
   );
   const tourRows = useMemo(() => groupToursByOperator(scopedTours), [scopedTours]);
+  const siteRows = useMemo(
+    () => (isGroupScope ? groupToursBySite(scopedTours, siteNames) : []),
+    [isGroupScope, scopedTours, siteNames],
+  );
   const tourTotals = useMemo(() => aggregateTours(scopedTours), [scopedTours]);
 
   return (
@@ -68,6 +83,35 @@ function TourStatsPage() {
           <div className="grid grid-cols-2 gap-3">
             <Kpi label="Tours aujourd'hui" value={String(live.data?.today ?? 0)} />
             <Kpi label="Cette semaine" value={String(live.data?.week ?? 0)} />
+          </div>
+        </div>
+
+        <div className="card-surface space-y-2 p-4">
+          <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Périmètre
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setScope("groupe")}
+              className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                isGroupScope ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+              }`}
+            >
+              {GROUP_LABEL}
+            </button>
+            {sites.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setScope(s.id)}
+                className={`rounded-lg px-3 py-2 text-xs font-bold ${
+                  scope === s.id ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -115,6 +159,25 @@ function TourStatsPage() {
             </p>
           )}
         </div>
+
+        {isGroupScope && siteRows.length ? (
+          <div className="card-surface space-y-2 p-4">
+            <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Répartition par site
+            </div>
+            <table className="w-full text-xs">
+              <tbody>
+                {siteRows.map((r) => (
+                  <tr key={r.siteId ?? "sans-site"} className="border-t border-border">
+                    <td className="py-2 font-bold">{r.name}</td>
+                    <td className="py-2 text-right font-bold">{r.agg.count}</td>
+                    <td className="py-2 text-right">{durationLabel(r.agg.avgSeconds)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
     </AppShell>
   );

@@ -498,6 +498,30 @@ export function aggregateTours(rows: TourRow[]): TourAgg {
   };
 }
 
+/**
+ * Répartition par site, vue groupe : les tours sans site sont affichés
+ * explicitement plutôt que perdus.
+ */
+export function groupToursBySite(
+  rows: TourRow[],
+  siteNames: Record<string, string>,
+): { siteId: string | null; name: string; agg: TourAgg }[] {
+  const map = new Map<string, TourRow[]>();
+  for (const r of rows) {
+    const key = r.site_id ?? "";
+    const list = map.get(key) ?? [];
+    list.push(r);
+    map.set(key, list);
+  }
+  return [...map.entries()]
+    .map(([key, list]) => ({
+      siteId: key || null,
+      name: key ? (siteNames[key] ?? "Site inconnu") : "Site non renseigné",
+      agg: aggregateTours(list),
+    }))
+    .sort((a, b) => b.agg.count - a.agg.count);
+}
+
 export function groupToursByOperator(rows: TourRow[]): { name: string; agg: TourAgg }[] {
   const map = new Map<string, TourRow[]>();
   for (const r of rows) {
