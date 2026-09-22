@@ -9,6 +9,7 @@ import { MileageCard } from "@/components/MileageCard";
 import { LocalErrorBoundary } from "@/components/LocalErrorBoundary";
 import { InfoEditForm } from "@/components/InfoEditForm";
 import { useAuth } from "@/lib/auth";
+import { useSite } from "@/lib/site-context";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
 import { formatPlate } from "@/lib/plate";
 import { createInspection } from "@/lib/tour";
@@ -39,6 +40,7 @@ function OrderPage() {
   const [editMileage, setEditMileage] = useState(false);
   const [editing, setEditing] = useState(false);
   const { user, displayName, profile } = useAuth();
+  const { active: activeSite, isGroup } = useSite();
 
   const order = useQuery({ queryKey: ["order", orId], queryFn: () => fetchOrder(orId) });
   const tours = useQuery({ queryKey: ["inspections", orId], queryFn: () => fetchInspections(orId) });
@@ -65,7 +67,9 @@ function OrderPage() {
       const insp = await createInspection(orId, v.id, type, {
         userId: user?.id ?? null,
         userName: displayName || null,
-        siteId: (profile?.site_id as string | null) ?? null,
+        // Site du tour : site actif de l'opérateur en priorité, sinon site du
+        // profil. Évite les tours enregistrés sans site.
+        siteId: (!isGroup && activeSite ? activeSite : null) ?? (profile?.site_id as string | null) ?? null,
         source: "creation_depuis_intervention",
       });
       await qc.invalidateQueries({ queryKey: ["inspections", orId] });
