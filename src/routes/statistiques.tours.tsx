@@ -36,26 +36,39 @@ export const Route = createFileRoute("/statistiques/tours")({
 
 function TourStatsPage() {
   const { displayName } = useAuth();
-  const { active: activeSite, isGroup } = useSite();
+  const { sites } = useSite();
   const [range, setRange] = useState<PeriodRange>(() => defaultRange());
+  // Périmètre propre à la page : Groupe par défaut, jamais hérité silencieusement
+  // du site individuel actif ailleurs dans l'application.
+  const [scope, setScope] = useState<string>("groupe");
+  const isGroupScope = scope === "groupe";
+  const siteNames = useMemo(
+    () => Object.fromEntries(sites.map((s) => [s.id, s.name])) as Record<string, string>,
+    [sites],
+  );
 
-  // Indicateurs temps réel (jour / semaine) : périmètre site actif (ou groupe),
-  // tous compagnons confondus, comme le bloc mensuel.
+  // Indicateurs temps réel (jour / semaine) : exactement le même périmètre que
+  // le filtre de la page, tous compagnons confondus.
   const live = useQuery({
-    queryKey: ["tour-stats", isGroup ? "groupe" : activeSite],
-    queryFn: () => fetchTourStats(isGroup ? null : activeSite),
+    queryKey: ["tour-stats", scope],
+    queryFn: () => fetchTourStats(isGroupScope ? null : scope),
   });
 
-  // Tours terminés sur la période sélectionnée, même périmètre société que la productivité.
+  // Tours terminés sur la période sélectionnée.
   const tours = useQuery({
     queryKey: ["tours-range", range.start, range.end],
     queryFn: () => fetchCompletedToursInRange(range),
   });
+  // Vue groupe : tous les tours, y compris ceux sans site. Vue site : ce site seul.
   const scopedTours = useMemo(
-    () => (tours.data ?? []).filter((t) => isGroup || t.site_id === activeSite),
-    [tours.data, isGroup, activeSite],
+    () => (tours.data ?? []).filter((t) => isGroupScope || t.site_id === scope),
+    [tours.data, isGroupScope, scope],
   );
   const tourRows = useMemo(() => groupToursByOperator(scopedTours), [scopedTours]);
+  const siteRows = useMemo(
+    () => (isGroupScope ? groupToursBySite(scopedTours, siteNames) : []),
+    [isGroupScope, scopedTours, siteNames],
+  );
   const tourTotals = useMemo(() => aggregateTours(scopedTours), [scopedTours]);
 
   return (
