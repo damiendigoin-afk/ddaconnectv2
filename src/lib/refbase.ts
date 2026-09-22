@@ -250,13 +250,22 @@ export async function fetchCustomer(id: string) {
 export async function fetchRefVehicle(id: string) {
   const [{ data: vehicle }, { data: rels }, { data: mileages }] = await Promise.all([
     supabase.from("ref_vehicles").select("*").eq("id", id).maybeSingle(),
-    supabase.from("customer_vehicle_relations").select("customer_id, relationship_type, active").eq("vehicle_id", id),
+    supabase
+      .from("customer_vehicle_relations")
+      .select("customer_id, relationship_type, active, created_at")
+      .eq("vehicle_id", id)
+      .eq("active", true)
+      .eq("relationship_type", "OWNER")
+      .order("created_at", { ascending: false }),
     supabase.from("vehicle_mileage_history").select("*").eq("vehicle_id", id).order("measured_at", { ascending: false }).limit(30),
   ]);
   const custIds = (rels ?? []).map((r) => r.customer_id);
-  const { data: customers } = custIds.length
+  const { data: customersRaw } = custIds.length
     ? await supabase.from("customers").select(CUST_SELECT).in("id", custIds)
     : { data: [] };
+  // Ordre = relation OWNER active la plus récente en premier (propriétaire courant)
+  const byId = new Map(((customersRaw ?? []) as RefCustomer[]).map((c) => [c.id, c]));
+  const customers = custIds.map((cid) => byId.get(cid)).filter((c): c is RefCustomer => Boolean(c));
 
   const v = vehicle as (RefVehicle & Record<string, unknown>) | null;
   // Historique DDA Connect rattaché par immatriculation normalisée
