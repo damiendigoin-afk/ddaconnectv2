@@ -35,13 +35,16 @@ export const Route = createFileRoute("/statistiques/tours")({
 });
 
 function TourStatsPage() {
-  const { user, displayName } = useAuth();
+  const { displayName } = useAuth();
   const { active: activeSite, isGroup } = useSite();
-  const uid = user?.id ?? "";
   const [range, setRange] = useState<PeriodRange>(() => defaultRange());
 
-  // Indicateurs temps réel (jour / semaine), indépendants du mois sélectionné.
-  const live = useQuery({ queryKey: ["tour-stats", uid], queryFn: () => fetchTourStats(uid), enabled: !!uid });
+  // Indicateurs temps réel (jour / semaine) : périmètre site actif (ou groupe),
+  // tous compagnons confondus, comme le bloc mensuel.
+  const live = useQuery({
+    queryKey: ["tour-stats", isGroup ? "groupe" : activeSite],
+    queryFn: () => fetchTourStats(isGroup ? null : activeSite),
+  });
 
   // Tours terminés sur la période sélectionnée, même périmètre société que la productivité.
   const tours = useQuery({

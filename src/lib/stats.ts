@@ -348,38 +348,37 @@ export async function fetchMissingReports(now = new Date()): Promise<MissingRepo
 
 /* ------------------------------------------------- statistiques DDA (tours) */
 
-export type TourStats = { today: number; week: number; month: number; avgSeconds: number | null };
+export type TourStats = { today: number; week: number };
 
-export async function fetchTourStats(userId: string): Promise<TourStats> {
+/**
+ * Indicateurs temps réel des tours terminés, périmètre site actif (ou tous les
+ * sites si siteId = null), tous compagnons confondus — même statut/date de
+ * référence que le bloc mensuel (status=completed, completed_at, non archivés).
+ */
+export async function fetchTourStats(siteId: string | null): Promise<TourStats> {
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const { data, error } = await supabase
-    .from("vehicle_inspections")
-    .select("completed_at, duration_seconds")
-    .eq("completed_by", userId)
-    .eq("status", "completed")
-    .gte("completed_at", monthStart.toISOString());
-  if (error) throw error;
-  const rows = (data ?? []) as { completed_at: string | null; duration_seconds: number | null }[];
   const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dow = (now.getDay() + 6) % 7;
   const weekStart = new Date(day.getTime() - dow * 86400000);
+  let q = supabase
+    .from("vehicle_inspections")
+    .select("completed_at, duration_seconds")
+    .eq("status", "completed")
+    .is("archived_at", null)
+    .gte("completed_at", weekStart.toISOString());
+  if (siteId) q = q.eq("site_id", siteId);
+  const { data, error } = await q;
+  if (error) throw error;
+  const rows = (data ?? []) as { completed_at: string | null; duration_seconds: number | null }[];
   let today = 0;
   let week = 0;
-  const durations: number[] = [];
   for (const r of rows) {
     if (!r.completed_at) continue;
     const d = new Date(r.completed_at);
     if (d >= day) today++;
     if (d >= weekStart) week++;
-    if (r.duration_seconds && r.duration_seconds > 0) durations.push(r.duration_seconds);
   }
-  return {
-    today,
-    week,
-    month: rows.length,
-    avgSeconds: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
-  };
+  return { today, week };
 }
 
 export function durationLabel(seconds: number | null): string {
