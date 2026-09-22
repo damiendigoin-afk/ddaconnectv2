@@ -18,6 +18,7 @@ import type { TireLabelAi } from "@/lib/tire-types";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useSite } from "@/lib/site-context";
 import { uploadPhoto } from "@/lib/photo";
 import { finishTour } from "@/lib/tour-finish";
 import { markTourModified } from "@/lib/tour-admin";
@@ -56,6 +57,7 @@ function TourPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, displayName } = useAuth();
+  const { active: activeSite, isGroup } = useSite();
   const tour = useQuery({ queryKey: ["tour", tourId], queryFn: () => loadTour(tourId) });
 
   const vehicle = tour.data?.vehicle as { id: string; plate: string; last_mileage: number | null } | null;
@@ -212,6 +214,7 @@ function TourNav({
 function Guided(props: SharedProps) {
   const navigate = useNavigate();
   const { user, displayName } = useAuth();
+  const { active: activeSite, isGroup } = useSite();
   // current_zone_index peut être nul/hors bornes sur un tour ancien : on borne.
   const [zone, setZone] = useState(
     Math.min(Math.max(1, Number(props.zoneIndex) || 1), GUIDED_ZONES.length),
@@ -403,6 +406,7 @@ function Guided(props: SharedProps) {
       tourId: props.tourId,
       userId: user.id,
       userName: displayName || "Utilisateur",
+      siteId: isGroup ? null : activeSite || null,
       source: opts?.withoutTireSize
         ? "bouton_terminer_sans_dimension_pneu"
         : "bouton_terminer",
@@ -735,6 +739,7 @@ function Free(props: SharedProps) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, displayName } = useAuth();
+  const { active: activeSite, isGroup } = useSite();
   const [editing, setEditing] = useState<ObsRow | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -783,6 +788,7 @@ function Free(props: SharedProps) {
       tourId: props.tourId,
       userId: user.id,
       userName: displayName || "Utilisateur",
+      siteId: isGroup ? null : activeSite || null,
       source: opts?.withoutTireSize
         ? "bouton_terminer_sans_dimension_pneu"
         : "bouton_terminer",

@@ -35,6 +35,7 @@ export async function finishTour(args: {
         origin: window.location.origin,
         userName: args.userName || "Utilisateur",
         source: args.source ?? "bouton_terminer",
+        siteId: args.siteId ?? null,
       },
     });
     if (!res.closed) {
