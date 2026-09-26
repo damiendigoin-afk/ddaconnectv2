@@ -127,7 +127,7 @@ export async function findStockByRef(siteId: string | null, ref: string): Promis
 
 async function levelOf(articleId: string) {
   const { data } = await supabase.from("stock_levels").select("*").eq("article_id", articleId).maybeSingle();
-  return { available: Number(data?.available_qty ?? 0), allocated: Number(data?.allocated_qty ?? 0) };
+  return { available: Number(data?.available_qty ?? 0), allocated: Number(data?.allocated_qty ?? 0), quarantine: Number(data?.quarantine_qty ?? 0) };
 }
 
 export async function ensureArticle(siteId: string, ref: string, designation: string | null, isOil = false): Promise<string> {
