@@ -12,3 +12,4 @@
 - Rights = menu access only (module key grants all functions of that menu; legacy fine keys still honoured server-side). Why: V3 simplification.
 - DDA never creates official OR numbers; a dossier without WinMotor OR is labelled "Dossier DDA — en attente OR WinMotor" and blocks time/parts/work-done actions. Why: WinMotor primacy.
 - Phase B stock: stock levels are derived only from `stock_movements` deltas (view `stock_levels`); rules live in src/lib/parts-rules.ts. Why: traceable, physical-only stock, testable.
+- WinMotor invoices: imported only via SECURITY DEFINER RPCs wm_* (site chosen explicitly, OR identity = site + or_number, or_sale_final once per link). Why: WinMotor primacy, idempotent re-imports, traceable stock.
