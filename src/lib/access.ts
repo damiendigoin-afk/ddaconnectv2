@@ -30,7 +30,7 @@ export const MODULES = [
   // ------------------------------------------------ Pièces & achats
   { key: "magasin", label: "Pièces & achats", group: "Pièces & achats", prefixes: ["/pieces-achats", "/magasin", "/factures-fournisseur"] },
   // ------------------------------------------- Clients & commercial
-  { key: "crm", label: "CRM", group: "Clients & commercial", prefixes: ["/crm", "/client", "/vehicule"] },
+  { key: "crm", label: "CRM", group: "Clients & commercial", prefixes: ["/crm"] },
   { key: "recuperation", label: "Ventes", group: "Clients & commercial", prefixes: ["/recuperation"] },
   { key: "darva", label: "Gestion DARVA", group: "Clients & commercial", prefixes: ["/darva"] },
   // --------------------------------------------------- Communication
