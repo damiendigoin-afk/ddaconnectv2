@@ -25,7 +25,7 @@ import { listSuppliers } from "@/lib/suppliers";
 import { formatPlate } from "@/lib/plate";
 import { mediaUrl } from "@/lib/photo";
 
-export const Route = createFileRoute("/magasin/")({
+export const Route = createFileRoute("/pieces-achats/retours")({
   head: () => ({
     meta: [
       { title: "Magasin — Retours pièces et avoirs — DDA Connect" },
@@ -65,7 +65,7 @@ function StoreHub() {
 
   return (
     <AppShell
-      title="Magasin"
+      title="Retours / consignes / avoirs"
       subtitle="Retours fournisseurs, consignes et avoirs"
       back={{ to: "/" }}
       right={
