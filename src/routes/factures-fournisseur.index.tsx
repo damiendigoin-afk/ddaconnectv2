@@ -5,6 +5,7 @@ import { Camera, FileText, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { SupplierCostPanel } from "@/components/SupplierCostPanel";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { DOC_ACCEPT, isImage } from "@/lib/documents";
@@ -285,6 +286,8 @@ function DocCard({ doc, open, onToggle }: { doc: SupplierDoc; open: boolean; onT
               </button>
             ))}
           </div>
+
+          <SupplierCostPanel doc={doc} />
 
           <div className="flex flex-wrap gap-2">
             <button
