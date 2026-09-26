@@ -569,3 +569,35 @@ export async function closeRegularization(item: RegulItem, comment: string, acto
     if (error) throw error;
   }
 }
+
+/**
+ * Expédition d'un retour fournisseur = sortie physique (une seule fois par retour).
+ * Chaque ligne avec référence connue sort de la quarantaine si possible, sinon du disponible.
+ * Référence introuvable/ambiguë => À régulariser (jamais de mouvement deviné).
+ * L'avoir fournisseur reste purement financier : aucun mouvement ici.
+ */
+export async function shipSupplierReturnStock(returnId: string, actor: Actor): Promise<{ moved: number; regul: number }> {
+  const { data: already } = await supabase.from("stock_movements").select("id").eq("part_return_id", returnId).limit(1);
+  if (already?.length) return { moved: 0, regul: 0 };
+  const { data: ret } = await supabase.from("part_returns").select("site_id, reference").eq("id", returnId).single();
+  if (!ret?.site_id) return { moved: 0, regul: 0 };
+  const { data: lines } = await supabase.from("part_return_lines").select("reference, quantity, label").eq("return_id", returnId);
+  let moved = 0, regul = 0;
+  for (const l of lines ?? []) {
+    const q = Number(l.quantity ?? 0);
+    if (!l.reference || !(q > 0)) continue;
+    const hits = await findStockByRef(ret.site_id, l.reference);
+    if (hits.length !== 1) {
+      await openRegularization({ site_id: ret.site_id, kind: "retour_sans_stock", source_table: "part_returns", source_id: returnId, physical_reference: l.reference, comment: `Retour ${ret.reference} expédié : ${hits.length ? "plusieurs fiches stock" : "aucune fiche stock"} — sortie à décider` }, actor);
+      regul++;
+      continue;
+    }
+    const lv = await levelOf(hits[0]!.id);
+    const fromQ = lv.quarantine >= q;
+    const d = movementDeltas("supplier_return_out", q, { fromQuarantine: fromQ });
+    const { error } = await supabase.from("stock_movements").insert({ site_id: ret.site_id, article_id: hits[0]!.id, movement_type: "supplier_return_out", qty: q, ...d, part_return_id: returnId, reason: `Expédition retour ${ret.reference}`, created_by_name: actor.name });
+    if (error) throw error;
+    moved++;
+  }
+  return { moved, regul };
+}
