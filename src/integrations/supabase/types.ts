@@ -3851,6 +3851,175 @@ export type Database = {
           },
         ]
       }
+      or_part_usage: {
+        Row: {
+          article_id: string | null
+          comment: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_by_name: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          designation: string | null
+          id: string
+          item_kind: string
+          movement_id: string | null
+          physical_reference: string | null
+          qty_allocated: number
+          qty_used: number | null
+          reason: string | null
+          receipt_line_id: string | null
+          repair_order_id: string
+          site_id: string | null
+          unplanned: boolean
+          updated_at: string
+          usage_status: string
+        }
+        Insert: {
+          article_id?: string | null
+          comment?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_by_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          designation?: string | null
+          id?: string
+          item_kind?: string
+          movement_id?: string | null
+          physical_reference?: string | null
+          qty_allocated?: number
+          qty_used?: number | null
+          reason?: string | null
+          receipt_line_id?: string | null
+          repair_order_id: string
+          site_id?: string | null
+          unplanned?: boolean
+          updated_at?: string
+          usage_status?: string
+        }
+        Update: {
+          article_id?: string | null
+          comment?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_by_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          designation?: string | null
+          id?: string
+          item_kind?: string
+          movement_id?: string | null
+          physical_reference?: string | null
+          qty_allocated?: number
+          qty_used?: number | null
+          reason?: string | null
+          receipt_line_id?: string | null
+          repair_order_id?: string
+          site_id?: string | null
+          unplanned?: boolean
+          updated_at?: string
+          usage_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "or_part_usage_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "or_part_usage_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_levels"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "or_part_usage_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "stock_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "or_part_usage_receipt_line_id_fkey"
+            columns: ["receipt_line_id"]
+            isOneToOne: false
+            referencedRelation: "part_receipt_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "or_part_usage_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "or_part_usage_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      or_work_state: {
+        Row: {
+          finished_at: string | null
+          finished_by: string | null
+          finished_by_name: string | null
+          force_reason: string | null
+          forced: boolean
+          repair_order_id: string
+          site_id: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          finished_at?: string | null
+          finished_by?: string | null
+          finished_by_name?: string | null
+          force_reason?: string | null
+          forced?: boolean
+          repair_order_id: string
+          site_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          finished_at?: string | null
+          finished_by?: string | null
+          finished_by_name?: string | null
+          force_reason?: string | null
+          forced?: boolean
+          repair_order_id?: string
+          site_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "or_work_state_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: true
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "or_work_state_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       paint_element_rules: {
         Row: {
           active: boolean
@@ -3889,6 +4058,340 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      part_order_lines: {
+        Row: {
+          created_at: string
+          designation: string | null
+          expected_unit_cost_ht: number | null
+          id: string
+          line_kind: string
+          order_id: string
+          physical_reference: string | null
+          qty_ordered: number | null
+          qty_received: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          designation?: string | null
+          expected_unit_cost_ht?: number | null
+          id?: string
+          line_kind?: string
+          order_id: string
+          physical_reference?: string | null
+          qty_ordered?: number | null
+          qty_received?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          designation?: string | null
+          expected_unit_cost_ht?: number | null
+          id?: string
+          line_kind?: string
+          order_id?: string
+          physical_reference?: string | null
+          qty_ordered?: number | null
+          qty_received?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "part_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      part_orders: {
+        Row: {
+          appointment_date: string | null
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          destination: string
+          id: string
+          order_mode: string
+          plate: string | null
+          repair_order_id: string | null
+          site_id: string
+          source_document_id: string | null
+          status: string
+          supplier_id: string | null
+          supplier_order_ref: string | null
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          appointment_date?: string | null
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          destination?: string
+          id?: string
+          order_mode?: string
+          plate?: string | null
+          repair_order_id?: string | null
+          site_id: string
+          source_document_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          supplier_order_ref?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          appointment_date?: string | null
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          destination?: string
+          id?: string
+          order_mode?: string
+          plate?: string | null
+          repair_order_id?: string | null
+          site_id?: string
+          source_document_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          supplier_order_ref?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_orders_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_orders_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_orders_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      part_receipt_lines: {
+        Row: {
+          article_id: string | null
+          comment: string | null
+          condition: string
+          created_at: string
+          designation: string | null
+          destination: string
+          id: string
+          order_line_id: string | null
+          over_receipt: boolean
+          physical_reference: string | null
+          price_gap: boolean
+          qty_allocated: number
+          qty_expected: number | null
+          qty_received: number
+          receipt_id: string
+          repair_order_id: string | null
+          unit_cost_provisional: number | null
+          wrong_reference: boolean
+        }
+        Insert: {
+          article_id?: string | null
+          comment?: string | null
+          condition?: string
+          created_at?: string
+          designation?: string | null
+          destination?: string
+          id?: string
+          order_line_id?: string | null
+          over_receipt?: boolean
+          physical_reference?: string | null
+          price_gap?: boolean
+          qty_allocated?: number
+          qty_expected?: number | null
+          qty_received?: number
+          receipt_id: string
+          repair_order_id?: string | null
+          unit_cost_provisional?: number | null
+          wrong_reference?: boolean
+        }
+        Update: {
+          article_id?: string | null
+          comment?: string | null
+          condition?: string
+          created_at?: string
+          designation?: string | null
+          destination?: string
+          id?: string
+          order_line_id?: string | null
+          over_receipt?: boolean
+          physical_reference?: string | null
+          price_gap?: boolean
+          qty_allocated?: number
+          qty_expected?: number | null
+          qty_received?: number
+          receipt_id?: string
+          repair_order_id?: string | null
+          unit_cost_provisional?: number | null
+          wrong_reference?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_receipt_lines_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_receipt_lines_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_levels"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "part_receipt_lines_order_line_id_fkey"
+            columns: ["order_line_id"]
+            isOneToOne: false
+            referencedRelation: "part_order_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_receipt_lines_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "part_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_receipt_lines_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      part_receipts: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          order_id: string | null
+          packages: string | null
+          plate: string | null
+          receipt_type: string
+          received_at: string
+          received_by: string | null
+          received_by_name: string | null
+          repair_order_id: string | null
+          site_id: string
+          source_document_id: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          packages?: string | null
+          plate?: string | null
+          receipt_type?: string
+          received_at?: string
+          received_by?: string | null
+          received_by_name?: string | null
+          repair_order_id?: string | null
+          site_id: string
+          source_document_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          packages?: string | null
+          plate?: string | null
+          receipt_type?: string
+          received_at?: string
+          received_by?: string | null
+          received_by_name?: string | null
+          repair_order_id?: string | null
+          site_id?: string
+          source_document_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_receipts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "part_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_receipts_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_receipts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_receipts_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_receipts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       part_return_lines: {
         Row: {
@@ -4198,6 +4701,138 @@ export type Database = {
           },
           {
             foreignKeyName: "part_returns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parts_events: {
+        Row: {
+          action: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          detail: Json | null
+          entity: string
+          entity_id: string | null
+          id: string
+          repair_order_id: string | null
+          site_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          detail?: Json | null
+          entity: string
+          entity_id?: string | null
+          id?: string
+          repair_order_id?: string | null
+          site_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          detail?: Json | null
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          repair_order_id?: string | null
+          site_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_events_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parts_regularizations: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          closed_by_name: string | null
+          closing_comment: string | null
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          kind: string
+          physical_reference: string | null
+          plate: string | null
+          repair_order_id: string | null
+          site_id: string
+          source_id: string | null
+          source_table: string | null
+          status: string
+          supplier_id: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_by_name?: string | null
+          closing_comment?: string | null
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          kind: string
+          physical_reference?: string | null
+          plate?: string | null
+          repair_order_id?: string | null
+          site_id: string
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          supplier_id?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_by_name?: string | null
+          closing_comment?: string | null
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          kind?: string
+          physical_reference?: string | null
+          plate?: string | null
+          repair_order_id?: string | null
+          site_id?: string
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_regularizations_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_regularizations_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_regularizations_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
@@ -5379,6 +6014,177 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      stock_articles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          designation: string | null
+          id: string
+          is_oil: boolean
+          last_purchase_at: string | null
+          last_purchase_price: number | null
+          last_supplier_id: string | null
+          location: string | null
+          logical_article_id: string | null
+          opening_value_source: string | null
+          pamp: number | null
+          photo_path: string | null
+          physical_reference: string
+          reference_normalized: string
+          site_id: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          designation?: string | null
+          id?: string
+          is_oil?: boolean
+          last_purchase_at?: string | null
+          last_purchase_price?: number | null
+          last_supplier_id?: string | null
+          location?: string | null
+          logical_article_id?: string | null
+          opening_value_source?: string | null
+          pamp?: number | null
+          photo_path?: string | null
+          physical_reference: string
+          reference_normalized: string
+          site_id: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          designation?: string | null
+          id?: string
+          is_oil?: boolean
+          last_purchase_at?: string | null
+          last_purchase_price?: number | null
+          last_supplier_id?: string | null
+          location?: string | null
+          logical_article_id?: string | null
+          opening_value_source?: string | null
+          pamp?: number | null
+          photo_path?: string | null
+          physical_reference?: string
+          reference_normalized?: string
+          site_id?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_articles_last_supplier_id_fkey"
+            columns: ["last_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_articles_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_movements: {
+        Row: {
+          article_id: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          delta_allocated: number
+          delta_available: number
+          delta_quarantine: number
+          id: string
+          movement_type: string
+          part_return_id: string | null
+          qty: number
+          reason: string | null
+          receipt_line_id: string | null
+          repair_order_id: string | null
+          site_id: string
+          unit_cost: number | null
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          delta_allocated?: number
+          delta_available?: number
+          delta_quarantine?: number
+          id?: string
+          movement_type: string
+          part_return_id?: string | null
+          qty: number
+          reason?: string | null
+          receipt_line_id?: string | null
+          repair_order_id?: string | null
+          site_id: string
+          unit_cost?: number | null
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          delta_allocated?: number
+          delta_available?: number
+          delta_quarantine?: number
+          id?: string
+          movement_type?: string
+          part_return_id?: string | null
+          qty?: number
+          reason?: string | null
+          receipt_line_id?: string | null
+          repair_order_id?: string | null
+          site_id?: string
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_levels"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "stock_movements_receipt_line_id_fkey"
+            columns: ["receipt_line_id"]
+            isOneToOne: false
+            referencedRelation: "part_receipt_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_contacts: {
         Row: {
@@ -6689,9 +7495,87 @@ export type Database = {
           },
         ]
       }
+      work_time_sessions: {
+        Row: {
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          created_at: string
+          id: string
+          repair_order_id: string
+          site_id: string | null
+          source: string
+          started_at: string
+          stopped_at: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          created_at?: string
+          id?: string
+          repair_order_id: string
+          site_id?: string | null
+          source?: string
+          started_at?: string
+          stopped_at?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Update: {
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          created_at?: string
+          id?: string
+          repair_order_id?: string
+          site_id?: string | null
+          source?: string
+          started_at?: string
+          stopped_at?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_time_sessions_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_sessions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      stock_levels: {
+        Row: {
+          allocated_qty: number | null
+          article_id: string | null
+          available_qty: number | null
+          first_receipt_at: string | null
+          quarantine_qty: number | null
+          site_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_articles_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       activity_import_apply: {
