@@ -108,12 +108,14 @@ function DropZone({ kind, site }: { kind: ImportKind; site: string | null }) {
               <div>Montant HT {p.sumHt.toLocaleString("fr-FR")} €{kind === "headers" ? ` · TTC ${p.sumTtc.toLocaleString("fr-FR")} €` : " (hors en-têtes de forfait)"}</div>
               <div>Valeurs négatives : {p.negativeRows} · Lignes reconstruites : {p.recovered} · Rejets : {p.rejects.length}{p.duplicateInvoiceRows ? ` · Factures en double dans le fichier : ${p.duplicateInvoiceRows}` : ""}</div>
               {p.rejects.slice(0, 3).map((r) => <div key={r.line_no} className="truncate text-destructive">L{r.line_no} : {r.reason} — {r.raw_text}</div>)}
-              <details><summary className="cursor-pointer">Correspondance des colonnes</summary>{Object.entries(p.map).map(([k, i]) => <div key={k}>{k} ← {p.headers[i]}</div>)}</details>
+              <details open className="rounded-lg border-2 border-border p-2"><summary className="cursor-pointer font-bold">Correspondance des colonnes (à vérifier)</summary>{Object.entries(p.map).map(([k, i]) => <div key={k}>{k} ← « {p.headers[i]} »</div>)}<div className="text-muted-foreground">Colonnes du fichier non utilisées : {p.headers.filter((_, i) => !Object.values(p.map).includes(i)).join(" | ") || "aucune"}</div></details>
+              <label className="flex items-center gap-2 font-bold"><input type="checkbox" checked={mapOk} onChange={(e) => setMapOk(e.target.checked)} />J'ai vérifié la correspondance des colonnes</label>
+              {prep!.file.size > 30 * 1048576 ? <Badge tone="warn">Gros fichier : lecture complète en mémoire du navigateur (ordinateur conseillé, pas de mobile)</Badge> : null}
               {prep!.existing ? <Badge tone="warn">{prep!.existing.status === "done" ? `Déjà importé le ${new Date(prep!.existing.created_at).toLocaleString("fr-FR")}` : "Import précédent interrompu : la validation le reprend"}</Badge> : null}
               {progress ? <div className="font-bold">Import en cours : {progress.done.toLocaleString("fr-FR")} / {progress.total.toLocaleString("fr-FR")}</div> : null}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button className={btnGhost} onClick={() => setPrep(null)} disabled={busy}>Annuler</button>
-                <button className={btnPrimary} onClick={validate} disabled={busy || p.kind !== kind}>Valider l'import</button>
+                <button className={btnPrimary} onClick={validate} disabled={busy || p.kind !== kind || !mapOk}>Valider l'import</button>
               </div>
             </>
           )}

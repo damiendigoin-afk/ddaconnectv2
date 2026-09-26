@@ -28,6 +28,7 @@ const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length
 
 export async function runImport(p: Prepared, siteId: string, actorName: string, onProgress: (done: number, total: number) => void) {
   if (p.existing?.status === "done") return { alreadyImported: true as const, batchId: p.existing.id };
+  let storageWarning: string | null = null;
   let batchId = p.existing?.id ?? null;
   if (!batchId) {
     const { data, error } = await supabase
@@ -41,6 +42,7 @@ export async function runImport(p: Prepared, siteId: string, actorName: string, 
     const path = `winmotor-imports/${siteId}/${p.hash}-${p.file.name.replace(/[^\w.-]/g, "_")}`;
     const up = await supabase.storage.from("dda-media").upload(path, p.file, { upsert: true });
     if (!up.error) await supabase.from("winmotor_import_batches").update({ storage_path: path }).eq("id", batchId);
+    else storageWarning = `Fichier source non archivé (${up.error.message}) — l'import continue.`;
     for (const c of chunk(p.parsed.rejects, 500)) {
       await supabase.from("winmotor_import_rejects").insert(c.map((r) => ({ ...r, batch_id: batchId!, site_id: siteId })));
     }
@@ -81,7 +83,7 @@ export async function runImport(p: Prepared, siteId: string, actorName: string, 
     .from("winmotor_import_batches")
     .update({ status: "done", completed_at: new Date().toISOString(), invoices_seen: p.parsed.kind === "headers" ? p.parsed.headerRows.length : p.parsed.invoices.length, invoices_created: tot.created, invoices_updated: tot.updated, invoices_unchanged: tot.unchanged, lines_inserted: tot.lines, report: { orLinks: link, missing: p.parsed.missing, map: p.parsed.map, duplicateInvoiceRows: p.parsed.duplicateInvoiceRows } as never })
     .eq("id", batchId);
-  return { alreadyImported: false as const, batchId, ...tot, orLinks: link };
+  return { alreadyImported: false as const, batchId, ...tot, orLinks: link, storageWarning };
 }
 
 async function failBatch(id: string, message: string, at: number) {
