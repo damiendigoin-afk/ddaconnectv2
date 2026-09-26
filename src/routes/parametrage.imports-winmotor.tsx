@@ -52,11 +52,12 @@ function DropZone({ kind, site }: { kind: ImportKind; site: string | null }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [drag, setDrag] = useState(false);
+  const [mapOk, setMapOk] = useState(false);
 
   async function pick(file: File | undefined) {
     if (!file) return;
     if (!site) return void toast.error("Choisissez d'abord le site / la société.");
-    setBusy(true); setPrep(null);
+    setBusy(true); setPrep(null); setMapOk(false);
     try {
       const p = await prepareFile(file, site, kind);
       setPrep(p);
@@ -70,7 +71,10 @@ function DropZone({ kind, site }: { kind: ImportKind; site: string | null }) {
     try {
       const r = await runImport(prep, site, actor.name, (done, total) => setProgress({ done, total }));
       if (r.alreadyImported) toast.info("Ce fichier exact a déjà été importé pour ce site : rien n'a été recréé.");
-      else toast.success(`Import terminé : ${r.created} nouvelle(s), ${r.updated} mise(s) à jour, ${r.unchanged} inchangée(s).`);
+      else {
+        if (r.storageWarning) toast.warning(r.storageWarning);
+        toast.success(`Import terminé : ${r.created} nouvelle(s), ${r.updated} mise(s) à jour, ${r.unchanged} inchangée(s).`);
+      }
       setPrep(null); setProgress(null);
       qc.invalidateQueries({ queryKey: ["wm-batches"] });
     } catch (e) {
