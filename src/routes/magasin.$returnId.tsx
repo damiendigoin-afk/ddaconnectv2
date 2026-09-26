@@ -10,6 +10,8 @@ import { BUCKET, compressImage, mediaUrl } from "@/lib/photo";
 import { formatPlate } from "@/lib/plate";
 import { listSuppliers } from "@/lib/suppliers";
 import { sendReturnMailFn } from "@/lib/returns.functions";
+import { shipSupplierReturnStock } from "@/lib/parts";
+import { usePartsCtx } from "@/components/parts/PartsUi";
 import {
   CLOSURE_REASONS,
   DOCUMENT_KINDS,
@@ -103,6 +105,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnWithLines; returnId: strin
     void qc.invalidateQueries({ queryKey: ["returns"] });
   };
 
+  const { actor } = usePartsCtx();
   async function patch(values: Record<string, unknown>, event?: { kind: string; detail: string }) {
     setBusy(true);
     setMsg("");
@@ -110,6 +113,14 @@ function ReturnDetail({ row, returnId }: { row: ReturnWithLines; returnId: strin
       const { error } = await supabase.from("part_returns").update(values as never).eq("id", returnId);
       if (error) throw error;
       if (event) await logEvent(returnId, event.kind, event.detail);
+      if (values.status === "expedie") {
+        try {
+          const r = await shipSupplierReturnStock(returnId, actor);
+          if (r.moved || r.regul) await logEvent(returnId, "stock", `Sortie stock : ${r.moved} ligne(s)${r.regul ? ` · ${r.regul} à régulariser` : ""}`);
+        } catch {
+          setMsg("Retour expédié, mais la sortie de stock n'a pas pu être enregistrée (voir À régulariser).");
+        }
+      }
       reload();
     } catch {
       setMsg("Enregistrement impossible.");
