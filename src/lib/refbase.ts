@@ -31,11 +31,12 @@ export type RefCustomer = {
   last_name: string | null;
   first_name: string | null;
   company_name: string | null;
+  site_id?: string | null;
 };
 
 const VEH_SELECT =
   "id, registration_display, registration_normalized, vin, brand, range_name, model, version, color, energy, first_registration_date, next_ct_date, last_ct_date, last_mileage, last_mileage_at, last_visit_at, source_vehicle_id, site_id";
-const CUST_SELECT = "id, source_customer_id, customer_type, civility, last_name, first_name, company_name";
+const CUST_SELECT = "id, source_customer_id, customer_type, civility, last_name, first_name, company_name, site_id";
 
 export function customerName(c: Pick<RefCustomer, "first_name" | "last_name" | "company_name"> | null): string {
   if (!c) return "—";
@@ -51,7 +52,7 @@ export function vehicleLabel(v: Pick<RefVehicle, "brand" | "model" | "range_name
 export type SearchResult = {
   customers: (RefCustomer & { vehicles: RefVehicle[]; city: string | null; phone: string | null })[];
   vehicles: (RefVehicle & { customer: RefCustomer | null })[];
-  orders: { id: string; or_number: string | null; or_date: string | null; plate: string | null }[];
+  orders: { id: string; or_number: string | null; or_date: string | null; plate: string | null; site_id: string | null }[];
 };
 
 /** Propriétaire courant de chaque véhicule : relation OWNER active la plus récente.
@@ -111,7 +112,7 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
       : Promise.resolve({ data: [] as { customer_id: string }[] }),
     supabase
       .from("repair_orders")
-      .select("id, or_number, or_date, vehicle:vehicles(plate)")
+      .select("id, or_number, or_date, site_id, vehicle:vehicles(plate)")
       .ilike("or_number", `%${raw}%`)
       .limit(5),
   ]);
