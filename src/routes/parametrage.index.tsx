@@ -10,7 +10,9 @@ import {
   MailCheck,
   ShieldCheck,
   SlidersHorizontal,
-  Users,, FileUp } from "lucide-react";
+  Users,
+  FileUp,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
