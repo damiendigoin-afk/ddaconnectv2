@@ -15,14 +15,14 @@ import {
   type WorkState,
 } from "@/lib/parts-rules";
 
-type Actor = { userId: string | null; name: string };
+export type Actor = { userId: string | null; name: string };
 
 /** Site d'action : site par défaut du profil, sinon site actif (hors vue groupe). */
 export function actionSiteId(profileSite: string | null | undefined, active: string, isGroup: boolean): string | null {
   return profileSite ?? (!isGroup && active && active !== "groupe" ? active : null);
 }
 
-async function logEvent(e: { site_id: string | null; entity: string; entity_id?: string | null; repair_order_id?: string | null; action: string; detail?: unknown }, actor: Actor) {
+export async function logEvent(e: { site_id: string | null; entity: string; entity_id?: string | null; repair_order_id?: string | null; action: string; detail?: unknown }, actor: Actor) {
   await supabase.from("parts_events").insert({
     site_id: e.site_id,
     entity: e.entity,
@@ -34,7 +34,7 @@ async function logEvent(e: { site_id: string | null; entity: string; entity_id?:
   });
 }
 
-async function openRegularization(r: { site_id: string; kind: string; source_table?: string; source_id?: string | null; repair_order_id?: string | null; supplier_id?: string | null; physical_reference?: string | null; plate?: string | null; comment?: string | null }, actor: Actor) {
+export async function openRegularization(r: { site_id: string; kind: string; source_table?: string; source_id?: string | null; repair_order_id?: string | null; supplier_id?: string | null; physical_reference?: string | null; plate?: string | null; comment?: string | null }, actor: Actor) {
   await supabase.from("parts_regularizations").insert({ ...r, created_by_name: actor.name });
 }
 
@@ -125,7 +125,7 @@ export async function findStockByRef(siteId: string | null, ref: string): Promis
   return all.filter((r) => normalizeRef(r.physical_reference) === n);
 }
 
-async function levelOf(articleId: string) {
+export async function levelOf(articleId: string) {
   const { data } = await supabase.from("stock_levels").select("*").eq("article_id", articleId).maybeSingle();
   return { available: Number(data?.available_qty ?? 0), allocated: Number(data?.allocated_qty ?? 0), quarantine: Number(data?.quarantine_qty ?? 0) };
 }
