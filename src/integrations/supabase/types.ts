@@ -4217,6 +4217,9 @@ export type Database = {
           receipt_id: string
           repair_order_id: string | null
           unit_cost_provisional: number | null
+          unit_cost_real: number | null
+          unit_cost_real_at: string | null
+          unit_cost_real_doc_id: string | null
           wrong_reference: boolean
         }
         Insert: {
@@ -4237,6 +4240,9 @@ export type Database = {
           receipt_id: string
           repair_order_id?: string | null
           unit_cost_provisional?: number | null
+          unit_cost_real?: number | null
+          unit_cost_real_at?: string | null
+          unit_cost_real_doc_id?: string | null
           wrong_reference?: boolean
         }
         Update: {
@@ -4257,6 +4263,9 @@ export type Database = {
           receipt_id?: string
           repair_order_id?: string | null
           unit_cost_provisional?: number | null
+          unit_cost_real?: number | null
+          unit_cost_real_at?: string | null
+          unit_cost_real_doc_id?: string | null
           wrong_reference?: boolean
         }
         Relationships: [
@@ -6254,6 +6263,123 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_cost_lines: {
+        Row: {
+          applied_at: string | null
+          applied_cost: number | null
+          article_id: string | null
+          comment: string | null
+          created_at: string
+          created_by_name: string | null
+          designation: string | null
+          doc_kind: string
+          document_id: string
+          gap_abs: number | null
+          id: string
+          line_key: string
+          pamp_after: number | null
+          pamp_before: number | null
+          physical_reference: string | null
+          qty: number | null
+          receipt_line_id: string | null
+          reference_cost: number | null
+          site_id: string
+          status: string
+          supplier_name: string | null
+          unit_price_ht: number | null
+          updated_at: string
+          validated_by_name: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_cost?: number | null
+          article_id?: string | null
+          comment?: string | null
+          created_at?: string
+          created_by_name?: string | null
+          designation?: string | null
+          doc_kind?: string
+          document_id: string
+          gap_abs?: number | null
+          id?: string
+          line_key: string
+          pamp_after?: number | null
+          pamp_before?: number | null
+          physical_reference?: string | null
+          qty?: number | null
+          receipt_line_id?: string | null
+          reference_cost?: number | null
+          site_id: string
+          status: string
+          supplier_name?: string | null
+          unit_price_ht?: number | null
+          updated_at?: string
+          validated_by_name?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          applied_cost?: number | null
+          article_id?: string | null
+          comment?: string | null
+          created_at?: string
+          created_by_name?: string | null
+          designation?: string | null
+          doc_kind?: string
+          document_id?: string
+          gap_abs?: number | null
+          id?: string
+          line_key?: string
+          pamp_after?: number | null
+          pamp_before?: number | null
+          physical_reference?: string | null
+          qty?: number | null
+          receipt_line_id?: string | null
+          reference_cost?: number | null
+          site_id?: string
+          status?: string
+          supplier_name?: string | null
+          unit_price_ht?: number | null
+          updated_at?: string
+          validated_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_cost_lines_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_cost_lines_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_levels"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "supplier_cost_lines_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_cost_lines_receipt_line_id_fkey"
+            columns: ["receipt_line_id"]
+            isOneToOne: false
+            referencedRelation: "part_receipt_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_cost_lines_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]

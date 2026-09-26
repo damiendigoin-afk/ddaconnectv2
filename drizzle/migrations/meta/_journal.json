@@ -134,6 +134,13 @@
       "when": 1790444017189,
       "tag": "0018_v3_winmotor_invoices_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790459526305,
+      "tag": "0019_v3_supplier_real_cost",
+      "breakpoints": true
     }
   ]
 }
