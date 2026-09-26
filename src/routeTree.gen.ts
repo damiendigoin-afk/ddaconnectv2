@@ -66,6 +66,7 @@ import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as PiecesAchatsIndexRouteImport } from './routes/pieces-achats.index'
 import { Route as PiecesAchatsSectionRouteImport } from './routes/pieces-achats.$section'
 import { Route as PiecesAchatsCommandesRouteImport } from './routes/pieces-achats.commandes'
+import { Route as PiecesAchatsControleWinmotorRouteImport } from './routes/pieces-achats.controle-winmotor'
 import { Route as PiecesAchatsReceptionRouteImport } from './routes/pieces-achats.reception'
 import { Route as PiecesAchatsRegulariserRouteImport } from './routes/pieces-achats.regulariser'
 import { Route as PiecesAchatsRetoursRouteImport } from './routes/pieces-achats.retours'
@@ -391,6 +392,12 @@ const PiecesAchatsCommandesRoute = PiecesAchatsCommandesRouteImport.update({
   path: '/pieces-achats/commandes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PiecesAchatsControleWinmotorRoute =
+  PiecesAchatsControleWinmotorRouteImport.update({
+    id: '/pieces-achats/controle-winmotor',
+    path: '/pieces-achats/controle-winmotor',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PiecesAchatsReceptionRoute = PiecesAchatsReceptionRouteImport.update({
   id: '/pieces-achats/reception',
   path: '/pieces-achats/reception',
@@ -620,6 +627,7 @@ export interface FileRoutesByFullPath {
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
+  '/pieces-achats/controle-winmotor': typeof PiecesAchatsControleWinmotorRoute
   '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
   '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
@@ -714,6 +722,7 @@ export interface FileRoutesByTo {
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
+  '/pieces-achats/controle-winmotor': typeof PiecesAchatsControleWinmotorRoute
   '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
   '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
@@ -810,6 +819,7 @@ export interface FileRoutesById {
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
+  '/pieces-achats/controle-winmotor': typeof PiecesAchatsControleWinmotorRoute
   '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
   '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
@@ -907,6 +917,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
+    | '/pieces-achats/controle-winmotor'
     | '/pieces-achats/reception'
     | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
@@ -1001,6 +1012,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
+    | '/pieces-achats/controle-winmotor'
     | '/pieces-achats/reception'
     | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
@@ -1096,6 +1108,7 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
+    | '/pieces-achats/controle-winmotor'
     | '/pieces-achats/reception'
     | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
@@ -1192,6 +1205,7 @@ export interface RootRouteChildren {
   PartageTokenRoute: typeof PartageTokenRoute
   PiecesAchatsSectionRoute: typeof PiecesAchatsSectionRoute
   PiecesAchatsCommandesRoute: typeof PiecesAchatsCommandesRoute
+  PiecesAchatsControleWinmotorRoute: typeof PiecesAchatsControleWinmotorRoute
   PiecesAchatsReceptionRoute: typeof PiecesAchatsReceptionRoute
   PiecesAchatsRegulariserRoute: typeof PiecesAchatsRegulariserRoute
   PiecesAchatsRetoursRoute: typeof PiecesAchatsRetoursRoute
@@ -1642,6 +1656,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PiecesAchatsCommandesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pieces-achats/controle-winmotor': {
+      id: '/pieces-achats/controle-winmotor'
+      path: '/pieces-achats/controle-winmotor'
+      fullPath: '/pieces-achats/controle-winmotor'
+      preLoaderRoute: typeof PiecesAchatsControleWinmotorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pieces-achats/reception': {
       id: '/pieces-achats/reception'
       path: '/pieces-achats/reception'
@@ -1967,6 +1988,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartageTokenRoute: PartageTokenRoute,
   PiecesAchatsSectionRoute: PiecesAchatsSectionRoute,
   PiecesAchatsCommandesRoute: PiecesAchatsCommandesRoute,
+  PiecesAchatsControleWinmotorRoute: PiecesAchatsControleWinmotorRoute,
   PiecesAchatsReceptionRoute: PiecesAchatsReceptionRoute,
   PiecesAchatsRegulariserRoute: PiecesAchatsRegulariserRoute,
   PiecesAchatsRetoursRoute: PiecesAchatsRetoursRoute,
