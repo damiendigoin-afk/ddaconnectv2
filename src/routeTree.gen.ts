@@ -63,6 +63,7 @@ import { Route as ParametrageTarifsRouteImport } from './routes/parametrage.tari
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as PiecesAchatsIndexRouteImport } from './routes/pieces-achats.index'
 import { Route as PiecesAchatsSectionRouteImport } from './routes/pieces-achats.$section'
+import { Route as PiecesAchatsCommandesRouteImport } from './routes/pieces-achats.commandes'
 import { Route as PiecesAchatsRetoursRouteImport } from './routes/pieces-achats.retours'
 import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
 import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
@@ -85,6 +86,7 @@ import { Route as ExpertiseExIdIndexRouteImport } from './routes/expertise.$exId
 import { Route as ExpertiseExIdRapportRouteImport } from './routes/expertise.$exId.rapport'
 import { Route as ParametrageFournisseursIndexRouteImport } from './routes/parametrage.fournisseurs.index'
 import { Route as ParametrageFournisseursSupplierIdRouteImport } from './routes/parametrage.fournisseurs.$supplierId'
+import { Route as PiecesAchatsCommandeOrderIdRouteImport } from './routes/pieces-achats.commande.$orderId'
 import { Route as StatistiquesActiviteIndexRouteImport } from './routes/statistiques.activite.index'
 import { Route as StatistiquesActiviteImportRouteImport } from './routes/statistiques.activite.import'
 import { Route as TourTourIdIndexRouteImport } from './routes/tour.$tourId.index'
@@ -368,6 +370,11 @@ const PiecesAchatsSectionRoute = PiecesAchatsSectionRouteImport.update({
   path: '/pieces-achats/$section',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PiecesAchatsCommandesRoute = PiecesAchatsCommandesRouteImport.update({
+  id: '/pieces-achats/commandes',
+  path: '/pieces-achats/commandes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PiecesAchatsRetoursRoute = PiecesAchatsRetoursRouteImport.update({
   id: '/pieces-achats/retours',
   path: '/pieces-achats/retours',
@@ -480,6 +487,12 @@ const ParametrageFournisseursSupplierIdRoute =
     path: '/parametrage/fournisseurs/$supplierId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PiecesAchatsCommandeOrderIdRoute =
+  PiecesAchatsCommandeOrderIdRouteImport.update({
+    id: '/pieces-achats/commande/$orderId',
+    path: '/pieces-achats/commande/$orderId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const StatistiquesActiviteIndexRoute =
   StatistiquesActiviteIndexRouteImport.update({
     id: '/statistiques/activite/',
@@ -573,6 +586,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
+  '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
@@ -606,6 +620,7 @@ export interface FileRoutesByFullPath {
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
+  '/pieces-achats/commande/$orderId': typeof PiecesAchatsCommandeOrderIdRoute
   '/statistiques/activite/import': typeof StatistiquesActiviteImportRoute
   '/tour/$tourId/pdf': typeof TourTourIdPdfRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -660,6 +675,7 @@ export interface FileRoutesByTo {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
+  '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
@@ -693,6 +709,7 @@ export interface FileRoutesByTo {
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
+  '/pieces-achats/commande/$orderId': typeof PiecesAchatsCommandeOrderIdRoute
   '/statistiques/activite/import': typeof StatistiquesActiviteImportRoute
   '/tour/$tourId/pdf': typeof TourTourIdPdfRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -749,6 +766,7 @@ export interface FileRoutesById {
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
+  '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
@@ -782,6 +800,7 @@ export interface FileRoutesById {
   '/devis/pneus/historique': typeof DevisPneusHistoriqueRoute
   '/expertise/$exId/rapport': typeof ExpertiseExIdRapportRoute
   '/parametrage/fournisseurs/$supplierId': typeof ParametrageFournisseursSupplierIdRoute
+  '/pieces-achats/commande/$orderId': typeof PiecesAchatsCommandeOrderIdRoute
   '/statistiques/activite/import': typeof StatistiquesActiviteImportRoute
   '/tour/$tourId/pdf': typeof TourTourIdPdfRoute
   '/tour/$tourId/presentation': typeof TourTourIdPresentationRoute
@@ -839,6 +858,7 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/pieces-achats/$section'
+    | '/pieces-achats/commandes'
     | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
@@ -872,6 +892,7 @@ export interface FileRouteTypes {
     | '/devis/pneus/historique'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
+    | '/pieces-achats/commande/$orderId'
     | '/statistiques/activite/import'
     | '/tour/$tourId/pdf'
     | '/tour/$tourId/presentation'
@@ -926,6 +947,7 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/pieces-achats/$section'
+    | '/pieces-achats/commandes'
     | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
@@ -959,6 +981,7 @@ export interface FileRouteTypes {
     | '/devis/pneus/historique'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
+    | '/pieces-achats/commande/$orderId'
     | '/statistiques/activite/import'
     | '/tour/$tourId/pdf'
     | '/tour/$tourId/presentation'
@@ -1014,6 +1037,7 @@ export interface FileRouteTypes {
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/pieces-achats/$section'
+    | '/pieces-achats/commandes'
     | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
@@ -1047,6 +1071,7 @@ export interface FileRouteTypes {
     | '/devis/pneus/historique'
     | '/expertise/$exId/rapport'
     | '/parametrage/fournisseurs/$supplierId'
+    | '/pieces-achats/commande/$orderId'
     | '/statistiques/activite/import'
     | '/tour/$tourId/pdf'
     | '/tour/$tourId/presentation'
@@ -1103,6 +1128,7 @@ export interface RootRouteChildren {
   ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
   PiecesAchatsSectionRoute: typeof PiecesAchatsSectionRoute
+  PiecesAchatsCommandesRoute: typeof PiecesAchatsCommandesRoute
   PiecesAchatsRetoursRoute: typeof PiecesAchatsRetoursRoute
   RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
   StatistiquesClienteleRoute: typeof StatistiquesClienteleRoute
@@ -1134,6 +1160,7 @@ export interface RootRouteChildren {
   BaseHistoriqueImportIdRoute: typeof BaseHistoriqueImportIdRoute
   ExpertiseExIdRapportRoute: typeof ExpertiseExIdRapportRoute
   ParametrageFournisseursSupplierIdRoute: typeof ParametrageFournisseursSupplierIdRoute
+  PiecesAchatsCommandeOrderIdRoute: typeof PiecesAchatsCommandeOrderIdRoute
   StatistiquesActiviteImportRoute: typeof StatistiquesActiviteImportRoute
   TourTourIdPdfRoute: typeof TourTourIdPdfRoute
   TourTourIdPresentationRoute: typeof TourTourIdPresentationRoute
@@ -1528,6 +1555,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PiecesAchatsSectionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pieces-achats/commandes': {
+      id: '/pieces-achats/commandes'
+      path: '/pieces-achats/commandes'
+      fullPath: '/pieces-achats/commandes'
+      preLoaderRoute: typeof PiecesAchatsCommandesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pieces-achats/retours': {
       id: '/pieces-achats/retours'
       path: '/pieces-achats/retours'
@@ -1682,6 +1716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageFournisseursSupplierIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pieces-achats/commande/$orderId': {
+      id: '/pieces-achats/commande/$orderId'
+      path: '/pieces-achats/commande/$orderId'
+      fullPath: '/pieces-achats/commande/$orderId'
+      preLoaderRoute: typeof PiecesAchatsCommandeOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/statistiques/activite/': {
       id: '/statistiques/activite/'
       path: '/statistiques/activite'
@@ -1822,6 +1863,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,
   PiecesAchatsSectionRoute: PiecesAchatsSectionRoute,
+  PiecesAchatsCommandesRoute: PiecesAchatsCommandesRoute,
   PiecesAchatsRetoursRoute: PiecesAchatsRetoursRoute,
   RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
   StatistiquesClienteleRoute: StatistiquesClienteleRoute,
@@ -1854,6 +1896,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExpertiseExIdRapportRoute: ExpertiseExIdRapportRoute,
   ParametrageFournisseursSupplierIdRoute:
     ParametrageFournisseursSupplierIdRoute,
+  PiecesAchatsCommandeOrderIdRoute: PiecesAchatsCommandeOrderIdRoute,
   StatistiquesActiviteImportRoute: StatistiquesActiviteImportRoute,
   TourTourIdPdfRoute: TourTourIdPdfRoute,
   TourTourIdPresentationRoute: TourTourIdPresentationRoute,
