@@ -41,6 +41,7 @@ import { Route as EmailsIndexRouteImport } from './routes/emails.index'
 import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-partage.$token'
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
+import { Route as FactureInvoiceIdRouteImport } from './routes/facture.$invoiceId'
 import { Route as FacturesFournisseurIndexRouteImport } from './routes/factures-fournisseur.index'
 import { Route as MagasinIndexRouteImport } from './routes/magasin.index'
 import { Route as MagasinReturnIdRouteImport } from './routes/magasin.$returnId'
@@ -56,6 +57,7 @@ import { Route as ParametrageChiffrageRouteImport } from './routes/parametrage.c
 import { Route as ParametrageCoutsRouteImport } from './routes/parametrage.couts'
 import { Route as ParametrageEquivalencesRouteImport } from './routes/parametrage.equivalences'
 import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.global'
+import { Route as ParametrageImportsWinmotorRouteImport } from './routes/parametrage.imports-winmotor'
 import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.messages'
 import { Route as ParametrageNotificationsRouteImport } from './routes/parametrage.notifications'
 import { Route as ParametrageSanteRouteImport } from './routes/parametrage.sante'
@@ -261,6 +263,11 @@ const ExpertiseNouvelleRoute = ExpertiseNouvelleRouteImport.update({
   path: '/expertise/nouvelle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FactureInvoiceIdRoute = FactureInvoiceIdRouteImport.update({
+  id: '/facture/$invoiceId',
+  path: '/facture/$invoiceId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FacturesFournisseurIndexRoute =
   FacturesFournisseurIndexRouteImport.update({
     id: '/factures-fournisseur/',
@@ -337,6 +344,12 @@ const ParametrageGlobalRoute = ParametrageGlobalRouteImport.update({
   path: '/parametrage/global',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageImportsWinmotorRoute =
+  ParametrageImportsWinmotorRouteImport.update({
+    id: '/parametrage/imports-winmotor',
+    path: '/parametrage/imports-winmotor',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ParametrageMessagesRoute = ParametrageMessagesRouteImport.update({
   id: '/parametrage/messages',
   path: '/parametrage/messages',
@@ -588,6 +601,7 @@ export interface FileRoutesByFullPath {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/facture/$invoiceId': typeof FactureInvoiceIdRoute
   '/magasin/$returnId': typeof MagasinReturnIdRoute
   '/magasin/avoirs': typeof MagasinAvoirsRoute
   '/magasin/nouveau': typeof MagasinNouveauRoute
@@ -598,6 +612,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/equivalences': typeof ParametrageEquivalencesRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
+  '/parametrage/imports-winmotor': typeof ParametrageImportsWinmotorRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
@@ -680,6 +695,7 @@ export interface FileRoutesByTo {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/facture/$invoiceId': typeof FactureInvoiceIdRoute
   '/magasin/$returnId': typeof MagasinReturnIdRoute
   '/magasin/avoirs': typeof MagasinAvoirsRoute
   '/magasin/nouveau': typeof MagasinNouveauRoute
@@ -690,6 +706,7 @@ export interface FileRoutesByTo {
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/equivalences': typeof ParametrageEquivalencesRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
+  '/parametrage/imports-winmotor': typeof ParametrageImportsWinmotorRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
@@ -774,6 +791,7 @@ export interface FileRoutesById {
   '/expertise-partage/$token': typeof ExpertisePartageTokenRoute
   '/expertise/bareme': typeof ExpertiseBaremeRoute
   '/expertise/nouvelle': typeof ExpertiseNouvelleRoute
+  '/facture/$invoiceId': typeof FactureInvoiceIdRoute
   '/magasin/$returnId': typeof MagasinReturnIdRoute
   '/magasin/avoirs': typeof MagasinAvoirsRoute
   '/magasin/nouveau': typeof MagasinNouveauRoute
@@ -784,6 +802,7 @@ export interface FileRoutesById {
   '/parametrage/couts': typeof ParametrageCoutsRoute
   '/parametrage/equivalences': typeof ParametrageEquivalencesRoute
   '/parametrage/global': typeof ParametrageGlobalRoute
+  '/parametrage/imports-winmotor': typeof ParametrageImportsWinmotorRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
@@ -869,6 +888,7 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/facture/$invoiceId'
     | '/magasin/$returnId'
     | '/magasin/avoirs'
     | '/magasin/nouveau'
@@ -879,6 +899,7 @@ export interface FileRouteTypes {
     | '/parametrage/couts'
     | '/parametrage/equivalences'
     | '/parametrage/global'
+    | '/parametrage/imports-winmotor'
     | '/parametrage/messages'
     | '/parametrage/notifications'
     | '/parametrage/sante'
@@ -961,6 +982,7 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/facture/$invoiceId'
     | '/magasin/$returnId'
     | '/magasin/avoirs'
     | '/magasin/nouveau'
@@ -971,6 +993,7 @@ export interface FileRouteTypes {
     | '/parametrage/couts'
     | '/parametrage/equivalences'
     | '/parametrage/global'
+    | '/parametrage/imports-winmotor'
     | '/parametrage/messages'
     | '/parametrage/notifications'
     | '/parametrage/sante'
@@ -1054,6 +1077,7 @@ export interface FileRouteTypes {
     | '/expertise-partage/$token'
     | '/expertise/bareme'
     | '/expertise/nouvelle'
+    | '/facture/$invoiceId'
     | '/magasin/$returnId'
     | '/magasin/avoirs'
     | '/magasin/nouveau'
@@ -1064,6 +1088,7 @@ export interface FileRouteTypes {
     | '/parametrage/couts'
     | '/parametrage/equivalences'
     | '/parametrage/global'
+    | '/parametrage/imports-winmotor'
     | '/parametrage/messages'
     | '/parametrage/notifications'
     | '/parametrage/sante'
@@ -1148,6 +1173,7 @@ export interface RootRouteChildren {
   ExpertisePartageTokenRoute: typeof ExpertisePartageTokenRoute
   ExpertiseBaremeRoute: typeof ExpertiseBaremeRoute
   ExpertiseNouvelleRoute: typeof ExpertiseNouvelleRoute
+  FactureInvoiceIdRoute: typeof FactureInvoiceIdRoute
   MagasinReturnIdRoute: typeof MagasinReturnIdRoute
   MagasinAvoirsRoute: typeof MagasinAvoirsRoute
   MagasinNouveauRoute: typeof MagasinNouveauRoute
@@ -1158,6 +1184,7 @@ export interface RootRouteChildren {
   ParametrageCoutsRoute: typeof ParametrageCoutsRoute
   ParametrageEquivalencesRoute: typeof ParametrageEquivalencesRoute
   ParametrageGlobalRoute: typeof ParametrageGlobalRoute
+  ParametrageImportsWinmotorRoute: typeof ParametrageImportsWinmotorRoute
   ParametrageMessagesRoute: typeof ParametrageMessagesRoute
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
   ParametrageSanteRoute: typeof ParametrageSanteRoute
@@ -1440,6 +1467,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExpertiseNouvelleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/facture/$invoiceId': {
+      id: '/facture/$invoiceId'
+      path: '/facture/$invoiceId'
+      fullPath: '/facture/$invoiceId'
+      preLoaderRoute: typeof FactureInvoiceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/factures-fournisseur/': {
       id: '/factures-fournisseur/'
       path: '/factures-fournisseur'
@@ -1543,6 +1577,13 @@ declare module '@tanstack/react-router' {
       path: '/parametrage/global'
       fullPath: '/parametrage/global'
       preLoaderRoute: typeof ParametrageGlobalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametrage/imports-winmotor': {
+      id: '/parametrage/imports-winmotor'
+      path: '/parametrage/imports-winmotor'
+      fullPath: '/parametrage/imports-winmotor'
+      preLoaderRoute: typeof ParametrageImportsWinmotorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/parametrage/messages': {
@@ -1907,6 +1948,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExpertisePartageTokenRoute: ExpertisePartageTokenRoute,
   ExpertiseBaremeRoute: ExpertiseBaremeRoute,
   ExpertiseNouvelleRoute: ExpertiseNouvelleRoute,
+  FactureInvoiceIdRoute: FactureInvoiceIdRoute,
   MagasinReturnIdRoute: MagasinReturnIdRoute,
   MagasinAvoirsRoute: MagasinAvoirsRoute,
   MagasinNouveauRoute: MagasinNouveauRoute,
@@ -1917,6 +1959,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageCoutsRoute: ParametrageCoutsRoute,
   ParametrageEquivalencesRoute: ParametrageEquivalencesRoute,
   ParametrageGlobalRoute: ParametrageGlobalRoute,
+  ParametrageImportsWinmotorRoute: ParametrageImportsWinmotorRoute,
   ParametrageMessagesRoute: ParametrageMessagesRoute,
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,
   ParametrageSanteRoute: ParametrageSanteRoute,
