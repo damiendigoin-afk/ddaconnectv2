@@ -8303,6 +8303,7 @@ export type Database = {
         Returns: boolean
       }
       wm_can_import: { Args: { _site: string }; Returns: boolean }
+      wm_find_or: { Args: { _num: string; _site: string }; Returns: string }
       wm_import_details: {
         Args: { _batch: string; _invoices: Json; _site: string }
         Returns: Json
