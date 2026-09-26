@@ -6103,11 +6103,13 @@ export type Database = {
           delta_available: number
           delta_quarantine: number
           id: string
+          is_reversal: boolean
           movement_type: string
           part_return_id: string | null
           qty: number
           reason: string | null
           receipt_line_id: string | null
+          reconciliation_link_id: string | null
           repair_order_id: string | null
           site_id: string
           unit_cost: number | null
@@ -6121,11 +6123,13 @@ export type Database = {
           delta_available?: number
           delta_quarantine?: number
           id?: string
+          is_reversal?: boolean
           movement_type: string
           part_return_id?: string | null
           qty: number
           reason?: string | null
           receipt_line_id?: string | null
+          reconciliation_link_id?: string | null
           repair_order_id?: string | null
           site_id: string
           unit_cost?: number | null
@@ -6139,11 +6143,13 @@ export type Database = {
           delta_available?: number
           delta_quarantine?: number
           id?: string
+          is_reversal?: boolean
           movement_type?: string
           part_return_id?: string | null
           qty?: number
           reason?: string | null
           receipt_line_id?: string | null
+          reconciliation_link_id?: string | null
           repair_order_id?: string | null
           site_id?: string
           unit_cost?: number | null
@@ -6168,6 +6174,13 @@ export type Database = {
             columns: ["receipt_line_id"]
             isOneToOne: false
             referencedRelation: "part_receipt_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_reconciliation_link_id_fkey"
+            columns: ["reconciliation_link_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_reconciliation_links"
             referencedColumns: ["id"]
           },
           {
@@ -7436,6 +7449,407 @@ export type Database = {
           },
         ]
       }
+      winmotor_import_batches: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          date_max: string | null
+          date_min: string | null
+          encoding: string | null
+          file_hash: string
+          file_name: string
+          file_size: number | null
+          id: string
+          import_type: string
+          invoices_created: number
+          invoices_seen: number
+          invoices_unchanged: number
+          invoices_updated: number
+          lines_inserted: number
+          report: Json | null
+          rows_recovered: number
+          rows_rejected: number
+          rows_total: number
+          site_id: string
+          status: string
+          storage_path: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          date_max?: string | null
+          date_min?: string | null
+          encoding?: string | null
+          file_hash: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          import_type: string
+          invoices_created?: number
+          invoices_seen?: number
+          invoices_unchanged?: number
+          invoices_updated?: number
+          lines_inserted?: number
+          report?: Json | null
+          rows_recovered?: number
+          rows_rejected?: number
+          rows_total?: number
+          site_id: string
+          status?: string
+          storage_path?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          date_max?: string | null
+          date_min?: string | null
+          encoding?: string | null
+          file_hash?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          import_type?: string
+          invoices_created?: number
+          invoices_seen?: number
+          invoices_unchanged?: number
+          invoices_updated?: number
+          lines_inserted?: number
+          report?: Json | null
+          rows_recovered?: number
+          rows_rejected?: number
+          rows_total?: number
+          site_id?: string
+          status?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_import_batches_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winmotor_import_rejects: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          line_no: number | null
+          raw_text: string | null
+          reason: string
+          site_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          line_no?: number | null
+          raw_text?: string | null
+          reason: string
+          site_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          line_no?: number | null
+          raw_text?: string | null
+          reason?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_import_rejects_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_import_rejects_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winmotor_invoice_lines: {
+        Row: {
+          active: boolean
+          activity: string | null
+          batch_id: string | null
+          counts_hours: boolean
+          counts_revenue: boolean
+          created_at: string
+          designation: string | null
+          discount_pct: number | null
+          extra: Json | null
+          family: string | null
+          id: string
+          invoice_id: string
+          line_kind: string
+          line_type: string | null
+          net_ht: number | null
+          qty: number | null
+          reference: string | null
+          reference_normalized: string | null
+          site_id: string
+          source_seq: number | null
+          superseded_at: string | null
+          unit_price_ht: number | null
+          vat_code: string | null
+          vat_rate: number | null
+          version: number
+        }
+        Insert: {
+          active?: boolean
+          activity?: string | null
+          batch_id?: string | null
+          counts_hours?: boolean
+          counts_revenue?: boolean
+          created_at?: string
+          designation?: string | null
+          discount_pct?: number | null
+          extra?: Json | null
+          family?: string | null
+          id?: string
+          invoice_id: string
+          line_kind?: string
+          line_type?: string | null
+          net_ht?: number | null
+          qty?: number | null
+          reference?: string | null
+          reference_normalized?: string | null
+          site_id: string
+          source_seq?: number | null
+          superseded_at?: string | null
+          unit_price_ht?: number | null
+          vat_code?: string | null
+          vat_rate?: number | null
+          version?: number
+        }
+        Update: {
+          active?: boolean
+          activity?: string | null
+          batch_id?: string | null
+          counts_hours?: boolean
+          counts_revenue?: boolean
+          created_at?: string
+          designation?: string | null
+          discount_pct?: number | null
+          extra?: Json | null
+          family?: string | null
+          id?: string
+          invoice_id?: string
+          line_kind?: string
+          line_type?: string | null
+          net_ht?: number | null
+          qty?: number | null
+          reference?: string | null
+          reference_normalized?: string | null
+          site_id?: string
+          source_seq?: number | null
+          superseded_at?: string | null
+          unit_price_ht?: number | null
+          vat_code?: string | null
+          vat_rate?: number | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_invoice_lines_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoice_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoice_lines_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winmotor_invoices: {
+        Row: {
+          billed_client_name: string | null
+          billed_client_no: string | null
+          billed_customer_id: string | null
+          client_name: string | null
+          client_no: string | null
+          created_at: string
+          customer_id: string | null
+          detail_batch_id: string | null
+          doc_kind: string
+          has_detail: boolean
+          has_header: boolean
+          header_batch_id: string | null
+          header_hash: string | null
+          header_raw: Json | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string
+          lines_hash: string | null
+          lines_hours: number | null
+          lines_net_ht: number | null
+          lines_version: number
+          or_number: string | null
+          plate: string | null
+          plate_normalized: string | null
+          ref_vehicle_id: string | null
+          repair_order_id: string | null
+          seller: string | null
+          site_id: string
+          total_ht: number | null
+          total_ttc: number | null
+          total_tva: number | null
+          updated_at: string
+          vin: string | null
+          vin_normalized: string | null
+        }
+        Insert: {
+          billed_client_name?: string | null
+          billed_client_no?: string | null
+          billed_customer_id?: string | null
+          client_name?: string | null
+          client_no?: string | null
+          created_at?: string
+          customer_id?: string | null
+          detail_batch_id?: string | null
+          doc_kind?: string
+          has_detail?: boolean
+          has_header?: boolean
+          header_batch_id?: string | null
+          header_hash?: string | null
+          header_raw?: Json | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number: string
+          lines_hash?: string | null
+          lines_hours?: number | null
+          lines_net_ht?: number | null
+          lines_version?: number
+          or_number?: string | null
+          plate?: string | null
+          plate_normalized?: string | null
+          ref_vehicle_id?: string | null
+          repair_order_id?: string | null
+          seller?: string | null
+          site_id: string
+          total_ht?: number | null
+          total_ttc?: number | null
+          total_tva?: number | null
+          updated_at?: string
+          vin?: string | null
+          vin_normalized?: string | null
+        }
+        Update: {
+          billed_client_name?: string | null
+          billed_client_no?: string | null
+          billed_customer_id?: string | null
+          client_name?: string | null
+          client_no?: string | null
+          created_at?: string
+          customer_id?: string | null
+          detail_batch_id?: string | null
+          doc_kind?: string
+          has_detail?: boolean
+          has_header?: boolean
+          header_batch_id?: string | null
+          header_hash?: string | null
+          header_raw?: Json | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string
+          lines_hash?: string | null
+          lines_hours?: number | null
+          lines_net_ht?: number | null
+          lines_version?: number
+          or_number?: string | null
+          plate?: string | null
+          plate_normalized?: string | null
+          ref_vehicle_id?: string | null
+          repair_order_id?: string | null
+          seller?: string | null
+          site_id?: string
+          total_ht?: number | null
+          total_ttc?: number | null
+          total_tva?: number | null
+          updated_at?: string
+          vin?: string | null
+          vin_normalized?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_invoices_billed_customer_id_fkey"
+            columns: ["billed_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoices_detail_batch_id_fkey"
+            columns: ["detail_batch_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoices_header_batch_id_fkey"
+            columns: ["header_batch_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoices_ref_vehicle_id_fkey"
+            columns: ["ref_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "ref_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoices_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_invoices_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       winmotor_journals: {
         Row: {
           active: boolean
@@ -7494,6 +7908,163 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      winmotor_reconciliation_links: {
+        Row: {
+          article_id: string | null
+          cancelled_at: string | null
+          cancelled_by_name: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          invoice_line_id: string
+          link_kind: string
+          method: string
+          qty: number
+          rule: string | null
+          sale_movement_id: string | null
+          site_id: string
+          status: string
+          usage_id: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          cancelled_at?: string | null
+          cancelled_by_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          invoice_line_id: string
+          link_kind?: string
+          method?: string
+          qty: number
+          rule?: string | null
+          sale_movement_id?: string | null
+          site_id: string
+          status?: string
+          usage_id?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          cancelled_at?: string | null
+          cancelled_by_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          invoice_line_id?: string
+          link_kind?: string
+          method?: string
+          qty?: number
+          rule?: string | null
+          sale_movement_id?: string | null
+          site_id?: string
+          status?: string
+          usage_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_reconciliation_links_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_reconciliation_links_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "stock_levels"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "winmotor_reconciliation_links_invoice_line_id_fkey"
+            columns: ["invoice_line_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_invoice_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_reconciliation_links_sale_movement_id_fkey"
+            columns: ["sale_movement_id"]
+            isOneToOne: false
+            referencedRelation: "stock_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_reconciliation_links_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_reconciliation_links_usage_id_fkey"
+            columns: ["usage_id"]
+            isOneToOne: false
+            referencedRelation: "or_part_usage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winmotor_ref_equivalences: {
+        Row: {
+          confirmations: number
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          dda_ref_normalized: string
+          id: string
+          origin: string
+          updated_at: string
+          wm_ref_normalized: string
+        }
+        Insert: {
+          confirmations?: number
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          dda_ref_normalized: string
+          id?: string
+          origin?: string
+          updated_at?: string
+          wm_ref_normalized: string
+        }
+        Update: {
+          confirmations?: number
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          dda_ref_normalized?: string
+          id?: string
+          origin?: string
+          updated_at?: string
+          wm_ref_normalized?: string
+        }
+        Relationships: []
+      }
+      winmotor_vat_codes: {
+        Row: {
+          code: string
+          label: string | null
+          rate: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          label?: string | null
+          rate: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          label?: string | null
+          rate?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       work_time_sessions: {
         Row: {
@@ -7730,6 +8301,43 @@ export type Database = {
       user_can_access_site: {
         Args: { _site_id: string; _user_id: string }
         Returns: boolean
+      }
+      wm_can_import: { Args: { _site: string }; Returns: boolean }
+      wm_import_details: {
+        Args: { _batch: string; _invoices: Json; _site: string }
+        Returns: Json
+      }
+      wm_import_headers: {
+        Args: { _batch: string; _rows: Json; _site: string }
+        Returns: Json
+      }
+      wm_link_orders: {
+        Args: { _mirror_since: string; _site: string }
+        Returns: Json
+      }
+      wm_link_usage: {
+        Args: {
+          _line: string
+          _method: string
+          _qty: number
+          _rule: string
+          _usage: string
+          _user_name: string
+        }
+        Returns: string
+      }
+      wm_store_sale: {
+        Args: {
+          _article: string
+          _line: string
+          _qty: number
+          _user_name: string
+        }
+        Returns: string
+      }
+      wm_unlink: {
+        Args: { _link: string; _user_name: string }
+        Returns: undefined
       }
     }
     Enums: {

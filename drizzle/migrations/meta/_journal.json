@@ -120,6 +120,13 @@
       "when": 1790442543254,
       "tag": "0016_v3_parts_stock_workshop",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790443451577,
+      "tag": "0017_v3_winmotor_invoices",
+      "breakpoints": true
     }
   ]
 }
