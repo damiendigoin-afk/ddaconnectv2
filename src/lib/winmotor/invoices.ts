@@ -149,6 +149,7 @@ export function detectKind(headers: string[]): ImportKind | null {
 }
 
 // ---------- Lignes malformées ----------
+const KNOWN_LINE_TYPE = /PIECE|MAIN|OEUVRE|FORFAIT|^MO$|TEXTE|COMMENT|FRAIS|DIVERS|ARTICLE|PRESTATION|SOUSTRAIT|LIBELLE/;
 /**
  * `;` non échappé dans un libellé : reconstruction uniquement si UNE seule colonne texte permet
  * d'obtenir une ligne cohérente (numériques valides). Sinon rejet avec texte brut.
@@ -166,6 +167,10 @@ export function recoverFields(fields: string[], expected: number, map: ColumnMap
     if (cand.length !== expected) continue;
     if (!numCols.every((i) => isNumOrEmpty(cand[i]))) continue;
     if (dateCol !== undefined && cand[dateCol]?.trim() && !parseDate(cand[dateCol]!)) continue;
+    const vc = map["vat_code"] !== undefined ? (cand[map["vat_code"]!] ?? "").trim() : "";
+    if (vc && !/^\d{1,2}$/.test(vc)) continue;
+    const lt = map["line_type"] !== undefined ? (cand[map["line_type"]!] ?? "").trim() : "";
+    if (lt && !KNOWN_LINE_TYPE.test(normHeader(lt.replace(/œ/gi, "oe")))) continue;
     ok.push(cand);
   }
   if (ok.length === 1) return { fields: ok[0]! };
