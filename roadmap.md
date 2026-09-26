@@ -47,3 +47,7 @@ Reste à faire :
 - [x] Conformité indice de charge et de vitesse, tolérance 3PMSF (un cran, 4 saisons)
 - [x] Choix du moins cher parmi les produits conformes
 - [x] Tests, typecheck, build
+
+## V3
+- [x] Phase A : navigation V3, hub Atelier, dossier OR (tableau d'actions), scan OR/plaque, recherche multi-sites avec site, Pièces & achats hub, droits = menu.
+- [ ] Phase B : temps atelier, statut/pointage pièces, travaux terminés, commandes, réception, stock, références, régularisation.
