@@ -203,6 +203,7 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
       id: o.id,
       or_number: o.or_number,
       or_date: o.or_date,
+      site_id: (o as { site_id?: string | null }).site_id ?? null,
       plate: (o.vehicle as { plate?: string } | null)?.plate ?? null,
     })),
   };

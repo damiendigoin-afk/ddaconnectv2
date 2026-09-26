@@ -2,12 +2,16 @@ import { Link } from "@tanstack/react-router";
 import { Car, Loader2, Search, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { useSite } from "@/lib/site-context";
 import { customerName, universalSearch, vehicleLabel, type SearchResult } from "@/lib/refbase";
 
 export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n° OR…" }: { placeholder?: string }) {
   const [term, setTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<SearchResult | null>(null);
+  // Recherche multi-sites pour tous : chaque résultat affiche son site / sa société.
+  const { sites } = useSite();
+  const siteName = (id: string | null | undefined) => (id ? (sites.find((s) => s.id === id)?.name ?? null) : null);
 
   useEffect(() => {
     const t = term.trim();
@@ -69,6 +73,9 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
                   {vehicleLabel(v)}
                   {v.customer ? ` · ${customerName(v.customer)}` : ""}
                 </div>
+                {siteName(v.site_id) ? (
+                  <div className="truncate text-[11px] font-bold uppercase text-brand">{siteName(v.site_id)}</div>
+                ) : null}
               </div>
               {v.last_mileage ? (
                 <span className="shrink-0 text-xs font-bold">{v.last_mileage.toLocaleString("fr-FR")} km</span>
@@ -94,6 +101,9 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
                   <div className="truncate text-xs text-muted-foreground">
                     {[c.city, c.phone].filter(Boolean).join(" · ") || "—"}
                   </div>
+                  {siteName(c.site_id) ? (
+                    <div className="truncate text-[11px] font-bold uppercase text-brand">{siteName(c.site_id)}</div>
+                  ) : null}
                 </div>
               </Link>
               {c.vehicles.length ? (
@@ -126,8 +136,10 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
               params={{ orId: o.id }}
               className="flex items-center justify-between rounded-xl border-2 border-border bg-card px-3 py-3"
             >
-              <span className="font-bold">OR {o.or_number ?? "—"}</span>
-              <span className="text-xs text-muted-foreground">{o.plate ?? ""}</span>
+              <span className="font-bold">{o.or_number ? `OR ${o.or_number}` : "Dossier DDA"}</span>
+              <span className="text-xs text-muted-foreground">
+                {[o.plate, siteName(o.site_id)].filter(Boolean).join(" · ")}
+              </span>
             </Link>
           ))}
         </section>
