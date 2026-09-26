@@ -64,7 +64,10 @@ import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as PiecesAchatsIndexRouteImport } from './routes/pieces-achats.index'
 import { Route as PiecesAchatsSectionRouteImport } from './routes/pieces-achats.$section'
 import { Route as PiecesAchatsCommandesRouteImport } from './routes/pieces-achats.commandes'
+import { Route as PiecesAchatsReceptionRouteImport } from './routes/pieces-achats.reception'
+import { Route as PiecesAchatsRegulariserRouteImport } from './routes/pieces-achats.regulariser'
 import { Route as PiecesAchatsRetoursRouteImport } from './routes/pieces-achats.retours'
+import { Route as PiecesAchatsStockRouteImport } from './routes/pieces-achats.stock'
 import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
 import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
@@ -375,9 +378,24 @@ const PiecesAchatsCommandesRoute = PiecesAchatsCommandesRouteImport.update({
   path: '/pieces-achats/commandes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PiecesAchatsReceptionRoute = PiecesAchatsReceptionRouteImport.update({
+  id: '/pieces-achats/reception',
+  path: '/pieces-achats/reception',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiecesAchatsRegulariserRoute = PiecesAchatsRegulariserRouteImport.update({
+  id: '/pieces-achats/regulariser',
+  path: '/pieces-achats/regulariser',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PiecesAchatsRetoursRoute = PiecesAchatsRetoursRouteImport.update({
   id: '/pieces-achats/retours',
   path: '/pieces-achats/retours',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiecesAchatsStockRoute = PiecesAchatsStockRouteImport.update({
+  id: '/pieces-achats/stock',
+  path: '/pieces-achats/stock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PilotageIndexRoute = PilotageIndexRouteImport.update({
@@ -587,7 +605,10 @@ export interface FileRoutesByFullPath {
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
+  '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
+  '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
+  '/pieces-achats/stock': typeof PiecesAchatsStockRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -676,7 +697,10 @@ export interface FileRoutesByTo {
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
+  '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
+  '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
+  '/pieces-achats/stock': typeof PiecesAchatsStockRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -767,7 +791,10 @@ export interface FileRoutesById {
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
+  '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
+  '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
+  '/pieces-achats/stock': typeof PiecesAchatsStockRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -859,7 +886,10 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
+    | '/pieces-achats/reception'
+    | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
+    | '/pieces-achats/stock'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
@@ -948,7 +978,10 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
+    | '/pieces-achats/reception'
+    | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
+    | '/pieces-achats/stock'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
@@ -1038,7 +1071,10 @@ export interface FileRouteTypes {
     | '/partage/$token'
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
+    | '/pieces-achats/reception'
+    | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
+    | '/pieces-achats/stock'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
@@ -1129,7 +1165,10 @@ export interface RootRouteChildren {
   PartageTokenRoute: typeof PartageTokenRoute
   PiecesAchatsSectionRoute: typeof PiecesAchatsSectionRoute
   PiecesAchatsCommandesRoute: typeof PiecesAchatsCommandesRoute
+  PiecesAchatsReceptionRoute: typeof PiecesAchatsReceptionRoute
+  PiecesAchatsRegulariserRoute: typeof PiecesAchatsRegulariserRoute
   PiecesAchatsRetoursRoute: typeof PiecesAchatsRetoursRoute
+  PiecesAchatsStockRoute: typeof PiecesAchatsStockRoute
   RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
   StatistiquesClienteleRoute: typeof StatistiquesClienteleRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
@@ -1562,11 +1601,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PiecesAchatsCommandesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pieces-achats/reception': {
+      id: '/pieces-achats/reception'
+      path: '/pieces-achats/reception'
+      fullPath: '/pieces-achats/reception'
+      preLoaderRoute: typeof PiecesAchatsReceptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pieces-achats/regulariser': {
+      id: '/pieces-achats/regulariser'
+      path: '/pieces-achats/regulariser'
+      fullPath: '/pieces-achats/regulariser'
+      preLoaderRoute: typeof PiecesAchatsRegulariserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pieces-achats/retours': {
       id: '/pieces-achats/retours'
       path: '/pieces-achats/retours'
       fullPath: '/pieces-achats/retours'
       preLoaderRoute: typeof PiecesAchatsRetoursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pieces-achats/stock': {
+      id: '/pieces-achats/stock'
+      path: '/pieces-achats/stock'
+      fullPath: '/pieces-achats/stock'
+      preLoaderRoute: typeof PiecesAchatsStockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pilotage/': {
@@ -1864,7 +1924,10 @@ const rootRouteChildren: RootRouteChildren = {
   PartageTokenRoute: PartageTokenRoute,
   PiecesAchatsSectionRoute: PiecesAchatsSectionRoute,
   PiecesAchatsCommandesRoute: PiecesAchatsCommandesRoute,
+  PiecesAchatsReceptionRoute: PiecesAchatsReceptionRoute,
+  PiecesAchatsRegulariserRoute: PiecesAchatsRegulariserRoute,
   PiecesAchatsRetoursRoute: PiecesAchatsRetoursRoute,
+  PiecesAchatsStockRoute: PiecesAchatsStockRoute,
   RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
   StatistiquesClienteleRoute: StatistiquesClienteleRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
