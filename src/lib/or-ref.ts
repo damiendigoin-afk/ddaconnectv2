@@ -35,9 +35,10 @@ export function hasWinmotorOr(o: OrIdentity | null | undefined): boolean {
 
 /** Libellé principal : « Intervention <réf. DDA> », l'OR WinMotor restant une référence externe. */
 export function interventionLabel(o: OrIdentity | null | undefined): string {
-  if (o?.internal_ref) return `Intervention ${o.internal_ref}`;
-  if (hasWinmotorOr(o)) return `Intervention · OR WinMotor ${o?.or_number}`;
-  return "Intervention sans référence";
+  // V3 : l'OR WinMotor prime ; sans lui, c'est un dossier DDA en attente, jamais un « OR DDA ».
+  if (hasWinmotorOr(o)) return `OR WinMotor ${o?.or_number}`;
+  if (o?.internal_ref) return `Dossier DDA ${o.internal_ref} — en attente OR WinMotor`;
+  return "Dossier DDA — en attente OR WinMotor";
 }
 
 /** Référence externe affichable, uniquement si un OR WinMotor existe réellement. */

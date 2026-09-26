@@ -61,6 +61,17 @@ function ScanPlate() {
   }
 
   async function search(value: string) {
+    // N° d'OR WinMotor (chiffres uniquement) : ouverture directe du dossier OR.
+    const raw = value.trim();
+    if (/^\d{3,}$/.test(raw)) {
+      const { data: ors } = await supabase.from("repair_orders").select("id").eq("or_number", raw).limit(2);
+      if (ors?.length === 1) {
+        navigate({ to: "/or/$orId", params: { orId: ors[0]!.id } });
+        return;
+      }
+      setNote(ors?.length ? "Plusieurs dossiers portent ce numéro d'OR : utilisez la recherche de l'accueil." : "Aucun OR WinMotor connu avec ce numéro.");
+      return;
+    }
     const norm = normalizePlate(value);
     if (!norm) return;
     setRefVehicle(await findRefVehicleByPlate(norm));
@@ -71,14 +82,12 @@ function ScanPlate() {
     const matches = (data ?? []).filter(
       (o) => (o.vehicle as { plate_normalized?: string } | null)?.plate_normalized === norm,
     );
+    // V3 : un scan de plaque n'ouvre ni ne crée d'OR — les OR connus sont proposés au choix.
     setResults(matches as OrRow[]);
-    if (matches.length === 1) {
-      navigate({ to: "/or/$orId", params: { orId: matches[0]!.id } });
-    }
   }
 
   return (
-    <AppShell title="Scanner une plaque" back={{ to: "/tour-vehicule" }}>
+    <AppShell title="Scanner OR / plaque" back={{ to: "/atelier" }}>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -127,12 +136,12 @@ function ScanPlate() {
 
         <div className="card-surface space-y-3 p-4">
           <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Immatriculation
+            Immatriculation ou n° OR WinMotor
           </label>
           <input
             value={plate}
             onChange={(e) => setPlate(e.target.value.toUpperCase())}
-            placeholder="AB-123-CD"
+            placeholder="AB-123-CD ou n° OR"
             className="plate-badge w-full rounded-lg border-2 border-border px-3 py-3 text-2xl uppercase outline-none focus:border-brand"
           />
           <button
@@ -163,6 +172,25 @@ function ScanPlate() {
           </Link>
         ) : null}
 
+        {refVehicle ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to="/tour-vehicule"
+              search={{ vehicle_id: refVehicle.id }}
+              className="rounded-xl bg-brand px-3 py-4 text-center text-sm font-bold uppercase text-brand-foreground"
+            >
+              Tour véhicule
+            </Link>
+            <Link
+              to="/expertise/nouvelle"
+              search={{ vehicle_id: refVehicle.id }}
+              className="rounded-xl border-2 border-border bg-card px-3 py-4 text-center text-sm font-bold uppercase"
+            >
+              Expertise
+            </Link>
+          </div>
+        ) : null}
+
         {results !== null && !refVehicle ? (
           <IxellioVehicleLookup
             plate={plate}
@@ -175,7 +203,7 @@ function ScanPlate() {
           results.length > 0 ? (
             <div className="space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Interventions correspondantes
+                Dossiers connus pour cette plaque
               </h2>
               {results.map((o) => {
                 const v = o.vehicle as { plate?: string; brand?: string; model?: string } | null;
@@ -187,7 +215,7 @@ function ScanPlate() {
                   >
                     <div className="plate-badge text-xl">{formatPlate(v?.plate ?? "")}</div>
                     <div className="text-sm text-muted-foreground">
-                      {o.or_number ? `OR WinMotor ${o.or_number}` : "Intervention DDA"} ·{" "}
+                      {o.or_number ? `OR WinMotor ${o.or_number}` : "Dossier DDA — en attente OR WinMotor"} ·{" "}
                       {o.or_date ? new Date(o.or_date).toLocaleDateString("fr-FR") : "—"}
                     </div>
                   </button>
@@ -196,15 +224,15 @@ function ScanPlate() {
             </div>
           ) : (
             <div className="card-surface space-y-3 p-4">
-              <p className="text-sm font-medium">Aucune intervention pour cette plaque.</p>
+              <p className="text-sm font-medium">Aucun dossier connu pour cette plaque.</p>
               <p className="text-sm text-muted-foreground">
-                Corrigez l'immatriculation ci-dessus, ou créez une nouvelle intervention.
+                Corrigez l'immatriculation ci-dessus, ou ouvrez un dossier DDA (le numéro d’OR viendra de WinMotor).
               </p>
               <button
                 onClick={() => navigate({ to: "/or/nouveau", search: { plate } })}
                 className="w-full rounded-lg bg-brand px-3 py-3 font-bold uppercase text-brand-foreground"
               >
-                Créer une intervention
+                Ouvrir un dossier DDA (en attente OR)
               </button>
             </div>
           )
