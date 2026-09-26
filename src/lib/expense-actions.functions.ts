@@ -27,8 +27,10 @@ export const transitionExpense = createServerFn({ method: "POST" })
       ((modules ?? []) as { module_key: string; allowed: boolean }[]).filter((row) => row.allowed).map((row) => row.module_key),
     );
     const manager = roleSet.has("manager");
-    const canValidate = manager || functionSet.has("valider_notes_frais") || moduleSet.has("notes_frais_valider");
-    const canAccount = manager || functionSet.has("comptabilite") || moduleSet.has("notes_frais_compta");
+    const hasMenu = moduleSet.has("notes_frais");
+    // V3 : accès au menu Notes de frais = accès à toutes ses fonctions.
+    const canValidate = manager || hasMenu || functionSet.has("valider_notes_frais") || moduleSet.has("notes_frais_valider");
+    const canAccount = manager || hasMenu || functionSet.has("comptabilite") || moduleSet.has("notes_frais_compta");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: note } = await supabaseAdmin

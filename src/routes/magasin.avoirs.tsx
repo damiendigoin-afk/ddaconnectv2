@@ -116,7 +116,7 @@ function CreditNotes() {
   }
 
   return (
-    <AppShell title="Avoirs fournisseurs" subtitle="Import et rapprochement" back={{ to: "/magasin" }}>
+    <AppShell title="Avoirs fournisseurs" subtitle="Import et rapprochement" back={{ to: "/pieces-achats/retours" }}>
       <div className="space-y-3">
         <Select label="Fournisseur" value={supplierId} onChange={setSupplierId} options={(suppliers.data ?? []).map((s) => ({ key: s.id, label: s.name }))} />
         <button onClick={() => fileRef.current?.click()} disabled={busy} className="flex w-full items-center gap-3 rounded-xl bg-brand px-4 py-4 text-brand-foreground disabled:opacity-50">

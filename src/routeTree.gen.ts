@@ -19,6 +19,7 @@ import { Route as ToursRouteImport } from './routes/tours'
 import { Route as UtilisateursRouteImport } from './routes/utilisateurs'
 import { Route as ApiIxellioTestRouteImport } from './routes/api/ixellio-test'
 import { Route as ApiTestEmailRouteImport } from './routes/api/test-email'
+import { Route as AtelierIndexRouteImport } from './routes/atelier.index'
 import { Route as AutomatisationsIndexRouteImport } from './routes/automatisations.index'
 import { Route as BaseIndexRouteImport } from './routes/base.index'
 import { Route as BaseClientsRouteImport } from './routes/base.clients'
@@ -60,6 +61,9 @@ import { Route as ParametrageNotificationsRouteImport } from './routes/parametra
 import { Route as ParametrageSanteRouteImport } from './routes/parametrage.sante'
 import { Route as ParametrageTarifsRouteImport } from './routes/parametrage.tarifs'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as PiecesAchatsIndexRouteImport } from './routes/pieces-achats.index'
+import { Route as PiecesAchatsSectionRouteImport } from './routes/pieces-achats.$section'
+import { Route as PiecesAchatsRetoursRouteImport } from './routes/pieces-achats.retours'
 import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
 import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
@@ -140,6 +144,11 @@ const ApiIxellioTestRoute = ApiIxellioTestRouteImport.update({
 const ApiTestEmailRoute = ApiTestEmailRouteImport.update({
   id: '/api/test-email',
   path: '/api/test-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AtelierIndexRoute = AtelierIndexRouteImport.update({
+  id: '/atelier/',
+  path: '/atelier/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutomatisationsIndexRoute = AutomatisationsIndexRouteImport.update({
@@ -349,6 +358,21 @@ const PartageTokenRoute = PartageTokenRouteImport.update({
   path: '/partage/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PiecesAchatsIndexRoute = PiecesAchatsIndexRouteImport.update({
+  id: '/pieces-achats/',
+  path: '/pieces-achats/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiecesAchatsSectionRoute = PiecesAchatsSectionRouteImport.update({
+  id: '/pieces-achats/$section',
+  path: '/pieces-achats/$section',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiecesAchatsRetoursRoute = PiecesAchatsRetoursRouteImport.update({
+  id: '/pieces-achats/retours',
+  path: '/pieces-achats/retours',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PilotageIndexRoute = PilotageIndexRouteImport.update({
   id: '/pilotage/',
   path: '/pilotage/',
@@ -548,12 +572,15 @@ export interface FileRoutesByFullPath {
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
+  '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/statistiques/tours': typeof StatistiquesToursRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/atelier/': typeof AtelierIndexRoute
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
@@ -567,6 +594,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/pieces-achats/': typeof PiecesAchatsIndexRoute
   '/pilotage/': typeof PilotageIndexRoute
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
@@ -631,12 +659,15 @@ export interface FileRoutesByTo {
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
+  '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/statistiques/tours': typeof StatistiquesToursRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/atelier': typeof AtelierIndexRoute
   '/automatisations': typeof AutomatisationsIndexRoute
   '/base': typeof BaseIndexRoute
   '/carrosserie': typeof CarrosserieIndexRoute
@@ -650,6 +681,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceIndexRoute
   '/notes-frais': typeof NotesFraisIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
+  '/pieces-achats': typeof PiecesAchatsIndexRoute
   '/pilotage': typeof PilotageIndexRoute
   '/qualite': typeof QualiteIndexRoute
   '/recuperation': typeof RecuperationIndexRoute
@@ -716,12 +748,15 @@ export interface FileRoutesById {
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
+  '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
   '/statistiques/import': typeof StatistiquesImportRoute
   '/statistiques/tours': typeof StatistiquesToursRoute
   '/vehicule/$vehId': typeof VehiculeVehIdRoute
+  '/atelier/': typeof AtelierIndexRoute
   '/automatisations/': typeof AutomatisationsIndexRoute
   '/base/': typeof BaseIndexRoute
   '/carrosserie/': typeof CarrosserieIndexRoute
@@ -735,6 +770,7 @@ export interface FileRoutesById {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
+  '/pieces-achats/': typeof PiecesAchatsIndexRoute
   '/pilotage/': typeof PilotageIndexRoute
   '/qualite/': typeof QualiteIndexRoute
   '/recuperation/': typeof RecuperationIndexRoute
@@ -802,12 +838,15 @@ export interface FileRouteTypes {
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
+    | '/pieces-achats/$section'
+    | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/statistiques/tours'
     | '/vehicule/$vehId'
+    | '/atelier/'
     | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
@@ -821,6 +860,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/pieces-achats/'
     | '/pilotage/'
     | '/qualite/'
     | '/recuperation/'
@@ -885,12 +925,15 @@ export interface FileRouteTypes {
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
+    | '/pieces-achats/$section'
+    | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/statistiques/tours'
     | '/vehicule/$vehId'
+    | '/atelier'
     | '/automatisations'
     | '/base'
     | '/carrosserie'
@@ -904,6 +947,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/notes-frais'
     | '/parametrage'
+    | '/pieces-achats'
     | '/pilotage'
     | '/qualite'
     | '/recuperation'
@@ -969,12 +1013,15 @@ export interface FileRouteTypes {
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
+    | '/pieces-achats/$section'
+    | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
     | '/statistiques/import'
     | '/statistiques/tours'
     | '/vehicule/$vehId'
+    | '/atelier/'
     | '/automatisations/'
     | '/base/'
     | '/carrosserie/'
@@ -988,6 +1035,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
+    | '/pieces-achats/'
     | '/pilotage/'
     | '/qualite/'
     | '/recuperation/'
@@ -1054,12 +1102,15 @@ export interface RootRouteChildren {
   ParametrageSanteRoute: typeof ParametrageSanteRoute
   ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  PiecesAchatsSectionRoute: typeof PiecesAchatsSectionRoute
+  PiecesAchatsRetoursRoute: typeof PiecesAchatsRetoursRoute
   RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
   StatistiquesClienteleRoute: typeof StatistiquesClienteleRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
   StatistiquesImportRoute: typeof StatistiquesImportRoute
   StatistiquesToursRoute: typeof StatistiquesToursRoute
   VehiculeVehIdRoute: typeof VehiculeVehIdRoute
+  AtelierIndexRoute: typeof AtelierIndexRoute
   AutomatisationsIndexRoute: typeof AutomatisationsIndexRoute
   BaseIndexRoute: typeof BaseIndexRoute
   CarrosserieIndexRoute: typeof CarrosserieIndexRoute
@@ -1073,6 +1124,7 @@ export interface RootRouteChildren {
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   NotesFraisIndexRoute: typeof NotesFraisIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
+  PiecesAchatsIndexRoute: typeof PiecesAchatsIndexRoute
   PilotageIndexRoute: typeof PilotageIndexRoute
   QualiteIndexRoute: typeof QualiteIndexRoute
   RecuperationIndexRoute: typeof RecuperationIndexRoute
@@ -1166,6 +1218,13 @@ declare module '@tanstack/react-router' {
       path: '/api/test-email'
       fullPath: '/api/test-email'
       preLoaderRoute: typeof ApiTestEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/atelier/': {
+      id: '/atelier/'
+      path: '/atelier'
+      fullPath: '/atelier/'
+      preLoaderRoute: typeof AtelierIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/automatisations/': {
@@ -1455,6 +1514,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartageTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pieces-achats/': {
+      id: '/pieces-achats/'
+      path: '/pieces-achats'
+      fullPath: '/pieces-achats/'
+      preLoaderRoute: typeof PiecesAchatsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pieces-achats/$section': {
+      id: '/pieces-achats/$section'
+      path: '/pieces-achats/$section'
+      fullPath: '/pieces-achats/$section'
+      preLoaderRoute: typeof PiecesAchatsSectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pieces-achats/retours': {
+      id: '/pieces-achats/retours'
+      path: '/pieces-achats/retours'
+      fullPath: '/pieces-achats/retours'
+      preLoaderRoute: typeof PiecesAchatsRetoursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pilotage/': {
       id: '/pilotage/'
       path: '/pilotage'
@@ -1741,12 +1821,15 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageSanteRoute: ParametrageSanteRoute,
   ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,
+  PiecesAchatsSectionRoute: PiecesAchatsSectionRoute,
+  PiecesAchatsRetoursRoute: PiecesAchatsRetoursRoute,
   RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
   StatistiquesClienteleRoute: StatistiquesClienteleRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
   StatistiquesImportRoute: StatistiquesImportRoute,
   StatistiquesToursRoute: StatistiquesToursRoute,
   VehiculeVehIdRoute: VehiculeVehIdRoute,
+  AtelierIndexRoute: AtelierIndexRoute,
   AutomatisationsIndexRoute: AutomatisationsIndexRoute,
   BaseIndexRoute: BaseIndexRoute,
   CarrosserieIndexRoute: CarrosserieIndexRoute,
@@ -1760,6 +1843,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceIndexRoute: MaintenanceIndexRoute,
   NotesFraisIndexRoute: NotesFraisIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,
+  PiecesAchatsIndexRoute: PiecesAchatsIndexRoute,
   PilotageIndexRoute: PilotageIndexRoute,
   QualiteIndexRoute: QualiteIndexRoute,
   RecuperationIndexRoute: RecuperationIndexRoute,

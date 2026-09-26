@@ -103,7 +103,7 @@ function SupplierInvoices() {
   }
 
   return (
-    <AppShell title="BL / Factures fournisseur" subtitle="Réception et contrôle" back={{ to: "/magasin" }}>
+    <AppShell title="BL / Factures fournisseur" subtitle="Réception et contrôle" back={{ to: "/pieces-achats" }}>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <button
