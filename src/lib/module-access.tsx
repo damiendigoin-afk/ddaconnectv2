@@ -72,7 +72,10 @@ export function usePermissions() {
     hasFunction,
     /** Saisie d'une note : ouverte à tout utilisateur ayant le module. */
     canCreateExpense: isManager || hasModule("notes_frais") || hasModule("notes_frais_creer"),
-    canValidateExpenses: isManager || hasFunction("valider_notes_frais") || hasModule("notes_frais_valider"),
-    canAccountExpenses: isManager || hasFunction("comptabilite") || hasModule("notes_frais_compta"),
+    // V3 : une seule notion — accès au menu = accès à toutes ses fonctions.
+    canValidateExpenses:
+      isManager || hasModule("notes_frais") || hasFunction("valider_notes_frais") || hasModule("notes_frais_valider"),
+    canAccountExpenses:
+      isManager || hasModule("notes_frais") || hasFunction("comptabilite") || hasModule("notes_frais_compta"),
   };
 }

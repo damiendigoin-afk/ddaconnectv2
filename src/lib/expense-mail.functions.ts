@@ -31,7 +31,7 @@ export const validateAndSendExpense = createServerFn({ method: "POST" })
       isManager ||
       ((functions ?? []) as { function_key: string }[]).some((f) => f.function_key === "valider_notes_frais") ||
       ((modules ?? []) as { module_key: string; allowed: boolean }[]).some(
-        (m) => m.module_key === "notes_frais_valider" && m.allowed,
+        (m) => (m.module_key === "notes_frais_valider" || m.module_key === "notes_frais") && m.allowed,
       );
     if (!canValidate) {
       return { ok: false as const, error: "Vous n'êtes pas autorisé à valider les notes de frais." };
