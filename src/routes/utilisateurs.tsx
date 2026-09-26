@@ -379,29 +379,11 @@ function UserEditor({
         </p>
       </div>
 
-      <div className="space-y-1">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Fonctions / droits</div>
-        <div className="flex flex-wrap gap-2">
-          {USER_FUNCTIONS.map((f) => {
-            const on = functions.has(f.key);
-            return (
-              <button
-                key={f.key}
-                onClick={() => onToggleFunction(f.key, !on)}
-                className={`rounded-lg px-3 py-2 text-xs font-bold uppercase ${
-                  on ? "bg-brand text-brand-foreground" : "border-2 border-border bg-card text-muted-foreground"
-                }`}
-              >
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          Cumulables. « Validation notes de frais » ouvre la file À valider, « Comptabilité » le suivi des
-          remboursements. Aucun droit n'est déduit d'un nom ou d'un e-mail.
-        </p>
-      </div>
+      {/* V3 : plus de droits fins — l'accès à un menu donne accès à toutes ses fonctions. */}
+      <p className="text-[11px] text-muted-foreground">
+        Droits simplifiés : cocher un menu donne accès à toutes ses fonctions (ex. Notes de frais :
+        saisie, validation et comptabilisation).
+      </p>
 
       <div className="space-y-2">
         <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Accès aux modules</div>
