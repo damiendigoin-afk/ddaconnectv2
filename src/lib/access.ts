@@ -27,8 +27,8 @@ export const MODULES = [
   { key: "expertise", label: "Expertise Véhicule", group: "Atelier", prefixes: ["/expertises", "/expertise"] },
   { key: "carrosserie", label: "Carrosserie", group: "Atelier", prefixes: ["/carrosserie"] },
   { key: "maintenance", label: "Maintenance prédictive", group: "Atelier", prefixes: ["/maintenance"] },
-  // ------------------------------------------------ Magasin & achats
-  { key: "magasin", label: "Magasin", group: "Magasin & achats", prefixes: ["/magasin", "/factures-fournisseur"] },
+  // ------------------------------------------------ Pièces & achats
+  { key: "magasin", label: "Pièces & achats", group: "Pièces & achats", prefixes: ["/pieces-achats", "/magasin", "/factures-fournisseur"] },
   // ------------------------------------------- Clients & commercial
   { key: "crm", label: "CRM", group: "Clients & commercial", prefixes: ["/crm", "/client", "/vehicule"] },
   { key: "recuperation", label: "Ventes", group: "Clients & commercial", prefixes: ["/recuperation"] },
@@ -36,28 +36,7 @@ export const MODULES = [
   // --------------------------------------------------- Communication
   { key: "communication", label: "Communication", group: "Communication", prefixes: ["/communication"] },
   // ------------------------------------------------------ Équipe & RH
-  { key: "notes_frais", label: "Notes de frais", group: "Équipe & RH", prefixes: ["/notes-frais"] },
-  {
-    key: "notes_frais_creer",
-    label: "Créer une note de frais",
-    group: "Équipe & RH",
-    action: true,
-    hint: "Scanner un justificatif et enregistrer une dépense",
-  },
-  {
-    key: "notes_frais_valider",
-    label: "Valider les notes de frais",
-    group: "Équipe & RH",
-    action: true,
-    hint: "File « À valider » et envoi automatique à la comptabilité",
-  },
-  {
-    key: "notes_frais_compta",
-    label: "Comptabiliser / régler les notes",
-    group: "Équipe & RH",
-    action: true,
-    hint: "Marquer remboursé au salarié ou comptabilisé",
-  },
+  { key: "notes_frais", label: "Notes de frais", group: "Équipe & RH", prefixes: ["/notes-frais"], hint: "Accès complet : saisie, validation et comptabilisation" },
   // ---------------------------------------- Statistiques & pilotage
   { key: "statistiques", label: "Mes statistiques", group: "Statistiques & pilotage", prefixes: ["/statistiques"] },
   { key: "stats_equipe", label: "Productivité", group: "Statistiques & pilotage" },
