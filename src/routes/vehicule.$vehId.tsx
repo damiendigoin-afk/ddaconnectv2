@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ClipboardCheck, Car, FilePlus2, User } from "lucide-react";
 import { useState } from "react";
 
+import { normalizeVin } from "@/lib/winmotor/mapping";
 import { InvoiceTimeline } from "@/components/InvoiceTimeline";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
@@ -140,7 +141,7 @@ function VehiclePage() {
               ))}
             </Section>
 
-            <InvoiceTimeline target={{ kind: "vehicle", id: vehId, registration_normalized: v.registration_normalized ?? null, vin_normalized: (v as { vin_normalized?: string | null }).vin_normalized ?? null }} />
+            <InvoiceTimeline target={{ kind: "vehicle", id: vehId, registration_normalized: v.registration_normalized ?? null, vin_normalized: normalizeVin(v.vin ?? "") || null }} />
 
             <Section title={`Tours véhicule (${data?.inspections.length ?? 0})`}>
               {(data?.inspections ?? []).map((i) => (
