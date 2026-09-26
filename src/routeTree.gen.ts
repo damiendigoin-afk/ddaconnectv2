@@ -41,7 +41,6 @@ import { Route as ExpertisePartageTokenRouteImport } from './routes/expertise-pa
 import { Route as ExpertiseBaremeRouteImport } from './routes/expertise.bareme'
 import { Route as ExpertiseNouvelleRouteImport } from './routes/expertise.nouvelle'
 import { Route as FacturesFournisseurIndexRouteImport } from './routes/factures-fournisseur.index'
-import { Route as MagasinIndexRouteImport } from './routes/magasin.index'
 import { Route as MagasinReturnIdRouteImport } from './routes/magasin.$returnId'
 import { Route as MagasinAvoirsRouteImport } from './routes/magasin.avoirs'
 import { Route as MagasinNouveauRouteImport } from './routes/magasin.nouveau'
@@ -60,6 +59,7 @@ import { Route as ParametrageNotificationsRouteImport } from './routes/parametra
 import { Route as ParametrageSanteRouteImport } from './routes/parametrage.sante'
 import { Route as ParametrageTarifsRouteImport } from './routes/parametrage.tarifs'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
+import { Route as PiecesAchatsRetoursRouteImport } from './routes/pieces-achats.retours'
 import { Route as PilotageIndexRouteImport } from './routes/pilotage.index'
 import { Route as QualiteIndexRouteImport } from './routes/qualite.index'
 import { Route as RecuperationIndexRouteImport } from './routes/recuperation.index'
@@ -253,11 +253,6 @@ const FacturesFournisseurIndexRoute =
     path: '/factures-fournisseur/',
     getParentRoute: () => rootRouteImport,
   } as any)
-const MagasinIndexRoute = MagasinIndexRouteImport.update({
-  id: '/magasin/',
-  path: '/magasin/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const MagasinReturnIdRoute = MagasinReturnIdRouteImport.update({
   id: '/magasin/$returnId',
   path: '/magasin/$returnId',
@@ -347,6 +342,11 @@ const ParametrageTarifsRoute = ParametrageTarifsRouteImport.update({
 const PartageTokenRoute = PartageTokenRouteImport.update({
   id: '/partage/$token',
   path: '/partage/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiecesAchatsRetoursRoute = PiecesAchatsRetoursRouteImport.update({
+  id: '/pieces-achats/retours',
+  path: '/pieces-achats/retours',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PilotageIndexRoute = PilotageIndexRouteImport.update({
@@ -548,6 +548,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -563,7 +564,6 @@ export interface FileRoutesByFullPath {
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/factures-fournisseur/': typeof FacturesFournisseurIndexRoute
-  '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
@@ -631,6 +631,7 @@ export interface FileRoutesByTo {
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -646,7 +647,6 @@ export interface FileRoutesByTo {
   '/darva': typeof DarvaIndexRoute
   '/emails': typeof EmailsIndexRoute
   '/factures-fournisseur': typeof FacturesFournisseurIndexRoute
-  '/magasin': typeof MagasinIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
   '/notes-frais': typeof NotesFraisIndexRoute
   '/parametrage': typeof ParametrageIndexRoute
@@ -716,6 +716,7 @@ export interface FileRoutesById {
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
+  '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
   '/retour-fournisseur/$token': typeof RetourFournisseurTokenRoute
   '/statistiques/clientele': typeof StatistiquesClienteleRoute
   '/statistiques/equipe': typeof StatistiquesEquipeRoute
@@ -731,7 +732,6 @@ export interface FileRoutesById {
   '/darva/': typeof DarvaIndexRoute
   '/emails/': typeof EmailsIndexRoute
   '/factures-fournisseur/': typeof FacturesFournisseurIndexRoute
-  '/magasin/': typeof MagasinIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/notes-frais/': typeof NotesFraisIndexRoute
   '/parametrage/': typeof ParametrageIndexRoute
@@ -802,6 +802,7 @@ export interface FileRouteTypes {
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
+    | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
@@ -817,7 +818,6 @@ export interface FileRouteTypes {
     | '/darva/'
     | '/emails/'
     | '/factures-fournisseur/'
-    | '/magasin/'
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
@@ -885,6 +885,7 @@ export interface FileRouteTypes {
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
+    | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
@@ -900,7 +901,6 @@ export interface FileRouteTypes {
     | '/darva'
     | '/emails'
     | '/factures-fournisseur'
-    | '/magasin'
     | '/maintenance'
     | '/notes-frais'
     | '/parametrage'
@@ -969,6 +969,7 @@ export interface FileRouteTypes {
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
+    | '/pieces-achats/retours'
     | '/retour-fournisseur/$token'
     | '/statistiques/clientele'
     | '/statistiques/equipe'
@@ -984,7 +985,6 @@ export interface FileRouteTypes {
     | '/darva/'
     | '/emails/'
     | '/factures-fournisseur/'
-    | '/magasin/'
     | '/maintenance/'
     | '/notes-frais/'
     | '/parametrage/'
@@ -1054,6 +1054,7 @@ export interface RootRouteChildren {
   ParametrageSanteRoute: typeof ParametrageSanteRoute
   ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
+  PiecesAchatsRetoursRoute: typeof PiecesAchatsRetoursRoute
   RetourFournisseurTokenRoute: typeof RetourFournisseurTokenRoute
   StatistiquesClienteleRoute: typeof StatistiquesClienteleRoute
   StatistiquesEquipeRoute: typeof StatistiquesEquipeRoute
@@ -1069,7 +1070,6 @@ export interface RootRouteChildren {
   DarvaIndexRoute: typeof DarvaIndexRoute
   EmailsIndexRoute: typeof EmailsIndexRoute
   FacturesFournisseurIndexRoute: typeof FacturesFournisseurIndexRoute
-  MagasinIndexRoute: typeof MagasinIndexRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   NotesFraisIndexRoute: typeof NotesFraisIndexRoute
   ParametrageIndexRoute: typeof ParametrageIndexRoute
@@ -1322,13 +1322,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FacturesFournisseurIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/magasin/': {
-      id: '/magasin/'
-      path: '/magasin'
-      fullPath: '/magasin/'
-      preLoaderRoute: typeof MagasinIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/magasin/$returnId': {
       id: '/magasin/$returnId'
       path: '/magasin/$returnId'
@@ -1453,6 +1446,13 @@ declare module '@tanstack/react-router' {
       path: '/partage/$token'
       fullPath: '/partage/$token'
       preLoaderRoute: typeof PartageTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pieces-achats/retours': {
+      id: '/pieces-achats/retours'
+      path: '/pieces-achats/retours'
+      fullPath: '/pieces-achats/retours'
+      preLoaderRoute: typeof PiecesAchatsRetoursRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pilotage/': {
@@ -1741,6 +1741,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageSanteRoute: ParametrageSanteRoute,
   ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,
+  PiecesAchatsRetoursRoute: PiecesAchatsRetoursRoute,
   RetourFournisseurTokenRoute: RetourFournisseurTokenRoute,
   StatistiquesClienteleRoute: StatistiquesClienteleRoute,
   StatistiquesEquipeRoute: StatistiquesEquipeRoute,
@@ -1756,7 +1757,6 @@ const rootRouteChildren: RootRouteChildren = {
   DarvaIndexRoute: DarvaIndexRoute,
   EmailsIndexRoute: EmailsIndexRoute,
   FacturesFournisseurIndexRoute: FacturesFournisseurIndexRoute,
-  MagasinIndexRoute: MagasinIndexRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
   NotesFraisIndexRoute: NotesFraisIndexRoute,
   ParametrageIndexRoute: ParametrageIndexRoute,

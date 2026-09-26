@@ -67,7 +67,7 @@ function StoreHub() {
     <AppShell
       title="Retours / consignes / avoirs"
       subtitle="Retours fournisseurs, consignes et avoirs"
-      back={{ to: "/" }}
+      back={{ to: "/pieces-achats" }}
       right={
         <Link to="/magasin/avoirs" aria-label="Avoirs" className="rounded-lg border border-border p-2 text-muted-foreground">
           <FileCheck2 className="h-4 w-4" />

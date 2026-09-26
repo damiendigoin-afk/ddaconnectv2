@@ -52,7 +52,7 @@ function ReturnView() {
   const r = useQuery({ queryKey: ["return", returnId], queryFn: () => getReturn(returnId) });
   if (!r.data) {
     return (
-      <AppShell title="Retour" back={{ to: "/magasin" }}>
+      <AppShell title="Retour" back={{ to: "/pieces-achats/retours" }}>
         <p className="text-sm text-muted-foreground">{r.isLoading ? "Chargement…" : "Retour introuvable."}</p>
       </AppShell>
     );
@@ -182,7 +182,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnWithLines; returnId: strin
     <AppShell
       title={row.reference}
       subtitle={`${supplier?.name ?? "Fournisseur ?"} · ${returnTypeLabel(row.return_type)}`}
-      back={{ to: "/magasin" }}
+      back={{ to: "/pieces-achats/retours" }}
       right={<Badge tone={returnStatusTone(row.status)}>{returnStatusLabel(row.status)}</Badge>}
     >
       {msg ? <p className="mb-3 rounded-lg bg-secondary px-3 py-2 text-sm">{msg}</p> : null}

@@ -312,7 +312,7 @@ function NewReturn() {
   }
 
   return (
-    <AppShell title="Demande de retour" subtitle="Magasin" back={{ to: "/magasin" }}>
+    <AppShell title="Demande de retour" subtitle="Magasin" back={{ to: "/pieces-achats/retours" }}>
       {cameraOpen ? (
         <BurstCamera
           steps={[]}
