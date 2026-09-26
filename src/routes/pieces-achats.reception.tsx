@@ -9,7 +9,7 @@ import { cancelReceiptIncident, getOrder, listOrders, listReceipts, listSupplier
 import { isOverReceipt } from "@/lib/parts-rules";
 
 export const Route = createFileRoute("/pieces-achats/reception")({
-  validateSearch: (s: Record<string, unknown>): { order?: string } => (typeof s.order === "string" ? { order: s.order } : {}),
+  validateSearch: (s: Record<string, unknown>): { order?: string } => (typeof s["order"] === "string" ? { order: s["order"] } : {}),
   head: () => ({
     meta: [
       { title: "Réception pièces — DDA Connect" },
@@ -110,8 +110,8 @@ function ReceiptForm({ mode, initialOrder, onDone }: { mode: "order" | "physical
   const set = (i: number, p: Partial<ReceiptLineInput>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   async function submit() {
-    if (!site) return toast.error("Choisissez le site qui reçoit physiquement.");
-    if (!supplier && mode !== "order") return toast.error("Fournisseur obligatoire.");
+    if (!site) return void toast.error("Choisissez le site qui reçoit physiquement.");
+    if (!supplier && mode !== "order") return void toast.error("Fournisseur obligatoire.");
     const over = lines.filter((l) => isOverReceipt(l.qty_expected, l.qty_received));
     if (over.length && !window.confirm(`Sur-réception : ${over.map((l) => `${l.physical_reference} attendu ${l.qty_expected} / reçu ${l.qty_received}`).join(", ")}. Confirmer les quantités réellement reçues ?`)) return;
     setBusy(true);

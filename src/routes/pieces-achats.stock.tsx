@@ -72,8 +72,8 @@ function ArticlePanel({ row }: { row: StockRow }) {
 
   async function adjust() {
     const d = numOrNull(delta);
-    if (!d) return toast.error("Quantité +/- requise");
-    if (!reason.trim()) return toast.error("Motif obligatoire");
+    if (!d) return void toast.error("Quantité +/- requise");
+    if (!reason.trim()) return void toast.error("Motif obligatoire");
     await adjustStock(row.id, row.site_id, d, reason, actor);
     setDelta(""); setReason(""); refresh(); toast.success("Stock corrigé");
   }

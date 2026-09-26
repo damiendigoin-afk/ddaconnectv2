@@ -143,9 +143,9 @@ function UsagePanel({ orId, orSiteId }: { orId: string; orSiteId: string | null 
     refresh();
   }
   async function add() {
-    if (!site) return toast.error("Aucun site pour cet OR.");
+    if (!site) return void toast.error("Aucun site pour cet OR.");
     const n = numOrNull(qty);
-    if (!n || (!ref.trim() && !des.trim())) return toast.error("Référence ou désignation + quantité");
+    if (!n || (!ref.trim() && !des.trim())) return void toast.error("Référence ou désignation + quantité");
     await addUnplannedUsage({ orId, siteId: site, kind, ref, designation: des, qty: n }, actor);
     setRef(""); setDes(""); setQty("1"); setAdding(false); refresh(); toast.success("Utilisation ajoutée");
   }
@@ -199,7 +199,7 @@ function FinishPanel({ orId, orSiteId }: { orId: string; orSiteId: string | null
   const chk = finishCheck(usage.data ?? []);
 
   async function finish(forced: boolean) {
-    if (!site) return toast.error("Aucun site pour cet OR.");
+    if (!site) return void toast.error("Aucun site pour cet OR.");
     await finishWork(orId, site, { forced, reason: reason.trim() || null, pending: chk.pending }, actor);
     setConfirm(false); setReason("");
     qc.invalidateQueries({ queryKey: ["or-state", orId] });

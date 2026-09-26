@@ -29,7 +29,7 @@ function OrdersPage() {
   const [scope, setScope] = useState("groupe");
   const [status, setStatus] = useState("");
   const [creating, setCreating] = useState(false);
-  const q = useQuery({ queryKey: ["part-orders", scope, status], queryFn: () => listOrders({ siteId: scope === "groupe" ? null : scope, status: status || undefined }) });
+  const q = useQuery({ queryKey: ["part-orders", scope, status], queryFn: () => listOrders({ siteId: scope === "groupe" ? null : scope, ...(status ? { status } : {}) }) });
 
   return (
     <AppShell title="Commandes" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
@@ -50,7 +50,7 @@ function OrdersPage() {
         {q.data && !q.data.length ? <p className="card-surface p-4 text-sm text-muted-foreground">Aucune commande.</p> : null}
         {(q.data ?? []).map((o) => {
           const lines = (o.part_order_lines ?? []).filter((l) => l.line_kind === "part");
-          const st = ORDER_STATUS[o.status] ?? ORDER_STATUS.ordered!;
+          const st = ORDER_STATUS[o.status] ?? ORDER_STATUS["ordered"]!;
           return (
             <Link key={o.id} to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} className="block rounded-xl border-2 border-border bg-card p-3">
               <div className="flex items-center justify-between gap-2">
@@ -96,7 +96,7 @@ function NewOrder({ onDone }: { onDone: () => void }) {
   }
 
   async function allocateHit(i: number, h: StockRow) {
-    if (!orv.or) return toast.error("Rattachez d'abord un OR WinMotor.");
+    if (!orv.or) return void toast.error("Rattachez d'abord un OR WinMotor.");
     const qty = lines[i]?.qty_ordered ?? 1;
     await allocateToOr({ articleId: h.id, siteId: h.site_id, orId: orv.or.id, qty, ref: h.physical_reference, designation: h.designation }, actor);
     toast.success(`${qty} × ${h.physical_reference} affecté(s) à l'OR ${orv.or.or_number}`);
@@ -105,9 +105,9 @@ function NewOrder({ onDone }: { onDone: () => void }) {
   }
 
   async function submit() {
-    if (!site) return toast.error("Choisissez le site de la commande.");
-    if (!supplier) return toast.error("Fournisseur obligatoire.");
-    if (!orv.or && !orv.plate.trim() && destination === "or") return toast.error("Indiquez un OR ou une immatriculation.");
+    if (!site) return void toast.error("Choisissez le site de la commande.");
+    if (!supplier) return void toast.error("Fournisseur obligatoire.");
+    if (!orv.or && !orv.plate.trim() && destination === "or") return void toast.error("Indiquez un OR ou une immatriculation.");
     setBusy(true);
     try {
       const id = await createOrder({

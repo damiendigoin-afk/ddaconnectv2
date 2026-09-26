@@ -31,7 +31,7 @@ function OrderDetail() {
           <div className="card-surface space-y-1 p-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-lg font-extrabold">{(o.suppliers as { name: string } | null)?.name}</span>
-              <Badge tone={(ORDER_STATUS[o.status] ?? ORDER_STATUS.ordered!).tone}>{(ORDER_STATUS[o.status] ?? ORDER_STATUS.ordered!).label}</Badge>
+              <Badge tone={(ORDER_STATUS[o.status] ?? ORDER_STATUS["ordered"]!).tone}>{(ORDER_STATUS[o.status] ?? ORDER_STATUS["ordered"]!).label}</Badge>
             </div>
             <div>{siteName(o.site_id)} · {o.order_mode === "simplified" ? "Simplifiée" : "Détaillée"} · créée le {new Date(o.created_at).toLocaleString("fr-FR")} par {o.created_by_name}</div>
             <div className="flex flex-wrap gap-2">
