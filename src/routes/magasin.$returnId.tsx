@@ -113,7 +113,7 @@ function ReturnDetail({ row, returnId }: { row: ReturnWithLines; returnId: strin
       const { error } = await supabase.from("part_returns").update(values as never).eq("id", returnId);
       if (error) throw error;
       if (event) await logEvent(returnId, event.kind, event.detail);
-      if (values.status === "expedie") {
+      if (values["status"] === "expedie") {
         try {
           const r = await shipSupplierReturnStock(returnId, actor);
           if (r.moved || r.regul) await logEvent(returnId, "stock", `Sortie stock : ${r.moved} ligne(s)${r.regul ? ` · ${r.regul} à régulariser` : ""}`);
