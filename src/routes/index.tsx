@@ -2,15 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
+  Camera,
+  Wrench,
   ChevronRight,
-  Car,
-  ClipboardCheck,
   FileSpreadsheet,
-  Gauge,
   Hammer,
   Headphones,
   Megaphone,
-  CircleDot,
   LogOut,
   PackageOpen,
   SlidersHorizontal,
@@ -32,7 +30,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "DDA Connect : accédez au module Tour Véhicule, aux ordres de réparation et aux rapports clients du garage.",
+          "DDA Connect : recherche multi-sites, scan OR / plaque, atelier centré sur l’OR WinMotor, pièces & achats et notes de frais.",
       },
       { property: "og:title", content: "DDA Connect — Accueil atelier" },
       {
@@ -46,142 +44,29 @@ export const Route = createFileRoute("/")({
   component: Hub,
 });
 
-/** Arborescence par familles d'usage : les routes et les droits sont inchangés. */
-type Entry = { to: string; label: string; hint: string; icon: LucideIcon; module?: string; managerOnly?: boolean };
+/** Navigation V3 : Atelier d'abord, peu d'entrées, droits = accès au menu. */
+type Entry = { to: string; label: string; hint: string; icon: LucideIcon; modules: string[] };
 type Family = { title: string; entries: Entry[] };
 
 const FAMILIES: Family[] = [
   {
-    title: "Atelier",
+    title: "Principal",
     entries: [
-      {
-        to: "/tour-vehicule",
-        label: "Tour Véhicule",
-        hint: "OR, contrôle guidé ou libre, rapport et envoi client",
-        icon: Car,
-        module: "tour",
-      },
-      {
-        to: "/devis/pneus",
-        label: "Devis pneus",
-        hint: "Dimension par photo ou saisie, six ou sept offres chiffrées et impression client",
-        icon: CircleDot,
-        module: "pneus",
-      },
-      {
-        to: "/expertises",
-        label: "Expertise Véhicule",
-        hint: "État des lieux photo, dommages chiffrés et rapport client",
-        icon: ClipboardCheck,
-        module: "expertise",
-      },
-      {
-        to: "/carrosserie",
-        label: "Carrosserie",
-        hint: "Missions, communication expert, pièces, planning et paiements",
-        icon: Hammer,
-        module: "carrosserie",
-      },
-      {
-        to: "/maintenance",
-        label: "Maintenance prédictive",
-        hint: "Échéances projetées à partir des kilométrages relevés",
-        icon: Gauge,
-        module: "maintenance",
-      },
+      { to: "/atelier", label: "Atelier", hint: "Scanner, OR WinMotor, Tour véhicule, devis pneus, expertise", icon: Wrench, modules: ["tour", "pneus", "expertise", "maintenance"] },
+      { to: "/pieces-achats", label: "Pièces & achats", hint: "Commandes, réception, stock, factures fournisseur, retours et avoirs", icon: PackageOpen, modules: ["magasin"] },
+      { to: "/notes-frais", label: "Notes de frais", hint: "Saisie, validation et suivi comptable", icon: FileSpreadsheet, modules: ["notes_frais"] },
     ],
   },
   {
-    title: "Magasin & achats",
+    title: "Autres modules",
     entries: [
-      {
-        to: "/magasin",
-        label: "Magasin",
-        hint: "Retours de pièces, expéditions fournisseurs et avoirs",
-        icon: PackageOpen,
-        module: "magasin",
-      },
-      {
-        to: "/factures-fournisseur",
-        label: "BL & factures fournisseur",
-        hint: "Dépôt photo ou PDF, lecture automatique, validation et rattachement OR",
-        icon: FileSpreadsheet,
-        module: "magasin",
-      },
-    ],
-  },
-  {
-    title: "Clients & commercial",
-    entries: [
-      {
-        to: "/crm",
-        label: "CRM",
-        hint: "Appels, emails et réclamations avec relance et escalade",
-        icon: Headphones,
-        module: "crm",
-      },
-      {
-        to: "/recuperation",
-        label: "Ventes",
-        hint: "Planning et checklists de récupération, VN / VO et livraisons",
-        icon: Truck,
-        module: "recuperation",
-      },
-    ],
-  },
-  {
-    title: "Communication",
-    entries: [
-      {
-        to: "/communication",
-        label: "Communication",
-        hint: "Bibliothèque des supports publicitaires Renault / Dacia et rotation d'affichage",
-        icon: Megaphone,
-        module: "communication",
-      },
-    ],
-  },
-  {
-    title: "Équipe & RH",
-    entries: [
-      {
-        to: "/notes-frais",
-        label: "Notes de frais",
-        hint: "Saisie des dépenses, justificatifs et validation manager",
-        icon: FileSpreadsheet,
-        module: "notes_frais",
-      },
-    ],
-  },
-  {
-    title: "Statistiques & pilotage",
-    entries: [
-      {
-        to: "/statistiques",
-        label: "Mes statistiques",
-        hint: "Productivité, rentabilité et activité du mois",
-        icon: BarChart3,
-        module: "statistiques",
-      },
-      {
-        to: "/pilotage",
-        label: "Gestion",
-        hint: "Objectifs, KPIs Groupe N/N-1/N-2, balance âgée, impayés et relances",
-        icon: TrendingUp,
-        module: "pilotage",
-      },
-    ],
-  },
-  {
-    title: "Paramétrage",
-    entries: [
-      {
-        to: "/parametrage",
-        label: "Paramétrage",
-        hint: "Utilisateurs, base de données, flux emails, connaissances, qualité, automatisations, santé",
-        icon: SlidersHorizontal,
-        module: "parametrage",
-      },
+      { to: "/carrosserie", label: "Carrosserie", hint: "Missions, expert, pièces et planning", icon: Hammer, modules: ["carrosserie"] },
+      { to: "/crm", label: "CRM", hint: "Appels, emails et réclamations", icon: Headphones, modules: ["crm"] },
+      { to: "/recuperation", label: "Ventes", hint: "Récupérations, VN / VO et livraisons", icon: Truck, modules: ["recuperation"] },
+      { to: "/communication", label: "Communication", hint: "Supports publicitaires et affichage", icon: Megaphone, modules: ["communication"] },
+      { to: "/statistiques", label: "Statistiques", hint: "Productivité, tours et activité", icon: BarChart3, modules: ["statistiques"] },
+      { to: "/pilotage", label: "Gestion", hint: "Objectifs, KPIs, balance âgée et relances", icon: TrendingUp, modules: ["pilotage"] },
+      { to: "/parametrage", label: "Paramétrage", hint: "Utilisateurs, base de données, flux, santé", icon: SlidersHorizontal, modules: ["parametrage"] },
     ],
   },
 ];
@@ -211,7 +96,7 @@ function Hub() {
 
   const families = FAMILIES.map((f) => ({
     ...f,
-    entries: f.entries.filter((m) => (m.managerOnly ? isManager : can(m.module as never))),
+    entries: f.entries.filter((m) => m.modules.some((k) => can(k as never))),
   })).filter((f) => f.entries.length);
 
   return (
@@ -238,7 +123,22 @@ function Hub() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-3 px-4 py-5">
-        <UniversalSearch />
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <UniversalSearch />
+          </div>
+          {can("tour") ? (
+            <Link
+              to="/scan-plaque"
+              aria-label="Scanner OR / plaque"
+              title="Scanner OR / plaque"
+              className="flex h-[60px] shrink-0 items-center gap-2 rounded-xl bg-brand px-4 text-brand-foreground shadow-sm"
+            >
+              <Camera className="h-6 w-6" />
+              <span className="hidden text-xs font-extrabold uppercase leading-tight sm:block">Scanner<br />OR / plaque</span>
+            </Link>
+          ) : null}
+        </div>
 
         {isManager && (missing.data ?? []).length ? (
           <Link
@@ -261,7 +161,7 @@ function Hub() {
             </h2>
             {f.entries.map((m) => {
               const Icon = m.icon;
-              const primary = m.to === "/tour-vehicule";
+              const primary = m.to === "/atelier";
       const pending = m.to === "/notes-frais" ? (toValidate.data ?? 0) : 0;
       const updates = m.to === "/notes-frais" ? (expenseUpdates.data ?? 0) : 0;
               return (
