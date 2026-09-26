@@ -11,3 +11,4 @@
 - V3 navigation: home = search + scan + Atelier / Pièces & achats / Notes de frais first; `/atelier` and `/pieces-achats` hubs; `/magasin` redirects. Why: OR-centric workshop flow.
 - Rights = menu access only (module key grants all functions of that menu; legacy fine keys still honoured server-side). Why: V3 simplification.
 - DDA never creates official OR numbers; a dossier without WinMotor OR is labelled "Dossier DDA — en attente OR WinMotor" and blocks time/parts/work-done actions. Why: WinMotor primacy.
+- Phase B stock: stock levels are derived only from `stock_movements` deltas (view `stock_levels`); rules live in src/lib/parts-rules.ts. Why: traceable, physical-only stock, testable.

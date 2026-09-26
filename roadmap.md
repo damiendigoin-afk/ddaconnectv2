@@ -50,4 +50,4 @@ Reste à faire :
 
 ## V3
 - [x] Phase A : navigation V3, hub Atelier, dossier OR (tableau d'actions), scan OR/plaque, recherche multi-sites avec site, Pièces & achats hub, droits = menu.
-- [ ] Phase B : temps atelier, statut/pointage pièces, travaux terminés, commandes, réception, stock, références, régularisation.
+- [x] Phase B V3 (commandes, réception, stock, pointage OR, travaux terminés, à régulariser)
