@@ -127,6 +127,13 @@
       "when": 1790443451577,
       "tag": "0017_v3_winmotor_invoices",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790444017189,
+      "tag": "0018_v3_winmotor_invoices_fixes",
+      "breakpoints": true
     }
   ]
 }
