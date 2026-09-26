@@ -101,9 +101,9 @@ async function applyCost(costLineId: string, rl: RL, newCost: number, docId: str
   const isLatest = !latest || latest.id === rl.id;
   const artPatch: Record<string, unknown> = { pamp: pampAfter, updated_at: new Date().toISOString() };
   if (isLatest) {
-    artPatch.last_purchase_price = newCost;
-    artPatch.last_purchase_at = invoiceDate ? new Date(invoiceDate).toISOString() : rl.part_receipts?.received_at ?? new Date().toISOString();
-    if (rl.part_receipts?.supplier_id) artPatch.last_supplier_id = rl.part_receipts.supplier_id;
+    artPatch["last_purchase_price"] = newCost;
+    artPatch["last_purchase_at"] = invoiceDate ? new Date(invoiceDate).toISOString() : rl.part_receipts?.received_at ?? new Date().toISOString();
+    if (rl.part_receipts?.supplier_id) artPatch["last_supplier_id"] = rl.part_receipts.supplier_id;
   }
   const { error: e1 } = await supabase.from("stock_articles").update(artPatch as never).eq("id", rl.article_id);
   if (e1) throw e1;

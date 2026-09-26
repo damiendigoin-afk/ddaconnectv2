@@ -83,5 +83,5 @@ export function matchReceiptLine(
       return n !== "" && (n.includes(s) || s.includes(n));
     });
   }
-  return pool.length === 1 ? pool[0].id : null;
+  return pool.length === 1 ? (pool[0]?.id ?? null) : null;
 }
