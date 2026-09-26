@@ -8,6 +8,7 @@ import { AppShell } from "@/components/AppShell";
 import { MileageCard } from "@/components/MileageCard";
 import { LocalErrorBoundary } from "@/components/LocalErrorBoundary";
 import { InfoEditForm } from "@/components/InfoEditForm";
+import { OrActionBoard } from "@/components/OrActionBoard";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
@@ -83,7 +84,7 @@ function OrderPage() {
   }
 
   return (
-    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={interventionLabel(order.data as { or_number?: string | null; internal_ref?: string | null } | undefined)} back={{ to: "/tour-vehicule" }}>
+    <AppShell title={formatPlate(v?.plate ?? "")} subtitle={interventionLabel(order.data as { or_number?: string | null; internal_ref?: string | null } | undefined)} back={{ to: "/atelier" }}>
       {order.isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement…</p>
       ) : editing && order.data ? (
@@ -142,6 +143,9 @@ function OrderPage() {
               }}
             />
           ) : null}
+
+          <OrActionBoard hasOfficialOr={!isOrPending(order.data as { or_number?: string | null } | undefined)} />
+
 
           <button
             onClick={() => setEditing(true)}
