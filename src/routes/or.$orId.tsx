@@ -144,7 +144,7 @@ function OrderPage() {
             />
           ) : null}
 
-          <OrActionBoard hasOfficialOr={!isOrPending(order.data as { or_number?: string | null } | undefined)} />
+          <OrActionBoard hasOfficialOr={!isOrPending(order.data as { or_number?: string | null } | undefined)} orId={orId} orSiteId={(order.data as { site_id?: string | null } | undefined)?.site_id ?? null} />
 
 
           <button

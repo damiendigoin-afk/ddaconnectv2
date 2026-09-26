@@ -113,6 +113,13 @@
       "when": 1790442075104,
       "tag": "0015_v3_simplify_expense_rights",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790442543254,
+      "tag": "0016_v3_parts_stock_workshop",
+      "breakpoints": true
     }
   ]
 }
