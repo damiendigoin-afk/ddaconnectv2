@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Car, ChevronDown, ClipboardCheck, Mail, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
 
+import { InvoiceTimeline } from "@/components/InvoiceTimeline";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { customerName, fetchCustomer, vehicleLabel } from "@/lib/refbase";
@@ -163,6 +164,7 @@ function ClientPage() {
                 ) : null}
               </section>
             ) : null}
+            <InvoiceTimeline target={{ kind: "customer", id: clientId }} />
           </>
         ) : null}
       </div>

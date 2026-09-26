@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ClipboardCheck, Car, FilePlus2, User } from "lucide-react";
 import { useState } from "react";
 
+import { InvoiceTimeline } from "@/components/InvoiceTimeline";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { customerName, fetchRefVehicle, vehicleLabel } from "@/lib/refbase";
@@ -138,6 +139,8 @@ function VehiclePage() {
                 </Link>
               ))}
             </Section>
+
+            <InvoiceTimeline target={{ kind: "vehicle", id: vehId, registration_normalized: v.registration_normalized ?? null, vin_normalized: (v as { vin_normalized?: string | null }).vin_normalized ?? null }} />
 
             <Section title={`Tours véhicule (${data?.inspections.length ?? 0})`}>
               {(data?.inspections ?? []).map((i) => (
