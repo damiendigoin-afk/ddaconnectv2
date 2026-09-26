@@ -145,6 +145,11 @@ function OrderPage() {
           ) : null}
 
           <OrActionBoard hasOfficialOr={!isOrPending(order.data as { or_number?: string | null } | undefined)} orId={orId} orSiteId={(order.data as { site_id?: string | null } | undefined)?.site_id ?? null} />
+          {order.data?.or_number && (order.data as { site_id?: string | null }).site_id ? (
+            <Link to="/pieces-achats/controle-winmotor" search={{ site: (order.data as { site_id: string }).site_id, or: order.data.or_number }} className="block rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-extrabold uppercase">
+              Contrôle WinMotor (factures de cet OR)
+            </Link>
+          ) : null}
 
 
           <button

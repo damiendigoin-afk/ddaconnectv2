@@ -1,14 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { Car, Loader2, Search, User } from "lucide-react";
+import { Car, Loader2, Receipt, Search, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useSite } from "@/lib/site-context";
+import { searchInvoices } from "@/lib/winmotor/wm-data";
 import { customerName, universalSearch, vehicleLabel, type SearchResult } from "@/lib/refbase";
 
-export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n° OR…" }: { placeholder?: string }) {
+export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n° OR, n° facture…" }: { placeholder?: string }) {
   const [term, setTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<SearchResult | null>(null);
+  const [invoices, setInvoices] = useState<Awaited<ReturnType<typeof searchInvoices>>>([]);
   // Recherche multi-sites pour tous : chaque résultat affiche son site / sa société.
   const { sites } = useSite();
   const siteName = (id: string | null | undefined) => (id ? (sites.find((s) => s.id === id)?.name ?? null) : null);
@@ -17,11 +19,14 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
     const t = term.trim();
     if (t.length < 2) {
       setRes(null);
+      setInvoices([]);
       return;
     }
     let alive = true;
     setLoading(true);
     const timer = setTimeout(() => {
+      // Factures WinMotor : n° exact, à partir de 3 caractères, résultat limité.
+      searchInvoices(t, 5).then((r) => alive && setInvoices(r)).catch(() => alive && setInvoices([]));
       universalSearch(t)
         .then((r) => alive && setRes(r))
         .catch(() => alive && setRes(null))
@@ -34,8 +39,8 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
   }, [term]);
 
   const isEmpty = useMemo(
-    () => res && !res.customers.length && !res.vehicles.length && !res.orders.length,
-    [res],
+    () => res && !res.customers.length && !res.vehicles.length && !res.orders.length && !invoices.length,
+    [res, invoices],
   );
 
   return (
@@ -55,6 +60,24 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
       </div>
 
       {isEmpty ? <p className="px-1 text-sm text-muted-foreground">Aucun résultat.</p> : null}
+
+      {invoices.length ? (
+        <section className="space-y-2">
+          <h2 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Factures WinMotor</h2>
+          {invoices.map((f) => (
+            <Link key={f.id} to="/facture/$invoiceId" params={{ invoiceId: f.id }} className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-3">
+              <Receipt className="h-5 w-5 shrink-0 text-brand" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-base font-extrabold">Facture {f.invoice_number}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {[f.invoice_date ? new Date(f.invoice_date).toLocaleDateString("fr-FR") : null, f.or_number ? `OR ${f.or_number}` : null, f.plate, f.client_name].filter(Boolean).join(" · ")}
+                </div>
+                {siteName(f.site_id) ? <div className="truncate text-[11px] font-bold uppercase text-brand">{siteName(f.site_id)}</div> : null}
+              </div>
+            </Link>
+          ))}
+        </section>
+      ) : null}
 
       {res?.vehicles.length ? (
         <section className="space-y-2">

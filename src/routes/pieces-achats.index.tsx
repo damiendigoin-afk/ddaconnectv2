@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, ClipboardList, FileSpreadsheet, PackageCheck, PackageSearch, Scale, ShoppingCart, Undo2 } from "lucide-react";
+import { ChevronRight, FileCheck2, ClipboardList, FileSpreadsheet, PackageCheck, PackageSearch, Scale, ShoppingCart, Undo2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/pieces-achats/")({
 });
 
 type Entry = { label: string; hint: string; icon: LucideIcon; ready: boolean } & (
-  | { to: "/factures-fournisseur" | "/pieces-achats/retours" | "/pieces-achats/commandes" | "/pieces-achats/reception" | "/pieces-achats/stock" | "/pieces-achats/regulariser" }
+  | { to: "/factures-fournisseur" | "/pieces-achats/retours" | "/pieces-achats/commandes" | "/pieces-achats/reception" | "/pieces-achats/stock" | "/pieces-achats/regulariser" | "/pieces-achats/controle-winmotor" }
   | { to: "/pieces-achats/$section"; section: string }
 );
 
@@ -33,6 +33,7 @@ const ENTRIES: Entry[] = [
   { to: "/factures-fournisseur", label: "Factures fournisseur", hint: "BL et factures : dépôt, lecture automatique, rattachement OR", icon: FileSpreadsheet, ready: true },
   { to: "/pieces-achats/retours", label: "Retours / consignes / avoirs", hint: "Retours fournisseurs, consignes et avoirs attendus", icon: Undo2, ready: true },
   { to: "/pieces-achats/$section", section: "references", label: "Références à compléter", hint: "Pièces sans référence exploitable", icon: ClipboardList, ready: false },
+  { to: "/pieces-achats/controle-winmotor", label: "Contrôle WinMotor", hint: "Factures WinMotor ↔ pièces réellement montées, OR par OR", icon: FileCheck2, ready: true },
   { to: "/pieces-achats/regulariser", label: "À régulariser", hint: "Anomalies pièces à traiter", icon: Scale, ready: true },
 ];
 

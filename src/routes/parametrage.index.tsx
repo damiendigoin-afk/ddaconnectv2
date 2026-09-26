@@ -10,8 +10,7 @@ import {
   MailCheck,
   ShieldCheck,
   SlidersHorizontal,
-  Users,
-} from "lucide-react";
+  Users,, FileUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -96,6 +95,12 @@ const ENTRIES: { to: string; label: string; hint: string; icon: LucideIcon }[] =
     label: "Notifications Front Office",
     hint: "Destinataires prévenus automatiquement à la fin d'un Tour Véhicule, par établissement",
     icon: MailCheck,
+  },
+  {
+    to: "/parametrage/imports-winmotor",
+    label: "Imports WinMotor",
+    hint: "Entêtes de factures et détail facturation : import par site, prévisualisation, historique",
+    icon: FileUp,
   },
   {
     to: "/parametrage/global",
