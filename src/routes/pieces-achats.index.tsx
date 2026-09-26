@@ -22,18 +22,18 @@ export const Route = createFileRoute("/pieces-achats/")({
 });
 
 type Entry = { label: string; hint: string; icon: LucideIcon; ready: boolean } & (
-  | { to: "/factures-fournisseur" | "/pieces-achats/retours" }
+  | { to: "/factures-fournisseur" | "/pieces-achats/retours" | "/pieces-achats/commandes" | "/pieces-achats/reception" | "/pieces-achats/stock" | "/pieces-achats/regulariser" }
   | { to: "/pieces-achats/$section"; section: string }
 );
 
 const ENTRIES: Entry[] = [
-  { to: "/pieces-achats/$section", section: "commandes", label: "Commandes", hint: "Commandes fournisseurs par OR", icon: ShoppingCart, ready: false },
-  { to: "/pieces-achats/$section", section: "reception", label: "Réception pièces", hint: "Contrôle des livraisons", icon: PackageCheck, ready: false },
-  { to: "/pieces-achats/$section", section: "stock", label: "Stock / inventaire", hint: "Quantités et inventaires", icon: PackageSearch, ready: false },
+  { to: "/pieces-achats/commandes", label: "Commandes", hint: "Commandes fournisseurs par OR", icon: ShoppingCart, ready: true },
+  { to: "/pieces-achats/reception", label: "Réception pièces", hint: "Contrôle des livraisons", icon: PackageCheck, ready: true },
+  { to: "/pieces-achats/stock", label: "Stock / inventaire", hint: "Quantités et inventaires", icon: PackageSearch, ready: true },
   { to: "/factures-fournisseur", label: "Factures fournisseur", hint: "BL et factures : dépôt, lecture automatique, rattachement OR", icon: FileSpreadsheet, ready: true },
   { to: "/pieces-achats/retours", label: "Retours / consignes / avoirs", hint: "Retours fournisseurs, consignes et avoirs attendus", icon: Undo2, ready: true },
   { to: "/pieces-achats/$section", section: "references", label: "Références à compléter", hint: "Pièces sans référence exploitable", icon: ClipboardList, ready: false },
-  { to: "/pieces-achats/$section", section: "regulariser", label: "À régulariser", hint: "Écarts pointé / commandé / facturé", icon: Scale, ready: false },
+  { to: "/pieces-achats/regulariser", label: "À régulariser", hint: "Anomalies pièces à traiter", icon: Scale, ready: true },
 ];
 
 function PiecesHub() {
