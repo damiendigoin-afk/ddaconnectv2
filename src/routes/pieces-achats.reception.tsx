@@ -132,8 +132,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
         <button key={m.order.id} className="block w-full rounded-lg border-2 border-brand p-3 text-left text-sm" onClick={() => onOrder(m.order.id)}>
           <Badge tone={m.level === "certain" ? "ok" : "warn"}>{m.level === "certain" ? "Correspondance certaine" : "Correspondance probable"}</Badge>{" "}
           <b>{(m.order.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b>
-          {(m.order.repair_orders as { or_number: string | null } | null)?.or_number ? ` · OR ${(m.order.repair_orders as { or_number: string }).or_number}` : ""}
-          {m.order.plate ? ` · ${m.order.plate}` : ""} — Contrôler la réception
+          {` · ${orderMarker(m.order as never)}`} — Contrôler la réception
         </button>
       ))}
       {orders.data && !matches.length ? <p className="text-sm text-muted-foreground">Aucune commande DDA correspondante sur ce site.</p> : null}
