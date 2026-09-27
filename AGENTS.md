@@ -19,3 +19,4 @@
 - tslib pinned to ^2 via package.json overrides. Why: pdf-lib with tslib 1.x crashed in the server bundle (__extends/__toESM).
 - Tour tire quotes persist one grouped quote line per axle group with seven offer snapshots in computation; only selected_slot contributes to totals. Why: preserve the shared tire engine while preventing duplicate wheel lines.
 - Tire monte is consolidated per wheel then per axle (src/lib/tire-axle.ts: all wheels incl. OK, conflicts block fusion, never copied across axles); tier slots fall back through active brands in sort_order. Why: more photos = more reliable monte, no empty slots when the default brand lacks stock.
+- Tire wheel reading is local OCR only (tesseract.js in browser, src/lib/tire-ocr.client.ts + pure parser src/lib/tire-ocr-parse.ts); analyzeWheelPhotos server fn is a no-op, depth is entered by the mechanic. Why: no paid AI calls in the normal tire flow.

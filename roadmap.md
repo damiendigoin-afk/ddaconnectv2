@@ -77,5 +77,5 @@ Reste à faire :
 - [x] Tests, typecheck, build, publication
 
 ## Pneus sans IA — OCR local photo 2 + photo 3
-- [ ] Désactiver tire_wheel automatique ; OCR local (photos 2 et 3), parser métier, consolidation roue
-- [ ] Synthèse discrète + correction manuelle ; tests parsing/consolidation ; publication
+- [x] Désactiver tire_wheel automatique ; OCR local (photos 2 et 3), parser métier, consolidation roue
+- [x] Synthèse discrète + correction manuelle ; tests parsing/consolidation ; publication
