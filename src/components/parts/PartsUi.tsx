@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { useAuth } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { listSuppliers } from "@/lib/suppliers";
 import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
 import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
+import { syncOrNumber } from "@/lib/receipt-lines";
 
 export const inputCls = "h-11 w-full rounded-lg border-2 border-border bg-card px-3 text-sm";
 export const btnPrimary = "h-11 rounded-lg bg-brand px-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50";
@@ -106,8 +107,15 @@ export function SupplierSelect({ value, onChange, required }: { value: string; o
 }
 
 /** Rattachement OR WinMotor existant (par n°) ou par immatriculation. Ne crée jamais de n° d'OR. */
-export function OrPicker({ value, onChange }: { value: { or: OrLite | null; plate: string; vehicleId: string | null }; onChange: (v: { or: OrLite | null; plate: string; vehicleId: string | null }) => void }) {
-  const [num, setNum] = useState(value.or?.or_number ?? "");
+export function OrPicker({ value, onChange, initialNumber, onNumberChange }: { value: { or: OrLite | null; plate: string; vehicleId: string | null }; onChange: (v: { or: OrLite | null; plate: string; vehicleId: string | null }) => void; initialNumber?: string | null; onNumberChange?: (n: string) => void }) {
+  const [num, setNumRaw] = useState(value.or?.or_number ?? initialNumber ?? "");
+  const [touched, setTouched] = useState(false);
+  const setNum = (v: string) => { setNumRaw(v); onNumberChange?.(v); };
+  useEffect(() => {
+    const next = syncOrNumber(num, touched, value.or?.or_number ?? initialNumber);
+    if (next !== num) setNum(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNumber, value.or?.or_number, touched]);
   const [msg, setMsg] = useState<string | null>(null);
   const [cands, setCands] = useState<OrLite[]>([]);
   async function lookupNum() {
@@ -127,7 +135,7 @@ export function OrPicker({ value, onChange }: { value: { or: OrLite | null; plat
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <input className={inputCls} placeholder="N° OR WinMotor" value={num} onChange={(e) => setNum(e.target.value)} inputMode="numeric" />
+        <input className={inputCls} placeholder="N° dossier / OR WinMotor" aria-label="N° dossier / OR WinMotor" value={num} onChange={(e) => { setTouched(true); setNum(e.target.value); }} inputMode="numeric" />
         <button type="button" className={btnGhost} onClick={lookupNum} disabled={!num.trim()}>
           OK
         </button>
@@ -151,7 +159,7 @@ export function OrPicker({ value, onChange }: { value: { or: OrLite | null; plat
         <p className="text-xs font-bold">
           Rattaché : OR {value.or.or_number}
           {value.or.plate ? ` · ${value.or.plate}` : ""}{" "}
-          <button type="button" className="underline" onClick={() => { onChange({ ...value, or: null }); setNum(""); }}>
+          <button type="button" className="underline" onClick={() => { onChange({ ...value, or: null }); }}>
             retirer
           </button>
         </p>

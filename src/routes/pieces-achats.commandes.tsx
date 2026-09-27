@@ -209,10 +209,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
         </p>
       ) : null}
       {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
-      <OrPicker value={orv} onChange={setOrv} />
-      {!orv.or ? (
-        <input className={inputCls} placeholder="N° dossier / OR WinMotor" aria-label="N° dossier / OR WinMotor" value={dossier} onChange={(e) => setDossier(e.target.value)} />
-      ) : null}
+      <OrPicker value={orv} onChange={setOrv} initialNumber={x.or_number ?? null} onNumberChange={setDossier} />
       {requestedOr ? (
         <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
           Dossier {requestedOr}{vehFound ? ` · véhicule ${vehFound}` : ""} — sera rapproché à la facture WinMotor.

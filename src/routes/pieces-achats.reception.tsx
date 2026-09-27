@@ -11,6 +11,9 @@ import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders }
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { isOverReceipt } from "@/lib/parts-rules";
+import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
+import { requestedDossier } from "@/lib/parts-site";
+import { Check } from "lucide-react";
 
 export const Route = createFileRoute("/pieces-achats/reception")({
   validateSearch: (s: Record<string, unknown>): { order?: string; doc?: string } => ({
@@ -30,7 +33,7 @@ export const Route = createFileRoute("/pieces-achats/reception")({
   component: ReceptionPage,
 });
 
-const blank = (): ReceiptLineInput => ({ order_line_id: null, physical_reference: "", designation: "", qty_expected: null, qty_received: 1, condition: "usable", destination: "or", allocate_qty: 1, unit_cost: null, expected_cost: null, ordered_reference: null, comment: "" });
+const blank = blankReceiptLine;
 
 type Mode = null | "order" | "physical" | "document";
 
@@ -180,9 +183,11 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const [docId, setDocId] = useState(doc?.id ?? "");
   const [packages, setPackages] = useState("");
   const [comment, setComment] = useState("");
+  const [dossier, setDossier] = useState(x.or_number ?? "");
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [lines, setLines] = useState<ReceiptLineInput[]>(() => {
     if (mode === "order") return [];
-    const fromDoc = (x.lines ?? []).filter((l) => l.reference || l.label).map((l) => ({ ...blank(), physical_reference: l.reference ?? "", designation: l.label ?? "", qty_expected: l.quantity ?? null, qty_received: l.quantity ?? 1, allocate_qty: l.quantity ?? 1, unit_cost: l.unit_price ?? null }));
+    const fromDoc = receiptLinesFromDoc(x.lines);
     return fromDoc.length ? fromDoc : [blank()];
   });
 
@@ -220,7 +225,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
-  const set = (i: number, p: Partial<ReceiptLineInput>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
+  const set = (i: number, p: Partial<ReceiptLineInput>) => { setChecked((c) => ({ ...c, [i]: false })); setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l))); };
+  const reqOr = requestedDossier(orv.or, dossier);
 
   async function submit() {
     if (!site) return void toast.error("Choisissez le site actif dans la barre du haut.");
@@ -239,6 +245,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
         receipt_type: docId ? "document" : "physical_without_document",
         packages: packages.trim() || null,
         comment: comment.trim() || null,
+        requested_or_number: reqOr,
         lines: lines.map((l) => ({ ...l, destination: l.destination === "or" && !orv.or ? "unknown" : l.destination })),
       }, actor);
       // Rien ne bloque : ce qui manque part dans « À régulariser ».
@@ -278,46 +285,56 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
               {(docs.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.file_name} · {new Date(d.created_at).toLocaleDateString("fr-FR")}</option>)}
             </select>
           ) : null}
-          <OrPicker value={orv} onChange={setOrv} />
-          <input className={inputCls} placeholder="Colis / cartons (facultatif)" value={packages} onChange={(e) => setPackages(e.target.value)} />
-          <textarea className={`${inputCls} h-16 py-2`} placeholder="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
-          {lines.map((l, i) => (
-            <div key={i} className="space-y-2 rounded-lg border-2 border-border p-2">
-              <input className={inputCls} placeholder="Référence réellement reçue" value={l.physical_reference} onChange={(e) => set(i, { physical_reference: e.target.value })} />
-              {l.ordered_reference && l.physical_reference && l.ordered_reference.replace(/\W/g, "").toUpperCase() !== l.physical_reference.replace(/\W/g, "").toUpperCase() ? <Badge tone="warn">Différente de la référence commandée ({l.ordered_reference})</Badge> : null}
-              <input className={inputCls} placeholder="Désignation" value={l.designation} onChange={(e) => set(i, { designation: e.target.value })} />
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs">Qté reçue{l.qty_expected != null ? ` (attendu ${l.qty_expected})` : ""}
-                  <input className={inputCls} inputMode="decimal" value={l.qty_received} onChange={(e) => { const q = numOrNull(e.target.value) ?? 0; set(i, { qty_received: q, allocate_qty: q }); }} />
-                </label>
-                <label className="text-xs">Prix HT (facultatif)
-                  <input className={inputCls} inputMode="decimal" value={l.unit_cost ?? ""} onChange={(e) => set(i, { unit_cost: numOrNull(e.target.value) })} />
-                </label>
-              </div>
-              {l.unit_cost != null && l.expected_cost != null && Math.abs(l.unit_cost - l.expected_cost) > 0.009 ? <Badge tone="warn">Écart de prix signalé (attendu {l.expected_cost})</Badge> : null}
-              <div className="grid grid-cols-2 gap-2">
-                <select className={inputCls} value={l.condition} onChange={(e) => set(i, { condition: e.target.value as ReceiptLineInput["condition"] })}>
-                  <option value="usable">Utilisable</option>
-                  <option value="damaged_return">Endommagée — à retourner</option>
-                  <option value="to_check">À vérifier</option>
-                </select>
-                <select className={inputCls} value={l.destination} onChange={(e) => set(i, { destination: e.target.value as ReceiptLineInput["destination"] })}>
-                  <option value="or">Pour l'OR</option>
-                  <option value="stock">Stock</option>
-                  <option value="store_sale">Vente magasin</option>
-                  <option value="unknown">Destination inconnue</option>
-                </select>
-              </div>
-              {l.destination === "or" && l.condition === "usable" ? (
-                orv.or ? (
-                  <label className="text-xs">Qté à affecter à l'OR {orv.or.or_number}
-                    <input className={inputCls} inputMode="decimal" value={l.allocate_qty} onChange={(e) => set(i, { allocate_qty: numOrNull(e.target.value) ?? 0 })} />
+          <OrPicker value={orv} onChange={setOrv} initialNumber={x.or_number ?? null} onNumberChange={setDossier} />
+          {x.order_reference || x.document_number ? <p className="text-xs">Réf. BL / commande : <b>{x.document_number ?? x.order_reference}</b></p> : null}
+          {!orv.or ? (
+            <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
+              {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}Les pièces « Pour l'OR » entrent en stock, destination à régulariser.
+            </p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-2">
+            <input className={inputCls} placeholder="Colis / cartons (facultatif)" value={packages} onChange={(e) => setPackages(e.target.value)} />
+            <input className={inputCls} placeholder="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
+          </div>
+          <div className="hidden grid-cols-[1.2fr_2fr_0.6fr_0.7fr_0.8fr_1fr_1fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
+            <span>Référence</span><span>Désignation</span><span>Qté lue</span><span>Qté reçue</span><span>PA HT</span><span>État</span><span>Destination</span><span>Ctrl</span>
+          </div>
+          {lines.map((l, i) => {
+            const anomalies = lineAnomalies(l);
+            const ok = !!checked[i];
+            const cell = "h-9 w-full rounded-md border-2 border-border bg-card px-2 text-xs";
+            return (
+              <div key={i} className={`rounded-lg border-2 p-2 md:p-1 ${ok ? "border-status-ok" : "border-border"}`}>
+                <div className="grid grid-cols-2 gap-1 md:grid-cols-[1.2fr_2fr_0.6fr_0.7fr_0.8fr_1fr_1fr_auto] md:items-center">
+                  <input className={cell} aria-label="Référence" placeholder="Référence" value={l.physical_reference} onChange={(e) => set(i, { physical_reference: e.target.value })} />
+                  <input className={`${cell} col-span-2 md:col-span-1 order-first md:order-none`} aria-label="Désignation" placeholder="Désignation" value={l.designation} onChange={(e) => set(i, { designation: e.target.value })} />
+                  <span className="flex h-9 items-center text-xs text-muted-foreground"><span className="md:hidden">Lue :&nbsp;</span>{l.qty_expected ?? "—"}</span>
+                  <input className={cell} aria-label="Qté reçue" inputMode="decimal" value={l.qty_received} onChange={(e) => { const q = numOrNull(e.target.value) ?? 0; set(i, { qty_received: q, allocate_qty: q }); }} />
+                  <input className={cell} aria-label="PA HT" placeholder="PA HT" inputMode="decimal" value={l.unit_cost ?? ""} onChange={(e) => set(i, { unit_cost: numOrNull(e.target.value) })} />
+                  <select className={cell} aria-label="État" value={l.condition} onChange={(e) => set(i, { condition: e.target.value as ReceiptLineInput["condition"] })}>
+                    <option value="usable">Utilisable</option>
+                    <option value="damaged_return">Endommagée</option>
+                    <option value="to_check">À vérifier</option>
+                  </select>
+                  <select className={cell} aria-label="Destination" value={l.destination} onChange={(e) => set(i, { destination: e.target.value as ReceiptLineInput["destination"] })}>
+                    <option value="or">Pour l'OR</option>
+                    <option value="stock">Stock</option>
+                    <option value="store_sale">Vente magasin</option>
+                    <option value="unknown">Inconnue</option>
+                  </select>
+                  <button type="button" aria-label={ok ? "Ligne contrôlée" : "Marquer contrôlée"} title={ok ? "Contrôlée" : "À contrôler"} onClick={() => setChecked((c) => ({ ...c, [i]: !ok }))} className={`flex h-9 items-center justify-center gap-1 rounded-md border-2 px-2 text-xs font-extrabold uppercase ${ok ? "border-status-ok bg-status-ok text-primary-foreground" : "border-border"}`}>
+                    <Check className="h-4 w-4" /><span className="md:hidden">{ok ? "Contrôlée" : "OK"}</span>
+                  </button>
+                </div>
+                {anomalies.length ? <div className="mt-1 flex flex-wrap gap-1">{anomalies.map((a) => <Badge key={a} tone="warn">{a}</Badge>)}</div> : null}
+                {l.destination === "or" && l.condition === "usable" && orv.or ? (
+                  <label className="mt-1 flex items-center gap-2 text-xs">Qté à affecter à l'OR {orv.or.or_number}
+                    <input className="h-8 w-20 rounded-md border-2 border-border bg-card px-2 text-xs" inputMode="decimal" value={l.allocate_qty} onChange={(e) => set(i, { allocate_qty: numOrNull(e.target.value) ?? 0 })} />
                   </label>
-                ) : <p className="text-xs text-muted-foreground">Aucun OR WinMotor rattaché : la pièce entre en stock, destination à régulariser.</p>
-              ) : null}
-              <input className={inputCls} placeholder="Commentaire ligne" value={l.comment} onChange={(e) => set(i, { comment: e.target.value })} />
-            </div>
-          ))}
+                ) : null}
+              </div>
+            );
+          })}
           <button type="button" className={btnGhost} onClick={() => setLines((ls) => [...ls, blank()])}>+ Pièce reçue</button>
           <div className="grid grid-cols-2 gap-2">
             <button className={btnGhost} onClick={onDone}>Annuler</button>

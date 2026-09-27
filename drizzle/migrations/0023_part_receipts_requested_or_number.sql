@@ -1,0 +1,2 @@
+ALTER TABLE public.part_receipts ADD COLUMN IF NOT EXISTS requested_or_number text;
+CREATE INDEX IF NOT EXISTS part_receipts_requested_or_idx ON public.part_receipts(site_id, requested_or_number) WHERE requested_or_number IS NOT NULL;
