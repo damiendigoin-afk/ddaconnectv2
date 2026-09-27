@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizePurchaseExtract } from "@/lib/purchase-extract";
-import { guessDocumentSite, matchSupplier } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, orderGaps } from "@/lib/parts-site";
 import { docSiteText } from "@/lib/purchase-doc";
 import { autoSupplier } from "@/lib/order-supplier";
 
@@ -80,5 +80,32 @@ describe("fournisseur chargé après le document", () => {
     expect(autoSupplier("", false, name, suppliers)).toBe("s1");
     expect(autoSupplier("s2", true, name, suppliers)).toBe("s2");
     expect(autoSupplier("", true, name, suppliers)).toBe("");
+  });
+});
+
+describe("commande 45873330 : OR non importé + plaque imprimée", () => {
+  const x = normalizePurchaseExtract({
+    doc_kind: "commande", distributor: "RENAULT SARLAT - GROUPE FAURIE", document_number: "45873330", document_date: "2026-09-27",
+    order_reference: "48416", or_number: "Repère 48416", plate: "FG315YS", plate_printed: true,
+    customer_or_site: "GARAGE CASTILLON-VEYSSIERE",
+    lines: [{ ref: "8100166273", designation: "Phare avant HELLA 1EL 354 853-011", qty: "1", unit_price: "510,30", client_price: 510.3, amount: "357,21", delay: "Commande spéciale (>72h livrée à votre R1)" }],
+    total_ht: 357.21,
+  });
+  it("champs extraits", () => {
+    expect(autoSupplier("", false, x.supplier, suppliers)).toBe("s1");
+    expect(x.order_reference).toBe("45873330");
+    expect(x.or_number).toBe("48416");
+    expect(x.plate).toBe("FG315YS");
+    const l = x.lines![0]!;
+    expect(l.reference).toBe("8100166273");
+    expect(l.quantity).toBe(1);
+    expect(l.unit_price).toBe(357.21);
+    expect(l.unit_price).not.toBe(510.3);
+    expect(guessDocumentSite(docSiteText(x), sites as never)).toBe("cas");
+  });
+  it("régularisation OR non importé même si la plaque est connue, sans blocage", () => {
+    const g = orderGaps({ supplier_id: "s1", hasDocument: true, lines: 1, repair_order_id: null, plate: "FG-315-YS", destination: "or", requested_or_number: "48416" });
+    expect(g).toEqual(["or_non_importe"]);
+    expect(orderGaps({ supplier_id: "s1", hasDocument: true, lines: 1, repair_order_id: "or1", plate: "FG-315-YS", destination: "or", requested_or_number: null })).toEqual([]);
   });
 });
