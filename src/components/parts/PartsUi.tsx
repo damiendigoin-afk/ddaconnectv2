@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { useAuth } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { listSuppliers } from "@/lib/suppliers";
 import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
 import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
+import { syncOrNumber } from "@/lib/receipt-lines";
 
 export const inputCls = "h-11 w-full rounded-lg border-2 border-border bg-card px-3 text-sm";
 export const btnPrimary = "h-11 rounded-lg bg-brand px-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50";
@@ -134,7 +135,7 @@ export function OrPicker({ value, onChange, initialNumber, onNumberChange }: { v
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <input className={inputCls} placeholder="N° OR WinMotor" value={num} onChange={(e) => setNum(e.target.value)} inputMode="numeric" />
+        <input className={inputCls} placeholder="N° dossier / OR WinMotor" aria-label="N° dossier / OR WinMotor" value={num} onChange={(e) => { setTouched(true); setNum(e.target.value); }} inputMode="numeric" />
         <button type="button" className={btnGhost} onClick={lookupNum} disabled={!num.trim()}>
           OK
         </button>
@@ -158,11 +159,12 @@ export function OrPicker({ value, onChange, initialNumber, onNumberChange }: { v
         <p className="text-xs font-bold">
           Rattaché : OR {value.or.or_number}
           {value.or.plate ? ` · ${value.or.plate}` : ""}{" "}
-          <button type="button" className="underline" onClick={() => { onChange({ ...value, or: null }); setNum(""); }}>
+          <button type="button" className="underline" onClick={() => { onChange({ ...value, or: null }); }}>
             retirer
           </button>
         </p>
       ) : null}
+      {!value.or && num.trim() ? <p className="text-xs text-muted-foreground">N° dossier / OR WinMotor {num.trim()} — non rattaché à un OR DDA, conservé pour la facture WinMotor.</p> : null}
       {msg ? <p className="text-xs text-muted-foreground">{msg}</p> : null}
     </div>
   );
