@@ -249,3 +249,74 @@ export function wheelOcrSummary(w: WheelOcr): string {
   if (w.conflicts.length) parts.push(`à confirmer (${w.conflicts.map((c) => c.values.join(" / ")).join(" ; ")})`);
   return parts.join(" · ");
 }
+
+/* ------------------------- Photo 1 : profondeur (jauge) ------------------------- */
+
+export type DepthEstimate = { value: number; source: "jauge"; confidence: "moyenne" | "elevee"; evidence: string };
+
+/**
+ * Lit une jauge/réglette graduée sur la photo de bande : un nombre suivi de
+ * « mm » (confiance élevée) ou un nombre isolé plausible près d'un mot de jauge
+ * (confiance moyenne). Plage acceptée 0–12 mm. Jamais une mesure définitive.
+ */
+export function parseGaugeDepth(text: string): DepthEstimate | null {
+  const t = norm(text ?? "").replace(/,/g, ".");
+  const mm = /(?:^|[^0-9.])(\d{1,2}(?:\.\d)?)\s?MM\b/.exec(t);
+  if (mm) {
+    const v = Number(mm[1]);
+    return v >= 0 && v <= 12 ? { value: v, source: "jauge", confidence: "elevee", evidence: mm[0].trim() } : null;
+  }
+  if (/JAUGE|GAUGE|TREAD|PROFIL|DEPTH/.test(t)) {
+    const n = /(?:^|\s)(\d{1,2}(?:\.\d)?)(?=\s|$)/m.exec(t);
+    const v = n ? Number(n[1]) : NaN;
+    if (Number.isFinite(v) && v >= 0 && v <= 12) return { value: v, source: "jauge", confidence: "moyenne", evidence: n![0].trim() };
+  }
+  return null;
+}
+
+/** Seule une profondeur saisie/confirmée par le compagnon sert au jugement d'usure. */
+export function depthForJudgement(manual: number | null | undefined, _estimate?: DepthEstimate | null): number | null {
+  return manual != null && Number.isFinite(manual) ? manual : null;
+}
+
+/** Libellé profondeur : « 3 mm · confirmé », « ≈ 3 mm (estimé sur photo) — confirmer », ou « profondeur à confirmer ». */
+export function depthLabel(manual: number | null | undefined, estimate: DepthEstimate | null | undefined): string {
+  if (manual != null && Number.isFinite(manual)) return `${manual} mm · confirmé`;
+  if (estimate) return `≈ ${estimate.value} mm (estimé sur photo) — confirmer`;
+  return "profondeur à confirmer";
+}
+
+export type TireConfirmFields = {
+  depth: number | null;
+  size: string | null;
+  load: string | null;
+  speed: string | null;
+  brand: string | null;
+  model: string | null;
+  season: OcrSeason;
+  xl: boolean;
+  runflat: boolean;
+  ms: boolean;
+  pmsf: boolean;
+};
+
+/** Confirmation humaine finale : verrouille les données comme « confirmed ». */
+export function confirmTireFields(f: TireConfirmFields) {
+  const clean = (v: string | null) => (v && v.trim() ? v.trim().toUpperCase() : null);
+  const size = parseSize(f.size ?? "").size ?? clean(f.size);
+  const load = clean(f.load);
+  const speed = clean(f.speed);
+  const depth = f.depth != null && Number.isFinite(f.depth) && f.depth >= 0 && f.depth <= 20 ? f.depth : null;
+  return {
+    ...f,
+    size,
+    load,
+    speed,
+    brand: f.brand?.trim() || null,
+    model: f.model?.trim() || null,
+    depth,
+    depth_kind: depth != null ? ("mesure" as const) : null,
+    confirmed: true as const,
+    ref: size && load && speed ? `${size.replace(/R(\d+)/, " R$1")} ${load}${speed}` : null,
+  };
+}
