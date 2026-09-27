@@ -62,8 +62,9 @@ Reste à faire :
 - [x] Publication
 
 # Chiffrage pneus Tour véhicule — essieux et 7 offres
-- [ ] Regrouper les constats en PNEUS AV / PNEUS AR / 4 PNEUS, toujours par 2 ou 4
-- [ ] Conserver exactement les 7 offres standard du moteur pneus existant
-- [ ] Afficher et sélectionner une seule offre comptée dans l'atelier et le devis client
-- [ ] Couvrir le cas CW-862-AY et les dimensions incomplètes
-- [ ] Tests ciblés, suite complète, typecheck, build et publication
+- [x] Regrouper les constats en PNEUS AV / PNEUS AR / 4 PNEUS, toujours par 2 ou 4
+- [x] Conserver exactement les 7 offres standard du moteur pneus existant
+- [x] Afficher et sélectionner une seule offre comptée dans l'atelier et le devis client
+- [x] Couvrir le cas CW-862-AY et les dimensions incomplètes
+- [x] Tests ciblés, suite complète, typecheck et build
+- [ ] Publication
