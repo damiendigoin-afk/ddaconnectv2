@@ -45,6 +45,7 @@ import {
   type TireGrade,
   type TireOffer,
   type TireSeason,
+  quoteBrandsOf,
 } from "@/lib/tires";
 import type { PointRow } from "@/components/PointCard";
 
