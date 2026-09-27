@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search } from "lucide-react";
+import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search, History } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -99,6 +99,17 @@ function AtelierHub() {
             </div>
             {orNote ? <p className="text-xs text-muted-foreground">{orNote}</p> : null}
           </form>
+        ) : null}
+
+        {can("tour") ? (
+          <Link to="/tours" className={cls}>
+            <History className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-sm font-extrabold uppercase">Tours du véhicule</div>
+              <div className="text-xs text-muted-foreground">Derniers tours clôturés, du plus récent au plus ancien</div>
+            </div>
+            <ChevronRight className="h-5 w-5" />
+          </Link>
         ) : null}
 
         {can("pneus") ? (

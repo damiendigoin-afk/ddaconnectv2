@@ -21,7 +21,7 @@ function formatDuration(s: number) {
   return `${sec} s`;
 }
 
-export function TourRow({ t, resume }: { t: RecentTour; resume?: boolean }) {
+export function TourRow({ t, resume, siteLabel }: { t: RecentTour; resume?: boolean; siteLabel?: string | null }) {
   const Icon = t.comm === "sent" ? MailCheck : t.comm === "modified" ? MailWarning : Mail;
   const date = new Date(t.completed_at ?? t.started_at ?? Date.now());
   const open = resume ?? t.status !== "completed";
@@ -103,11 +103,16 @@ export function TourRow({ t, resume }: { t: RecentTour; resume?: boolean }) {
             <AlertTriangle className="h-3.5 w-3.5" /> {t.defects} défaut(s)
           </span>
         ) : null}
+        {t.status === "completed" && t.oks > 0 ? (
+          <span className="rounded-full bg-status-ok-soft px-2 py-1 font-bold text-status-ok">{t.oks} OK</span>
+        ) : null}
         {t.watches > 0 ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-status-watch-soft px-2 py-1 font-bold text-status-watch">
             <Eye className="h-3.5 w-3.5" /> {t.watches} à surveiller
           </span>
         ) : null}
+        {t.photos > 0 ? <span className="text-muted-foreground">{t.photos} photo(s)</span> : null}
+        {siteLabel ? <span className="text-muted-foreground">· {siteLabel}</span> : null}
       </div>
     </Link>
   );
