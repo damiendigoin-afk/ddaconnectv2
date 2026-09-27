@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +11,9 @@ import { ActiveSiteNote, Badge, usePartsCtx, useSuppliers } from "@/components/p
 import { listOrders } from "@/lib/parts";
 import { guessDocumentSite, matchOrders, matchSupplier } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
-import { fetchPendingSupplierDocs, fetchSupplierMails, statusLabel, uploadSupplierDoc } from "@/lib/supplier-docs";
+import { fetchPendingSupplierDocs, fetchSupplierMails, importEmailAttachment, statusLabel, uploadSupplierDoc, type MailAttachment, type SupplierMail } from "@/lib/supplier-docs";
+import { fetchEmailAttachment } from "@/lib/email-attachment.functions";
+import { importDestination } from "@/lib/supplier-mail-filter";
 
 export const Route = createFileRoute("/pieces-achats/documents")({
   head: () => ({
@@ -31,6 +34,32 @@ function DocumentsPage() {
   const navigate = useNavigate();
   const suppliers = useSuppliers();
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState<string | null>(null);
+  const [failed, setFailed] = useState<Record<string, string>>({});
+  const qc = useQueryClient();
+  const fetchFile = useServerFn(fetchEmailAttachment);
+
+  async function onImport(m: SupplierMail, a: MailAttachment) {
+    const siteId = m.effective_site_id ?? writeSite;
+    if (!siteId) return void toast.error("Site ambigu : choisissez le site actif dans la barre du haut.");
+    setImporting(a.id);
+    try {
+      const r = await importEmailAttachment({ mail: m, attachment: a, siteId, userId: actor.userId, userName: actor.name, fetchFile: (id) => fetchFile({ data: { attachmentId: id } }), read: readPurchaseDoc });
+      if (r.existing) { toast.info("Déjà ajouté à DDA."); void navigate({ to: "/pieces-achats/reception", search: { doc: r.existing } }); return; }
+      if (r.error || !r.doc) { setFailed((f) => ({ ...f, [a.id]: r.error ?? "Import impossible" })); return; }
+      if (r.warning) toast.warning(r.warning);
+      toast.success(`${a.filename} ajouté à DDA`);
+      void qc.invalidateQueries({ queryKey: ["supplier-mails"] });
+      void qc.invalidateQueries({ queryKey: ["pending-docs"] });
+      const dest = importDestination(r.doc.extracted.doc_kind);
+      if (dest === "reception") void navigate({ to: "/pieces-achats/reception", search: { doc: r.doc.id } });
+      else if (dest === "facture") void navigate({ to: "/factures-fournisseur" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import impossible");
+    } finally {
+      setImporting(null);
+    }
+  }
   const docs = useQuery({ queryKey: ["pending-docs", readSite], queryFn: () => fetchPendingSupplierDocs(readSite) });
   const mails = useQuery({ queryKey: ["supplier-mails", readSite, sites.length], queryFn: () => fetchSupplierMails(readSite, sites) });
   const orders = useQuery({ queryKey: ["open-orders-match", readSite], queryFn: () => listOrders({ siteId: readSite }) });
@@ -93,7 +122,22 @@ function DocumentsPage() {
               <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-brand" /><b className="truncate">{m.from_name ?? m.from_address}</b></div>
               <div className="text-xs text-muted-foreground">{new Date(m.sent_at).toLocaleDateString("fr-FR")} · {siteName(m.effective_site_id)}{m.detected_plate ? ` · ${m.detected_plate}` : ""}</div>
               <div className="truncate text-xs">{m.subject}</div>
-              <div className="text-xs">{m.files.join(", ")}</div>
+              <div className="mt-1 space-y-1">
+                {m.attachments.map((a) => (
+                  <div key={a.id} className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="truncate">{a.filename}</span>
+                    {a.imported_doc_id ? (
+                      <Link to="/pieces-achats/reception" search={{ doc: a.imported_doc_id }} className="font-extrabold uppercase underline">Déjà ajouté</Link>
+                    ) : failed[a.id] ? (
+                      <span className="font-bold text-destructive">{failed[a.id]}</span>
+                    ) : (
+                      <button type="button" disabled={importing !== null} onClick={() => onImport(m, a)} className="rounded-md border-2 border-border px-2 py-0.5 font-extrabold uppercase">
+                        {importing === a.id ? "Ajout…" : "Ajouter à DDA"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
               <Link to="/emails" className="mt-1 inline-block text-xs font-extrabold uppercase underline">Ouvrir le mail</Link>
             </div>
           ))}

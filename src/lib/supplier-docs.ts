@@ -1,4 +1,4 @@
-import { operationalMails } from "@/lib/supplier-mail-filter";
+import { mailFullyImported, operationalMails } from "@/lib/supplier-mail-filter";
 /**
  * validation manuelle obligatoire puis suivi d'état.
  * Réutilise la table `inbox_documents` existante : aucune nouvelle table.
@@ -96,6 +96,9 @@ export async function uploadSupplierDoc(opts: {
   userName?: string | null;
   /** Type de document : BL/facture par défaut ; « bon_commande_fournisseur » pour une commande. */
   docType?: string;
+  /** Traçabilité : e-mail et pièce jointe d'origine (anti-doublon). */
+  sourceEmailId?: string | null;
+  sourceEmailAttachmentId?: string | null;
 }): Promise<SupplierDoc> {
   const reason = rejectReason(opts.file);
   if (reason) throw new Error(reason);
@@ -122,6 +125,8 @@ export async function uploadSupplierDoc(opts: {
       site_id: opts.siteId ?? null,
       created_by: opts.userId ?? null,
       created_by_name: opts.userName ?? null,
+      source_email_id: opts.sourceEmailId ?? null,
+      source_email_attachment_id: opts.sourceEmailAttachmentId ?? null,
     })
     .select(
       "id,file_name,storage_path,mime_type,status,note,plate,customer_name,linked_kind,linked_id,site_id,created_at,extracted",
@@ -191,22 +196,40 @@ export async function fetchPendingSupplierDocs(siteId: string | null): Promise<S
   return (data ?? []).map((d) => ({ ...d, extracted: toExtract(d.extracted) }));
 }
 
-export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; effective_site_id: string | null; files: string[] };
+export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; effective_site_id: string | null; files: string[]; attachments: MailAttachment[] };
+export type MailAttachment = { id: string; filename: string; mime_type: string | null; storage_path: string | null; imported_doc_id: string | null };
 
 /** Documents opérationnels reçus par e-mail (BL/factures/avoirs), ouverts, 60 derniers jours, site effectif. */
 export async function fetchSupplierMails(siteId: string | null, sites: { id: string; code: string | null }[] = []): Promise<SupplierMail[]> {
   const since = new Date(Date.now() - 60 * 86400000).toISOString();
   const { data } = await supabase
     .from("emails")
-    .select("id, sent_at, from_name, from_address, to_addresses, cc_addresses, subject, detected_plate, site_id, triage_status, email_attachments(filename)")
+    .select("id, sent_at, from_name, from_address, to_addresses, cc_addresses, subject, detected_plate, site_id, triage_status, email_attachments(id, filename, mime_type, storage_path)")
     .in("category", ["fournisseur", "magasin", "bl"])
     .eq("has_attachments", true)
     .gte("sent_at", since)
     .order("sent_at", { ascending: false })
     .limit(300);
-  const rows = ((data ?? []) as unknown as (Omit<SupplierMail, "files" | "effective_site_id"> & { triage_status: string | null; to_addresses: string[] | null; cc_addresses: string[] | null; email_attachments: { filename: string }[] | null })[])
-    .map((m) => ({ ...m, files: (m.email_attachments ?? []).map((a) => a.filename) }));
-  return operationalMails(rows, sites, siteId).slice(0, 50);
+  type Row = Omit<SupplierMail, "files" | "effective_site_id" | "attachments"> & { triage_status: string | null; to_addresses: string[] | null; cc_addresses: string[] | null; email_attachments: Omit<MailAttachment, "imported_doc_id">[] | null };
+  const raw = (data ?? []) as unknown as Row[];
+  const attIds = raw.flatMap((m) => (m.email_attachments ?? []).map((a) => a.id));
+  const imported = new Map<string, string>();
+  for (let i = 0; i < attIds.length; i += 200) {
+    const { data: docs } = await supabase.from("inbox_documents").select("id, source_email_attachment_id").in("source_email_attachment_id", attIds.slice(i, i + 200));
+    for (const d of docs ?? []) if (d.source_email_attachment_id) imported.set(d.source_email_attachment_id, d.id);
+  }
+  const rows = raw.map((m) => ({ ...m, files: (m.email_attachments ?? []).map((a) => a.filename) }));
+  return operationalMails(rows, sites, siteId)
+    .map((m) => {
+      const docFiles = new Set(m.files);
+      const attachments = (m.email_attachments ?? [])
+        .filter((a) => docFiles.has(a.filename))
+        .map((a) => ({ ...a, imported_doc_id: imported.get(a.id) ?? null }));
+      return { ...m, attachments };
+    })
+    // Mail entièrement ajouté à DDA : il sort de la file (même si le statut n'a pas pu être écrit).
+    .filter((m) => !mailFullyImported(m.attachments))
+    .slice(0, 50);
 }
 
 export async function getSupplierDoc(id: string): Promise<SupplierDoc | null> {
@@ -216,4 +239,37 @@ export async function getSupplierDoc(id: string): Promise<SupplierDoc | null> {
     .eq("id", id)
     .maybeSingle();
   return data ? { ...data, extracted: toExtract(data.extracted) } : null;
+}
+
+/** Ajoute à DDA une pièce jointe e-mail : fichier réel → OCR → document tracé, anti-doublon. */
+export async function importEmailAttachment(opts: {
+  mail: SupplierMail;
+  attachment: MailAttachment;
+  siteId: string | null;
+  userId?: string | null;
+  userName?: string | null;
+  fetchFile: (attachmentId: string) => Promise<{ ok: true; filename: string; mime: string; base64: string } | { ok: false; reason: string; message: string }>;
+  read: (file: File) => Promise<{ file: File; extracted: InvoiceExtract; warning?: string | null }>;
+}): Promise<{ doc: SupplierDoc | null; existing: string | null; warning?: string | null; error?: string }> {
+  const { data: dup } = await supabase.from("inbox_documents").select("id").eq("source_email_attachment_id", opts.attachment.id).maybeSingle();
+  if (dup) return { doc: null, existing: dup.id };
+  const f = await opts.fetchFile(opts.attachment.id);
+  if (!f.ok) return { doc: null, existing: null, error: f.message };
+  const bytes = Uint8Array.from(atob(f.base64), (c) => c.charCodeAt(0));
+  const file = new File([bytes], f.filename, { type: f.mime });
+  const r = await opts.read(file);
+  const doc = await uploadSupplierDoc({
+    file: r.file,
+    extracted: r.extracted,
+    siteId: opts.siteId,
+    userId: opts.userId ?? null,
+    userName: opts.userName ?? null,
+    sourceEmailId: opts.mail.id,
+    sourceEmailAttachmentId: opts.attachment.id,
+  });
+  const others = opts.mail.attachments.map((a) => (a.id === opts.attachment.id ? { ...a, imported_doc_id: doc.id } : a));
+  if (mailFullyImported(others)) {
+    await supabase.from("emails").update({ triage_status: "traite" }).eq("id", opts.mail.id);
+  }
+  return { doc, existing: null, warning: r.warning ?? null };
 }

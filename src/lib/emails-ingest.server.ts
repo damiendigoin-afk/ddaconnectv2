@@ -100,6 +100,7 @@ export async function ingestEmailServer(
           filename: a.filename,
           mime_type: a.mimeType ?? null,
           size_bytes: a.sizeBytes ?? null,
+          gmail_attachment_id: a.gmailAttachmentId ?? null,
         })),
       );
     }

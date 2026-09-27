@@ -3181,6 +3181,8 @@ export type Database = {
           note: string | null
           plate: string | null
           site_id: string | null
+          source_email_attachment_id: string | null
+          source_email_id: string | null
           status: string
           storage_path: string
         }
@@ -3204,6 +3206,8 @@ export type Database = {
           note?: string | null
           plate?: string | null
           site_id?: string | null
+          source_email_attachment_id?: string | null
+          source_email_id?: string | null
           status?: string
           storage_path: string
         }
@@ -3227,6 +3231,8 @@ export type Database = {
           note?: string | null
           plate?: string | null
           site_id?: string | null
+          source_email_attachment_id?: string | null
+          source_email_id?: string | null
           status?: string
           storage_path?: string
         }
@@ -3236,6 +3242,20 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_documents_source_email_attachment_id_fkey"
+            columns: ["source_email_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "email_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_documents_source_email_id_fkey"
+            columns: ["source_email_id"]
+            isOneToOne: false
+            referencedRelation: "emails"
             referencedColumns: ["id"]
           },
         ]

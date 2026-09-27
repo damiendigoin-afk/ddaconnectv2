@@ -204,7 +204,7 @@ export interface ParsedGmailMessage {
   subject: string | null;
   bodyText: string | null;
   bodyHtml: string | null;
-  attachments: { filename: string; mimeType: string | null; sizeBytes: number | null }[];
+  attachments: { filename: string; mimeType: string | null; sizeBytes: number | null; gmailAttachmentId?: string | null }[];
 }
 
 function parseAddresses(value: string | null): string[] {
@@ -242,6 +242,7 @@ export function parseGmailMessage(msg: any): ParsedGmailMessage | null {
           filename: part.filename,
           mimeType: part.mimeType ?? null,
           sizeBytes: part.body?.size ?? null,
+          gmailAttachmentId: part.body?.attachmentId ?? null,
         });
       }
       if (part.parts) collectParts(part.parts);
@@ -341,4 +342,15 @@ export async function getGmailProfile(accessToken: string): Promise<{ emailAddre
   });
   if (!res.ok) throw new Error(`Gmail profile failed [${res.status}]`);
   return res.json();
+}
+
+/** Télécharge une pièce jointe Gmail (base64url → octets). */
+export async function getAttachmentBytes(accessToken: string, messageId: string, attachmentId: string): Promise<Uint8Array> {
+  const res = await fetch(`${GMAIL_API}/messages/${messageId}/attachments/${attachmentId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Gmail pièce jointe [${res.status}]: ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as { data?: string };
+  const b64 = (data.data ?? "").replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(Buffer.from(b64, "base64"));
 }

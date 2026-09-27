@@ -11,7 +11,7 @@ import { OrderRow } from "@/components/parts/OrderRow";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
-import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 
@@ -107,6 +107,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const [comment, setComment] = useState("");
   const [rdv, setRdv] = useState("");
   const [supRef, setSupRef] = useState(x.order_reference ?? "");
+  const [dossier, setDossier] = useState(x.or_number ?? "");
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
     const ls = (x.lines ?? []).filter((l) => l.reference || l.label).map((l) => ({ line_kind: "part" as const, physical_reference: l.reference ?? "", designation: [l.label, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "), qty_ordered: l.quantity ?? 1, expected_unit_cost_ht: l.unit_price ?? null }));
     return ls.length ? ls : doc ? [emptyLine()] : [];
@@ -132,7 +133,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       }
     })();
   }
-  const requestedOr = !orv.or && x.or_number ? x.or_number : null;
+  const requestedOr = requestedDossier(orv.or, dossier);
 
   const setLine = (i: number, p: Partial<OrderLineInput>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
@@ -209,6 +210,9 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       ) : null}
       {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
       <OrPicker value={orv} onChange={setOrv} />
+      {!orv.or ? (
+        <input className={inputCls} placeholder="N° dossier / OR WinMotor" aria-label="N° dossier / OR WinMotor" value={dossier} onChange={(e) => setDossier(e.target.value)} />
+      ) : null}
       {requestedOr ? (
         <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
           Dossier {requestedOr}{vehFound ? ` · véhicule ${vehFound}` : ""} — sera rapproché à la facture WinMotor.
