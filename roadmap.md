@@ -55,7 +55,8 @@ Reste à faire :
 - [x] C1 continuation : expédition retour fournisseur = sortie physique (idempotente, À régulariser si référence inconnue). Reste : coût réel depuis facture fournisseur contrôlée (lien ligne facture ↔ réception), test avec vrais CSV.
 
 # UX Pièces & achats — lignes visibles
-- [ ] Commande OCR : lignes éditables immédiatement visibles
-- [ ] Commandes en attente : toutes les lignes et reliquats visibles
-- [ ] Réception depuis commande : lignes restantes directement préremplies
-- [ ] Tests ciblés, suite complète, typecheck, build et publication
+- [x] Commande OCR : lignes éditables immédiatement visibles
+- [x] Commandes en attente : toutes les lignes et reliquats visibles
+- [x] Réception depuis commande : lignes restantes directement préremplies
+- [x] Tests ciblés, suite complète, typecheck, build
+- [ ] Publication
