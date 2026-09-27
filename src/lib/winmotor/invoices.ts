@@ -403,7 +403,7 @@ export function sanitizeText(s: string): { text: string; removed: number } {
     if (control) { removed++; continue; }
     if (code >= 0xd800 && code <= 0xdbff) {
       const next = s.charCodeAt(i + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) { text += s[i] + s[i + 1]; i++; continue; }
+      if (next !== undefined && next >= 0xdc00 && next <= 0xdfff) { text += s.charAt(i) + s.charAt(i + 1); i++; continue; }
       removed++; continue;
     }
     if (code >= 0xdc00 && code <= 0xdfff) { removed++; continue; }

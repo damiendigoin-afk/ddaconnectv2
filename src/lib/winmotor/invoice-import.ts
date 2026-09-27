@@ -8,12 +8,14 @@ const safeErrorText = (value: unknown) => typeof value === "string" ? value.repl
 
 export function importErrorInfo(error: unknown): ImportErrorInfo {
   const source = error && typeof error === "object" ? error as Record<string, unknown> : {};
-  return {
-    message: safeErrorText(source.message) ?? (error instanceof Error ? safeErrorText(error.message) : undefined) ?? "Erreur inconnue",
-    ...(safeErrorText(source.code) ? { code: safeErrorText(source.code) } : {}),
-    ...(safeErrorText(source.details) ? { details: safeErrorText(source.details) } : {}),
-    ...(safeErrorText(source.hint) ? { hint: safeErrorText(source.hint) } : {}),
-  };
+  const info: ImportErrorInfo = { message: safeErrorText(source["message"]) ?? (error instanceof Error ? safeErrorText(error.message) : undefined) ?? "Erreur inconnue" };
+  const code = safeErrorText(source["code"]);
+  const details = safeErrorText(source["details"]);
+  const hint = safeErrorText(source["hint"]);
+  if (code) info.code = code;
+  if (details) info.details = details;
+  if (hint) info.hint = hint;
+  return info;
 }
 
 export function formatImportError(error: unknown): string {

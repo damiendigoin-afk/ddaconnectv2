@@ -165,7 +165,7 @@ function History() {
           </div>
           <div className="text-muted-foreground">{b.file_name} · {new Date(b.created_at).toLocaleString("fr-FR")} · {b.created_by_name} · empreinte {b.file_hash.slice(0, 10)}…</div>
           <div>Période observée {b.date_min ?? "?"} → {b.date_max ?? "?"} · {b.rows_total} lignes · {b.invoices_seen} factures ({b.invoices_created} nouvelles, {b.invoices_updated} mises à jour, {b.invoices_unchanged} inchangées){b.lines_inserted ? ` · ${b.lines_inserted} lignes` : ""}</div>
-          {b.status === "failed" && b.report && typeof b.report === "object" && "error" in b.report ? <div className="font-bold text-destructive">{String(b.report.error)}{"errorCode" in b.report && b.report.errorCode ? ` — code ${String(b.report.errorCode)}` : ""}{"errorDetails" in b.report && b.report.errorDetails ? ` — ${String(b.report.errorDetails)}` : ""}</div> : null}
+          {b.status === "failed" && b.report && typeof b.report === "object" && "error" in b.report ? <div className="font-bold text-destructive">{String(b.report["error"])}{"errorCode" in b.report && b.report["errorCode"] ? ` — code ${String(b.report["errorCode"])}` : ""}{"errorDetails" in b.report && b.report["errorDetails"] ? ` — ${String(b.report["errorDetails"])}` : ""}</div> : null}
           {b.import_type === "headers" && b.status === "done" && !b.file_hash.includes("#") ? (
             run?.id === b.id ? <div className="font-bold">Retraitement en cours — {run.text}</div>
               : <button className="font-bold underline" disabled={!!run} onClick={() => void reprocess(b)}>Retraiter avec le mapping actuel (sans réimporter le fichier)</button>
