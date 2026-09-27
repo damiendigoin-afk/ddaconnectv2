@@ -59,4 +59,4 @@ Reste à faire :
 - [x] Commandes en attente : toutes les lignes et reliquats visibles
 - [x] Réception depuis commande : lignes restantes directement préremplies
 - [x] Tests ciblés, suite complète, typecheck, build
-- [ ] Publication
+- [x] Publication
