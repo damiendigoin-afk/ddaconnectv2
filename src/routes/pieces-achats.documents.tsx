@@ -12,9 +12,9 @@ import { listOrders } from "@/lib/parts";
 import { guessDocumentSite, matchOrders, matchSupplier } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { fetchPendingSupplierDocs, fetchSupplierMails, importEmailAttachment, statusLabel, uploadSupplierDoc, type MailAttachment, type SupplierMail } from "@/lib/supplier-docs";
-import { fetchEmailAttachment } from "@/lib/email-attachment.functions";
+import { fetchEmailAttachment, openEmailAttachment } from "@/lib/email-attachment.functions";
 import { importDestination } from "@/lib/supplier-mail-filter";
-import { mailDetail, previewAttachment } from "@/lib/receipt-lines";
+import { mailDetail } from "@/lib/receipt-lines";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/pieces-achats/documents")({
@@ -40,6 +40,7 @@ function DocumentsPage() {
   const [failed, setFailed] = useState<Record<string, string>>({});
   const qc = useQueryClient();
   const fetchFile = useServerFn(fetchEmailAttachment);
+  const openFile = useServerFn(openEmailAttachment);
   const [openMail, setOpenMail] = useState<SupplierMail | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
 
@@ -48,12 +49,9 @@ function DocumentsPage() {
     const win = window.open("", "_blank");
     setPreviewing(a.id);
     try {
-      const r = await previewAttachment((id) => fetchFile({ data: { attachmentId: id } }), a.id, (blob) => {
-        const url = URL.createObjectURL(blob);
-        if (win) win.location.href = url; else window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
-      });
+      const r = await openFile({ data: { attachmentId: a.id } });
       if (!r.ok) { win?.close(); toast.error(r.message); }
+      else if (win) win.location.href = r.url; else window.open(r.url, "_blank");
     } catch (e) {
       win?.close();
       toast.error(e instanceof Error ? e.message : "Ouverture impossible");

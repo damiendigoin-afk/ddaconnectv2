@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
+import { orderMarker } from "@/lib/receipt-lines";
 import { Badge, ORDER_STATUS } from "@/components/parts/PartsUi";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,8 +15,7 @@ export function OrderRow({ o, siteName }: { o: any; siteName: (id: string) => st
       </div>
       <div className="text-xs text-muted-foreground">
         {siteName(o.site_id)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
-        {o.repair_orders?.or_number ? ` · OR ${o.repair_orders.or_number}` : ""}
-        {o.plate ? ` · ${o.plate}` : ""}
+        {` · ${orderMarker(o)}`}
         {o.appointment_date ? ` · RDV ${new Date(o.appointment_date).toLocaleDateString("fr-FR")}` : ""}
       </div>
       <div className="mt-1 text-xs">

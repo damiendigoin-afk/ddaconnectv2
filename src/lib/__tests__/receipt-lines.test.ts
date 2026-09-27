@@ -60,3 +60,25 @@ describe("pièces jointes e-mail", () => {
     expect(mailDetail({ subject: null, from_name: null, from_address: "x@y", sent_at: "2026-09-27T10:00:00Z", body_text: "", snippet: "extrait" }).body).toBe("extrait");
   });
 });
+
+import { dedupeDocs, mimeFor, orderMarker, storageFileName } from "@/lib/receipt-lines";
+
+describe("repères commandes / doublons / PJ", () => {
+  it("dossier 48416 sans OR DDA n'affiche jamais « sans OR »", () => {
+    expect(orderMarker({ repair_orders: null, requested_or_number: "48416", supplier_order_ref: "45873330" })).toBe("Dossier / OR WinMotor 48416 · commande 45873330");
+    expect(orderMarker({ repair_orders: { or_number: "50413" }, requested_or_number: "50413" })).toBe("OR 50413");
+    expect(orderMarker({ plate: "FG-315-YS" })).toBe("FG-315-YS");
+    expect(orderMarker({})).toBe("sans repère");
+  });
+  it("3 occurrences exactes du PDF 0332… → une seule carte", () => {
+    const x = { supplier: "RENAULT SARLAT - GROUPE FAURIE", doc_kind: "commande", document_number: "45834714", or_number: "50413", lines: [{ reference: "8100029957", label: "Vanne EGR", quantity: 1, unit_price: 160.57 }] };
+    const docs = ["a", "b", "c"].map((id, i) => ({ id, site_id: "cast", created_at: `2026-09-27T10:0${i}:00Z`, extracted: x }));
+    const other = { id: "d", site_id: "cast", created_at: "2026-09-27T11:00:00Z", extracted: { ...x, document_number: "99999" } };
+    const r = dedupeDocs([...docs, other]);
+    expect(r.map((d) => d.id).sort()).toEqual(["c", "d"]);
+  });
+  it("nom original + extension conservés", () => {
+    expect(storageFileName("APV_2026 09.pdf")).toBe("APV_2026 09.pdf");
+    expect(mimeFor("photo.JPG", null)).toBe("image/jpeg");
+  });
+});

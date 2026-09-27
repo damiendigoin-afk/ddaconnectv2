@@ -3166,11 +3166,13 @@ export type Database = {
           classified_by: string | null
           classified_by_name: string | null
           confidence: number | null
+          content_hash: string | null
           created_at: string
           created_by: string | null
           created_by_name: string | null
           customer_name: string | null
           doc_type: string | null
+          duplicate_of: string | null
           extracted: Json
           file_name: string
           file_size: number | null
@@ -3191,11 +3193,13 @@ export type Database = {
           classified_by?: string | null
           classified_by_name?: string | null
           confidence?: number | null
+          content_hash?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           customer_name?: string | null
           doc_type?: string | null
+          duplicate_of?: string | null
           extracted?: Json
           file_name: string
           file_size?: number | null
@@ -3216,11 +3220,13 @@ export type Database = {
           classified_by?: string | null
           classified_by_name?: string | null
           confidence?: number | null
+          content_hash?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
           customer_name?: string | null
           doc_type?: string | null
+          duplicate_of?: string | null
           extracted?: Json
           file_name?: string
           file_size?: number | null
