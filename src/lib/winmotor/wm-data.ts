@@ -1,6 +1,6 @@
 /** Lectures factures WinMotor + rapprochement (navigateur, RLS). Paginé, jamais d'import massif en mémoire. */
 import { supabase } from "@/integrations/supabase/client";
-import type { Equivalences } from "./reconcile";
+import { matchDossierOrders, type Equivalences } from "./reconcile";
 
 export const INVOICE_LIST = "id, site_id, invoice_number, doc_kind, invoice_date, or_number, repair_order_id, client_name, billed_client_name, client_no, billed_client_no, plate, total_ht, total_ttc, lines_net_ht, lines_hours, has_header, has_detail, ref_vehicle_id, customer_id";
 
