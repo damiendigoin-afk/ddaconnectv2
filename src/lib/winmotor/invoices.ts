@@ -313,7 +313,7 @@ export function parseExport(text: string, kind: ImportKind | null, encoding = "U
         phone: g(f, "phone"), phone_n: normalizePhone(g(f, "phone")), mobile: g(f, "mobile"), mobile_n: normalizePhone(g(f, "mobile")), email: normalizeEmail(g(f, "email")),
         plate, plate_n: normalizeRegistration(plate), vin, vin_n: normalizeVin(vin), brand: g(f, "brand"), range: g(f, "range"), model: g(f, "model"), type_mine: g(f, "type_mine"), mec: parseDate(g(f, "mec")),
         last_km: lastKm != null && lastKm > 0 ? Math.round(lastKm) : null, last_visit: parseDate(g(f, "last_visit")),
-        total_ht, total_tva: parseAmount(g(f, "total_tva")), total_ttc, seller: g(f, "seller"), raw, hash: hashString(rec.fields.join(";")),
+        total_ht, total_tva: parseAmount(g(f, "total_tva")), total_ttc, seller: g(f, "seller"), raw, hash: hashString(`${MAPPING_VERSION};${rec.fields.join(";")}`),
       };
       if (total_ht) res.sumHt += total_ht;
       if (total_ttc) res.sumTtc += total_ttc;
