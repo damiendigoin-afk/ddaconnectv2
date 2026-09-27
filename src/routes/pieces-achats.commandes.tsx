@@ -117,7 +117,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const [vehFound, setVehFound] = useState<string | null>(null);
 
   // OR lu sur le document : rattachement automatique s'il existe dans DDA (jamais de création d'OR).
-  // Sinon, plaque imprimée → véhicule DDA rattaché ; le n° d'OR est conservé pour rattachement ultérieur.
+  // Sinon, plaque imprimée → véhicule DDA rattaché ; le n° de dossier est conservé ; la facture WinMotor confirmera.
   if (doc && !orLooked && (x.or_number || x.plate)) {
     setOrLooked(true);
     void (async () => {

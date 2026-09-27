@@ -4,6 +4,7 @@ import { normalizePurchaseExtract } from "@/lib/purchase-extract";
 import { guessDocumentSite, matchSupplier, orderGaps } from "@/lib/parts-site";
 import { docSiteText } from "@/lib/purchase-doc";
 import { autoSupplier } from "@/lib/order-supplier";
+import { matchDossierOrders } from "@/lib/winmotor/reconcile";
 
 // Réponse OCR type pour le bon de commande réel 0332b1a5… (Commande n° 45834714).
 const ocr = {
