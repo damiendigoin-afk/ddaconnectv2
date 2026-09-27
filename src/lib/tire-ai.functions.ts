@@ -8,8 +8,10 @@ const images = z.object({ images: z.array(z.string().min(10)).min(1).max(5) });
 export const analyzeWheelPhotos = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => images.parse(d))
   .handler(async ({ data }) => {
-    const res = await analyzeTireWheel(data.images);
-    return { ok: res.ok, error: res.ok ? "" : res.error, json: res.analysis ? JSON.stringify(res.analysis) : "" };
+    // Désactivé : la roue est lue par OCR local (tire-ocr.client). Aucun appel IA « tire_wheel ».
+    void data;
+    void analyzeTireWheel;
+    return { ok: false, error: "Analyse IA des pneus désactivée — lecture locale utilisée.", json: "" };
   });
 
 export const analyzeTireLabelPhoto = createServerFn({ method: "POST" })
