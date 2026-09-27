@@ -51,5 +51,5 @@ Reste à faire :
 ## V3
 - [x] Phase A : navigation V3, hub Atelier, dossier OR (tableau d'actions), scan OR/plaque, recherche multi-sites avec site, Pièces & achats hub, droits = menu.
 - [x] Phase B V3 (commandes, réception, stock, pointage OR, travaux terminés, à régulariser)
-- [x] Phase C1 (import réel en attente des vrais CSV) : import WinMotor (entêtes+détail), historique fiches, recherche facture, contrôle WinMotor, sortie finale stock — audit SQL, câblage menus, tests, build, recette visuelle. Bloqué pour import réel : vrais CSV à tester par l'utilisateur.
+- [x] Phase C1 : import WinMotor réel (entêtes+détail), historique fiches, recherche facture, contrôle WinMotor, sortie finale stock ; diagnostic du vrai fichier Détail et nettoyage traçable des caractères incompatibles.
 - [x] C1 continuation : expédition retour fournisseur = sortie physique (idempotente, À régulariser si référence inconnue). Reste : coût réel depuis facture fournisseur contrôlée (lien ligne facture ↔ réception), test avec vrais CSV.
