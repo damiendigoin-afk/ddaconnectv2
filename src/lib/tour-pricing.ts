@@ -541,26 +541,26 @@ function choiceFromRow(row: TireQuoteOffer): TireQuoteChoice | null {
   const payload = row.initial_payload;
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   const p = payload as Record<string, unknown>;
-  if (typeof p.slot !== "string") return null;
+  if (typeof p["slot"] !== "string") return null;
   return {
-    slot: p.slot,
-    kind: p.kind === "identique" ? "identique" : "gamme",
-    title: typeof p.title === "string" ? p.title : p.slot,
-    tier: (p.tier as TireQuoteChoice["tier"]) ?? null,
-    season: (p.season as TireQuoteChoice["season"]) ?? null,
-    available: p.available === true,
-    unavailableReason: typeof p.unavailableReason === "string" ? p.unavailableReason : "Offre indisponible",
-    brand: typeof p.brand === "string" ? p.brand : null,
-    model: typeof p.model === "string" ? p.model : null,
-    size: typeof p.size === "string" ? p.size : row.size,
-    loadIndex: typeof p.loadIndex === "string" ? p.loadIndex : row.load_index,
-    speedIndex: typeof p.speedIndex === "string" ? p.speedIndex : row.speed_index,
-    quantity: Number(p.quantity ?? row.quantity),
-    totalHt: p.totalHt == null ? row.total_ht : Number(p.totalHt),
-    totalTtc: p.totalTtc == null ? row.total_ttc : Number(p.totalTtc),
-    availability: typeof p.availability === "string" ? p.availability : row.availability,
-    compatibility: p.compatibility === "compatible" ? "compatible" : "a_confirmer",
-    compatibilityMessage: typeof p.compatibilityMessage === "string" ? p.compatibilityMessage : row.compatibility ?? "Compatibilité à confirmer",
+    slot: p["slot"],
+    kind: p["kind"] === "identique" ? "identique" : "gamme",
+    title: typeof p["title"] === "string" ? p["title"] : p["slot"],
+    tier: (p["tier"] as TireQuoteChoice["tier"]) ?? null,
+    season: (p["season"] as TireQuoteChoice["season"]) ?? null,
+    available: p["available"] === true,
+    unavailableReason: typeof p["unavailableReason"] === "string" ? p["unavailableReason"] : "Offre indisponible",
+    brand: typeof p["brand"] === "string" ? p["brand"] : null,
+    model: typeof p["model"] === "string" ? p["model"] : null,
+    size: typeof p["size"] === "string" ? p["size"] : row.size,
+    loadIndex: typeof p["loadIndex"] === "string" ? p["loadIndex"] : row.load_index,
+    speedIndex: typeof p["speedIndex"] === "string" ? p["speedIndex"] : row.speed_index,
+    quantity: Number(p["quantity"] ?? row.quantity),
+    totalHt: p["totalHt"] == null ? row.total_ht : Number(p["totalHt"]),
+    totalTtc: p["totalTtc"] == null ? row.total_ttc : Number(p["totalTtc"]),
+    availability: typeof p["availability"] === "string" ? p["availability"] : row.availability,
+    compatibility: p["compatibility"] === "compatible" ? "compatible" : "a_confirmer",
+    compatibilityMessage: typeof p["compatibilityMessage"] === "string" ? p["compatibilityMessage"] : row.compatibility ?? "Compatibilité à confirmer",
     offerRowId: row.id,
   };
 }

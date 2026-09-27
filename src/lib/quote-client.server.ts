@@ -3,6 +3,8 @@
  * Aucune session DDA Connect : la lecture et les réponses passent par le
  * serveur, jeton en main, sans exposer les tables publiquement.
  */
+import type { Json } from "@/integrations/supabase/types";
+
 const RESPONSES = ["accepted", "refused", "later", "contact", "pending"] as const;
 export type PublicResponse = (typeof RESPONSES)[number];
 
@@ -22,7 +24,7 @@ export type PublicQuoteLine = {
   total_ttc: number;
   client_response: string;
   client_comment: string | null;
-  computation: unknown;
+  computation: Json | null;
 };
 
 export async function loadPublicQuote(token: string) {

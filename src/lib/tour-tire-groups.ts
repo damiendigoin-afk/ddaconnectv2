@@ -92,7 +92,7 @@ export type TireQuoteComputation = {
 export function isTireQuoteComputation(value: unknown): value is TireQuoteComputation {
   if (!value || typeof value !== "object") return false;
   const row = value as Record<string, unknown>;
-  return row.tire_group === true && Array.isArray(row.offers);
+  return row["tire_group"] === true && Array.isArray(row["offers"]);
 }
 
 export function selectedTireChoice(computation: TireQuoteComputation) {
