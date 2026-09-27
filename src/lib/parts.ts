@@ -263,6 +263,9 @@ export type ReceiptLineInput = {
   physical_reference: string;
   designation: string;
   qty_expected: number | null;
+  /** Valeurs d'affichage conservées lors d'une réception depuis commande. */
+  qty_ordered?: number | null;
+  qty_already_received?: number;
   qty_received: number;
   condition: "usable" | "damaged_return" | "to_check";
   destination: "or" | "store_sale" | "stock" | "unknown";

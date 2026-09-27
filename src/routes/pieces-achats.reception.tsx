@@ -15,6 +15,8 @@ import { isOverReceipt } from "@/lib/parts-rules";
 import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
 import { Check } from "lucide-react";
+import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
+import { receiptLinesFromOrder } from "@/lib/receipt-lines";
 
 export const Route = createFileRoute("/pieces-achats/reception")({
   validateSearch: (s: Record<string, unknown>): { order?: string; doc?: string } => ({
@@ -104,6 +106,7 @@ function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
           <div className="text-xs text-muted-foreground">
             {siteName(o.site_id)} · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
           </div>
+          <OrderLinesCompact lines={o.part_order_lines ?? []} />
         </button>
       ))}
     </section>
@@ -214,13 +217,11 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       if (site && o.site_id !== site) toast.warning(`Commande du site ${siteName(o.site_id)} : la réception sera faite sur ce site.`);
       setSite(o.site_id);
       setSupplier(o.supplier_id ?? "");
+      setDossier(o.requested_or_number ?? "");
       setOrv({ or: o.repair_order_id ? { id: o.repair_order_id, or_number: (o.repair_orders as { or_number: string | null } | null)?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id, plate: o.plate } : null, plate: o.plate ?? "", vehicleId: o.vehicle_id });
       const dest = o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination;
-      const parts = (o.part_order_lines ?? []).filter((l) => l.line_kind === "part" && l.status !== "received");
-      setLines(parts.length ? parts.map((l) => {
-        const rest = l.qty_ordered != null ? Math.max(0, l.qty_ordered - l.qty_received) : 1;
-        return { ...blank(), order_line_id: l.id, physical_reference: l.physical_reference ?? "", ordered_reference: l.physical_reference, designation: l.designation ?? "", qty_expected: rest, qty_received: rest, allocate_qty: rest, expected_cost: l.expected_unit_cost_ht, destination: dest as ReceiptLineInput["destination"] };
-      }) : [{ ...blank(), destination: dest as ReceiptLineInput["destination"] }]);
+       const parts = receiptLinesFromOrder(o.part_order_lines ?? [], dest as ReceiptLineInput["destination"]);
+       setLines(parts.length ? parts : [{ ...blank(), destination: dest as ReceiptLineInput["destination"] }]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
@@ -271,6 +272,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
           {(openOrders.data ?? []).map((o) => (
             <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-sm" onClick={() => setOrderId(o.id)}>
               <b>{(o.suppliers as { name: string } | null)?.name}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
+               <OrderLinesCompact lines={o.part_order_lines ?? []} />
             </button>
           ))}
           {openOrders.data && !openOrders.data.length ? <p className="text-sm text-muted-foreground">Aucune commande en attente sur ce site.</p> : null}
@@ -294,7 +296,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
               <p>Immatriculation<br /><b>{orv.plate || x.plate || "—"}</b></p>
             </div>
           ) : null}
-          <OrPicker value={orv} onChange={setOrv} initialNumber={x.or_number ?? null} onNumberChange={setDossier} />
+          <OrPicker value={orv} onChange={setOrv} initialNumber={dossier || x.or_number || null} onNumberChange={setDossier} />
           {!orv.or ? (
             <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
               {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}Les pièces « Pour l'OR » entrent en stock, destination à régulariser.
@@ -304,8 +306,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
             <input className={inputCls} placeholder="Colis / cartons (facultatif)" value={packages} onChange={(e) => setPackages(e.target.value)} />
             <input className={inputCls} placeholder="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
-          <div className="hidden grid-cols-[1.2fr_2fr_0.6fr_0.7fr_0.8fr_1fr_1fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
-            <span>Référence</span><span>Désignation</span><span>Qté lue</span><span>Qté reçue</span><span>PA HT</span><span>État</span><span>Destination</span><span>Ctrl</span>
+           <div className="hidden grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
+             <span>Référence</span><span>Désignation</span><span>Commandée</span><span>Déjà reçue</span><span>Reçue maintenant</span><span>PA HT</span><span>État</span><span>Destination</span><span>Ctrl</span>
           </div>
           {lines.map((l, i) => {
             const anomalies = lineAnomalies(l);
@@ -313,11 +315,12 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
             const cell = "h-9 w-full rounded-md border-2 border-border bg-card px-2 text-xs";
             return (
               <div key={i} className={`rounded-lg border-2 p-2 md:p-1 ${ok ? "border-status-ok" : "border-border"}`}>
-                <div className="grid grid-cols-2 gap-1 md:grid-cols-[1.2fr_2fr_0.6fr_0.7fr_0.8fr_1fr_1fr_auto] md:items-center">
+                 <div className="grid grid-cols-2 gap-1 md:grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] md:items-center">
                   <input className={cell} aria-label="Référence" placeholder="Référence" value={l.physical_reference} onChange={(e) => set(i, { physical_reference: e.target.value })} />
                   <input className={`${cell} col-span-2 md:col-span-1 order-first md:order-none`} aria-label="Désignation" placeholder="Désignation" value={l.designation} onChange={(e) => set(i, { designation: e.target.value })} />
-                  <span className="flex h-9 items-center text-xs text-muted-foreground"><span className="md:hidden">Lue :&nbsp;</span>{l.qty_expected ?? "—"}</span>
-                  <input className={cell} aria-label="Qté reçue" inputMode="decimal" value={l.qty_received} onChange={(e) => { const q = numOrNull(e.target.value) ?? 0; set(i, { qty_received: q, allocate_qty: q }); }} />
+                   <span className="flex h-9 items-center text-xs"><span className="text-muted-foreground md:hidden">Commandée :&nbsp;</span>{l.qty_ordered ?? l.qty_expected ?? "—"}</span>
+                   <span className="flex h-9 items-center text-xs"><span className="text-muted-foreground md:hidden">Déjà reçue :&nbsp;</span>{l.qty_already_received ?? 0}</span>
+                   <input className={cell} aria-label="Qté reçue maintenant" inputMode="decimal" value={l.qty_received} onChange={(e) => { const q = numOrNull(e.target.value) ?? 0; set(i, { qty_received: q, allocate_qty: q }); }} />
                   <input className={cell} aria-label="PA HT" placeholder="PA HT" inputMode="decimal" value={l.unit_cost ?? ""} onChange={(e) => set(i, { unit_cost: numOrNull(e.target.value) })} />
                   <select className={cell} aria-label="État" value={l.condition} onChange={(e) => set(i, { condition: e.target.value as ReceiptLineInput["condition"] })}>
                     <option value="usable">Utilisable</option>

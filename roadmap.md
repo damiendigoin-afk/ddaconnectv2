@@ -53,3 +53,10 @@ Reste à faire :
 - [x] Phase B V3 (commandes, réception, stock, pointage OR, travaux terminés, à régulariser)
 - [x] Phase C1 : import WinMotor réel (entêtes+détail), historique fiches, recherche facture, contrôle WinMotor, sortie finale stock ; diagnostic du vrai fichier Détail et nettoyage traçable des caractères incompatibles.
 - [x] C1 continuation : expédition retour fournisseur = sortie physique (idempotente, À régulariser si référence inconnue). Reste : coût réel depuis facture fournisseur contrôlée (lien ligne facture ↔ réception), test avec vrais CSV.
+
+# UX Pièces & achats — lignes visibles
+- [x] Commande OCR : lignes éditables immédiatement visibles
+- [x] Commandes en attente : toutes les lignes et reliquats visibles
+- [x] Réception depuis commande : lignes restantes directement préremplies
+- [x] Tests ciblés, suite complète, typecheck, build
+- [x] Publication

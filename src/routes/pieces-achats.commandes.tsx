@@ -14,6 +14,7 @@ import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, 
 import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
+import { orderLinesFromDoc } from "@/lib/receipt-lines";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
   head: () => ({
@@ -109,7 +110,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const [supRef, setSupRef] = useState(x.order_reference ?? "");
   const [dossier, setDossier] = useState(x.or_number ?? "");
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
-    const ls = (x.lines ?? []).filter((l) => l.reference || l.label).map((l) => ({ line_kind: "part" as const, physical_reference: l.reference ?? "", designation: [l.label, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "), qty_ordered: l.quantity ?? 1, expected_unit_cost_ht: l.unit_price ?? null }));
+    const ls = orderLinesFromDoc(x.lines);
     return ls.length ? ls : doc ? [emptyLine()] : [];
   });
   const [stockHits, setStockHits] = useState<Record<number, StockRow[]>>({});
@@ -225,21 +226,22 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
         <option value="stock">Destination : stock</option>
       </select>
       <textarea className={`${inputCls} h-16 py-2`} placeholder="Commentaire (facultatif)" value={comment} onChange={(e) => setComment(e.target.value)} />
+      <div className="hidden grid-cols-[0.75fr_1.25fr_2fr_0.55fr_0.75fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
+        <span>Type</span><span>Référence</span><span>Désignation</span><span>Qté</span><span>PA HT</span><span />
+      </div>
       {lines.map((l, i) => (
-        <div key={i} className="space-y-2 rounded-lg border-2 border-border p-2">
-          <div className="flex gap-2">
-            <select className={`${inputCls} w-28`} value={l.line_kind} onChange={(e) => setLine(i, { line_kind: e.target.value as OrderLineInput["line_kind"] })}>
+        <div key={i} className="rounded-lg border-2 border-border p-2 md:p-1">
+          <div className="grid grid-cols-2 gap-1 md:grid-cols-[0.75fr_1.25fr_2fr_0.55fr_0.75fr_auto] md:items-center">
+            <select aria-label="Type de ligne" className={`${inputCls} h-9 px-2 text-xs`} value={l.line_kind} onChange={(e) => setLine(i, { line_kind: e.target.value as OrderLineInput["line_kind"] })}>
               <option value="part">Pièce</option>
               <option value="fee">Frais</option>
               <option value="deposit">Consigne</option>
             </select>
-            <input className={inputCls} placeholder="Référence" value={l.physical_reference} onBlur={(e) => l.line_kind === "part" && checkStock(i, e.target.value)} onChange={(e) => setLine(i, { physical_reference: e.target.value })} />
-            <button type="button" aria-label="Supprimer la ligne" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></button>
-          </div>
-          <input className={inputCls} placeholder="Désignation" value={l.designation} onChange={(e) => setLine(i, { designation: e.target.value })} />
-          <div className="grid grid-cols-2 gap-2">
-            <input className={inputCls} inputMode="decimal" placeholder="Qté" value={l.qty_ordered ?? ""} onChange={(e) => setLine(i, { qty_ordered: numOrNull(e.target.value) })} />
-            <input className={inputCls} inputMode="decimal" placeholder="PA HT" value={l.expected_unit_cost_ht ?? ""} onChange={(e) => setLine(i, { expected_unit_cost_ht: numOrNull(e.target.value) })} />
+            <input aria-label="Référence" className={`${inputCls} h-9 px-2 text-xs`} placeholder="Référence" value={l.physical_reference} onBlur={(e) => l.line_kind === "part" && checkStock(i, e.target.value)} onChange={(e) => setLine(i, { physical_reference: e.target.value })} />
+            <input aria-label="Désignation" className={`${inputCls} order-first col-span-2 h-9 px-2 text-xs md:order-none md:col-span-1`} placeholder="Désignation" value={l.designation} onChange={(e) => setLine(i, { designation: e.target.value })} />
+            <input aria-label="Quantité" className={`${inputCls} h-9 px-2 text-xs`} inputMode="decimal" placeholder="Qté" value={l.qty_ordered ?? ""} onChange={(e) => setLine(i, { qty_ordered: numOrNull(e.target.value) })} />
+            <input aria-label="PA HT" className={`${inputCls} h-9 px-2 text-xs`} inputMode="decimal" placeholder="PA HT" value={l.expected_unit_cost_ht ?? ""} onChange={(e) => setLine(i, { expected_unit_cost_ht: numOrNull(e.target.value) })} />
+            <button type="button" className="flex h-9 items-center justify-center rounded-md border-2 border-border px-2" aria-label="Supprimer la ligne" title="Supprimer la ligne" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></button>
           </div>
           {stockHits[i]?.length ? (
             <div className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs">

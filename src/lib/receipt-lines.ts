@@ -1,5 +1,5 @@
 /** Pièces & achats — helpers purs : n° dossier/OR visible, lignes BL éditables, aperçu PJ, mail détaillé. */
-import type { ReceiptLineInput } from "@/lib/parts";
+import type { OrderLineInput, ReceiptLineInput } from "@/lib/parts";
 
 /** Synchronise le n° OR visible avec un n° lu arrivé après coup, sans écraser une saisie utilisateur. */
 export function syncOrNumber(current: string, touched: boolean, incoming: string | null | undefined): string {
@@ -11,6 +11,62 @@ export function syncOrNumber(current: string, touched: boolean, incoming: string
 export const blankReceiptLine = (): ReceiptLineInput => ({ order_line_id: null, physical_reference: "", designation: "", qty_expected: null, qty_received: 1, condition: "usable", destination: "or", allocate_qty: 1, unit_cost: null, expected_cost: null, ordered_reference: null, comment: "" });
 
 type DocLine = { reference?: string | null; label?: string | null; quantity?: number | null; unit_price?: number | null };
+
+/** Lignes lues sur une commande → lignes de commande directement éditables. */
+export function orderLinesFromDoc(lines: (DocLine & { delay?: string | null })[] | null | undefined): OrderLineInput[] {
+  return (lines ?? [])
+    .filter((l) => l.reference || l.label)
+    .map((l) => ({
+      line_kind: "part",
+      physical_reference: l.reference ?? "",
+      designation: [l.label, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "),
+      qty_ordered: l.quantity ?? 1,
+      expected_unit_cost_ht: l.unit_price ?? null,
+    }));
+}
+
+export type PendingOrderLine = {
+  id?: string;
+  line_kind?: string;
+  physical_reference?: string | null;
+  designation?: string | null;
+  qty_ordered?: number | null;
+  qty_received?: number | null;
+  expected_unit_cost_ht?: number | null;
+  status?: string;
+};
+
+/** Quantités d'une ligne en attente, utilisées à l'identique dans les listes et la réception. */
+export function pendingOrderLineMetrics(line: PendingOrderLine) {
+  const ordered = line.qty_ordered == null ? null : Number(line.qty_ordered);
+  const received = Number(line.qty_received ?? 0);
+  return { ordered, received, remaining: ordered == null ? null : Math.max(0, ordered - received) };
+}
+
+/** Toutes les lignes de pièces non soldées d'une commande, préremplies avec leur reliquat. */
+export function receiptLinesFromOrder(lines: PendingOrderLine[], destination: ReceiptLineInput["destination"]): ReceiptLineInput[] {
+  return lines
+    .filter((line) => line.line_kind === "part" && line.status !== "received")
+    .map((line) => {
+      const qty = pendingOrderLineMetrics(line);
+      const remaining = qty.remaining ?? 1;
+      return {
+        ...blankReceiptLine(),
+        order_line_id: line.id ?? null,
+        physical_reference: line.physical_reference ?? "",
+        ordered_reference: line.physical_reference ?? null,
+        designation: line.designation ?? "",
+        qty_expected: remaining,
+        qty_ordered: qty.ordered,
+        qty_already_received: qty.received,
+        qty_received: remaining,
+        allocate_qty: remaining,
+        expected_cost: line.expected_unit_cost_ht ?? null,
+        unit_cost: line.expected_unit_cost_ht ?? null,
+        destination,
+      };
+    });
+}
 
 /** Lignes lues sur le BL → lignes éditables (réf, désignation, qté lue/reçue, PA HT). */
 export function receiptLinesFromDoc(lines: DocLine[] | null | undefined): ReceiptLineInput[] {

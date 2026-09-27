@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { lineAnomalies, mailDetail, previewAttachment, receiptLinesFromDoc, syncOrNumber } from "@/lib/receipt-lines";
+import { lineAnomalies, mailDetail, orderLinesFromDoc, pendingOrderLineMetrics, previewAttachment, receiptLinesFromDoc, receiptLinesFromOrder, syncOrNumber } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
 
 describe("n° dossier / OR visible", () => {
@@ -35,6 +35,37 @@ describe("lignes BL", () => {
   it("anomalies affichées sur la ligne", () => {
     const [l] = receiptLinesFromDoc([{ reference: "A", label: "x", quantity: 2, unit_price: 10 }]);
     expect(lineAnomalies({ ...l!, ordered_reference: "B", qty_received: 1, expected_cost: 9 })).toHaveLength(3);
+  });
+});
+
+describe("lignes commande visibles et réception directe", () => {
+  it("commande OCR une ligne : référence, désignation, quantité et PA sont immédiatement disponibles", () => {
+    expect(orderLinesFromDoc([{ reference: "8100029957", label: "Vanne EGR", quantity: 1, unit_price: 160.57 }])).toEqual([
+      expect.objectContaining({ physical_reference: "8100029957", designation: "Vanne EGR", qty_ordered: 1, expected_unit_cost_ht: 160.57 }),
+    ]);
+  });
+
+  it("commande deux lignes : les deux restent présentes dans l'ordre", () => {
+    const lines = orderLinesFromDoc([
+      { reference: "A", label: "Pièce A", quantity: 2, unit_price: 10 },
+      { reference: "B", label: "Pièce B", quantity: 3, unit_price: 20 },
+    ]);
+    expect(lines.map((line) => line.physical_reference)).toEqual(["A", "B"]);
+  });
+
+  it("réception depuis commande charge toutes les lignes avec leur quantité restante", () => {
+    const lines = receiptLinesFromOrder([
+      { id: "a", line_kind: "part", physical_reference: "A", designation: "Pièce A", qty_ordered: 2, qty_received: 0, expected_unit_cost_ht: 10, status: "ordered" },
+      { id: "b", line_kind: "part", physical_reference: "B", designation: "Pièce B", qty_ordered: 3, qty_received: 1, expected_unit_cost_ht: 20, status: "partial" },
+    ], "stock");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatchObject({ qty_ordered: 2, qty_already_received: 0, qty_expected: 2, qty_received: 2 });
+    expect(lines[1]).toMatchObject({ qty_ordered: 3, qty_already_received: 1, qty_expected: 2, qty_received: 2 });
+  });
+
+  it("commande partiellement reçue : reçu et reliquat sont calculés sans valeur négative", () => {
+    expect(pendingOrderLineMetrics({ qty_ordered: 6, qty_received: 2 })).toEqual({ ordered: 6, received: 2, remaining: 4 });
+    expect(pendingOrderLineMetrics({ qty_ordered: 2, qty_received: 3 }).remaining).toBe(0);
   });
 });
 
