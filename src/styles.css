@@ -90,6 +90,12 @@
   --status-watch-soft: oklch(0.96 0.05 80);
   --status-defect: oklch(0.56 0.21 27);
   --status-defect-soft: oklch(0.95 0.04 25);
+  --tier-entree: oklch(0.5 0.13 155);
+  --tier-entree-soft: oklch(0.96 0.04 155);
+  --tier-milieu: oklch(0.5 0.15 250);
+  --tier-milieu-soft: oklch(0.96 0.03 250);
+  --tier-haut: oklch(0.48 0.17 300);
+  --tier-haut-soft: oklch(0.96 0.03 300);
   --status-unset: oklch(0.62 0.01 260);
   --status-unset-soft: oklch(0.95 0.002 260);
   --shadow-card: 0 1px 2px oklch(0.21 0.01 260 / 8%), 0 8px 24px oklch(0.21 0.01 260 / 6%);
@@ -109,6 +115,12 @@
 }
 
 .dark {
+  --tier-entree: oklch(0.78 0.13 155);
+  --tier-entree-soft: oklch(0.3 0.05 155);
+  --tier-milieu: oklch(0.78 0.12 250);
+  --tier-milieu-soft: oklch(0.3 0.05 250);
+  --tier-haut: oklch(0.8 0.12 300);
+  --tier-haut-soft: oklch(0.3 0.06 300);
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.208 0.042 265.755);
@@ -152,6 +164,12 @@
   --color-status-watch-soft: var(--status-watch-soft);
   --color-status-defect: var(--status-defect);
   --color-status-defect-soft: var(--status-defect-soft);
+  --color-tier-entree: var(--tier-entree);
+  --color-tier-entree-soft: var(--tier-entree-soft);
+  --color-tier-milieu: var(--tier-milieu);
+  --color-tier-milieu-soft: var(--tier-milieu-soft);
+  --color-tier-haut: var(--tier-haut);
+  --color-tier-haut-soft: var(--tier-haut-soft);
   --color-status-unset: var(--status-unset);
   --color-status-unset-soft: var(--status-unset-soft);
 }
