@@ -4,7 +4,8 @@
  */
 import type { InvoiceExtract, InvoiceLine } from "@/lib/supplier-docs";
 
-type Raw = Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Raw = { [k: string]: any } & Partial<Record<"plate" | "customer_or_site" | "vat_amount" | "total_ttc" | "handwritten_notes", unknown>>;
 
 const str = (v: unknown): string | null => {
   if (v == null) return null;
