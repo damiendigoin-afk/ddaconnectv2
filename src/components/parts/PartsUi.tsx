@@ -164,7 +164,6 @@ export function OrPicker({ value, onChange, initialNumber, onNumberChange }: { v
           </button>
         </p>
       ) : null}
-      {!value.or && num.trim() ? <p className="text-xs text-muted-foreground">N° dossier / OR WinMotor {num.trim()} — non rattaché à un OR DDA, conservé pour la facture WinMotor.</p> : null}
       {msg ? <p className="text-xs text-muted-foreground">{msg}</p> : null}
     </div>
   );
