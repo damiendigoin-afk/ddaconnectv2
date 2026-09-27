@@ -38,6 +38,19 @@ export function initialEditForm(v: Record<string, unknown>): Record<string, stri
   );
 }
 
+function coerce(f: (typeof EDIT_FIELDS)[number], raw: string): string | number | null {
+  const s = raw.trim();
+  if (s === "") return null;
+  if (f.kind === "int") {
+    const n = Number.parseInt(s.replace(/\s/g, ""), 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (f.kind === "date") return s.slice(0, 10);
+  if (f.key === "registration_display") return formatRegistration(s);
+  if (f.key === "vin") return s.toUpperCase();
+  return s;
+}
+
 /** Construit le patch à partir du formulaire : uniquement les champs modifiés, normalisations incluses. */
 export function buildRefVehiclePatch(
   before: Record<string, unknown>,
@@ -46,15 +59,9 @@ export function buildRefVehiclePatch(
   const patch: Record<string, string | number | null> = {};
   for (const f of EDIT_FIELDS) {
     if (!(f.key in form)) continue;
-    const s = (form[f.key] ?? "").trim();
-    let val: string | number | null = s === "" ? null : s;
-    if (val !== null && f.kind === "int") {
-      const n = Number.parseInt(s.replace(/\s/g, ""), 10);
-      val = Number.isFinite(n) ? n : null;
-    }
-    if (val !== null && f.key === "registration_display") val = formatRegistration(s);
-    if (val !== null && f.key === "vin") val = s.toUpperCase();
-    if (String(before[f.key] ?? "") !== String(val ?? "")) patch[f.key] = val;
+    const val = coerce(f, form[f.key] ?? "");
+    const prev = before[f.key] == null ? null : coerce(f, String(before[f.key]));
+    if (String(prev ?? "") !== String(val ?? "")) patch[f.key] = val;
   }
   if ("registration_display" in patch) {
     patch["registration_normalized"] = patch["registration_display"]
