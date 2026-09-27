@@ -382,7 +382,7 @@ export function TireWheelCard({
         ],
         model_used: "ocr-local",
       };
-      const depth = normalizeMeasureValue(prev?.depth_mm ?? null, "mm");
+      const depth = finiteOrNull(prev?.depth_mm ?? null);
       const judged = depth != null ? judgeTire({ ...ai, depth_mm: depth }, grid, severity) : null;
       const next: Stored = {
         ai,
@@ -410,7 +410,7 @@ export function TireWheelCard({
 
   /** Profondeur saisie par le compagnon : seule source de la note d'usure. */
   async function saveDepth(raw: string) {
-    const depth = normalizeMeasureValue(raw.replace(",", "."), "mm");
+    const depth = finiteOrNull(Number(raw.replace(",", ".").trim() || NaN));
     if (depth == null) return;
     const base = { ...EMPTY, ...(stored.final ?? stored.ai ?? {}), depth_mm: depth, depth_kind: "mesure" as const };
     const judged = judgeTire(base, grid, severity);
