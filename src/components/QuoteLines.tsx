@@ -6,6 +6,7 @@
 import { Pencil, Plus } from "lucide-react";
 
 import { Badge } from "@/components/bits";
+import { TireOfferGrid } from "@/components/TireOfferGrid";
 import {
   BLOCK_LABEL,
   CONFIDENCE_LABEL,
@@ -17,6 +18,7 @@ import {
   type Priority,
   type QuoteBlock,
 } from "@/lib/pricing-engine";
+import { isTireQuoteComputation, type TireQuoteChoice } from "@/lib/tour-tire-groups";
 
 export type DisplayLine = {
   id?: string;
@@ -28,6 +30,7 @@ export type DisplayLine = {
   needsContact: boolean;
   confidence: Confidence;
   source: PriceSource;
+  computation?: unknown;
 };
 
 const PRIORITY_TONE: Record<Priority, string> = {
@@ -53,11 +56,14 @@ export function QuoteLineRow({
   line,
   onEdit,
   onAdd,
+  onSelectTire,
 }: {
   line: DisplayLine;
   onEdit?: () => void;
   onAdd?: () => void;
+  onSelectTire?: (offer: TireQuoteChoice) => void;
 }) {
+  const tireGroup = isTireQuoteComputation(line.computation) ? line.computation : null;
   return (
     <div className="rounded-xl border border-border bg-card p-3">
       <div className="flex items-start justify-between gap-3">
@@ -96,6 +102,15 @@ export function QuoteLineRow({
           </div>
         </div>
       </div>
+      {tireGroup ? (
+        <div className="mt-3">
+          <TireOfferGrid
+            offers={tireGroup.offers}
+            selectedSlot={tireGroup.selected_slot}
+            {...(onSelectTire ? { onSelect: onSelectTire } : {})}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -104,10 +119,12 @@ export function QuoteBlocks({
   lines,
   onEdit,
   onAdd,
+  onSelectTire,
 }: {
   lines: DisplayLine[];
   onEdit?: (l: DisplayLine) => void;
   onAdd?: (l: DisplayLine) => void;
+  onSelectTire?: (line: DisplayLine, offer: TireQuoteChoice) => void;
 }) {
   const order: QuoteBlock[] = ["mecanique", "carrosserie", "esthetique"];
   const total = lines.filter((l) => !l.needsContact).reduce((s, l) => s + l.totalTtc, 0);
@@ -134,6 +151,7 @@ export function QuoteBlocks({
                 line={l}
                 {...(onEdit ? { onEdit: () => onEdit(l) } : {})}
                 {...(onAdd ? { onAdd: () => onAdd(l) } : {})}
+                {...(onSelectTire ? { onSelectTire: (offer) => onSelectTire(l, offer) } : {})}
               />
             ))}
           </section>

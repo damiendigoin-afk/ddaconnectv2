@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { loadPublicQuote, respondPublicLine } from "./quote-client.server";
+import { loadPublicQuote, respondPublicLine, selectPublicTireOffer } from "./quote-client.server";
 
 export const getPublicQuote = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ token: z.string().min(8).max(120) }).parse(d))
@@ -26,3 +26,7 @@ export const respondQuoteLine = createServerFn({ method: "POST" })
       ...(data.comment ? { comment: data.comment } : {}),
     }),
   );
+
+export const choosePublicTireOffer = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ token: z.string().min(8).max(120), lineId: z.string().uuid(), slot: z.string().min(2).max(50) }).parse(d))
+  .handler(async ({ data }) => selectPublicTireOffer(data));
