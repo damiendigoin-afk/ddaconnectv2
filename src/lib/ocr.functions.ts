@@ -182,3 +182,29 @@ Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun mont
     if (!parsed) return { ok: false as const, error: "Document fournisseur illisible : saisissez les informations manuellement.", json: "" };
     return { ok: true as const, error: "", json: JSON.stringify(parsed) };
   });
+
+/**
+ * Lecture générique d'un document d'achat pièces (bon de commande, confirmation, BL, facture,
+ * capture d'écran de site fournisseur…). Aucun modèle par fournisseur : ce qui n'est pas lu reste null.
+ */
+export const ocrPurchaseDocument = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Tu lis un document d'achat de pièces automobiles (France) : bon de commande, confirmation de commande,
+capture d'écran d'un site fournisseur, bon de livraison (BL) ou facture. Formats et mises en page variés, photo possible.
+Réponds STRICTEMENT en JSON :
+{"doc_kind":"commande|bl|facture|autre|null","supplier":null,"document_number":null,"document_date":null,
+"order_reference":null,"delivery_note_number":null,"invoice_number":null,"or_number":null,"plate":null,
+"customer_or_site":null,
+"lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"amount":null,"delay":null}],
+"total_ht":null,"handwritten_notes":null}
+- or_number : numéro d'OR / de dossier / "réf. client" atelier s'il apparaît (chiffres uniquement).
+- plate au format AB-123-CD. customer_or_site : nom/adresse du client livré ou facturé (garage destinataire).
+- delay : délai ou date de disponibilité tel qu'écrit. Dates ISO YYYY-MM-DD. Nombres avec un point décimal.
+Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun prix, aucune référence.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename, "supplier_invoice");
+    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    const parsed = parseJsonBlock(result.content);
+    if (!parsed) return { ok: false as const, error: "Document illisible : complétez à la main.", json: "" };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+  });

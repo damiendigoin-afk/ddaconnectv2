@@ -30,9 +30,13 @@ export type InvoiceLine = {
   unit_price: number | null;
   discount_pct: number | null;
   amount: number | null;
+  delay?: string | null;
 };
 
 export type InvoiceExtract = {
+  or_number?: string | null;
+  document_number?: string | null;
+  document_date?: string | null;
   doc_kind?: string | null;
   supplier?: string | null;
   invoice_number?: string | null;
@@ -90,6 +94,8 @@ export async function uploadSupplierDoc(opts: {
   siteId?: string | null;
   userId?: string | null;
   userName?: string | null;
+  /** Type de document : BL/facture par défaut ; « bon_commande_fournisseur » pour une commande. */
+  docType?: string;
 }): Promise<SupplierDoc> {
   const reason = rejectReason(opts.file);
   if (reason) throw new Error(reason);
@@ -103,7 +109,7 @@ export async function uploadSupplierDoc(opts: {
   const { data, error } = await supabase
     .from("inbox_documents")
     .insert({
-      doc_type: SUPPLIER_DOC_TYPE,
+      doc_type: opts.docType ?? SUPPLIER_DOC_TYPE,
       file_name: opts.file.name,
       file_size: opts.file.size,
       mime_type: opts.file.type || null,
@@ -166,4 +172,48 @@ export async function findOrderCandidates(term: string) {
 export async function supplierDocUrl(storagePath: string): Promise<string | null> {
   const { data } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, 3600);
   return data?.signedUrl ?? null;
+}
+
+export const ORDER_DOC_TYPE = "bon_commande_fournisseur";
+
+/** Documents fournisseur encore à traiter (non validés, non liés, non archivés) — file existante réutilisée. */
+export async function fetchPendingSupplierDocs(siteId: string | null): Promise<SupplierDoc[]> {
+  let q = supabase
+    .from("inbox_documents")
+    .select("id,file_name,storage_path,mime_type,status,note,plate,customer_name,linked_kind,linked_id,site_id,created_at,extracted")
+    .eq("doc_type", SUPPLIER_DOC_TYPE)
+    .in("status", ["non_traite", "a_verifier"])
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (siteId) q = q.or(`site_id.eq.${siteId},site_id.is.null`);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map((d) => ({ ...d, extracted: toExtract(d.extracted) }));
+}
+
+export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; files: string[] };
+
+/** E-mails fournisseur/magasin reçus avec pièces jointes (flux e-mail existant), non encore traités. */
+export async function fetchSupplierMails(siteId: string | null): Promise<SupplierMail[]> {
+  let q = supabase
+    .from("emails")
+    .select("id, sent_at, from_name, from_address, subject, detected_plate, site_id, triage_status, email_attachments(filename)")
+    .in("category", ["fournisseur", "magasin"])
+    .eq("has_attachments", true)
+    .order("sent_at", { ascending: false })
+    .limit(50);
+  if (siteId) q = q.or(`site_id.eq.${siteId},site_id.is.null`);
+  const { data } = await q;
+  return ((data ?? []) as unknown as (SupplierMail & { triage_status: string | null; email_attachments: { filename: string }[] | null })[])
+    .filter((m) => m.triage_status !== "done" && m.triage_status !== "archived")
+    .map((m) => ({ ...m, files: (m.email_attachments ?? []).map((a) => a.filename) }));
+}
+
+export async function getSupplierDoc(id: string): Promise<SupplierDoc | null> {
+  const { data } = await supabase
+    .from("inbox_documents")
+    .select("id,file_name,storage_path,mime_type,status,note,plate,customer_name,linked_kind,linked_id,site_id,created_at,extracted")
+    .eq("id", id)
+    .maybeSingle();
+  return data ? { ...data, extracted: toExtract(data.extracted) } : null;
 }

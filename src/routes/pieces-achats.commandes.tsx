@@ -1,19 +1,24 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, ORDER_STATUS, OrLink, OrPicker, SiteFilter, SupplierSelect, usePartsCtx, WriteSiteSelect } from "@/components/parts/PartsUi";
-import { allocateToOr, createOrder, findStockByRef, listOrders, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
+import { OrderRow } from "@/components/parts/OrderRow";
+import { DocDropZone } from "@/components/parts/DocDropZone";
+import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
+import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
+import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders } from "@/lib/parts-site";
+import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
+import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
   head: () => ({
     meta: [
-      { title: "Commandes pièces — DDA Connect" },
-      { name: "description", content: "Commandes fournisseurs simplifiées ou détaillées, rattachées aux OR WinMotor." },
-      { property: "og:title", content: "Commandes pièces — DDA Connect" },
+      { title: "Commander des pièces — DDA Connect" },
+      { name: "description", content: "Commande fournisseur par dépôt du bon de commande, contrôle rapide et validation sur le site actif." },
+      { property: "og:title", content: "Commander des pièces — DDA Connect" },
       { property: "og:description", content: "Commandes fournisseurs de l'atelier." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -25,73 +30,93 @@ export const Route = createFileRoute("/pieces-achats/commandes")({
 const emptyLine = (): OrderLineInput => ({ line_kind: "part", physical_reference: "", designation: "", qty_ordered: 1, expected_unit_cost_ht: null });
 
 function OrdersPage() {
-  const { siteName } = usePartsCtx();
-  const [scope, setScope] = useState("groupe");
-  const [status, setStatus] = useState("");
-  const [creating, setCreating] = useState(false);
-  const q = useQuery({ queryKey: ["part-orders", scope, status], queryFn: () => listOrders({ siteId: scope === "groupe" ? null : scope, ...(status ? { status } : {}) }) });
+  const { sites } = usePartsCtx();
+  const suppliers = useSuppliers();
+  const [doc, setDoc] = useState<ReadDoc | null>(null);
+  const [manual, setManual] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function onFile(file: File) {
+    setBusy(true);
+    const r = await readPurchaseDoc(file);
+    if (r.warning) toast.warning(r.warning);
+    setDoc(r);
+    setBusy(false);
+  }
+
+  const done = () => { setDoc(null); setManual(false); };
 
   return (
-    <AppShell title="Commandes" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
+    <AppShell title="Commander des pièces" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
       <div className="space-y-3">
-        {creating ? <NewOrder onDone={() => setCreating(false)} /> : (
-          <button className={`${btnPrimary} w-full`} onClick={() => setCreating(true)}>
-            <Plus className="mr-1 inline h-4 w-4" /> Nouvelle commande
-          </button>
+        <ActiveSiteNote />
+        {doc || manual ? (
+          <OrderForm
+            key={doc?.file.name ?? "manual"}
+            doc={doc}
+            docSite={doc ? guessDocumentSite(docSiteText(doc.extracted), sites) : null}
+            initialSupplier={doc ? matchSupplier(doc.extracted.supplier, suppliers.data ?? [])?.id ?? "" : ""}
+            onDone={done}
+          />
+        ) : (
+          <>
+            <DocDropZone title="Importer un bon de commande" hint="PDF, scan, photo ou capture d'écran du site fournisseur — glissez-déposez ici" busy={busy} onFile={onFile} />
+            <button type="button" className="w-full text-center text-sm font-bold underline" onClick={() => setManual(true)}>
+              Pas de document ? Saisie manuelle rapide
+            </button>
+            <PendingOrders />
+          </>
         )}
-        <div className="grid grid-cols-2 gap-2">
-          <SiteFilter value={scope} onChange={setScope} />
-          <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">Tous statuts</option>
-            {Object.entries(ORDER_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-        </div>
-        {q.isLoading ? <p className="text-sm text-muted-foreground">Chargement…</p> : null}
-        {q.data && !q.data.length ? <p className="card-surface p-4 text-sm text-muted-foreground">Aucune commande.</p> : null}
-        {(q.data ?? []).map((o) => {
-          const lines = (o.part_order_lines ?? []).filter((l) => l.line_kind === "part");
-          const st = ORDER_STATUS[o.status] ?? ORDER_STATUS["ordered"]!;
-          return (
-            <Link key={o.id} to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} className="block rounded-xl border-2 border-border bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-extrabold">{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</span>
-                <Badge tone={st.tone}>{st.label}</Badge>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {siteName(o.site_id)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
-                {(o.repair_orders as { or_number: string | null } | null)?.or_number ? ` · OR ${(o.repair_orders as { or_number: string }).or_number}` : ""}
-                {o.plate ? ` · ${o.plate}` : ""}
-                {o.appointment_date ? ` · RDV ${new Date(o.appointment_date).toLocaleDateString("fr-FR")}` : ""}
-              </div>
-              <div className="mt-1 text-xs">
-                {lines.length ? `${lines.length} ligne(s) · ${lines.filter((l) => l.status === "received").length} reçue(s)` : <Badge tone="warn">Commande non détaillée — complétude inconnue</Badge>}
-              </div>
-            </Link>
-          );
-        })}
       </div>
     </AppShell>
   );
 }
 
-function NewOrder({ onDone }: { onDone: () => void }) {
-  const { actor, writeSite } = usePartsCtx();
+function PendingOrders() {
+  const { readSite, siteName } = usePartsCtx();
+  const q = useQuery({ queryKey: ["part-orders", readSite, "pending"], queryFn: async () => pendingReceptionOrders(await listOrders({ siteId: readSite })) });
+  return (
+    <section className="space-y-2 pt-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-bold uppercase text-muted-foreground">Commandes en attente de réception</h2>
+        <Link to="/pieces-achats/historique" className="text-xs font-bold underline">Historique</Link>
+      </div>
+      {q.data && !q.data.length ? <p className="card-surface p-3 text-sm text-muted-foreground">Aucune commande en attente.</p> : null}
+      {(q.data ?? []).slice(0, 15).map((o) => <OrderRow key={o.id} o={o} siteName={siteName} />)}
+    </section>
+  );
+}
+
+function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | null; docSite: string | null; initialSupplier: string; onDone: () => void }) {
+  const { actor, writeSite, siteName } = usePartsCtx();
   const qc = useQueryClient();
-  const [site, setSite] = useState<string | null>(writeSite);
-  const [mode, setMode] = useState<"simplified" | "detailed">("simplified");
+  const navigate = useNavigate();
+  const x = doc?.extracted ?? {};
   const [destination, setDestination] = useState<"or" | "store_sale" | "stock">("or");
-  const [supplier, setSupplier] = useState("");
-  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: "", vehicleId: null });
-  const [comment, setComment] = useState("");
+  const [supplier, setSupplier] = useState(initialSupplier);
+  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ?? "", vehicleId: null });
+  const [comment, setComment] = useState(x.supplier && !initialSupplier ? `Fournisseur lu : ${x.supplier}` : "");
   const [rdv, setRdv] = useState("");
-  const [supRef, setSupRef] = useState("");
-  const [lines, setLines] = useState<OrderLineInput[]>([emptyLine()]);
+  const [supRef, setSupRef] = useState(x.order_reference ?? x.document_number ?? "");
+  const [lines, setLines] = useState<OrderLineInput[]>(() => {
+    const ls = (x.lines ?? []).filter((l) => l.reference || l.label).map((l) => ({ line_kind: "part" as const, physical_reference: l.reference ?? "", designation: [l.label, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "), qty_ordered: l.quantity ?? 1, expected_unit_cost_ht: l.unit_price ?? null }));
+    return ls.length ? ls : doc ? [emptyLine()] : [];
+  });
   const [stockHits, setStockHits] = useState<Record<number, StockRow[]>>({});
   const [busy, setBusy] = useState(false);
+  const [orLooked, setOrLooked] = useState(false);
+
+  // OR lu sur le document : rattachement automatique s'il existe dans DDA (jamais de création d'OR).
+  if (doc && !orLooked && x.or_number) {
+    setOrLooked(true);
+    void findOrByNumber(x.or_number).then((o) => { if (o) setOrv({ or: o, plate: o.plate ?? orv.plate, vehicleId: o.vehicle_id }); });
+  }
+
+  const setLine = (i: number, p: Partial<OrderLineInput>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   async function checkStock(i: number, ref: string) {
-    if (!ref.trim() || !site) return;
-    const hits = (await findStockByRef(site, ref)).filter((h) => h.available_qty > 0);
+    if (!ref.trim() || !writeSite) return;
+    const hits = (await findStockByRef(writeSite, ref)).filter((h) => h.available_qty > 0);
     setStockHits((s) => ({ ...s, [i]: hits }));
   }
 
@@ -105,28 +130,41 @@ function NewOrder({ onDone }: { onDone: () => void }) {
   }
 
   async function submit() {
-    if (!site) return void toast.error("Choisissez le site de la commande.");
-    if (!supplier) return void toast.error("Fournisseur obligatoire.");
-    if (!orv.or && !orv.plate.trim() && destination === "or") return void toast.error("Indiquez un OR ou une immatriculation.");
+    if (!writeSite) return void toast.error("Choisissez le site actif dans la barre du haut.");
     setBusy(true);
     try {
+      let docId: string | null = null;
+      if (doc) {
+        try {
+          docId = (await uploadSupplierDoc({ file: doc.file, extracted: doc.extracted, siteId: writeSite, userId: actor.userId, userName: actor.name, docType: ORDER_DOC_TYPE })).id;
+        } catch (e) {
+          toast.warning(`Document non archivé (${e instanceof Error ? e.message : "erreur"}) : la commande est tout de même enregistrée.`);
+        }
+      }
+      const clean = lines.filter((l) => l.physical_reference.trim() || l.designation.trim());
+      const plate = orv.plate.trim() || orv.or?.plate || null;
       const id = await createOrder({
-        site_id: site,
-        supplier_id: supplier,
-        order_mode: mode,
+        site_id: writeSite,
+        supplier_id: supplier || null,
+        source_document_id: docId,
+        order_mode: clean.length ? "detailed" : "simplified",
         destination,
         repair_order_id: orv.or?.id ?? null,
         vehicle_id: orv.vehicleId,
-        plate: orv.plate.trim() || orv.or?.plate || null,
+        plate,
         appointment_date: rdv || null,
         supplier_order_ref: supRef.trim() || null,
         comment: comment.trim() || null,
-        lines: mode === "detailed" ? lines : [],
+        lines: clean,
       }, actor);
-      toast.success("Commande enregistrée");
+      const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: clean.length, repair_order_id: orv.or?.id ?? null, plate, destination });
+      for (const kind of gaps) {
+        await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: id, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate, comment: "Commande validée avec informations manquantes" }, actor);
+      }
+      toast.success(gaps.length ? `Commande enregistrée — ${gaps.length} point(s) envoyé(s) dans « À régulariser »` : "Commande enregistrée — en attente de réception");
       qc.invalidateQueries({ queryKey: ["part-orders"] });
       onDone();
-      void id;
+      void navigate({ to: "/pieces-achats/commande/$orderId", params: { orderId: id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur d'enregistrement");
     } finally {
@@ -136,67 +174,58 @@ function NewOrder({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="card-surface space-y-3 p-4">
-      <div className="grid grid-cols-2 gap-2">
-        {(["simplified", "detailed"] as const).map((m) => (
-          <button key={m} type="button" onClick={() => setMode(m)} className={`h-11 rounded-lg border-2 text-xs font-extrabold uppercase ${mode === m ? "border-brand bg-brand text-brand-foreground" : "border-border"}`}>
-            {m === "simplified" ? "Simplifiée" : "Détaillée"}
-          </button>
-        ))}
-      </div>
-      <WriteSiteSelect value={site} onChange={setSite} />
-      <SupplierSelect value={supplier} onChange={setSupplier} required />
-      {mode === "detailed" ? (
-        <select className={inputCls} value={destination} onChange={(e) => setDestination(e.target.value as typeof destination)}>
-          <option value="or">Destination : OR</option>
-          <option value="store_sale">Destination : vente magasin</option>
-          <option value="stock">Destination : stock</option>
-        </select>
-      ) : null}
+      <p className="text-xs font-extrabold uppercase text-muted-foreground">
+        {doc ? `Contrôle du document : ${doc.file.name}` : "Saisie manuelle rapide"} · site {writeSite ? siteName(writeSite) : "?"}
+      </p>
+      {doc ? <SiteMismatchAlert docSite={docSite} /> : null}
+      <SupplierSelect value={supplier} onChange={setSupplier} />
+      {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
       <OrPicker value={orv} onChange={setOrv} />
-      <input className={inputCls} type="date" value={rdv} onChange={(e) => setRdv(e.target.value)} aria-label="Date RDV" title="Date RDV (facultative)" />
-      <textarea className={`${inputCls} h-20 py-2`} placeholder="Commentaire (facultatif)" value={comment} onChange={(e) => setComment(e.target.value)} />
-      {mode === "detailed" ? (
-        <>
-          <input className={inputCls} placeholder="N° commande fournisseur (facultatif)" value={supRef} onChange={(e) => setSupRef(e.target.value)} />
-          {lines.map((l, i) => (
-            <div key={i} className="space-y-2 rounded-lg border-2 border-border p-2">
-              <div className="flex gap-2">
-                <select className={`${inputCls} w-28`} value={l.line_kind} onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, line_kind: e.target.value as OrderLineInput["line_kind"] } : x)))}>
-                  <option value="part">Pièce</option>
-                  <option value="fee">Frais</option>
-                  <option value="deposit">Consigne</option>
-                </select>
-                <input className={inputCls} placeholder="Référence" value={l.physical_reference} onBlur={(e) => l.line_kind === "part" && checkStock(i, e.target.value)} onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, physical_reference: e.target.value } : x)))} />
-                <button type="button" aria-label="Supprimer la ligne" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></button>
-              </div>
-              <input className={inputCls} placeholder="Désignation" value={l.designation} onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, designation: e.target.value } : x)))} />
-              <div className="grid grid-cols-2 gap-2">
-                <input className={inputCls} inputMode="decimal" placeholder="Qté" value={l.qty_ordered ?? ""} onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, qty_ordered: numOrNull(e.target.value) } : x)))} />
-                <input className={inputCls} inputMode="decimal" placeholder="Prix HT attendu" value={l.expected_unit_cost_ht ?? ""} onChange={(e) => setLines((ls) => ls.map((x, j) => (j === i ? { ...x, expected_unit_cost_ht: numOrNull(e.target.value) } : x)))} />
-              </div>
-              {stockHits[i]?.length ? (
-                <div className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs">
-                  <p className="font-extrabold uppercase">Pièce déjà en stock</p>
-                  {stockHits[i]!.map((h) => (
-                    <div key={h.id} className="mt-1 flex flex-wrap items-center gap-2">
-                      <span>{h.physical_reference} · dispo {h.available_qty}{h.location ? ` · ${h.location}` : ""}</span>
-                      <Link to="/pieces-achats/stock" className="underline">Voir stock</Link>
-                      <button type="button" className="underline" onClick={() => allocateHit(i, h)}>Affecter au dossier</button>
-                      <button type="button" className="underline" onClick={() => setStockHits((s) => ({ ...s, [i]: [] }))}>Commander quand même</button>
-                    </div>
-                  ))}
+      {doc && x.or_number && !orv.or ? <p className="text-xs text-muted-foreground">OR lu sur le document : {x.or_number} (non trouvé dans DDA).</p> : null}
+      <div className="grid grid-cols-2 gap-2">
+        <input className={inputCls} placeholder="N° commande fournisseur" value={supRef} onChange={(e) => setSupRef(e.target.value)} />
+        <input className={inputCls} type="date" value={rdv} onChange={(e) => setRdv(e.target.value)} aria-label="Date RDV" title="Date RDV (facultative)" />
+      </div>
+      <select className={inputCls} value={destination} onChange={(e) => setDestination(e.target.value as typeof destination)}>
+        <option value="or">Destination : OR</option>
+        <option value="store_sale">Destination : vente magasin</option>
+        <option value="stock">Destination : stock</option>
+      </select>
+      <textarea className={`${inputCls} h-16 py-2`} placeholder="Commentaire (facultatif)" value={comment} onChange={(e) => setComment(e.target.value)} />
+      {lines.map((l, i) => (
+        <div key={i} className="space-y-2 rounded-lg border-2 border-border p-2">
+          <div className="flex gap-2">
+            <select className={`${inputCls} w-28`} value={l.line_kind} onChange={(e) => setLine(i, { line_kind: e.target.value as OrderLineInput["line_kind"] })}>
+              <option value="part">Pièce</option>
+              <option value="fee">Frais</option>
+              <option value="deposit">Consigne</option>
+            </select>
+            <input className={inputCls} placeholder="Référence" value={l.physical_reference} onBlur={(e) => l.line_kind === "part" && checkStock(i, e.target.value)} onChange={(e) => setLine(i, { physical_reference: e.target.value })} />
+            <button type="button" aria-label="Supprimer la ligne" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></button>
+          </div>
+          <input className={inputCls} placeholder="Désignation" value={l.designation} onChange={(e) => setLine(i, { designation: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className={inputCls} inputMode="decimal" placeholder="Qté" value={l.qty_ordered ?? ""} onChange={(e) => setLine(i, { qty_ordered: numOrNull(e.target.value) })} />
+            <input className={inputCls} inputMode="decimal" placeholder="PA HT" value={l.expected_unit_cost_ht ?? ""} onChange={(e) => setLine(i, { expected_unit_cost_ht: numOrNull(e.target.value) })} />
+          </div>
+          {stockHits[i]?.length ? (
+            <div className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs">
+              <p className="font-extrabold uppercase">Pièce déjà en stock</p>
+              {stockHits[i]!.map((h) => (
+                <div key={h.id} className="mt-1 flex flex-wrap items-center gap-2">
+                  <span>{h.physical_reference} · dispo {h.available_qty}{h.location ? ` · ${h.location}` : ""}</span>
+                  <button type="button" className="underline" onClick={() => allocateHit(i, h)}>Affecter au dossier</button>
+                  <button type="button" className="underline" onClick={() => setStockHits((s) => ({ ...s, [i]: [] }))}>Commander quand même</button>
                 </div>
-              ) : null}
+              ))}
             </div>
-          ))}
-          <button type="button" className={btnGhost} onClick={() => setLines((ls) => [...ls, emptyLine()])}>+ Ligne</button>
-        </>
-      ) : (
-        <p className="text-xs text-muted-foreground">Commande non détaillée : le contenu sera complété par le document fournisseur.</p>
-      )}
+          ) : null}
+        </div>
+      ))}
+      <button type="button" className={btnGhost} onClick={() => setLines((ls) => [...ls, emptyLine()])}>+ Ligne</button>
       <div className="grid grid-cols-2 gap-2">
         <button type="button" className={btnGhost} onClick={onDone}>Annuler</button>
-        <button type="button" className={btnPrimary} onClick={submit} disabled={busy}>Enregistrer</button>
+        <button type="button" className={btnPrimary} onClick={submit} disabled={busy}>Valider la commande</button>
       </div>
     </div>
   );

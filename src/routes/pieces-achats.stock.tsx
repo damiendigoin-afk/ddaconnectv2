@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { ageDays, Badge, btnGhost, btnPrimary, fmtEur, inputCls, numOrNull, SiteFilter, usePartsCtx } from "@/components/parts/PartsUi";
+import { ageDays, Badge, btnGhost, btnPrimary, fmtEur, inputCls, numOrNull, ActiveSiteNote, usePartsCtx } from "@/components/parts/PartsUi";
 import { adjustStock, listMovements, listStock, supplierReturnOut, updateArticle, type StockRow } from "@/lib/parts";
 import { MOVEMENT_LABELS, type MovementType } from "@/lib/parts-rules";
 
@@ -23,8 +23,8 @@ export const Route = createFileRoute("/pieces-achats/stock")({
 });
 
 function StockPage() {
-  const { siteName } = usePartsCtx();
-  const [scope, setScope] = useState("groupe");
+  const { siteName, readSite } = usePartsCtx();
+  const scope = readSite ?? "groupe";
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const list = useQuery({ queryKey: ["stock", scope, q], queryFn: () => listStock({ siteId: scope === "groupe" ? null : scope, q }) });
@@ -32,7 +32,7 @@ function StockPage() {
     <AppShell title="Stock / inventaire" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
       <div className="space-y-3">
         <input className={inputCls} placeholder="Référence ou désignation" value={q} onChange={(e) => setQ(e.target.value)} />
-        <SiteFilter value={scope} onChange={setScope} />
+        <ActiveSiteNote />
         {list.data && !list.data.length ? <p className="card-surface p-4 text-sm text-muted-foreground">Aucune référence en stock pour l'instant. Le stock se constitue à la réception des pièces.</p> : null}
         {(list.data ?? []).map((r) => (
           <div key={r.id} className="rounded-xl border-2 border-border bg-card p-3 text-sm">

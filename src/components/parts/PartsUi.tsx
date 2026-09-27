@@ -5,20 +5,55 @@ import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { listSuppliers } from "@/lib/suppliers";
-import { actionSiteId, findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
+import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
+import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
 
 export const inputCls = "h-11 w-full rounded-lg border-2 border-border bg-card px-3 text-sm";
 export const btnPrimary = "h-11 rounded-lg bg-brand px-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50";
 export const btnGhost = "h-11 rounded-lg border-2 border-border bg-card px-4 text-sm font-bold uppercase disabled:opacity-50";
 
-/** Contexte d'action : acteur + site d'écriture (défaut utilisateur) + sites pour l'affichage. */
+/**
+ * Contexte d'action : acteur + site actif global (écriture) + périmètre de lecture.
+ * Toutes les pages Pièces & achats héritent du site choisi dans la barre haute.
+ */
 export function usePartsCtx() {
   const { user, displayName, profile } = useAuth();
-  const { sites, active, isGroup } = useSite();
-  const writeSite = actionSiteId((profile?.site_id as string | null) ?? null, active, isGroup);
+  const { sites, active, isGroup, label } = useSite();
+  const writeSite = partsWriteSite(active, isGroup, (profile?.site_id as string | null) ?? null);
+  const readSite = partsReadSite(active, isGroup);
   const siteName = (id: string | null | undefined) => sites.find((s) => s.id === id)?.name ?? "Site non renseigné";
-  return { actor: { userId: user?.id ?? null, name: displayName }, writeSite, sites, siteName };
+  return { actor: { userId: user?.id ?? null, name: displayName }, writeSite, readSite, isGroup, activeLabel: label, sites, siteName };
+}
+
+/** Rappel discret du site actif ; en vue groupe, précise où les créations seront écrites. */
+export function ActiveSiteNote() {
+  const { isGroup, activeLabel, writeSite, siteName } = usePartsCtx();
+  return (
+    <p className="text-xs text-muted-foreground" data-testid="parts-site-note">
+      {isGroup
+        ? writeSite
+          ? `Vue groupe : consultation des deux sites. Les créations seront faites sur ${siteName(writeSite)}.`
+          : "Vue groupe : choisissez un site dans la barre du haut pour créer."
+        : `Site actif : ${activeLabel} — modifiable dans la barre du haut.`}
+    </p>
+  );
+}
+
+/** Alerte non bloquante : le document semble appartenir à un autre site. */
+export function SiteMismatchAlert({ docSite }: { docSite: string | null }) {
+  const { writeSite, siteName } = usePartsCtx();
+  const { setActive } = useSite();
+  if (!docSite || !writeSite || docSite === writeSite) return null;
+  return (
+    <div className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-3 text-xs" role="alert">
+      <p className="font-bold">Ce document semble appartenir à {siteName(docSite)}.</p>
+      <p>Rien n'a été changé : l'enregistrement se fera sur {siteName(writeSite)} sauf si vous basculez.</p>
+      <button type="button" className="mt-1 font-extrabold underline" onClick={() => setActive(docSite)}>
+        Basculer sur {siteName(docSite)}
+      </button>
+    </div>
+  );
 }
 
 export function SiteFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {

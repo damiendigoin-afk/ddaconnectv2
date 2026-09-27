@@ -67,6 +67,8 @@ import { Route as PiecesAchatsIndexRouteImport } from './routes/pieces-achats.in
 import { Route as PiecesAchatsSectionRouteImport } from './routes/pieces-achats.$section'
 import { Route as PiecesAchatsCommandesRouteImport } from './routes/pieces-achats.commandes'
 import { Route as PiecesAchatsControleWinmotorRouteImport } from './routes/pieces-achats.controle-winmotor'
+import { Route as PiecesAchatsDocumentsRouteImport } from './routes/pieces-achats.documents'
+import { Route as PiecesAchatsHistoriqueRouteImport } from './routes/pieces-achats.historique'
 import { Route as PiecesAchatsReceptionRouteImport } from './routes/pieces-achats.reception'
 import { Route as PiecesAchatsRegulariserRouteImport } from './routes/pieces-achats.regulariser'
 import { Route as PiecesAchatsRetoursRouteImport } from './routes/pieces-achats.retours'
@@ -398,6 +400,16 @@ const PiecesAchatsControleWinmotorRoute =
     path: '/pieces-achats/controle-winmotor',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PiecesAchatsDocumentsRoute = PiecesAchatsDocumentsRouteImport.update({
+  id: '/pieces-achats/documents',
+  path: '/pieces-achats/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiecesAchatsHistoriqueRoute = PiecesAchatsHistoriqueRouteImport.update({
+  id: '/pieces-achats/historique',
+  path: '/pieces-achats/historique',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PiecesAchatsReceptionRoute = PiecesAchatsReceptionRouteImport.update({
   id: '/pieces-achats/reception',
   path: '/pieces-achats/reception',
@@ -628,6 +640,8 @@ export interface FileRoutesByFullPath {
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
   '/pieces-achats/controle-winmotor': typeof PiecesAchatsControleWinmotorRoute
+  '/pieces-achats/documents': typeof PiecesAchatsDocumentsRoute
+  '/pieces-achats/historique': typeof PiecesAchatsHistoriqueRoute
   '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
   '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
@@ -723,6 +737,8 @@ export interface FileRoutesByTo {
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
   '/pieces-achats/controle-winmotor': typeof PiecesAchatsControleWinmotorRoute
+  '/pieces-achats/documents': typeof PiecesAchatsDocumentsRoute
+  '/pieces-achats/historique': typeof PiecesAchatsHistoriqueRoute
   '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
   '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
@@ -820,6 +836,8 @@ export interface FileRoutesById {
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
   '/pieces-achats/commandes': typeof PiecesAchatsCommandesRoute
   '/pieces-achats/controle-winmotor': typeof PiecesAchatsControleWinmotorRoute
+  '/pieces-achats/documents': typeof PiecesAchatsDocumentsRoute
+  '/pieces-achats/historique': typeof PiecesAchatsHistoriqueRoute
   '/pieces-achats/reception': typeof PiecesAchatsReceptionRoute
   '/pieces-achats/regulariser': typeof PiecesAchatsRegulariserRoute
   '/pieces-achats/retours': typeof PiecesAchatsRetoursRoute
@@ -918,6 +936,8 @@ export interface FileRouteTypes {
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
     | '/pieces-achats/controle-winmotor'
+    | '/pieces-achats/documents'
+    | '/pieces-achats/historique'
     | '/pieces-achats/reception'
     | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
@@ -1013,6 +1033,8 @@ export interface FileRouteTypes {
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
     | '/pieces-achats/controle-winmotor'
+    | '/pieces-achats/documents'
+    | '/pieces-achats/historique'
     | '/pieces-achats/reception'
     | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
@@ -1109,6 +1131,8 @@ export interface FileRouteTypes {
     | '/pieces-achats/$section'
     | '/pieces-achats/commandes'
     | '/pieces-achats/controle-winmotor'
+    | '/pieces-achats/documents'
+    | '/pieces-achats/historique'
     | '/pieces-achats/reception'
     | '/pieces-achats/regulariser'
     | '/pieces-achats/retours'
@@ -1206,6 +1230,8 @@ export interface RootRouteChildren {
   PiecesAchatsSectionRoute: typeof PiecesAchatsSectionRoute
   PiecesAchatsCommandesRoute: typeof PiecesAchatsCommandesRoute
   PiecesAchatsControleWinmotorRoute: typeof PiecesAchatsControleWinmotorRoute
+  PiecesAchatsDocumentsRoute: typeof PiecesAchatsDocumentsRoute
+  PiecesAchatsHistoriqueRoute: typeof PiecesAchatsHistoriqueRoute
   PiecesAchatsReceptionRoute: typeof PiecesAchatsReceptionRoute
   PiecesAchatsRegulariserRoute: typeof PiecesAchatsRegulariserRoute
   PiecesAchatsRetoursRoute: typeof PiecesAchatsRetoursRoute
@@ -1663,6 +1689,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PiecesAchatsControleWinmotorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pieces-achats/documents': {
+      id: '/pieces-achats/documents'
+      path: '/pieces-achats/documents'
+      fullPath: '/pieces-achats/documents'
+      preLoaderRoute: typeof PiecesAchatsDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pieces-achats/historique': {
+      id: '/pieces-achats/historique'
+      path: '/pieces-achats/historique'
+      fullPath: '/pieces-achats/historique'
+      preLoaderRoute: typeof PiecesAchatsHistoriqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pieces-achats/reception': {
       id: '/pieces-achats/reception'
       path: '/pieces-achats/reception'
@@ -1989,6 +2029,8 @@ const rootRouteChildren: RootRouteChildren = {
   PiecesAchatsSectionRoute: PiecesAchatsSectionRoute,
   PiecesAchatsCommandesRoute: PiecesAchatsCommandesRoute,
   PiecesAchatsControleWinmotorRoute: PiecesAchatsControleWinmotorRoute,
+  PiecesAchatsDocumentsRoute: PiecesAchatsDocumentsRoute,
+  PiecesAchatsHistoriqueRoute: PiecesAchatsHistoriqueRoute,
   PiecesAchatsReceptionRoute: PiecesAchatsReceptionRoute,
   PiecesAchatsRegulariserRoute: PiecesAchatsRegulariserRoute,
   PiecesAchatsRetoursRoute: PiecesAchatsRetoursRoute,

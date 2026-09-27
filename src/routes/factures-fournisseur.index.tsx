@@ -5,6 +5,7 @@ import { Camera, FileText, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { DocDropZone } from "@/components/parts/DocDropZone";
 import { SupplierCostPanel } from "@/components/SupplierCostPanel";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
@@ -106,22 +107,7 @@ function SupplierInvoices() {
   return (
     <AppShell title="BL / Factures fournisseur" subtitle="Réception et contrôle" back={{ to: "/pieces-achats" }}>
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => choose(true)}
-            disabled={busy}
-            className="flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-60"
-          >
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />} Photographier
-          </button>
-          <button
-            onClick={() => choose(false)}
-            disabled={busy}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-border px-4 py-4 text-sm font-extrabold uppercase disabled:opacity-60"
-          >
-            <Paperclip className="h-5 w-5" /> Importer PDF / image
-          </button>
-        </div>
+        <DocDropZone title="Déposer un BL ou une facture" busy={busy} onFile={handleFile} />
         <input
           ref={inputRef}
           type="file"
