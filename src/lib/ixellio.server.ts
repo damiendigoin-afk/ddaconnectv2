@@ -120,6 +120,13 @@ function extractHiddenFields(html: string): Record<string, string> {
   return fields;
 }
 
+/** Jeton CSRF du formulaire de recherche immat (valeur jamais tracée). */
+export function extractCsrf(html: string): string | null {
+  const form = /<form[^>]*id=["']ident_admin_search_immat["'][^>]*>([\s\S]*?)<\/form>/i.exec(html)?.[1] ?? html;
+  const tag = /<input\b[^>]*name=["']_csrf["'][^>]*>/i.exec(form)?.[0];
+  return tag ? (/value=["']([^"']+)["']/i.exec(tag)?.[1] ?? null) : null;
+}
+
 type FollowResult = { status: number; html: string; finalPath: string; hops: string[] };
 
 /** Suit jusqu'à MAX_REDIRECTS redirections GET en conservant le cookie jar. */
@@ -286,6 +293,36 @@ export async function runIxellioAuthTest(input: {
     }
 
     // 5) Recherche par immatriculation dans la même session.
+    // IXELLIO protège le formulaire par un jeton CSRF Spring (`_csrf`) : sans lui → HTTP 403.
+    // Le navigateur interroge d'abord la base locale (GET ajax), puis poste le formulaire.
+    const csrf = extractCsrf(afterLogin.html);
+    trace.push(csrf ? "jeton _csrf du formulaire immat détecté" : "jeton _csrf absent de la page d'accueil");
+    const local = await fetch(`${BASE}/ident.html?method=searchByImmatOnLocalBase&ajax=1&immat=${encodeURIComponent(input.plate)}`, {
+      method: "GET",
+      redirect: "manual",
+      headers: { ...BROWSER_HEADERS, referer: `${BASE}/mainMenu.html?method=index`, "x-requested-with": "XMLHttpRequest", ...(jar.size ? { cookie: cookieHeader(jar) } : {}) },
+    });
+    mergeCookies(jar, local);
+    const localHtml = local.status === 200 ? await local.text() : (await local.text(), "");
+    trace.push(`GET /ident.html?method=searchByImmatOnLocalBase ${local.status} (${localHtml.length} o)`);
+    const localParsed = localHtml && !looksLikeLoginPage(localHtml) ? parseIxellioHtml(localHtml) : null;
+    if (localParsed && localParsed.fieldCount >= 3) {
+      trace.push(`base locale : ${localParsed.fieldCount} champ(s) reconnu(s)`);
+      return done({
+        authenticated: true,
+        outcome: "auth_ok_vehicle_found",
+        searchStatus: local.status,
+        bytes: localHtml.length,
+        vehicle: localParsed.vehicle,
+        detectedFields: localParsed.detectedFields,
+        fieldCount: localParsed.fieldCount,
+        pairCount: localParsed.pairCount,
+        isVersionList: localParsed.isVersionList,
+        message: `Véhicule identifié par IXELLIO (${localParsed.fieldCount} champs).`,
+      });
+    }
+    const searchBody = new URLSearchParams({ immat: input.plate });
+    if (csrf) searchBody.set("_csrf", csrf);
     const search = await fetch(SEARCH_URL, {
       method: "POST",
       redirect: "manual",
@@ -296,7 +333,7 @@ export async function runIxellioAuthTest(input: {
         referer: `${BASE}/mainMenu.html?method=index`,
         ...(jar.size ? { cookie: cookieHeader(jar) } : {}),
       },
-      body: new URLSearchParams({ immat: input.plate }).toString(),
+      body: searchBody.toString(),
     });
 
     mergeCookies(jar, search);
