@@ -6,7 +6,7 @@ import { useState } from "react";
 import { normalizeVin } from "@/lib/winmotor/mapping";
 import { InvoiceTimeline } from "@/components/InvoiceTimeline";
 import { AppShell } from "@/components/AppShell";
-import { RefVehicleActions } from "@/components/RefVehicleActions";
+import { VehicleInlineEditor } from "@/components/VehicleInlineEditor";
 import { mileageDate } from "@/lib/ref-vehicle-edit";
 import { useAuth } from "@/lib/auth";
 import { customerName, fetchRefVehicle, vehicleLabel } from "@/lib/refbase";
@@ -46,34 +46,7 @@ function VehiclePage() {
 
         {v ? (
           <>
-            <section className="card-surface space-y-1 p-4">
-              <div className="flex items-center gap-3">
-                <Car className="h-6 w-6 text-brand" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-2xl font-extrabold tracking-wide">{plate || "—"}</div>
-                  <div className="text-sm text-muted-foreground">{vehicleLabel(v)}</div>
-                </div>
-                <RefVehicleActions vehicle={v as unknown as Record<string, unknown> & { id: string }} />
-              </div>
-              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                <Row label="VIN" value={v.vin ?? "—"} />
-                <Row label="Version" value={v.version ?? "—"} />
-                <Row label="1re mise en circ." value={fr(v.first_registration_date)} />
-                <Row label="Énergie" value={v.energy ?? "—"} />
-                <Row label="Couleur" value={v.color ?? "—"} />
-                <Row label="Code moteur" value={(v["engine_code"] as string | null) ?? "—"} />
-                <Row label="Puissance fiscale" value={v["fiscal_power"] ? `${v["fiscal_power"]} CV` : "—"} />
-                <Row label="Puissance" value={v["power_hp"] ? `${v["power_hp"]} ch` : v["power_kw"] ? `${v["power_kw"]} kW` : "—"} />
-                <Row label="CO2" value={v["co2_g_km"] ? `${v["co2_g_km"]} g/km` : "—"} />
-                <Row label="Masse" value={v["weight_kg"] ? `${v["weight_kg"]} kg` : v["curb_weight_kg"] ? `${v["curb_weight_kg"]} kg` : "—"} />
-                <Row label="PTAC" value={v["gvw_kg"] ? `${v["gvw_kg"]} kg` : "—"} />
-
-                <Row label="Dernier km" value={v.last_mileage ? `${v.last_mileage.toLocaleString("fr-FR")} km` : "—"} />
-                <Row label="Date du km" value={fr(v.last_mileage_at)} />
-                <Row label="Dernier passage" value={fr(v.last_visit_at)} />
-                <Row label="Prochain CT" value={fr(v.next_ct_date)} />
-              </dl>
-            </section>
+            <VehicleInlineEditor vehicle={v} />
 
             <div className="rounded-xl border-2 border-border bg-card p-3">
               <div className="flex items-center justify-between">

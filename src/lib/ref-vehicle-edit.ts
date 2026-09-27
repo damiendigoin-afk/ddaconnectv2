@@ -27,6 +27,17 @@ export const EDIT_FIELDS: { key: string; label: string; kind: "text" | "int" | "
   { key: "gearbox_code", label: "Code boîte", kind: "text" },
 ];
 
+/** Valeurs initiales du formulaire à partir de la fiche. */
+export function initialEditForm(v: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    EDIT_FIELDS.map((f) => {
+      const x = v[f.key];
+      const s = x == null ? "" : String(x);
+      return [f.key, f.kind === "date" ? s.slice(0, 10) : s];
+    }),
+  );
+}
+
 /** Construit le patch à partir du formulaire : uniquement les champs modifiés, normalisations incluses. */
 export function buildRefVehiclePatch(
   before: Record<string, unknown>,
