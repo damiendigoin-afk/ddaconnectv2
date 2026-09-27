@@ -71,51 +71,59 @@ const isNumOrEmpty = (v: string | undefined) => !(v ?? "").trim() || parseAmount
 type Alias = { exact: string[]; contains?: string[][]; not?: string[] };
 const A = (exact: string[], contains?: string[][], not?: string[]): Alias => ({ exact, ...(contains ? { contains } : {}), ...(not ? { not } : {}) });
 
+/**
+ * Version du mapping : entre dans l'empreinte des lignes Entêtes, pour qu'un retraitement
+ * après correction du mapping mette à jour les factures existantes (même numéro = même facture).
+ */
+export const MAPPING_VERSION = "2026-09-27";
+
+// Alias exacts des exports WinMotor réels (Détail 28 colonnes, Entêtes 32 colonnes) vus le 26/09/2026.
 const COMMON: Record<string, Alias> = {
-  inv: A(["Numero facture", "N facture", "No facture", "Num facture", "Facture", "N° facture", "Numero de facture"], [["FACTURE", "NUM"], ["FACTURE", "NO"]], ["CLIENT", "DATE", "TYPE"]),
-  date: A(["Date facture", "Date de facture", "Date"], [["DATE", "FACTURE"]], ["VISITE", "CIRCULATION", "MEC"]),
-  or: A(["Numero OR", "N OR", "No OR", "OR", "Numero dossier", "N dossier", "Dossier", "Ordre de reparation", "Numero ordre"], [["DOSSIER"], ["ORDRE"]]),
-  client_no: A(["Numero client", "N client", "No client", "Code client", "Client", "Compte client"], [["CLIENT", "NUM"], ["CLIENT", "CODE"]], ["FACTURE", "NOM", "PRENOM"]),
-  client_name: A(["Nom client", "Nom du client", "Nom", "Raison sociale", "Client nom"], [["NOM", "CLIENT"]], ["FACTURE", "PRENOM"]),
-  client_first: A(["Prenom", "Prenom client"], [["PRENOM"]], ["FACTURE"]),
-  billed_no: A(["Numero client facture", "N client facture", "Code client facture", "Client facture", "Numero client facturé", "Code payeur", "Payeur"], [["CLIENT", "FACTURE"], ["PAYEUR"]], ["NOM"]),
-  billed_name: A(["Nom client facture", "Nom client facturé", "Nom payeur"], [["NOM", "FACTURE"], ["NOM", "PAYEUR"]]),
-  plate: A(["Immatriculation", "Immat", "Plaque"], [["IMMAT"]]),
-  vin: A(["VIN", "Numero de serie", "N serie", "Chassis", "Numero chassis"], [["SERIE"], ["CHASSIS"], ["VIN"]]),
+  inv: A(["Numéro de facture", "Numero facture", "N facture", "No facture", "Num facture", "Facture", "N° facture"], [["FACTURE", "NUM"], ["FACTURE", "NO"]], ["CLIENT", "DATE", "TYPE"]),
+  date: A(["Date de facturation", "Date facture", "Date de facture", "Date"], [["DATE", "FACTURATION"], ["DATE", "FACTURE"]], ["VISITE", "CIRCULATION", "CIRUCLATION", "MEC", "OUVERTURE", "GARANTIE"]),
+  or: A(["Numéro de dossier", "Numero OR", "N OR", "No OR", "OR", "Numero dossier", "N dossier", "Dossier", "Ordre de reparation", "Numero ordre"], [["DOSSIER"], ["ORDRE"]]),
+  client_no: A(["Numéro du client", "Numéro de client", "Numero client", "N client", "No client", "Code client", "Compte client"], [["CLIENT", "NUM"], ["CLIENT", "CODE"]], ["FACTURE", "NOM", "PRENOM"]),
+  client_name: A(["Nom et Prénom", "Nom client", "Nom du client", "Nom", "Raison sociale", "Client nom"], [["NOM", "CLIENT"]], ["FACTURE", "PRENOM"]),
+  client_first: A(["Prenom", "Prenom client"], [["PRENOM"]], ["FACTURE", "NOM"]),
+  // Piège : « Client facturé » est un NOM, jamais le numéro du payeur.
+  billed_no: A(["Numéro du client facturé", "Numero client facture", "N client facture", "Code client facture", "Code payeur"], [["NUM", "CLIENT", "FACTURE"], ["CODE", "PAYEUR"]], ["NOM"]),
+  billed_name: A(["Client facturé", "Nom du client facturé", "Nom client facture", "Nom payeur"], [["NOM", "FACTURE"], ["NOM", "PAYEUR"]], ["NUM", "CODE"]),
+  plate: A(["Immatriculation", "Immatriculation du véhicule", "Immat", "Plaque"], [["IMMAT"]]),
+  vin: A(["VIN", "Numero de serie", "N serie", "Chassis", "Numero chassis"], [["SERIE"], ["CHASSIS"]]),
   doc_type: A(["Type facture", "Type document", "Type de facture", "Nature"], [["TYPE", "FACTURE"], ["TYPE", "DOC"]]),
+  activity: A(["Activité", "Code activite"], [["ACTIVITE"]]),
+  brand: A(["Marque"], []),
+  range: A(["Gamme"], []),
+  mec: A(["Date de mise en circulation", "Date de première mise en ciruclation", "Date de première mise en circulation", "Date mise en circulation", "MEC", "Date MEC", "1ere mise en circulation"], [["CIRCULATION"], ["CIRUCLATION"]]),
 };
 const DETAIL: Record<string, Alias> = {
   ...COMMON,
-  activity: A(["Activite", "Code activite"], [["ACTIVITE"]]),
   line_type: A(["Type de ligne", "Type ligne", "Type"], [["TYPE", "LIGNE"]], ["FACTURE", "DOC", "MINE"]),
-  ref: A(["Reference", "Ref", "Code article", "Reference article", "Ref article"], [["REF"]], ["CLIENT", "FACTURE"]),
-  designation: A(["Libelle", "Designation", "Libelle ligne"], [["LIBELLE"], ["DESIGNATION"]]),
-  qty: A(["Quantite", "Qte", "Qté"], [["QUANT"], ["QTE"]]),
-  unit: A(["Prix unitaire HT", "PU HT", "Prix unitaire", "Prix HT"], [["PRIX", "UNIT"]]),
+  ref: A(["Référence", "Ref", "Code article", "Reference article", "Ref article"], [["REF"]], ["CLIENT", "FACTURE"]),
+  designation: A(["Libellé", "Designation", "Libelle ligne"], [["LIBELLE"], ["DESIGNATION"]]),
+  qty: A(["Quantité", "Qte", "Qté"], [["QUANT"], ["QTE"]]),
+  // PU net uniquement ; « Prix de vente unitaire brut » reste en extra.
+  unit: A(["Prix de vente unitaire net", "Prix unitaire HT", "PU HT", "Prix unitaire", "Prix HT"], [["PRIX", "UNIT", "NET"]], ["BRUT"]),
   discount: A(["Remise", "Taux remise", "Remise %"], [["REMISE"]]),
-  net: A(["Total net HT", "Montant net HT", "Net HT", "Total HT", "Montant HT", "Total ligne HT"], [["NET", "HT"], ["TOTAL", "HT"], ["MONTANT", "HT"]]),
+  net: A(["Prix de vente net", "Total net HT", "Montant net HT", "Net HT", "Total HT", "Montant HT", "Total ligne HT"], [["NET", "HT"], ["TOTAL", "HT"], ["MONTANT", "HT"]], ["BRUT", "UNIT"]),
   vat_code: A(["Code TVA", "TVA"], [["TVA"]]),
-  family: A(["Famille", "Code famille", "Famille article"], [["FAMILLE"]]),
-  manufacturer: A(["Fabricant", "Marque article", "Constructeur"], [["FABRIC"]]),
+  family: A(["Code famille", "Famille", "Famille article"], [["FAMILLE"]]),
+  manufacturer: A(["Fabricant", "Marque article"], [["FABRIC"]]),
 };
 const HEADER: Record<string, Alias> = {
   ...COMMON,
-  address: A(["Adresse", "Adresse client"], [["ADRESSE"]], ["MAIL"]),
-  postal_code: A(["Code postal", "CP"], [["POSTAL"]]),
+  address: A(["Adresse 1", "Adresse", "Adresse client"], [["ADRESSE"]], ["MAIL"]),
+  postal_code: A(["Code Postal", "CP"], [["POSTAL"]]),
   city: A(["Ville", "Localite"], [["VILLE"]]),
-  phone: A(["Telephone", "Tel", "Telephone fixe"], [["TEL"]], ["PORT", "MOBILE"]),
-  mobile: A(["Portable", "Mobile", "Tel portable", "Telephone portable"], [["PORT"], ["MOBILE"]]),
-  email: A(["Email", "E-mail", "Mail", "Adresse mail"], [["MAIL"]]),
-  brand: A(["Marque"], [["MARQUE"]]),
-  range: A(["Gamme"], [["GAMME"]]),
-  model: A(["Modele"], [["MODELE"]]),
-  type_mine: A(["Type mine", "Type MINE"], [["MINE"]]),
-  mec: A(["Date mise en circulation", "Date de mise en circulation", "MEC", "Date MEC", "1ere mise en circulation"], [["CIRCULATION"], ["MEC"]]),
-  last_km: A(["Dernier km au compteur", "Dernier km", "Kilometrage"], [["KM"], ["KILOM"]]),
-  last_visit: A(["Date de derniere visite", "Date derniere visite", "Derniere visite"], [["VISITE"]]),
-  warranty: A(["Garantie", "Garanties"], [["GARANTIE"]]),
+  phone: A(["Téléphone", "Tel", "Telephone fixe"], [["TEL"]], ["PORT", "MOBILE"]),
+  mobile: A(["Mobile", "Portable", "Tel portable", "Telephone portable"], [["PORT"], ["MOBILE"]]),
+  email: A(["Adresse E-mail", "Email", "E-mail", "Mail", "Adresse mail"], [["MAIL"]]),
+  model: A(["Modèle"], [["MODELE"]]),
+  type_mine: A(["Code National (Type Mine)", "Type mine"], [["MINE"]]),
+  last_km: A(["Dernier km au compteur", "Dernier km", "Kilometrage"], [["DERNIER", "KM"], ["KILOM"]]),
+  last_visit: A(["Date de dernière visite", "Date derniere visite", "Derniere visite"], [["VISITE"]]),
   total_ht: A(["Total HT", "Montant HT", "Total facture HT"], [["TOTAL", "HT"]], ["TTC"]),
-  total_tva: A(["Total TVA", "Montant TVA", "TVA"], [["TVA"]], ["CODE", "TTC"]),
+  total_tva: A(["Total TVA", "Montant TVA"], [["TOTAL", "TVA"]], ["CODE", "TTC"]),
   total_ttc: A(["Total TTC", "Montant TTC", "Net a payer"], [["TTC"]]),
   seller: A(["Vendeur", "Commercial", "Receptionnaire"], [["VENDEUR"]]),
 };
