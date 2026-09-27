@@ -58,7 +58,7 @@ export async function fetchInspections(orderId: string): Promise<InspectionSumma
   const { data, error } = await supabase
     .from("vehicle_inspections")
     .select(
-      "id, inspection_type, status, current_zone_index, mileage, started_at, completed_at, inspection_points(id, status), observations(id), media(id)",
+      "id, site_id, inspection_type, status, current_zone_index, mileage, started_at, completed_at, inspection_points(id, status), observations(id), media(id)",
     )
     .eq("repair_order_id", orderId)
     .order("started_at", { ascending: false });
@@ -123,6 +123,9 @@ export type RecentTour = {
   internal_ref: string | null;
   client_name: string;
   archived_at: string | null;
+  site_id: string | null;
+  oks: number;
+  photos: number;
 };
 
 /**
@@ -136,10 +139,12 @@ export type TourSearch = {
   text?: string;
   from?: string | null;
   to?: string | null;
+  /** Site actif (sélecteur global) ; null = groupe. */
+  siteId?: string | null;
 };
 
 const TOUR_SELECT =
-  "id, inspection_type, status, started_at, completed_at, finished_at, updated_at, archived_at, duration_seconds, started_by_name, completed_by_name, created_by_name, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), vehicle:vehicles(plate, plate_normalized, brand, model), repair_order:repair_orders(id, or_number, internal_ref, client:clients(first_name, last_name))";
+  "id, inspection_type, status, started_at, completed_at, finished_at, updated_at, archived_at, duration_seconds, started_by_name, completed_by_name, created_by_name, mileage, last_sent_at, last_sent_to, client_content_updated_at, inspection_points(status), observations(status), media(count), vehicle:vehicles(plate, plate_normalized, brand, model), repair_order:repair_orders(id, or_number, internal_ref, client:clients(first_name, last_name))";
 
 export async function fetchRecentTours(
   limit = 10,
@@ -191,6 +196,7 @@ export async function fetchRecentTours(
     if (orderIds.length) ors.push(`repair_order_id.in.(${orderIds.join(",")})`);
     query = query.or(ors.join(","));
   }
+  if (search.siteId) query = query.eq("site_id", search.siteId);
   if (search.from) query = query.gte("started_at", search.from);
   if (search.to) query = query.lte("started_at", search.to);
 
@@ -242,6 +248,9 @@ export async function fetchRecentTours(
       internal_ref: o?.internal_ref ?? null,
       archived_at: (i as { archived_at?: string | null }).archived_at ?? null,
       client_name: [o?.client?.first_name, o?.client?.last_name].filter(Boolean).join(" "),
+      site_id: (i as { site_id?: string | null }).site_id ?? null,
+      oks: pts.filter((p) => p.status === "ok").length + obs.filter((p) => p.status === "ok").length,
+      photos: ((i as { media?: { count: number }[] }).media ?? [])[0]?.count ?? 0,
     };
   });
 }

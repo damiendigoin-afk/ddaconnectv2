@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { TourRow } from "@/components/RecentTours";
 import { EMPTY_TOUR_SEARCH, TourSearchForm } from "@/components/TourSearchForm";
 import { fetchRecentTours, type TourScope } from "@/lib/queries";
+import { useSite } from "@/lib/site-context";
 
 export const Route = createFileRoute("/tours")({
   head: () => ({
@@ -41,14 +42,18 @@ const SUBTITLE: Record<TourScope, string> = {
 function AllTours() {
   const [scope, setScope] = useState<TourScope>("completed");
   const [applied, setApplied] = useState(EMPTY_TOUR_SEARCH);
+  const { site, isGroup, sites } = useSite();
+  const siteId = isGroup ? null : (site?.id ?? null);
+  const siteName = (id: string | null) => (id ? (sites.find((x) => x.id === id)?.name ?? null) : null);
 
   const search = useMemo(
     () => ({
       text: applied.text,
       from: applied.from ? new Date(`${applied.from}T00:00:00`).toISOString() : null,
       to: applied.to ? new Date(`${applied.to}T23:59:59`).toISOString() : null,
+      siteId,
     }),
-    [applied],
+    [applied, siteId],
   );
 
   // La recherche interroge toute la base, pas seulement les tours déjà affichés.
@@ -58,7 +63,7 @@ function AllTours() {
   });
 
   return (
-    <AppShell title="Tours véhicule" subtitle={SUBTITLE[scope]} back={{ to: "/tour-vehicule" }}>
+    <AppShell title="Tours véhicule" subtitle={SUBTITLE[scope]} back={{ to: "/atelier" }}>
       <TourSearchForm applied={applied} onApply={setApplied} />
 
       <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl bg-secondary p-1">
@@ -78,7 +83,7 @@ function AllTours() {
       <div className="space-y-2">
         {tours.isLoading ? <p className="text-sm text-muted-foreground">Recherche…</p> : null}
         {(tours.data ?? []).map((t) => (
-          <TourRow key={t.id} t={t} resume={t.status !== "completed"} />
+          <TourRow key={t.id} t={t} resume={t.status !== "completed"} siteLabel={siteName(t.site_id)} />
         ))}
         {tours.data?.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
