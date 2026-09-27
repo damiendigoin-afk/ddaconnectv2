@@ -100,3 +100,20 @@ export function billingAnomalies(input: { lines: WmLine[]; usages: DdaUsage[]; l
 export function creditRequiresHumanDecision(): true {
   return true;
 }
+
+/**
+ * Facture WinMotor = événement final du dossier : retrouve les commandes fournisseur portant le même
+ * n° de dossier/OR lu (part_orders.requested_or_number) sur le même site. Plusieurs véhicules différents
+ * parmi les candidats = ambigu → aucune liaison automatique (contrôle manuel).
+ */
+export type DossierOrder = { id: string; site_id: string; requested_or_number: string | null; plate: string | null; repair_order_id?: string | null };
+export function matchDossierOrders<T extends DossierOrder>(inv: { site_id: string; or_number: string | null; plate: string | null }, orders: T[]): { orders: T[]; ambiguous: boolean } {
+  const num = (inv.or_number ?? "").replace(/\D/g, "");
+  if (!num) return { orders: [], ambiguous: false };
+  const invPlate = normRef(inv.plate);
+  const cands = orders.filter((o) => o.site_id === inv.site_id && (o.requested_or_number ?? "").replace(/\D/g, "") === num);
+  const compatible = cands.filter((o) => !invPlate || !normRef(o.plate) || normRef(o.plate) === invPlate);
+  const plates = new Set(compatible.map((o) => normRef(o.plate)).filter(Boolean));
+  if (plates.size > 1 || (cands.length > 0 && compatible.length === 0)) return { orders: cands, ambiguous: true };
+  return { orders: compatible, ambiguous: false };
+}

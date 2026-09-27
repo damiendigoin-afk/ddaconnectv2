@@ -198,6 +198,7 @@ function OrControl({ siteId, orNumber }: { siteId: string; orNumber: string }) {
           <h2 className="text-xs font-bold uppercase text-muted-foreground">DDA</h2>
           {!data.orId ? <p className="text-xs text-muted-foreground">Aucun dossier atelier DDA pour cet OR.</p> : null}
           {data.orders.map((o) => <div key={o.id} className="text-xs">Commande {(o.suppliers as { name: string } | null)?.name} · {o.status}</div>)}
+          {data.dossierAmbiguous ? <div className="text-xs font-bold">{data.dossierAmbiguous} commande(s) portent ce n° de dossier avec des véhicules différents : rapprochement manuel.</div> : null}
           {usages.map((u) => {
             const full = data.usages.find((x) => x.id === u.id)!;
             const left = usageRemaining(u, links);

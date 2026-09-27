@@ -75,7 +75,11 @@ export async function orBillingBundle(siteId: string, orNumber: string) {
     orId ? supabase.from("work_time_sessions").select("started_at, stopped_at").eq("repair_order_id", orId).then((r) => r.data ?? []) : Promise.resolve([]),
     orId ? supabase.from("part_orders").select("id, status, created_at, suppliers(name), part_order_lines(physical_reference, qty_ordered, qty_received)").eq("repair_order_id", orId).then((r) => r.data ?? []) : Promise.resolve([]),
   ]);
-  return { invoices: invoices ?? [], lines: lines ?? [], orId, usages, links, sessions, orders: stockLinks };
+  // Commandes passées avec le n° de dossier lu sur le bon (sans OR DDA) : la facture les retrouve.
+  const { data: dossierRows } = await supabase.from("part_orders").select("id, site_id, requested_or_number, plate, repair_order_id, status, created_at, suppliers(name), part_order_lines(physical_reference, qty_ordered, qty_received)").eq("site_id", siteId).eq("requested_or_number", orNumber);
+  const inv0 = (invoices ?? [])[0];
+  const dossier = matchDossierOrders({ site_id: siteId, or_number: orNumber, plate: inv0?.plate ?? null }, (dossierRows ?? []).filter((o) => !stockLinks.some((s) => s.id === o.id)));
+  return { invoices: invoices ?? [], lines: lines ?? [], orId, usages, links, sessions, orders: dossier.ambiguous ? stockLinks : [...stockLinks, ...dossier.orders], dossierAmbiguous: dossier.ambiguous ? dossier.orders.length : 0 };
 }
 
 export async function loadEquivalences(): Promise<Equivalences> {
