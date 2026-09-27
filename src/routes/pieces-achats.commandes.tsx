@@ -11,7 +11,7 @@ import { OrderRow } from "@/components/parts/OrderRow";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
-import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 

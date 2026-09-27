@@ -35,3 +35,39 @@ describe("file e-mails Pièces & achats", () => {
     expect(effectiveMailSite({ site_id: null, from_address: "a@dda-lalinde.fr", to_addresses: ["b@garagecastillon.fr"] }, sites)).toBeNull();
   });
 });
+
+import { attachmentState, importDestination, mailFullyImported, pickGmailPart } from "@/lib/supplier-mail-filter";
+import { requestedDossier } from "@/lib/parts-site";
+
+describe("import pièce jointe e-mail", () => {
+  const payload = { parts: [
+    { filename: "", parts: [{ filename: "image001.png", body: { attachmentId: "IMG" } }] },
+    { filename: "APV_20260919_911817.pdf", mimeType: "application/pdf", body: { attachmentId: "A1" } },
+    { filename: "BL_2.pdf", body: { attachmentId: "A2" } },
+  ] };
+  it("retrouve la pièce Gmail par id stocké puis par nom", () => {
+    expect(pickGmailPart(payload, "x.pdf", "A2")?.filename).toBe("BL_2.pdf");
+    expect(pickGmailPart(payload, "APV_20260919_911817.pdf", null)?.body?.attachmentId).toBe("A1");
+    expect(pickGmailPart(payload, "absent.pdf", null)).toBeNull();
+  });
+  it("états : déjà ajouté, importable via Gmail, non archivé", () => {
+    expect(attachmentState({ storage_path: null, imported_doc_id: "d" }, true)).toBe("deja_ajoute");
+    expect(attachmentState({ storage_path: null, imported_doc_id: null }, true)).toBe("importable");
+    expect(attachmentState({ storage_path: null, imported_doc_id: null }, false)).toBe("non_archive");
+  });
+  it("plusieurs pièces : le mail ne sort qu'une fois toutes ajoutées, signatures ignorées", () => {
+    const atts = [{ filename: "a.pdf", imported_doc_id: "1" }, { filename: "b.pdf", imported_doc_id: null }, { filename: "image001.png", imported_doc_id: null }];
+    expect(mailFullyImported(atts)).toBe(false);
+    expect(mailFullyImported(atts.map((a) => (a.filename === "b.pdf" ? { ...a, imported_doc_id: "2" } : a)))).toBe(true);
+  });
+  it("destination selon type", () => {
+    expect(importDestination("bl")).toBe("reception");
+    expect(importDestination("facture")).toBe("facture");
+    expect(importDestination(null)).toBe("documents");
+  });
+  it("n° dossier prérempli sans OR DDA ; aucun si OR réel", () => {
+    expect(requestedDossier(null, " 48416 ")).toBe("48416");
+    expect(requestedDossier({ id: "or" }, "48416")).toBeNull();
+    expect(requestedDossier(null, "")).toBeNull();
+  });
+});
