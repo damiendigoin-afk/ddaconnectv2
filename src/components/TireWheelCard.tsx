@@ -464,7 +464,7 @@ export function TireWheelCard({
         .eq("id", vehicleId);
       void fitment.refetch();
     }
-    if (st === "watch" || st === "defect" || c.ref) await prefillOpposite({ status: st ?? undefined, ref: c.ref ?? undefined });
+    if (st === "watch" || st === "defect" || c.ref) await prefillOpposite({ ...(st ? { status: st } : {}), ...(c.ref ? { ref: c.ref } : {}) });
     toast.success(c.depth != null ? "Pneu confirmé" : "Pneu confirmé — profondeur à saisir pour noter l'usure");
   }
 
