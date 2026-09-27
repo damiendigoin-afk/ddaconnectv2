@@ -1,4 +1,4 @@
-import { finiteOrNull, formatMeasure, normalizeMeasureValue } from "@/lib/measure";
+import { formatMeasure, normalizeMeasureValue } from "@/lib/measure";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
