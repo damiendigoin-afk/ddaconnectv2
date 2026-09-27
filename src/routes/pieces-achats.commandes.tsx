@@ -210,8 +210,8 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
       <OrPicker value={orv} onChange={setOrv} />
       {requestedOr ? (
-        <p className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs font-bold">
-          OR {requestedOr} non encore importé{vehFound ? ` · véhicule ${vehFound} retrouvé` : ""} — le numéro est conservé et la commande sera rattachée automatiquement à l'import WinMotor.
+        <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
+          Dossier {requestedOr}{vehFound ? ` · véhicule ${vehFound}` : ""} — sera rapproché à la facture WinMotor.
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-2">
