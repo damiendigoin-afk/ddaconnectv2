@@ -1,5 +1,6 @@
 /** Référentiel Clients / Véhicules DDA Connect : recherche universelle et fiches. */
 import { supabase } from "@/integrations/supabase/client";
+import { coversAll, entityText, searchTokens } from "./search-tokens";
 import { normalizeName, normalizePhone, normalizeRegistration } from "./winmotor/mapping";
 
 export type RefVehicle = {
@@ -73,6 +74,79 @@ async function fetchCurrentOwnerByVehicle(vehicleIds: string[]): Promise<Map<str
   return map;
 }
 
+/** Recherche multi-termes : candidats par token, puis couples client ↔ véhicule couvrant tous les tokens. */
+async function multiTokenMatches(tokens: string[], limit: number): Promise<{ customers: RefCustomer[]; vehicles: RefVehicle[] }> {
+  const perTok = await Promise.all(
+    tokens.map((t) =>
+      Promise.all([
+        supabase
+          .from("customers")
+          .select(CUST_SELECT)
+          .or(`last_name_normalized.ilike.%${t}%,first_name_normalized.ilike.%${t}%,company_normalized.ilike.%${t}%,source_customer_id.eq.${t}`)
+          .limit(30),
+        supabase
+          .from("ref_vehicles")
+          .select(VEH_SELECT)
+          .or(`registration_normalized.ilike.%${t}%,vin_normalized.ilike.%${t}%,brand.ilike.%${t}%,model.ilike.%${t}%,range_name.ilike.%${t}%,version.ilike.%${t}%`)
+          .limit(30),
+        /\d/.test(t)
+          ? supabase.from("repair_orders").select("or_number, vehicle:vehicles(plate_normalized)").ilike("or_number", `%${t}%`).limit(10)
+          : Promise.resolve({ data: [] as { or_number: string | null; vehicle: unknown }[] }),
+      ]),
+    ),
+  );
+  const custs = new Map<string, RefCustomer>();
+  const vehs = new Map<string, RefVehicle>();
+  const orsByPlate = new Map<string, string[]>();
+  for (const [c, v, o] of perTok) {
+    for (const x of (c.data ?? []) as RefCustomer[]) custs.set(x.id, x);
+    for (const x of (v.data ?? []) as RefVehicle[]) vehs.set(x.id, x);
+    for (const x of (o.data ?? []) as { or_number: string | null; vehicle: { plate_normalized?: string | null } | null }[]) {
+      const pl = x.vehicle?.plate_normalized;
+      if (pl && x.or_number) orsByPlate.set(pl, [...(orsByPlate.get(pl) ?? []), x.or_number]);
+    }
+  }
+  const knownPlates = new Set([...vehs.values()].map((v) => v.registration_normalized));
+  const orPlates = [...orsByPlate.keys()].filter((p) => !knownPlates.has(p));
+  if (orPlates.length) {
+    const { data } = await supabase.from("ref_vehicles").select(VEH_SELECT).in("registration_normalized", orPlates.slice(0, 30));
+    for (const x of (data ?? []) as RefVehicle[]) vehs.set(x.id, x);
+  }
+  if (!custs.size && !vehs.size) return { customers: [], vehicles: [] };
+
+  const cIds = [...custs.keys()];
+  const vIds = [...vehs.keys()];
+  const { data: relData } = await supabase
+    .from("customer_vehicle_relations")
+    .select("customer_id, vehicle_id")
+    .eq("active", true)
+    .or([cIds.length ? `customer_id.in.(${cIds.join(",")})` : "", vIds.length ? `vehicle_id.in.(${vIds.join(",")})` : ""].filter(Boolean).join(","))
+    .limit(1000);
+  const rels = (relData ?? []) as { customer_id: string; vehicle_id: string }[];
+  const missC = [...new Set(rels.map((r) => r.customer_id).filter((id) => !custs.has(id)))].slice(0, 80);
+  const missV = [...new Set(rels.map((r) => r.vehicle_id).filter((id) => !vehs.has(id)))].slice(0, 80);
+  const [mc, mv] = await Promise.all([
+    missC.length ? supabase.from("customers").select(CUST_SELECT).in("id", missC) : Promise.resolve({ data: [] }),
+    missV.length ? supabase.from("ref_vehicles").select(VEH_SELECT).in("id", missV) : Promise.resolve({ data: [] }),
+  ]);
+  for (const x of (mc.data ?? []) as RefCustomer[]) custs.set(x.id, x);
+  for (const x of (mv.data ?? []) as RefVehicle[]) vehs.set(x.id, x);
+
+  const cText = (c: RefCustomer) => entityText([c.first_name, c.last_name, c.company_name, c.source_customer_id]);
+  const vText = (v: RefVehicle) =>
+    entityText([v.registration_normalized, v.vin, v.brand, v.model, v.range_name, v.version, v.source_vehicle_id, ...(orsByPlate.get(v.registration_normalized ?? "") ?? [])]);
+
+  const customers = [...custs.values()].filter((c) => {
+    const linked = rels.filter((r) => r.customer_id === c.id).map((r) => vehs.get(r.vehicle_id)).filter((v): v is RefVehicle => Boolean(v));
+    return coversAll(tokens, [cText(c), ...linked.map(vText)]);
+  });
+  const vehicles = [...vehs.values()].filter((v) => {
+    const linked = rels.filter((r) => r.vehicle_id === v.id).map((r) => custs.get(r.customer_id)).filter((c): c is RefCustomer => Boolean(c));
+    return coversAll(tokens, [vText(v), ...linked.map(cText)]);
+  });
+  return { customers: customers.slice(0, limit), vehicles: vehicles.slice(0, limit) };
+}
+
 /** Recherche universelle : immat (même partielle), nom, société, n° client,
  *  téléphone, email, VIN, n° véhicule Winmotor ou n° OR. */
 export async function universalSearch(term: string, limit = 20): Promise<SearchResult> {
@@ -117,17 +191,27 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
       .limit(5),
   ]);
 
-  const customerIds = new Set<string>((custRes.data ?? []).map((c) => c.id));
+  let custBase = (custRes.data ?? []) as RefCustomer[];
+  let vehBase = (vehRes.data ?? []) as RefVehicle[];
+  // Multi-termes : les tokens se répartissent entre client et véhicules/OR liés.
+  const tokens = searchTokens(raw);
+  if (tokens.length > 1) {
+    const mt = await multiTokenMatches(tokens, limit);
+    custBase = [...mt.customers, ...custBase.filter((c) => !mt.customers.some((m) => m.id === c.id))];
+    vehBase = [...mt.vehicles, ...vehBase.filter((v) => !mt.vehicles.some((m) => m.id === v.id))];
+  }
+
+  const customerIds = new Set<string>(custBase.map((c) => c.id));
   for (const c of (contactRes.data ?? []) as { customer_id: string }[]) customerIds.add(c.customer_id);
 
-  let customers = (custRes.data ?? []) as RefCustomer[];
+  let customers = custBase;
   const missing = [...customerIds].filter((id) => !customers.some((c) => c.id === id));
   if (missing.length) {
     const { data } = await supabase.from("customers").select(CUST_SELECT).in("id", missing);
     customers = [...customers, ...((data ?? []) as RefCustomer[])];
   }
 
-  const vehicles = (vehRes.data ?? []) as RefVehicle[];
+  const vehicles = vehBase;
 
   // véhicules des clients trouvés + client de chaque véhicule trouvé
   const relCustomerIds = customers.map((c) => c.id);
