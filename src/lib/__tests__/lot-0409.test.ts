@@ -91,7 +91,7 @@ describe("pneus : raisonnement par essieu", () => {
   it("dimension inconnue : la ligne reste exploitable en 2 pneus", () => {
     const items = groupTireItems(ctx, [wheel("pneu_avd", "Pneu AVD", null)]);
     expect(items[0]!.quantity).toBe(2);
-    expect(items[0]!.label).toContain("dimension à renseigner");
+    expect(items[0]!.label).toContain("dimension à confirmer");
   });
 });
 

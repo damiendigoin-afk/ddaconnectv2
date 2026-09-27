@@ -21,10 +21,16 @@ import { buildVehicleProfile, type VehicleProfile } from "./vehicle-profile";
 import {
   mountPackageFor,
   parseTireReference,
-  SEASON_LABEL,
   type TireQuoteOffer,
-  type TireSeason,
 } from "./tires";
+import {
+  groupTireAxles,
+  normalizeSevenChoices,
+  selectedTireChoice,
+  tireGroupTitle,
+  type TireQuoteChoice,
+  type TireQuoteComputation,
+} from "./tour-tire-groups";
 import { laborRate } from "./pricing";
 
 type PointRow = {
@@ -171,10 +177,8 @@ export async function priceTour(args: {
   }
 
   const items: PricedItem[] = [];
-  /** Pneus non chiffrés faute d'offre fournisseur : regroupés en fin de parcours. */
+  /** Tous les pneus concernés sont regroupés avant tout ajout au devis. */
   const pendingTires: { point: PointRow; priority: Priority; offersReady: number; axle?: string }[] = [];
-  /** Roues déjà couvertes par une offre groupée retenue (évite les doublons). */
-  const coveredByAxle = new Map<string, number>();
 
   for (const p of (points ?? []) as PointRow[]) {
 
@@ -223,54 +227,6 @@ export async function priceTour(args: {
     if (mapping?.kind === "pneu") {
       const axle = /_ar/.test(p.point_key) ? "arriere" : "avant";
       const pointOffers = offersByPoint.get(p.id) ?? [];
-      const selected = pointOffers.find((o) => o.selected && o.total_ttc != null);
-      if (selected) {
-        const ttc = Number(selected.total_ttc);
-        const ht = Number(selected.total_ht ?? Math.round((ttc / 1.2) * 100) / 100);
-        const qty = Number(selected.quantity ?? 1) || 1;
-        coveredByAxle.set(axle, (coveredByAxle.get(axle) ?? 0) + qty);
-        items.push({
-          ok: true,
-          needsContact: false,
-          message: "",
-          label: `${qty} pneu${qty > 1 ? "s" : ""} ${selected.brand ?? ""} ${
-            selected.model ?? ""
-          }${selected.size ? ` ${selected.size}` : ""}`.replace(/\s+/g, " ").trim(),
-
-          detail: [
-            selected.season ? SEASON_LABEL[selected.season as TireSeason] : null,
-            selected.mount_package,
-            selected.compatibility,
-            selected.availability,
-          ]
-            .filter(Boolean)
-            .join(" · "),
-          block: "mecanique",
-          priority,
-          quantity: Number(selected.quantity ?? 2),
-          hours: null,
-          unitHt: selected.sell_price_ht == null ? null : Number(selected.sell_price_ht),
-          totalHt: Math.round(ht * 100) / 100,
-          totalTtc: Math.round(ttc * 100) / 100,
-          source: "prix_fournisseur_pneu",
-          confidence: selected.compatibility === "Compatible" ? "elevee" : "moyenne",
-          originPointKey: p.point_key,
-          computation: {
-            method: "prix_public_ttc_moins_tva_puis_marge_puis_forfait_montage",
-            source_supplier: selected.supplier,
-            source_ref: selected.supplier_ref,
-            source_price_ht: selected.source_price_ht,
-            margin_ht: selected.margin_ht,
-            sell_price_ht: selected.sell_price_ht,
-            mount_package: selected.mount_package,
-            mount_total_ttc: selected.mount_total_ttc,
-            quote_offer_id: selected.id,
-          },
-        });
-        continue;
-      }
-      // Aucune offre fournisseur retenue : on ne jette pas le constat, il est
-      // regroupé en une proposition « x pneus » exploitable et modifiable.
       pendingTires.push({
         point: p,
         priority,
@@ -335,19 +291,9 @@ export async function priceTour(args: {
     }
   }
 
-  // Une offre groupée retenue (ex. 2 pneus) couvre déjà les autres roues du même
-  // essieu : on supprime les lignes doublons « 1 pneu … » restantes.
-  const remainingTires = pendingTires.filter((e) => {
-    const axle = e.axle ?? (/_ar/.test(e.point.point_key) ? "arriere" : "avant");
-    const left = coveredByAxle.get(axle) ?? 0;
-    if (left <= 0) return true;
-    coveredByAxle.set(axle, left - 1);
-    return false;
-  });
-
-  if (remainingTires.length) {
+  if (pendingTires.length) {
     const memory = await tireMemoryFor(args.inspectionId);
-    items.push(...groupTireItems(ctx, remainingTires, memory, vehicle.homologatedTireSize ?? null));
+    items.push(...buildTireGroupItems(pendingTires, offersByPoint, memory, vehicle.homologatedTireSize ?? null));
   }
 
   return { ctx, vehicle, items };
@@ -522,40 +468,15 @@ export function groupTireItems(
   memory: { front: string | null; rear: string | null } = { front: null, rear: null },
   homologated: string | null = null,
 ): PricedItem[] {
-  /** Un essieu concerné = 2 pneus identiques. Jamais 1, jamais 3. */
-  type Axle = "avant" | "arriere";
-  const axles = new Map<Axle, { size: string | null; entries: typeof pending }>();
-  for (const entry of pending) {
-    const axle: Axle = /_ar/.test(entry.point.point_key) ? "arriere" : "avant";
-    const size =
-      tireSizeOfPoint(entry.point.tire_analysis) ||
-      parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ||
-      parseTireReference(homologated).display ||
-      null;
-    const g = axles.get(axle) ?? { size, entries: [] as typeof pending };
-    if (!g.size && size) g.size = size;
-    g.entries.push(entry);
-    axles.set(axle, g);
-  }
-
-  // Deux essieux de même dimension : une seule proposition de 4 pneus.
-  const groups: { size: string | null; axles: Axle[]; entries: typeof pending }[] = [];
-  const front = axles.get("avant");
-  const rear = axles.get("arriere");
-  if (front && rear && front.size && rear.size && front.size === rear.size) {
-    groups.push({ size: front.size, axles: ["avant", "arriere"], entries: [...front.entries, ...rear.entries] });
-  } else {
-    if (front) groups.push({ size: front.size, axles: ["avant"], entries: front.entries });
-    if (rear) groups.push({ size: rear.size, axles: ["arriere"], entries: rear.entries });
-  }
+  const groups = tireGroups(pending, memory, homologated);
 
   const out: PricedItem[] = [];
   for (const g of groups) {
-    const quantity = g.axles.length * 2;
+    const quantity = g.quantity;
     const mount = mountPackageFor(ctx.packages, quantity);
-    const wheels = g.entries.map((e) => e.point.point_label).join(", ");
-    const priority: Priority = g.entries.some((e) => e.priority === "urgent") ? "urgent" : "a_surveiller";
-    const offersReady = g.entries.reduce((s, e) => s + e.offersReady, 0);
+    const wheels = g.values.map((e) => e.point.point_label).join(", ");
+    const priority: Priority = g.values.some((e) => e.priority === "urgent") ? "urgent" : "a_surveiller";
+    const offersReady = g.values.reduce((s, e) => s + e.offersReady, 0);
     const ttc = mount?.totalTtc ?? 0;
     const ht = Math.round((ttc / 1.2) * 100) / 100;
     const axleLabel = g.axles.length === 2 ? "avant et arrière" : g.axles[0] === "arriere" ? "arrière" : "avant";
@@ -565,7 +486,7 @@ export function groupTireItems(
       message: g.size
         ? "Prix pneu à compléter : offre fournisseur non disponible."
         : "Chiffrage incomplet : renseigner la dimension pneu.",
-      label: `${quantity} pneus ${g.size || "— dimension à renseigner"}`.trim(),
+      label: tireGroupTitle({ key: g.key, size: g.size, quantity }),
       detail: [
         `Essieu ${axleLabel} : remplacement par paire (constats : ${wheels})`,
         offersReady ? `${offersReady} proposition(s) fournisseur préparée(s) à retenir` : null,
@@ -587,15 +508,122 @@ export function groupTireItems(
         method: "proposition_generique_pneus",
         size: g.size,
         axles: g.axles,
-        wheels: g.entries.map((e) => e.point.point_key),
+        wheels: g.values.map((e) => e.point.point_key),
         mount_package: mount?.label ?? null,
         mount_total_ttc: mount?.totalTtc ?? null,
         tire_price_ht: null,
       },
-      originPointKey: g.entries[0]?.point.point_key ?? null,
+      originPointKey: g.values[0]?.point.point_key ?? null,
     });
   }
   return out;
+}
+
+function tireGroups(
+  pending: { point: PointRow; priority: Priority; offersReady: number }[],
+  memory: { front: string | null; rear: string | null },
+  homologated: string | null,
+) {
+  return groupTireAxles(
+    pending.map((entry) => {
+      const axle = /_ar/.test(entry.point.point_key) ? "arriere" as const : "avant" as const;
+      const size =
+        tireSizeOfPoint(entry.point.tire_analysis) ||
+        parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ||
+        parseTireReference(homologated).display ||
+        null;
+      return { axle, size, value: entry };
+    }),
+  );
+}
+
+function choiceFromRow(row: TireQuoteOffer): TireQuoteChoice | null {
+  const payload = row.initial_payload;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const p = payload as Record<string, unknown>;
+  if (typeof p["slot"] !== "string") return null;
+  return {
+    slot: p["slot"],
+    kind: p["kind"] === "identique" ? "identique" : "gamme",
+    title: typeof p["title"] === "string" ? p["title"] : p["slot"],
+    tier: (p["tier"] as TireQuoteChoice["tier"]) ?? null,
+    season: (p["season"] as TireQuoteChoice["season"]) ?? null,
+    available: p["available"] === true,
+    unavailableReason: typeof p["unavailableReason"] === "string" ? p["unavailableReason"] : "Offre indisponible",
+    brand: typeof p["brand"] === "string" ? p["brand"] : null,
+    model: typeof p["model"] === "string" ? p["model"] : null,
+    size: typeof p["size"] === "string" ? p["size"] : row.size,
+    loadIndex: typeof p["loadIndex"] === "string" ? p["loadIndex"] : row.load_index,
+    speedIndex: typeof p["speedIndex"] === "string" ? p["speedIndex"] : row.speed_index,
+    quantity: Number(p["quantity"] ?? row.quantity),
+    totalHt: p["totalHt"] == null ? row.total_ht : Number(p["totalHt"]),
+    totalTtc: p["totalTtc"] == null ? row.total_ttc : Number(p["totalTtc"]),
+    availability: typeof p["availability"] === "string" ? p["availability"] : row.availability,
+    compatibility: p["compatibility"] === "compatible" ? "compatible" : "a_confirmer",
+    compatibilityMessage: typeof p["compatibilityMessage"] === "string" ? p["compatibilityMessage"] : row.compatibility ?? "Compatibilité à confirmer",
+    offerRowId: row.id,
+  };
+}
+
+function resizeChoice(choice: TireQuoteChoice, quantity: 2 | 4): TireQuoteChoice {
+  const original = Number(choice.quantity) || 2;
+  if (original === quantity) return choice;
+  const ratio = quantity / original;
+  return {
+    ...choice,
+    quantity,
+    totalHt: choice.totalHt == null ? null : Math.round(choice.totalHt * ratio * 100) / 100,
+    totalTtc: choice.totalTtc == null ? null : Math.round(choice.totalTtc * ratio * 100) / 100,
+  };
+}
+
+export function buildTireGroupItems(
+  pending: { point: PointRow; priority: Priority; offersReady: number }[],
+  offersByPoint: Map<string, TireQuoteOffer[]>,
+  memory: { front: string | null; rear: string | null } = { front: null, rear: null },
+  homologated: string | null = null,
+): PricedItem[] {
+  return tireGroups(pending, memory, homologated).map((group) => {
+    const rows = group.values.flatMap((entry) => offersByPoint.get(entry.point.id) ?? []);
+    const choices = normalizeSevenChoices(
+      rows.map(choiceFromRow).filter((choice): choice is TireQuoteChoice => Boolean(choice)).map((choice) => resizeChoice(choice, group.quantity)),
+      group.quantity,
+      group.size,
+    );
+    const selectedRow = rows.find((row) => row.selected && row.total_ttc != null);
+    const selectedSlot = selectedRow ? choiceFromRow(selectedRow)?.slot ?? null : null;
+    const computation: TireQuoteComputation = {
+      method: "tour_tire_group",
+      tire_group: true,
+      group_key: group.key,
+      axles: group.axles,
+      point_ids: group.values.map((entry) => entry.point.id),
+      size: group.size,
+      quantity: group.quantity,
+      selected_slot: selectedSlot,
+      offers: choices,
+    };
+    const selected = selectedTireChoice(computation);
+    const priority: Priority = group.values.some((entry) => entry.priority === "urgent") ? "urgent" : "a_surveiller";
+    return {
+      ok: Boolean(selected),
+      needsContact: !selected,
+      message: group.size ? "Choisir une proposition pneu." : "Dimension à confirmer.",
+      label: tireGroupTitle(group),
+      detail: selected ? `${selected.brand ?? ""} ${selected.model ?? ""}`.trim() : "Les sept propositions restent visibles.",
+      block: "mecanique",
+      priority,
+      quantity: group.quantity,
+      hours: null,
+      unitHt: selected?.totalHt == null ? null : Math.round((selected.totalHt / group.quantity) * 100) / 100,
+      totalHt: selected?.totalHt ?? 0,
+      totalTtc: selected?.totalTtc ?? 0,
+      source: selected ? "prix_fournisseur_pneu" : "saisie_manuelle",
+      confidence: selected?.compatibility === "compatible" ? "elevee" : "faible",
+      computation,
+      originPointKey: group.values[0]?.point.point_key ?? null,
+    };
+  });
 }
 
 

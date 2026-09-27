@@ -9,6 +9,7 @@ import { Calculator, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { QuoteBlocks, type DisplayLine } from "@/components/QuoteLines";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
   createQuote,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/quotes";
 import { describeUnpricedTour, priceTour, type UnpricedObservation } from "@/lib/tour-pricing";
 import { prepareTourPricing } from "@/lib/tour-recompute";
+import { isTireQuoteComputation, type TireQuoteChoice } from "@/lib/tour-tire-groups";
 
 import type { Confidence, PriceSource, Priority, QuoteBlock } from "@/lib/pricing-engine";
 
@@ -43,6 +45,7 @@ function toDisplay(l: QuoteLine): DisplayLine {
     needsContact: l.needs_contact,
     confidence: (l.confidence as Confidence) ?? "moyenne",
     source: (l.price_source as PriceSource) ?? "saisie_manuelle",
+    computation: l.computation,
   };
 }
 
@@ -145,6 +148,42 @@ export function TourQuoteSection({
     await quote.refetch();
   }
 
+  async function selectTireOffer(line: DisplayLine, offer: TireQuoteChoice) {
+    if (!line.id || !offer.available || offer.totalTtc == null || offer.totalHt == null) return;
+    const current = isTireQuoteComputation(line.computation) ? line.computation : null;
+    if (!current) return;
+    setBusy(true);
+    try {
+      const pointIds = current.point_ids;
+      if (pointIds.length) {
+        const cleared = await supabase.from("tire_quote_offers").update({ selected: false }).in("inspection_point_id", pointIds);
+        if (cleared.error) throw cleared.error;
+      }
+      if (offer.offerRowId) {
+        const selected = await supabase.from("tire_quote_offers").update({ selected: true, final_payload: offer as never }).eq("id", offer.offerRowId);
+        if (selected.error) throw selected.error;
+      }
+      await updateLine(line.id, {
+        label: line.label,
+        detail: `${offer.brand ?? ""} ${offer.model ?? ""}`.trim(),
+        quantity: current.quantity,
+        unit_ht: Math.round((offer.totalHt / current.quantity) * 100) / 100,
+        total_ht: offer.totalHt,
+        total_ttc: offer.totalTtc,
+        price_source: "prix_fournisseur_pneu",
+        confidence: offer.compatibility === "compatible" ? "elevee" : "moyenne",
+        needs_contact: false,
+        computation: { ...current, selected_slot: offer.slot },
+      });
+      await quote.refetch();
+      toast.success("Offre pneu retenue");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Sélection impossible");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const data = quote.data;
   const lines = (data?.lines ?? []).map(toDisplay);
   const clientUrl = data ? `${window.location.origin}/devis/${data.quote.share_token}` : "";
@@ -190,7 +229,11 @@ export function TourQuoteSection({
         </p>
       ) : (
         <>
-          <QuoteBlocks lines={lines} onEdit={(l) => void editLine(l)} />
+          <QuoteBlocks
+            lines={lines}
+            onEdit={(l) => void editLine(l)}
+            onSelectTire={(line, offer) => void selectTireOffer(line, offer)}
+          />
           <p className="text-[11px] text-muted-foreground">
             Chaque ligne est modifiable (montant TTC) ou supprimable (champ laissé vide) avant validation.
             Aucun devis n'est envoyé automatiquement.

@@ -17,3 +17,4 @@
 - Pièces & achats follows the global active site (TopBar ActivePicker → usePartsCtx writeSite/readSite, rules in src/lib/parts-site.ts); no per-screen site selectors. Why: one site at a time, never write silently on the other company.
 - Measures: all measure display/save goes through src/lib/measure.ts (NaN/Infinity/empty/non-numeric => null). Why: "NaN mm" leaked into reports.
 - tslib pinned to ^2 via package.json overrides. Why: pdf-lib with tslib 1.x crashed in the server bundle (__extends/__toESM).
+- Tour tire quotes persist one grouped quote line per axle group with seven offer snapshots in computation; only selected_slot contributes to totals. Why: preserve the shared tire engine while preventing duplicate wheel lines.

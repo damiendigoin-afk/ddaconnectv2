@@ -5,9 +5,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/bits";
-import { getPublicQuote, respondQuoteLine } from "@/lib/quote-client.functions";
+import { TireOfferGrid } from "@/components/TireOfferGrid";
+import { choosePublicTireOffer, getPublicQuote, respondQuoteLine } from "@/lib/quote-client.functions";
 import { BLOCK_LABEL, CONTACT_US, PRIORITY_LABEL, type Priority, type QuoteBlock } from "@/lib/pricing-engine";
 import { RESPONSE_LABEL, type ClientResponse } from "@/lib/quotes";
+import { isTireQuoteComputation, type TireQuoteChoice } from "@/lib/tour-tire-groups";
 
 export const Route = createFileRoute("/devis/$token")({
   head: () => ({
@@ -37,6 +39,7 @@ function ClientQuote() {
   const { token } = Route.useParams();
   const load = useServerFn(getPublicQuote);
   const respond = useServerFn(respondQuoteLine);
+  const chooseTire = useServerFn(choosePublicTireOffer);
   const [comments, setComments] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -60,6 +63,20 @@ function ClientQuote() {
       toast.success("Votre réponse a bien été enregistrée.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Enregistrement impossible");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function chooseTireOffer(lineId: string, offer: TireQuoteChoice) {
+    setBusy(lineId);
+    try {
+      const result = await chooseTire({ data: { token, lineId, slot: offer.slot } });
+      if (!result.ok) throw new Error(result.error);
+      await q.refetch();
+      toast.success("Votre choix de pneus a été enregistré.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Sélection impossible");
     } finally {
       setBusy(null);
     }
@@ -128,6 +145,17 @@ function ClientQuote() {
                       )}
                     </div>
                   </div>
+
+                  {isTireQuoteComputation(l.computation) ? (
+                    <div className="mt-3">
+                      <TireOfferGrid
+                        offers={l.computation.offers}
+                        selectedSlot={l.computation.selected_slot}
+                        disabled={busy === l.id}
+                        onSelect={(offer) => void chooseTireOffer(l.id, offer)}
+                      />
+                    </div>
+                  ) : null}
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     {CHOICES.map((c) => (

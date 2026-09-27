@@ -60,3 +60,11 @@ Reste à faire :
 - [x] Réception depuis commande : lignes restantes directement préremplies
 - [x] Tests ciblés, suite complète, typecheck, build
 - [x] Publication
+
+# Chiffrage pneus Tour véhicule — essieux et 7 offres
+- [x] Regrouper les constats en PNEUS AV / PNEUS AR / 4 PNEUS, toujours par 2 ou 4
+- [x] Conserver exactement les 7 offres standard du moteur pneus existant
+- [x] Afficher et sélectionner une seule offre comptée dans l'atelier et le devis client
+- [x] Couvrir le cas CW-862-AY et les dimensions incomplètes
+- [x] Tests ciblés, suite complète, typecheck et build
+- [ ] Publication
