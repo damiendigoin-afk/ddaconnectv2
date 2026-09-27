@@ -65,11 +65,11 @@ function DropZone({ kind, site }: { kind: ImportKind; site: string | null }) {
       toast.error(e instanceof Error ? e.message : "Lecture impossible");
     } finally { setBusy(false); }
   }
-  async function validate() {
+  async function validate(reprocess = false) {
     if (!prep || !site) return;
     setBusy(true);
     try {
-      const r = await runImport(prep, site, actor.name, (done, total) => setProgress({ done, total }));
+      const r = await runImport(prep, site, actor.name, (done, total) => setProgress({ done, total }), { reprocess });
       if (r.alreadyImported) toast.info("Ce fichier exact a déjà été importé pour ce site : rien n'a été recréé.");
       else {
         if (r.storageWarning) toast.warning(r.storageWarning);
@@ -108,6 +108,8 @@ function DropZone({ kind, site }: { kind: ImportKind; site: string | null }) {
             <>
               <div>Société : <b>{siteName(site)}</b></div>
               <div>{p.rowsTotal.toLocaleString("fr-FR")} lignes · {(kind === "details" ? p.invoices.length : p.headerRows.length).toLocaleString("fr-FR")} factures · {p.orCount.toLocaleString("fr-FR")} OR</div>
+              {!p.dateMin && p.map["date"] !== undefined ? <div className="rounded-lg border-2 border-destructive p-2 font-bold text-destructive">Date de facturation non reconnue dans la colonne « {p.headers[p.map["date"]!]} » : ne validez pas sans vérifier.</div> : null}
+              {p.map["date"] === undefined ? <div className="rounded-lg border-2 border-destructive p-2 font-bold text-destructive">Date de facturation non reconnue : aucune colonne de date trouvée.</div> : null}
               <div>Dates présentes : {p.dateMin ?? "?"} → {p.dateMax ?? "?"} <span className="text-muted-foreground">(ne prouve pas que la période est complète)</span></div>
               <div>Montant HT {p.sumHt.toLocaleString("fr-FR")} €{kind === "headers" ? ` · TTC ${p.sumTtc.toLocaleString("fr-FR")} €` : " (hors en-têtes de forfait)"}</div>
               <div>Valeurs négatives : {p.negativeRows} · Lignes reconstruites : {p.recovered} · Rejets : {p.rejects.length}{p.duplicateInvoiceRows ? ` · Factures en double dans le fichier : ${p.duplicateInvoiceRows}` : ""}</div>
@@ -115,11 +117,15 @@ function DropZone({ kind, site }: { kind: ImportKind; site: string | null }) {
               <details open className="rounded-lg border-2 border-border p-2"><summary className="cursor-pointer font-bold">Correspondance des colonnes (à vérifier)</summary>{Object.entries(p.map).map(([k, i]) => <div key={k}>{k} ← « {p.headers[i]} »</div>)}<div className="text-muted-foreground">Colonnes du fichier non utilisées : {p.headers.filter((_, i) => !Object.values(p.map).includes(i)).join(" | ") || "aucune"}</div></details>
               <label className="flex items-center gap-2 font-bold"><input type="checkbox" checked={mapOk} onChange={(e) => setMapOk(e.target.checked)} />J'ai vérifié la correspondance des colonnes</label>
               {prep!.file.size > 30 * 1048576 ? <Badge tone="warn">Gros fichier : lecture complète en mémoire du navigateur (ordinateur conseillé, pas de mobile)</Badge> : null}
-              {prep!.existing ? <Badge tone="warn">{prep!.existing.status === "done" ? `Déjà importé le ${new Date(prep!.existing.created_at).toLocaleString("fr-FR")}` : "Import précédent interrompu : la validation le reprend"}</Badge> : null}
+              {prep!.existing ? <Badge tone="warn">{prep!.existing.status === "done" ? `Déjà importé le ${new Date(prep!.existing.created_at).toLocaleString("fr-FR")} — le retraitement met à jour les mêmes factures (aucun doublon) et trace un nouveau lot` : "Import précédent interrompu : la validation le reprend"}</Badge> : null}
               {progress ? <div className="font-bold">Import en cours : {progress.done.toLocaleString("fr-FR")} / {progress.total.toLocaleString("fr-FR")}</div> : null}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button className={btnGhost} onClick={() => setPrep(null)} disabled={busy}>Annuler</button>
-                <button className={btnPrimary} onClick={validate} disabled={busy || p.kind !== kind || !mapOk}>Valider l'import</button>
+                {prep!.existing?.status === "done" ? (
+                  <button className={btnPrimary} onClick={() => void validate(true)} disabled={busy || p.kind !== kind || !mapOk}>Retraiter avec le mapping actuel</button>
+                ) : (
+                  <button className={btnPrimary} onClick={() => void validate()} disabled={busy || p.kind !== kind || !mapOk}>Valider l'import</button>
+                )}
               </div>
             </>
           )}

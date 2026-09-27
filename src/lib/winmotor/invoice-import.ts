@@ -1,6 +1,6 @@
 /** Import navigateur des exports factures WinMotor : lots idempotents par hash, envoi par paquets à la base. */
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_VAT, decodeBuffer, parseExport, type ImportKind, type ParseResult } from "./invoices";
+import { DEFAULT_VAT, MAPPING_VERSION, decodeBuffer, parseExport, type ImportKind, type ParseResult } from "./invoices";
 
 export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", buf);
@@ -26,14 +26,17 @@ export async function prepareFile(file: File, siteId: string, kind: ImportKind |
 
 const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
-export async function runImport(p: Prepared, siteId: string, actorName: string, onProgress: (done: number, total: number) => void) {
-  if (p.existing?.status === "done") return { alreadyImported: true as const, batchId: p.existing.id };
+export async function runImport(p: Prepared, siteId: string, actorName: string, onProgress: (done: number, total: number) => void, opts: { reprocess?: boolean } = {}) {
+  const reprocess = !!opts.reprocess && p.existing?.status === "done";
+  if (p.existing?.status === "done" && !reprocess) return { alreadyImported: true as const, batchId: p.existing.id };
   let storageWarning: string | null = null;
-  let batchId = p.existing?.id ?? null;
+  let batchId = reprocess ? null : (p.existing?.id ?? null);
   if (!batchId) {
+    // Retraitement : nouveau lot traçé (le lot d'origine est conservé), mêmes factures mises à jour par n° de facture.
+    const fileHash = reprocess ? `${p.hash}#retraitement-${Date.now()}` : p.hash;
     const { data, error } = await supabase
       .from("winmotor_import_batches")
-      .insert({ site_id: siteId, import_type: p.parsed.kind, file_name: p.file.name, file_hash: p.hash, file_size: p.file.size, encoding: p.parsed.encoding, date_min: p.parsed.dateMin, date_max: p.parsed.dateMax, rows_total: p.parsed.rowsTotal, rows_rejected: p.parsed.rejects.length, rows_recovered: p.parsed.recovered, created_by_name: actorName })
+      .insert({ site_id: siteId, import_type: p.parsed.kind, file_name: reprocess ? `${p.file.name} (retraitement mapping ${MAPPING_VERSION})` : p.file.name, file_hash: fileHash, file_size: p.file.size, encoding: p.parsed.encoding, date_min: p.parsed.dateMin, date_max: p.parsed.dateMax, rows_total: p.parsed.rowsTotal, rows_rejected: p.parsed.rejects.length, rows_recovered: p.parsed.recovered, created_by_name: actorName, ...(reprocess ? { report: { reprocessOf: p.existing!.id, mappingVersion: MAPPING_VERSION } as never } : {}) })
       .select("id")
       .single();
     if (error) throw error;
