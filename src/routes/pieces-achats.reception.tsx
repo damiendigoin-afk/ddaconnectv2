@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
+import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders } from "@/lib/parts-site";
@@ -101,7 +102,7 @@ function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
         <button key={o.id} className="block w-full rounded-xl border-2 border-border bg-card p-3 text-left text-sm" onClick={() => onPick(o.id)}>
           <div className="flex justify-between gap-2"><b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur à préciser"}</b>{o.status === "partial" ? <Badge tone="warn">Reliquat</Badge> : null}</div>
           <div className="text-xs text-muted-foreground">
-            {siteName(o.site_id)} · {(o.repair_orders as { or_number: string | null } | null)?.or_number ? `OR ${(o.repair_orders as { or_number: string }).or_number}` : o.plate ?? "sans OR"} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
+            {siteName(o.site_id)} · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
           </div>
         </button>
       ))}
@@ -270,7 +271,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
           <p className="text-xs font-bold uppercase text-muted-foreground">Commandes en attente</p>
           {(openOrders.data ?? []).map((o) => (
             <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-sm" onClick={() => setOrderId(o.id)}>
-              <b>{(o.suppliers as { name: string } | null)?.name}</b> · {(o.repair_orders as { or_number: string | null } | null)?.or_number ? `OR ${(o.repair_orders as { or_number: string }).or_number}` : o.plate ?? "sans OR"} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
+              <b>{(o.suppliers as { name: string } | null)?.name}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
             </button>
           ))}
           {openOrders.data && !openOrders.data.length ? <p className="text-sm text-muted-foreground">Aucune commande en attente sur ce site.</p> : null}
@@ -285,8 +286,16 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
               {(docs.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.file_name} · {new Date(d.created_at).toLocaleDateString("fr-FR")}</option>)}
             </select>
           ) : null}
+          {doc ? (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border-2 border-border bg-muted p-2 text-xs md:grid-cols-5">
+              <p>Fournisseur<br /><b>{matchSupplier(x.supplier, suppliers.data ?? [])?.name ?? x.supplier ?? "—"}</b></p>
+              <p>BL n°<br /><b>{x.delivery_note_number ?? x.document_number ?? "—"}</b></p>
+              <p>N° commande fournisseur<br /><b>{x.order_reference && x.order_reference !== x.or_number ? x.order_reference : "—"}</b></p>
+              <p>N° dossier / OR WinMotor<br /><b>{orv.or?.or_number ?? (dossier || x.or_number) ?? "—"}</b></p>
+              <p>Immatriculation<br /><b>{orv.plate || x.plate || "—"}</b></p>
+            </div>
+          ) : null}
           <OrPicker value={orv} onChange={setOrv} initialNumber={x.or_number ?? null} onNumberChange={setDossier} />
-          {x.order_reference || x.document_number ? <p className="text-xs">Réf. BL / commande : <b>{x.document_number ?? x.order_reference}</b></p> : null}
           {!orv.or ? (
             <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
               {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}Les pièces « Pour l'OR » entrent en stock, destination à régulariser.

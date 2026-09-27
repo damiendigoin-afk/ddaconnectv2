@@ -5,6 +5,7 @@ import { mailFullyImported, operationalMails } from "@/lib/supplier-mail-filter"
  */
 import { supabase } from "@/integrations/supabase/client";
 import { extensionOf, rejectReason } from "@/lib/documents";
+import { dedupeDocs } from "@/lib/receipt-lines";
 
 export const SUPPLIER_DOC_TYPE = "facture_fournisseur";
 const BUCKET = "dda-media";
@@ -68,6 +69,8 @@ export type SupplierDoc = {
   extracted: InvoiceExtract;
 };
 
+const DOC_COLS = "id,file_name,storage_path,mime_type,status,note,plate,customer_name,linked_kind,linked_id,site_id,created_at,extracted";
+
 function toExtract(value: unknown): InvoiceExtract {
   return value && typeof value === "object" ? (value as InvoiceExtract) : {};
 }
@@ -102,6 +105,13 @@ export async function uploadSupplierDoc(opts: {
 }): Promise<SupplierDoc> {
   const reason = rejectReason(opts.file);
   if (reason) throw new Error(reason);
+  // Anti-doublon : même fichier (SHA-256) sur le même site → document existant réutilisé.
+  const hashBuf = await crypto.subtle.digest("SHA-256", await opts.file.arrayBuffer());
+  const contentHash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  let dq = supabase.from("inbox_documents").select(DOC_COLS).eq("content_hash", contentHash).eq("doc_type", opts.docType ?? SUPPLIER_DOC_TYPE).neq("status", "doublon").order("created_at", { ascending: false }).limit(1);
+  dq = opts.siteId ? dq.eq("site_id", opts.siteId) : dq.is("site_id", null);
+  const { data: same } = await dq;
+  if (same?.[0]) return { ...same[0], extracted: toExtract(same[0].extracted) };
   const path = `fournisseurs/${crypto.randomUUID()}.${extensionOf(opts.file.name)}`;
   const up = await supabase.storage.from(BUCKET).upload(path, opts.file, {
     contentType: opts.file.type || "application/octet-stream",
@@ -127,6 +137,7 @@ export async function uploadSupplierDoc(opts: {
       created_by_name: opts.userName ?? null,
       source_email_id: opts.sourceEmailId ?? null,
       source_email_attachment_id: opts.sourceEmailAttachmentId ?? null,
+      content_hash: contentHash,
     })
     .select(
       "id,file_name,storage_path,mime_type,status,note,plate,customer_name,linked_kind,linked_id,site_id,created_at,extracted",
@@ -193,7 +204,8 @@ export async function fetchPendingSupplierDocs(siteId: string | null): Promise<S
   if (siteId) q = q.or(`site_id.eq.${siteId},site_id.is.null`);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []).map((d) => ({ ...d, extracted: toExtract(d.extracted) }));
+  // Une seule carte par document strictement identique (statut « doublon » exclu par le filtre de statut).
+  return dedupeDocs((data ?? []).map((d) => ({ ...d, extracted: toExtract(d.extracted) })));
 }
 
 export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; to_addresses: string[] | null; cc_addresses: string[] | null; body_text: string | null; snippet: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; effective_site_id: string | null; files: string[]; attachments: MailAttachment[] };

@@ -14,7 +14,7 @@ import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { fetchPendingSupplierDocs, fetchSupplierMails, importEmailAttachment, statusLabel, uploadSupplierDoc, type MailAttachment, type SupplierMail } from "@/lib/supplier-docs";
 import { fetchEmailAttachment, openEmailAttachment } from "@/lib/email-attachment.functions";
 import { importDestination } from "@/lib/supplier-mail-filter";
-import { mailDetail, previewAttachment } from "@/lib/receipt-lines";
+import { mailDetail } from "@/lib/receipt-lines";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/pieces-achats/documents")({
