@@ -19,7 +19,7 @@ import { StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { insertOffersResilient, offerRows } from "@/lib/tour-recompute";
 import { useAuth } from "@/lib/auth";
-import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
+import { uploadPhoto } from "@/lib/photo";
 import type { CommercialSettings, ServicePackage } from "@/lib/pricing-engine";
 import { ocrTirePhoto } from "@/lib/tire-ocr.client";
 import { consolidateWheelOcr, wheelOcrSummary, type TireOcrRead, type WheelOcr } from "@/lib/tire-ocr-parse";
@@ -139,16 +139,6 @@ function readStored(value: unknown): Stored {
     confirmedRef: v.confirmedRef ?? null,
     ocr: v.ocr ?? null,
   };
-}
-
-/** Empreinte locale et rapide d'un lot de photos (aucun coût, aucun réseau). */
-function hashOf(parts: string[]): string {
-  let h = 0;
-  const joined = parts.join("|");
-  for (let i = 0; i < joined.length; i += 1) {
-    h = (h * 31 + joined.charCodeAt(i)) | 0;
-  }
-  return `${joined.length}:${h}`;
 }
 
 /** Construit « 195/55 R16 87H » à partir des éléments disponibles. */
