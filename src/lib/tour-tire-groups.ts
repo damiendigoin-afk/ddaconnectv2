@@ -3,10 +3,10 @@ import { parseTireReference, type SevenOffer, type TireSeason, type TireTier } f
 export const STANDARD_TIRE_SLOTS = [
   "identique",
   "entree_ete",
-  "milieu_ete",
-  "haut_ete",
   "entree_quatre_saisons",
+  "milieu_ete",
   "milieu_quatre_saisons",
+  "haut_ete",
   "haut_quatre_saisons",
 ] as const;
 
