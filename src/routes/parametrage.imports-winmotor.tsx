@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { Badge, btnGhost, btnPrimary, usePartsCtx, WriteSiteSelect } from "@/components/parts/PartsUi";
-import { listBatches, listRejects, prepareFile, runImport, type Prepared } from "@/lib/winmotor/invoice-import";
+import { listBatches, listRejects, prepareFile, reprocessHeadersFromRaw, runImport, type Prepared } from "@/lib/winmotor/invoice-import";
 import type { ImportKind } from "@/lib/winmotor/invoices";
 
 export const Route = createFileRoute("/parametrage/imports-winmotor")({
@@ -140,6 +140,19 @@ function History() {
   const q = useQuery({ queryKey: ["wm-batches"], queryFn: listBatches });
   const [open, setOpen] = useState<string | null>(null);
   const rej = useQuery({ queryKey: ["wm-rejects", open], enabled: !!open, queryFn: () => listRejects(open!) });
+  const qc = useQueryClient();
+  const { actor } = usePartsCtx();
+  const [run, setRun] = useState<{ id: string; text: string } | null>(null);
+  async function reprocess(b: { id: string; site_id: string; file_name: string; file_hash: string; report: unknown }) {
+    if (!confirm("Retraiter ce lot avec le mapping actuel à partir des données déjà enregistrées ? Les mêmes factures sont mises à jour, sans doublon ; les fiches modifiées à la main ne sont pas touchées.")) return;
+    setRun({ id: b.id, text: "Démarrage…" });
+    try {
+      const r = await reprocessHeadersFromRaw(b, actor.name, (d, t, ph) => setRun({ id: b.id, text: `${ph} : ${d.toLocaleString("fr-FR")} / ${t.toLocaleString("fr-FR")}` }));
+      toast.success(`Retraitement terminé : ${r.updated} mise(s) à jour, ${r.unchanged} inchangée(s), ${r.created} nouvelle(s). Période ${r.dateMin ?? "?"} → ${r.dateMax ?? "?"}.`);
+    } catch (e) {
+      toast.error(`Retraitement interrompu : ${e instanceof Error ? e.message : "erreur"}. Il peut être relancé sans doublon.`);
+    } finally { setRun(null); qc.invalidateQueries({ queryKey: ["wm-batches"] }); }
+  }
   return (
     <section className="space-y-2">
       <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Historique des imports</h2>
@@ -152,6 +165,10 @@ function History() {
           </div>
           <div className="text-muted-foreground">{b.file_name} · {new Date(b.created_at).toLocaleString("fr-FR")} · {b.created_by_name} · empreinte {b.file_hash.slice(0, 10)}…</div>
           <div>Période observée {b.date_min ?? "?"} → {b.date_max ?? "?"} · {b.rows_total} lignes · {b.invoices_seen} factures ({b.invoices_created} nouvelles, {b.invoices_updated} mises à jour, {b.invoices_unchanged} inchangées){b.lines_inserted ? ` · ${b.lines_inserted} lignes` : ""}</div>
+          {b.import_type === "headers" && b.status === "done" && !b.file_hash.includes("#") ? (
+            run?.id === b.id ? <div className="font-bold">Retraitement en cours — {run.text}</div>
+              : <button className="font-bold underline" disabled={!!run} onClick={() => void reprocess(b)}>Retraiter avec le mapping actuel (sans réimporter le fichier)</button>
+          ) : null}
           {b.rows_rejected ? <button className="underline" onClick={() => setOpen(open === b.id ? null : b.id)}>{b.rows_rejected} rejet(s) — voir</button> : null}
           {open === b.id ? (rej.data ?? []).map((r, i) => <div key={i} className="truncate text-destructive">L{r.line_no} : {r.reason} — {r.raw_text}</div>) : null}
         </div>

@@ -250,15 +250,18 @@ export type ParseResult = {
   sumHt: number;
   sumTtc: number;
   duplicateInvoiceRows: number;
+  /** Caractères de contrôle supprimés (NUL, etc.) : incompatibles avec PostgreSQL/JSONB. */
+  sanitizedChars: number;
 };
 
-export function parseExport(text: string, kind: ImportKind | null, encoding = "UTF-8", vat: Record<string, number> = DEFAULT_VAT): ParseResult {
+export function parseExport(rawText: string, kind: ImportKind | null, encoding = "UTF-8", vat: Record<string, number> = DEFAULT_VAT): ParseResult {
+  const { text, removed } = sanitizeText(rawText);
   const it = iterRecords(text, ";");
   const first = it.next();
   const headers = first.done ? [] : first.value.fields.map((h) => h.trim());
   const k: ImportKind = kind ?? detectKind(headers) ?? "details";
   const { map, missing } = resolveColumns(headers, k);
-  const res: ParseResult = { kind: k, encoding, headers, map, missing, rowsTotal: 0, recovered: 0, rejects: [], dateMin: null, dateMax: null, invoices: [], headerRows: [], orCount: 0, negativeRows: 0, sumHt: 0, sumTtc: 0, duplicateInvoiceRows: 0 };
+  const res: ParseResult = { kind: k, encoding, headers, map, missing, rowsTotal: 0, recovered: 0, rejects: [], dateMin: null, dateMax: null, invoices: [], headerRows: [], orCount: 0, negativeRows: 0, sumHt: 0, sumTtc: 0, duplicateInvoiceRows: 0, sanitizedChars: removed };
   if (missing.length) return res;
   const g = (f: string[], key: string) => (map[key] !== undefined ? (f[map[key]!] ?? "").trim() : "");
   const byInv = new Map<string, DetailInvoice>();
@@ -361,4 +364,32 @@ export function isLegacyMisMappedCustomer(c: { source_system: string | null; las
   if (c.source_system !== "winmotor" || c.last_name || c.company_name || !rawFullName) return false;
   if (c.first_name !== rawFullName) return false;
   return new Date(c.updated_at).getTime() - new Date(c.created_at).getTime() <= 60_000;
+}
+
+/**
+ * Caractères refusés par PostgreSQL (U+0000 → « unsupported Unicode escape sequence ») ou parasites :
+ * contrôles C0 sauf tabulation/retours ligne, DEL, et contrôles C1. Accents et caractères français intacts.
+ */
+// eslint-disable-next-line no-control-regex
+const BAD_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
+export function sanitizeText(s: string): { text: string; removed: number } {
+  let removed = 0;
+  const text = s.replace(BAD_CHARS, () => { removed++; return ""; });
+  return { text, removed };
+}
+/** Nettoyage profond d'une charge JSON avant envoi RPC (filet de sécurité). */
+export function sanitizeDeep<T>(v: T, counter = { n: 0 }): T {
+  if (typeof v === "string") { const r = sanitizeText(v); counter.n += r.removed; return r.text as T; }
+  if (Array.isArray(v)) return v.map((x) => sanitizeDeep(x, counter)) as T;
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [sanitizeText(k).text, sanitizeDeep(x, counter)])) as T;
+  return v;
+}
+
+/** Recompose un CSV `;` depuis des lignes brutes (clé = en-tête réel) pour retraiter sans réupload. */
+export function rawRowsToCsv(rows: Record<string, string>[]): string {
+  const headers: string[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) for (const k of Object.keys(r)) if (!seen.has(k)) { seen.add(k); headers.push(k); }
+  const q = (v: string) => (/[;"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  return [headers.map(q).join(";"), ...rows.map((r) => headers.map((h) => q(r[h] ?? "")).join(";"))].join("\n");
 }
