@@ -1,6 +1,6 @@
 /** Import navigateur des exports factures WinMotor : lots idempotents par hash, envoi par paquets à la base. */
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_VAT, decodeBuffer, parseExport, type ImportKind, type ParseResult } from "./invoices";
+import { DEFAULT_VAT, MAPPING_VERSION, decodeBuffer, parseExport, type ImportKind, type ParseResult } from "./invoices";
 
 export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", buf);
