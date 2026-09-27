@@ -1,0 +1,2 @@
+ALTER TABLE public.part_orders ADD COLUMN IF NOT EXISTS requested_or_number text;
+CREATE INDEX IF NOT EXISTS part_orders_requested_or_idx ON public.part_orders (site_id, requested_or_number) WHERE requested_or_number IS NOT NULL AND repair_order_id IS NULL;
