@@ -57,6 +57,7 @@ export type ReportData = {
     measure_unit: string | null;
     comment: string | null;
     client_comment: string | null;
+    tire_analysis?: unknown;
   }[];
   observations: {
     id: string;
@@ -85,7 +86,7 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
     supabase
       .from("inspection_points")
       .select(
-        "id, point_key, ct_due_date, pollution_due_date, zone_index, zone_label, point_label, status, measure_value, measure_unit, comment, client_comment",
+        "id, point_key, ct_due_date, pollution_due_date, zone_index, zone_label, point_label, status, measure_value, measure_unit, comment, client_comment, tire_analysis",
       )
       .eq("inspection_id", insp.id)
       .order("zone_index"),

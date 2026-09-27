@@ -119,6 +119,25 @@ export function ReportBody({
     d.media.filter((m) => m[key] === id);
 
   const lightbox = useLightbox();
+  // Détail : zones repliées par défaut, dépliables une à une ou toutes ensemble.
+  const accordion = detailed && !clientView;
+  const [openZones, setOpenZones] = useState<Set<number>>(new Set());
+  const toggleZone = (zi: number, open: boolean) =>
+    setOpenZones((prev) => {
+      const next = new Set(prev);
+      if (open) next.add(zi);
+      else next.delete(zi);
+      return next;
+    });
+  const zoneSummary = (zi: number) => {
+    const all = d.points.filter((p) => p.zone_index === zi);
+    const ok = all.filter((p) => p.status === "ok").length;
+    const watch = all.filter((p) => p.status === "watch").length;
+    const defect = all.filter((p) => p.status === "defect").length;
+    const ids = new Set(all.map((p) => p.id));
+    const photos = d.media.filter((m) => m.inspection_point_id && ids.has(m.inspection_point_id)).length;
+    return `${ok} OK · ${watch} à surveiller · ${defect} défaut · ${photos} photo${photos > 1 ? "s" : ""}`;
+  };
   const openPhotos = (media: ReportMedia[], i: number, label: string) =>
     lightbox.open(
       media.map((m) => ({ path: m.storage_path, label })),
@@ -185,15 +204,29 @@ export function ReportBody({
         </section>
       ) : null}
 
+      {accordion ? (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setOpenZones(new Set(zones))}
+            className="flex-1 rounded-lg border-2 border-border bg-card px-3 py-2 text-xs font-bold uppercase"
+          >
+            Tout déplier
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpenZones(new Set())}
+            className="flex-1 rounded-lg border-2 border-border bg-card px-3 py-2 text-xs font-bold uppercase"
+          >
+            Tout replier
+          </button>
+        </div>
+      ) : null}
+
       {zones.map((zi) => {
         const pts = visiblePoints(zi);
         if (pts.length === 0) return null;
-        return (
-          <section key={zi} className="space-y-2">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              {pts[0]!.zone_label}
-            </h2>
-            {pts.map((p) => (
+        const body = pts.map((p) => (
               <div key={p.id} className="card-surface space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-semibold">{p.point_label}</span>
@@ -240,7 +273,29 @@ export function ReportBody({
                   />
                 )}
               </div>
-            ))}
+            ));
+        if (accordion) {
+          return (
+            <details
+              key={zi}
+              open={openZones.has(zi)}
+              onToggle={(e) => toggleZone(zi, (e.currentTarget as HTMLDetailsElement).open)}
+              className="card-surface p-3"
+            >
+              <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-widest">{pts[0]!.zone_label}</span>
+                <span className="text-[11px] text-muted-foreground">{zoneSummary(zi)}</span>
+              </summary>
+              {openZones.has(zi) ? <div className="mt-3 space-y-2">{body}</div> : null}
+            </details>
+          );
+        }
+        return (
+          <section key={zi} className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              {pts[0]!.zone_label}
+            </h2>
+            {body}
           </section>
         );
       })}
@@ -360,16 +415,20 @@ function ItemEditor({
   return (
     <div className="space-y-2 rounded-lg border-2 border-border p-2">
       <StatusPicker value={st} onChange={setSt} compact />
-      {measureValue != null || measureUnit ? (
+      {normalizeMeasureValue(measureValue, measureUnit) != null || measureUnit ? (
         <div className="flex items-center gap-2">
           <input
             inputMode="decimal"
             value={measure}
             onChange={(e) => setMeasure(e.target.value)}
             aria-label="Mesure"
+            placeholder={measureUnit ? `Mesure (${measureUnit})` : "Mesure"}
             className="w-24 rounded-lg border-2 border-border bg-card px-2 py-2 text-center text-sm outline-none focus:border-brand"
           />
-          <span className="text-xs font-semibold text-muted-foreground">{measureUnit ?? ""}</span>
+          {/* Jamais d'unité seule : affichée uniquement avec une valeur valide. */}
+          {normalizeMeasureValue(measure, measureUnit) != null && measureUnit ? (
+            <span className="text-xs font-semibold text-muted-foreground">{measureUnit}</span>
+          ) : null}
         </div>
       ) : null}
       <textarea

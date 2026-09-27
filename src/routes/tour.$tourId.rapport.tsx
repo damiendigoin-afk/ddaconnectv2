@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { archiveTour, deleteTour, unarchiveTour } from "@/lib/tour-admin";
 import { ReportBody, Summary } from "@/components/ReportView";
 import { TourQuoteSection } from "@/components/TourQuoteSection";
+import { TireAxleSummary } from "@/components/TireAxleSummary";
 
 export const Route = createFileRoute("/tour/$tourId/rapport")({
   head: () => ({
@@ -36,7 +37,7 @@ function ReportPage() {
   const qc = useQueryClient();
   const { user, displayName, isManager } = useAuth();
   const navigate = Route.useNavigate();
-  const [detailed, setDetailed] = useState(true);
+  const [detailed, setDetailed] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
 
   const [sendToClient, setSendToClient] = useState(false);
@@ -188,6 +189,8 @@ function ReportPage() {
           onDeleted={() => navigate({ to: "/tours" })}
           actor={{ userId: user?.id ?? null, userName: displayName || null }}
         />
+
+        <TireAxleSummary points={d.points} media={d.media} />
 
         <TourQuoteSection
           inspectionId={d.inspection.id}
