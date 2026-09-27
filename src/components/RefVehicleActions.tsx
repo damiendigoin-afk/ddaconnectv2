@@ -69,7 +69,7 @@ function IxellioFill({ vehicle, onDone }: { vehicle: Veh; onDone: () => void }) 
     setSaving(true);
     try {
       await saveRefVehicle(supabase as never, vehicle.id, plan.patch);
-      await logChanges({ entity: "vehicle", entityId: vehicle.id, before: vehicle, after: plan.patch, userId: user?.id, userName: displayName || null });
+      await logChanges({ entity: "vehicle", entityId: vehicle.id, before: vehicle, after: plan.patch, userId: user?.id ?? null, userName: displayName || null });
       toast.success(`${plan.toAdd.length} champ(s) complété(s) depuis IXELLIO`);
       await refresh();
       onDone();
@@ -148,7 +148,7 @@ function EditForm({ vehicle, onDone }: { vehicle: Veh; onDone: () => void }) {
     setSaving(true);
     try {
       await saveRefVehicle(supabase as never, vehicle.id, patch);
-      await logChanges({ entity: "vehicle", entityId: vehicle.id, before: vehicle, after: patch, userId: user?.id, userName: displayName || null });
+      await logChanges({ entity: "vehicle", entityId: vehicle.id, before: vehicle, after: patch, userId: user?.id ?? null, userName: displayName || null });
       toast.success("Fiche véhicule mise à jour");
       await refresh();
       onDone();
