@@ -1,43 +1,32 @@
-# Analyse CW-862-AY — constats (lecture seule, rien modifié ni publié)
+# Audit IA du 27/09 — résultat (lecture seule, aucune modification)
 
-## 1) Pourquoi PNEUS AV reste « dimension à confirmer »
+Aucun code modifié, aucune publication, aucun appel IA déclenché. Sources : journal d'usage IA de DDA, cache IA (réponses enregistrées), photos, points et kilométrages du tour CW-862-AY, journal de la passerelle IA.
 
-Points pneus en base (inspection 90726d96…):
+## Les 3 appels `vision` (17:13:50, 17:14:47, 17:16:06) — confiance élevée
 
-| Point | Statut | Mesure | Dimension (tire_analysis final / ai) |
-|---|---|---|---|
-| pneu_avd | watch | — | aucune (pas d'analyse) |
-| pneu_avg | ok | 3 mm | 155/65R14 / 155/65R14 |
-| pneu_arg | watch | — (NaN neutralisé) | 155/65R14 / 155/65R14 |
-| pneu_ard | watch | — | aucune |
-| etiquette_pneus | unset | — | tire_label vide |
+- Écran : **Atelier > Scanner une plaque** (fonction `ocrPlate`, seule à utiliser ce libellé sur cet écran).
+- Preuve : les 3 réponses en cache sont identiques, `{"plate":"CW-862-AY","confidence":0.95}`. Ce sont 3 photos différentes (empreintes distinctes, 0 réutilisation du cache), donc 3 prises de plaque successives.
+- Suite de l'enchaînement : dossier DDA-2026-00129 créé à 17:16:54 avec le kilométrage 189 444, puis le tour créé à 17:17:06. Les 3 lectures ont donc eu lieu avant le tour, pendant l'ouverture du dossier.
+- Limite : le journal n'enregistre ni l'utilisateur ni la raison des 2 reprises. Le résultat était le même les 3 fois, et le cache n'a pas servi parce que les photos différaient.
 
-Autres sources: véhicule Peugeot 1.0 12V (2005): `tire_size_front` et `tire_size_rear` vides. Aucune offre `tire_quote_offers` sur un point avant. Pas de taille homologuée exploitable.
+## Les 2 appels `tire_wheel` — confirmés
 
-Cause (code `tireGroups` dans tour-pricing): la dimension d'un bloc ne vient que des pneus signalés (defect/watch). À l'avant, seul pneu_avd est signalé et n'a pas d'analyse. Ensuite viennent la mémoire véhicule et la taille homologuée, toutes deux vides. pneu_avg, qui a la dimension 155/65R14, est « OK » : il n'est jamais lu.
+- 17:18:22 : pneu avant gauche, 3 photos prises à 17:18:00–02. Lecture : 155/65R14 75T, 3 mm.
+- 17:21:29 : pneu arrière gauche, 3 photos prises à 17:21:06–08. Lecture : Cooper 155/65R14.
 
-Peut-on trouver l'avant sans inventer ? Oui : la dimension a été relevée sur pneu_avg, sur le même essieu (même monte gauche/droite). La réutiliser pour pneu_avd n'invente rien. On aurait alors AV 155/65R14 = AR 155/65R14. Selon la règle, cela donnerait un seul bloc « 4 PNEUS ». Changer la règle (lire aussi les pneus OK du même essieu) reste une décision à valider par vous.
+## `supplier_invoice` 16:14:46 — confirmé
 
-## 2) Message PDF `__extends` dans la notification Front Office
+- Écran : Pièces & achats, lecture d'un document fournisseur.
+- Document : bon de livraison FAURIE AUTO SARLAT n° 914730 du 25/09, commande 45841139, OR 50878.
+- 16:26:15 et 16:26:41 : réponses reprises du cache, 0 crédit.
 
-- Il n'existe qu'une ligne de notification: id 4b1db002…, status `sent`, sent_at 15:23:52 UTC (17:23:52 heure de Paris), photo_count 6, updated_at 15:36:34.
-- Le texte d'erreur est celui de cet envoi de 17:23:52. Le 15:36 correspond à la correction du compteur de photos (0 passé à 6). Aucun renvoi n'a eu lieu depuis le correctif.
-- Le correctif est bien présent dans le code : `tslib` passe en 2.8.1 via les overrides, et un vrai %PDF a été produit par le test serveur. En revanche, la production ne l'a pas encore prouvé : aucun envoi n'a été fait après la publication. Seul un renvoi manuel le confirmera : une nouvelle ligne sans erreur s'ajoutera, et l'ancienne restera dans l'historique.
+## Totaux
 
-## 3) Chiffrage arrière
+- Total des lignes fournies : 0,17 + 0,19 + 0,04 + 0,03 + 0,03 + 0,16 = **0,62 crédit**, estimé par DDA.
+- Coût facturé par la passerelle IA pour ces 6 mêmes appels : **0,183 crédit** (0,0188 + 0,0203 + 0,0193 + 0,0154 + 0,0154 + 0,0933).
+- Mon audit précédent (environ 0,41 crédit pour les 9 appels du jour) reprenait le coût facturé, pas l'estimation de DDA. Il ne sous-estimait donc pas ce qui est facturé. L'estimation affichée dans DDA est environ 3 fois plus élevée que le coût réel.
 
-- tire_quote_offers (pneu_arg, créées à 15:23:57) : exactement 7 lignes, sans doublon.
-  - identique Cooper hiver 167,78 € — **sélectionnée**
-  - Été entrée Sailun 134,95 € ; Été milieu Kleber (sans prix) ; Été haut Michelin (sans prix)
-  - 4 saisons entrée Sailun 136,13 € ; milieu Kleber 156,29 € ; haut Michelin (sans prix)
-  - Aucune offre hiver parmi les 6 alternatives.
-- Devis :
-  - Ancien devis b8d9514e (15:23:58, brouillon) : 175,78 €. Il contient les 2 anciennes lignes (Cooper 167,78 € et une ligne générique à 8 €). Il est conservé, rien n'a été supprimé.
-  - Nouveau devis 59d1c54b (16:04:10, brouillon) : **167,78 €**.
-    - « PNEUS AR — 155/65 R14 — 2 pneus » : 7 offres, choix retenu = Équivalence, 167,78 €.
-    - « PNEUS AV — dimension à confirmer — 2 pneus » : 7 cases, 0 € (aucun prix inventé).
-- Conclusion : l'arrière est correct, et le total ne compte que l'offre retenue. Point de vigilance : 3 des alternatives n'ont pas de prix fournisseur. Elles doivent s'afficher comme indisponibles.
+## Suite possible (non incluse, à demander)
 
-## Suite proposée (seulement si vous validez)
-1. Pour la dimension, tenir compte aussi d'un pneu « OK » du même essieu qui a une dimension relevée. Avec cette règle, CW-862-AY passerait en « 4 PNEUS 155/65R14 ». Tests à l'appui.
-2. Faire un renvoi manuel Front Office pour prouver que le PDF est généré en production.
+- Enregistrer l'utilisateur et l'écran dans le journal d'usage IA.
+- Aligner l'estimation de DDA sur le coût réel facturé.
