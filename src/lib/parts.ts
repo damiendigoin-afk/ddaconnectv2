@@ -220,7 +220,7 @@ export async function allocateToOr(a: { articleId: string; siteId: string; orId:
 export type OrderLineInput = { line_kind: "part" | "fee" | "deposit"; physical_reference: string; designation: string; qty_ordered: number | null; expected_unit_cost_ht: number | null };
 
 export async function createOrder(
-  o: { site_id: string; supplier_id: string | null; source_document_id?: string | null; order_mode: "simplified" | "detailed"; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; appointment_date: string | null; supplier_order_ref: string | null; comment: string | null; lines: OrderLineInput[] },
+  o: { site_id: string; supplier_id: string | null; source_document_id?: string | null; order_mode: "simplified" | "detailed"; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; appointment_date: string | null; supplier_order_ref: string | null; comment: string | null; requested_or_number?: string | null; lines: OrderLineInput[] },
   actor: Actor,
 ) {
   const { lines, ...head } = o;
@@ -493,6 +493,7 @@ export const REGUL_LABELS: Record<string, string> = {
   travaux_forces: "Travaux terminés forcés",
   reference_a_completer: "Référence à compléter",
   commande_sans_fournisseur: "Commande sans fournisseur",
+  or_non_importe: "OR non encore importé (rattachement auto à l'import)",
   reception_sans_commande: "Réception sans commande DDA",
 };
 
@@ -511,7 +512,29 @@ export type RegulItem = {
   source_id: string | null;
 };
 
+/**
+ * Rattachement ultérieur : commandes portant un n° d'OR lu mais pas encore importé.
+ * Dès qu'un OR WinMotor du même site porte ce numéro, la commande y est liée et la régularisation close.
+ */
+export async function linkPendingOrOrders(siteId: string | null): Promise<number> {
+  let q = supabase.from("part_orders").select("id, site_id, requested_or_number").is("repair_order_id", null).not("requested_or_number", "is", null).limit(200);
+  if (siteId) q = q.eq("site_id", siteId);
+  const { data } = await q;
+  let n = 0;
+  for (const o of data ?? []) {
+    const { data: ors } = await supabase.from("repair_orders").select("id").eq("site_id", o.site_id).eq("or_number", o.requested_or_number!).limit(2);
+    if (ors?.length !== 1) continue; // jamais d'OR inventé ni de choix ambigu
+    const orId = ors[0]!.id;
+    const { error } = await supabase.from("part_orders").update({ repair_order_id: orId }).eq("id", o.id).is("repair_order_id", null);
+    if (error) continue;
+    await supabase.from("parts_regularizations").update({ status: "closed", repair_order_id: orId, closed_at: new Date().toISOString(), closed_by_name: "Rattachement automatique", closing_comment: `OR ${o.requested_or_number} importé` }).eq("kind", "or_non_importe").eq("source_id", o.id).eq("status", "open");
+    n++;
+  }
+  return n;
+}
+
 export async function listRegularizations(siteId: string | null): Promise<RegulItem[]> {
+  try { await linkPendingOrOrders(siteId); } catch { /* non bloquant */ }
   let q = supabase.from("parts_regularizations").select("*, suppliers(name), repair_orders(or_number)").order("created_at", { ascending: false }).limit(500);
   if (siteId) q = q.eq("site_id", siteId);
   const { data } = await q;

@@ -4121,6 +4121,7 @@ export type Database = {
           order_mode: string
           plate: string | null
           repair_order_id: string | null
+          requested_or_number: string | null
           site_id: string
           source_document_id: string | null
           status: string
@@ -4140,6 +4141,7 @@ export type Database = {
           order_mode?: string
           plate?: string | null
           repair_order_id?: string | null
+          requested_or_number?: string | null
           site_id: string
           source_document_id?: string | null
           status?: string
@@ -4159,6 +4161,7 @@ export type Database = {
           order_mode?: string
           plate?: string | null
           repair_order_id?: string | null
+          requested_or_number?: string | null
           site_id?: string
           source_document_id?: string | null
           status?: string

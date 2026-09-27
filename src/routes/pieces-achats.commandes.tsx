@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { autoSupplier } from "@/lib/order-supplier";
+import { findRefVehicleByPlate } from "@/lib/refbase";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,12 +114,25 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const [stockHits, setStockHits] = useState<Record<number, StockRow[]>>({});
   const [busy, setBusy] = useState(false);
   const [orLooked, setOrLooked] = useState(false);
+  const [vehFound, setVehFound] = useState<string | null>(null);
 
   // OR lu sur le document : rattachement automatique s'il existe dans DDA (jamais de création d'OR).
-  if (doc && !orLooked && x.or_number) {
+  // Sinon, plaque imprimée → véhicule DDA rattaché ; le n° d'OR est conservé pour rattachement ultérieur.
+  if (doc && !orLooked && (x.or_number || x.plate)) {
     setOrLooked(true);
-    void findOrByNumber(x.or_number).then((o) => { if (o) setOrv({ or: o, plate: o.plate ?? orv.plate, vehicleId: o.vehicle_id }); });
+    void (async () => {
+      const o = x.or_number ? await findOrByNumber(x.or_number) : null;
+      if (o) return setOrv({ or: o, plate: o.plate ?? orv.plate, vehicleId: o.vehicle_id });
+      if (!x.plate) return;
+      const v = await findRefVehicleByPlate(x.plate);
+      if (v) {
+        const disp = (v as { registration_display?: string | null }).registration_display ?? x.plate;
+        setOrv((cur) => (cur.or ? cur : { or: null, plate: disp, vehicleId: v.id }));
+        setVehFound(disp);
+      }
+    })();
   }
+  const requestedOr = !orv.or && x.or_number ? x.or_number : null;
 
   const setLine = (i: number, p: Partial<OrderLineInput>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
@@ -163,11 +177,12 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
         appointment_date: rdv || null,
         supplier_order_ref: supRef.trim() || null,
         comment: comment.trim() || null,
+        requested_or_number: requestedOr,
         lines: clean,
       }, actor);
-      const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: clean.length, repair_order_id: orv.or?.id ?? null, plate, destination });
+      const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: clean.length, repair_order_id: orv.or?.id ?? null, plate, destination, requested_or_number: requestedOr });
       for (const kind of gaps) {
-        await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: id, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate, comment: "Commande validée avec informations manquantes" }, actor);
+        await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: id, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate, comment: kind === "or_non_importe" ? `OR ${requestedOr} lu sur le document, pas encore importé de WinMotor — rattachement automatique à l'import` : "Commande validée avec informations manquantes" }, actor);
       }
       toast.success(gaps.length ? `Commande enregistrée — ${gaps.length} point(s) envoyé(s) dans « À régulariser »` : "Commande enregistrée — en attente de réception");
       qc.invalidateQueries({ queryKey: ["part-orders"] });
@@ -194,7 +209,11 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       ) : null}
       {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
       <OrPicker value={orv} onChange={setOrv} />
-      {doc && x.or_number && !orv.or ? <p className="text-xs text-muted-foreground">OR lu sur le document : {x.or_number} (non trouvé dans DDA).</p> : null}
+      {requestedOr ? (
+        <p className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs font-bold">
+          OR {requestedOr} non encore importé{vehFound ? ` · véhicule ${vehFound} retrouvé` : ""} — le numéro est conservé et la commande sera rattachée automatiquement à l'import WinMotor.
+        </p>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         <input className={inputCls} placeholder="N° commande fournisseur" value={supRef} onChange={(e) => setSupRef(e.target.value)} />
         <input className={inputCls} type="date" value={rdv} onChange={(e) => setRdv(e.target.value)} aria-label="Date RDV" title="Date RDV (facultative)" />
