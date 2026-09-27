@@ -191,22 +191,22 @@ export async function fetchPendingSupplierDocs(siteId: string | null): Promise<S
   return (data ?? []).map((d) => ({ ...d, extracted: toExtract(d.extracted) }));
 }
 
-export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; files: string[] };
+export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; effective_site_id: string | null; files: string[] };
 
-/** E-mails fournisseur/magasin reçus avec pièces jointes (flux e-mail existant), non encore traités. */
-export async function fetchSupplierMails(siteId: string | null): Promise<SupplierMail[]> {
-  let q = supabase
+/** Documents opérationnels reçus par e-mail (BL/factures/avoirs), ouverts, 60 derniers jours, site effectif. */
+export async function fetchSupplierMails(siteId: string | null, sites: { id: string; code: string | null }[] = []): Promise<SupplierMail[]> {
+  const since = new Date(Date.now() - 60 * 86400000).toISOString();
+  const { data } = await supabase
     .from("emails")
-    .select("id, sent_at, from_name, from_address, subject, detected_plate, site_id, triage_status, email_attachments(filename)")
-    .in("category", ["fournisseur", "magasin"])
+    .select("id, sent_at, from_name, from_address, to_addresses, cc_addresses, subject, detected_plate, site_id, triage_status, email_attachments(filename)")
+    .in("category", ["fournisseur", "magasin", "bl"])
     .eq("has_attachments", true)
+    .gte("sent_at", since)
     .order("sent_at", { ascending: false })
-    .limit(50);
-  if (siteId) q = q.or(`site_id.eq.${siteId},site_id.is.null`);
-  const { data } = await q;
-  return ((data ?? []) as unknown as (SupplierMail & { triage_status: string | null; email_attachments: { filename: string }[] | null })[])
-    .filter((m) => m.triage_status !== "done" && m.triage_status !== "archived")
+    .limit(300);
+  const rows = ((data ?? []) as unknown as (Omit<SupplierMail, "files" | "effective_site_id"> & { triage_status: string | null; to_addresses: string[] | null; cc_addresses: string[] | null; email_attachments: { filename: string }[] | null })[])
     .map((m) => ({ ...m, files: (m.email_attachments ?? []).map((a) => a.filename) }));
+  return operationalMails(rows, sites, siteId).slice(0, 50);
 }
 
 export async function getSupplierDoc(id: string): Promise<SupplierDoc | null> {

@@ -32,7 +32,7 @@ function DocumentsPage() {
   const suppliers = useSuppliers();
   const [busy, setBusy] = useState(false);
   const docs = useQuery({ queryKey: ["pending-docs", readSite], queryFn: () => fetchPendingSupplierDocs(readSite) });
-  const mails = useQuery({ queryKey: ["supplier-mails", readSite], queryFn: () => fetchSupplierMails(readSite) });
+  const mails = useQuery({ queryKey: ["supplier-mails", readSite, sites.length], queryFn: () => fetchSupplierMails(readSite, sites) });
   const orders = useQuery({ queryKey: ["open-orders-match", readSite], queryFn: () => listOrders({ siteId: readSite }) });
 
   async function onFile(file: File) {
@@ -91,7 +91,7 @@ function DocumentsPage() {
           {(mails.data ?? []).map((m) => (
             <div key={m.id} className="rounded-xl border-2 border-border bg-card p-3 text-sm">
               <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-brand" /><b className="truncate">{m.from_name ?? m.from_address}</b></div>
-              <div className="text-xs text-muted-foreground">{new Date(m.sent_at).toLocaleDateString("fr-FR")} · {siteName(m.site_id)}{m.detected_plate ? ` · ${m.detected_plate}` : ""}</div>
+              <div className="text-xs text-muted-foreground">{new Date(m.sent_at).toLocaleDateString("fr-FR")} · {siteName(m.effective_site_id)}{m.detected_plate ? ` · ${m.detected_plate}` : ""}</div>
               <div className="truncate text-xs">{m.subject}</div>
               <div className="text-xs">{m.files.join(", ")}</div>
               <Link to="/emails" className="mt-1 inline-block text-xs font-extrabold uppercase underline">Ouvrir le mail</Link>
