@@ -196,7 +196,7 @@ export async function fetchPendingSupplierDocs(siteId: string | null): Promise<S
   return (data ?? []).map((d) => ({ ...d, extracted: toExtract(d.extracted) }));
 }
 
-export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; effective_site_id: string | null; files: string[]; attachments: MailAttachment[] };
+export type SupplierMail = { id: string; sent_at: string; from_name: string | null; from_address: string | null; to_addresses: string[] | null; cc_addresses: string[] | null; body_text: string | null; snippet: string | null; subject: string | null; detected_plate: string | null; site_id: string | null; effective_site_id: string | null; files: string[]; attachments: MailAttachment[] };
 export type MailAttachment = { id: string; filename: string; mime_type: string | null; storage_path: string | null; imported_doc_id: string | null };
 
 /** Documents opérationnels reçus par e-mail (BL/factures/avoirs), ouverts, 60 derniers jours, site effectif. */
@@ -204,13 +204,13 @@ export async function fetchSupplierMails(siteId: string | null, sites: { id: str
   const since = new Date(Date.now() - 60 * 86400000).toISOString();
   const { data } = await supabase
     .from("emails")
-    .select("id, sent_at, from_name, from_address, to_addresses, cc_addresses, subject, detected_plate, site_id, triage_status, email_attachments(id, filename, mime_type, storage_path)")
+    .select("id, sent_at, from_name, from_address, to_addresses, cc_addresses, body_text, snippet, subject, detected_plate, site_id, triage_status, email_attachments(id, filename, mime_type, storage_path)")
     .in("category", ["fournisseur", "magasin", "bl"])
     .eq("has_attachments", true)
     .gte("sent_at", since)
     .order("sent_at", { ascending: false })
     .limit(300);
-  type Row = Omit<SupplierMail, "files" | "effective_site_id" | "attachments"> & { triage_status: string | null; to_addresses: string[] | null; cc_addresses: string[] | null; email_attachments: Omit<MailAttachment, "imported_doc_id">[] | null };
+  type Row = Omit<SupplierMail, "files" | "effective_site_id" | "attachments"> & { triage_status: string | null; email_attachments: Omit<MailAttachment, "imported_doc_id">[] | null };
   const raw = (data ?? []) as unknown as Row[];
   const attIds = raw.flatMap((m) => (m.email_attachments ?? []).map((a) => a.id));
   const imported = new Map<string, string>();

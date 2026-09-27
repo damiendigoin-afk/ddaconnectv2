@@ -14,6 +14,8 @@ import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { fetchPendingSupplierDocs, fetchSupplierMails, importEmailAttachment, statusLabel, uploadSupplierDoc, type MailAttachment, type SupplierMail } from "@/lib/supplier-docs";
 import { fetchEmailAttachment } from "@/lib/email-attachment.functions";
 import { importDestination } from "@/lib/supplier-mail-filter";
+import { mailDetail, previewAttachment } from "@/lib/receipt-lines";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/pieces-achats/documents")({
   head: () => ({
@@ -38,6 +40,42 @@ function DocumentsPage() {
   const [failed, setFailed] = useState<Record<string, string>>({});
   const qc = useQueryClient();
   const fetchFile = useServerFn(fetchEmailAttachment);
+  const [openMail, setOpenMail] = useState<SupplierMail | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+
+  async function onPreview(a: MailAttachment) {
+    // Ouvre la fenêtre tout de suite (évite le bloqueur de pop-up), puis y charge le fichier.
+    const win = window.open("", "_blank");
+    setPreviewing(a.id);
+    try {
+      const r = await previewAttachment((id) => fetchFile({ data: { attachmentId: id } }), a.id, (blob) => {
+        const url = URL.createObjectURL(blob);
+        if (win) win.location.href = url; else window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      });
+      if (!r.ok) { win?.close(); toast.error(r.message); }
+    } catch (e) {
+      win?.close();
+      toast.error(e instanceof Error ? e.message : "Ouverture impossible");
+    } finally {
+      setPreviewing(null);
+    }
+  }
+
+  const attRow = (m: SupplierMail, a: MailAttachment) => (
+    <div key={a.id} className="flex flex-wrap items-center gap-2 text-xs">
+      <button type="button" onClick={() => onPreview(a)} disabled={previewing === a.id} className="truncate text-left font-bold text-brand underline">{previewing === a.id ? "Ouverture…" : a.filename}</button>
+      {a.imported_doc_id ? (
+        <Link to="/pieces-achats/reception" search={{ doc: a.imported_doc_id }} className="font-extrabold uppercase underline">Déjà ajouté</Link>
+      ) : failed[a.id] ? (
+        <span className="font-bold text-destructive">{failed[a.id]}</span>
+      ) : (
+        <button type="button" disabled={importing !== null} onClick={() => onImport(m, a)} className="rounded-md border-2 border-border px-2 py-0.5 font-extrabold uppercase">
+          {importing === a.id ? "Ajout…" : "Ajouter à DDA"}
+        </button>
+      )}
+    </div>
+  );
 
   async function onImport(m: SupplierMail, a: MailAttachment) {
     const siteId = m.effective_site_id ?? writeSite;
@@ -123,26 +161,30 @@ function DocumentsPage() {
               <div className="text-xs text-muted-foreground">{new Date(m.sent_at).toLocaleDateString("fr-FR")} · {siteName(m.effective_site_id)}{m.detected_plate ? ` · ${m.detected_plate}` : ""}</div>
               <div className="truncate text-xs">{m.subject}</div>
               <div className="mt-1 space-y-1">
-                {m.attachments.map((a) => (
-                  <div key={a.id} className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="truncate">{a.filename}</span>
-                    {a.imported_doc_id ? (
-                      <Link to="/pieces-achats/reception" search={{ doc: a.imported_doc_id }} className="font-extrabold uppercase underline">Déjà ajouté</Link>
-                    ) : failed[a.id] ? (
-                      <span className="font-bold text-destructive">{failed[a.id]}</span>
-                    ) : (
-                      <button type="button" disabled={importing !== null} onClick={() => onImport(m, a)} className="rounded-md border-2 border-border px-2 py-0.5 font-extrabold uppercase">
-                        {importing === a.id ? "Ajout…" : "Ajouter à DDA"}
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {m.attachments.map((a) => attRow(m, a))}
               </div>
-              <Link to="/emails" className="mt-1 inline-block text-xs font-extrabold uppercase underline">Ouvrir le mail</Link>
+              <button type="button" onClick={() => setOpenMail(m)} className="mt-1 inline-block text-xs font-extrabold uppercase underline">Ouvrir le mail</button>
             </div>
           ))}
         </section>
       </div>
+      <Dialog open={!!openMail} onOpenChange={(o) => !o && setOpenMail(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          {openMail ? (() => { const d = mailDetail(openMail); return (
+            <>
+              <DialogHeader><DialogTitle>{d.subject}</DialogTitle></DialogHeader>
+              <div className="space-y-1 text-xs">
+                <p><b>De :</b> {d.from}</p>
+                <p><b>Date :</b> {d.date}</p>
+                {d.to ? <p><b>À :</b> {d.to}</p> : null}
+                {d.cc ? <p><b>Cc :</b> {d.cc}</p> : null}
+              </div>
+              <pre className="whitespace-pre-wrap break-words rounded-lg border-2 border-border bg-muted p-3 font-sans text-sm">{d.body}</pre>
+              <div className="space-y-1"><p className="text-xs font-bold uppercase text-muted-foreground">Pièces jointes</p>{openMail.attachments.map((a) => attRow(openMail, a))}</div>
+            </>
+          ); })() : null}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
