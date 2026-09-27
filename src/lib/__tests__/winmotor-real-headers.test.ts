@@ -78,3 +78,36 @@ describe("réparation des fiches mal mappées", () => {
     expect(isLegacyMisMappedCustomer(base, "DUPONT J")).toBe(false);
   });
 });
+
+import { rawRowsToCsv, sanitizeDeep } from "@/lib/winmotor/invoices";
+describe("caractères de contrôle (NUL) dans l'export Détail", () => {
+  const H = [...DH, "Colonne extra"];
+  const bad = [...row.slice(0, 20), "Filtre\u0000 huile\u0007 écrou", ...row.slice(21), "val\u0000eur\u001F"];
+  const r = parseExport([H.join(";"), bad.join(";")].join("\r\n"), "details");
+  it("nettoyé, accents conservés, compteur", () => {
+    const l = r.invoices[0]!.lines[0]!;
+    expect(l.designation).toBe("Filtre huile écrou");
+    expect(l.extra?.["Colonne extra"]).toBe("valeur");
+    expect(r.sanitizedChars).toBe(4);
+  });
+  it("JSON envoyé sans \\u0000 ni contrôle", () => {
+    const json = JSON.stringify(sanitizeDeep([{ a: "x\u0000y", b: ["\u0001é"] }]));
+    expect(json).not.toMatch(/\\u00[01]/);
+    expect(JSON.stringify(r.invoices)).not.toMatch(/\\u00[01][0-9a-f]/i);
+    expect(json).toContain("é");
+  });
+});
+
+describe("retraitement depuis header_raw", () => {
+  it("date et nom relus depuis les vrais en-têtes conservés", () => {
+    const raw = [{ "Numéro de facture": "606695", "Nom et Prénom": "AMBULANCES CYPRIOTES", "Date de facturation": "2022/04/14", "Libre": "a;b", "Date de première mise en ciruclation": "2012/09/18", "Total TTC": "206.63" }, { "Numéro de facture": "606696", "Date de facturation": "2022/04/15" }];
+    const r = parseExport(rawRowsToCsv(raw), "headers");
+    expect(r.missing).toEqual([]);
+    expect(r.rejects).toEqual([]);
+    expect([r.dateMin, r.dateMax]).toEqual(["2022-04-14", "2022-04-15"]);
+    const h = r.headerRows.find((x) => x.inv === "606695")!;
+    expect(h["client_last"]).toBe("AMBULANCES CYPRIOTES");
+    expect(h["client_first"]).toBe("");
+    expect(h["mec"]).toBe("2012-09-18");
+  });
+});
