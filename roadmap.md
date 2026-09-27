@@ -68,3 +68,10 @@ Reste à faire :
 - [x] Couvrir le cas CW-862-AY et les dimensions incomplètes
 - [x] Tests ciblés, suite complète, typecheck et build
 - [ ] Publication
+
+## Tour pneus — consolidation essieu, fallback gammes, rapport court
+- [ ] Consolidation dimension/indices par roue puis essieu (toutes photos, conflits, preuves)
+- [ ] buildSevenOffers : fallback marques de la gamme (sort_order), prix réels pour 4
+- [ ] Affichage Équivalence + matrice 3x2 (atelier + client)
+- [ ] Rapport : Synthèse par défaut, Détail en accordéons, pas d'unité seule
+- [ ] Tests, typecheck, build, publication
