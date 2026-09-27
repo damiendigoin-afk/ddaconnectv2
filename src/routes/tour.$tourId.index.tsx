@@ -66,7 +66,7 @@ function TourPage() {
   const completed = tour.data?.status === "completed";
   const editingCompleted = completed && edit;
   useEffect(() => {
-    if (completed && !edit) navigate({ to: "/tour/$tourId/rapport", params: { tourId } });
+    if (completed && !edit) navigate({ to: "/tour/$tourId/rapport", params: { tourId }, replace: true });
   }, [completed, edit, navigate, tourId]);
 
   // V3 : le chronomètre démarre automatiquement en arrière-plan à l'ouverture du tour.
@@ -399,7 +399,7 @@ function Guided(props: SharedProps) {
         toast.error("Modifications non enregistrées");
         return;
       }
-      navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+      navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
       return;
     }
     const ok = await finishTour({
@@ -412,7 +412,7 @@ function Guided(props: SharedProps) {
         : "bouton_terminer",
     });
     if (!ok) return;
-    navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+    navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
   }
 
   if (showSummary) {
@@ -781,7 +781,7 @@ function Free(props: SharedProps) {
         toast.error("Modifications non enregistrées");
         return;
       }
-      navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+      navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
       return;
     }
     const ok = await finishTour({
@@ -794,7 +794,7 @@ function Free(props: SharedProps) {
         : "bouton_terminer",
     });
     if (!ok) return;
-    navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+    navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
   }
 
   if (creating || editing) {
