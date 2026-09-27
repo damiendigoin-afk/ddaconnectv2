@@ -217,6 +217,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       if (site && o.site_id !== site) toast.warning(`Commande du site ${siteName(o.site_id)} : la réception sera faite sur ce site.`);
       setSite(o.site_id);
       setSupplier(o.supplier_id ?? "");
+      setDossier(o.requested_or_number ?? "");
       setOrv({ or: o.repair_order_id ? { id: o.repair_order_id, or_number: (o.repair_orders as { or_number: string | null } | null)?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id, plate: o.plate } : null, plate: o.plate ?? "", vehicleId: o.vehicle_id });
       const dest = o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination;
        const parts = receiptLinesFromOrder(o.part_order_lines ?? [], dest as ReceiptLineInput["destination"]);
@@ -295,7 +296,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
               <p>Immatriculation<br /><b>{orv.plate || x.plate || "—"}</b></p>
             </div>
           ) : null}
-          <OrPicker value={orv} onChange={setOrv} initialNumber={x.or_number ?? null} onNumberChange={setDossier} />
+          <OrPicker value={orv} onChange={setOrv} initialNumber={dossier || x.or_number || null} onNumberChange={setDossier} />
           {!orv.or ? (
             <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
               {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}Les pièces « Pour l'OR » entrent en stock, destination à régulariser.
