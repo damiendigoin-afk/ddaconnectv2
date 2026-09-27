@@ -116,6 +116,7 @@ export async function updateLine(
     price_source: string;
     confidence: string;
     needs_contact: boolean;
+    computation: Record<string, unknown>;
   }>,
 ) {
   const { data, error } = await supabase
