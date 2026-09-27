@@ -352,3 +352,13 @@ export function formatHours(h: number): string {
   const m = Math.round(h * 60);
   return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
 }
+
+/**
+ * Règle de réparation de l'ancien mapping Entêtes (miroir exact de wm_import_headers, migration 0020) :
+ * fiche WinMotor jamais modifiée, nom et société vides, prénom = valeur brute « Nom et Prénom ».
+ */
+export function isLegacyMisMappedCustomer(c: { source_system: string | null; last_name: string | null; company_name: string | null; first_name: string | null; created_at: string; updated_at: string }, rawFullName: string): boolean {
+  if (c.source_system !== "winmotor" || c.last_name || c.company_name || !rawFullName) return false;
+  if (c.first_name !== rawFullName) return false;
+  return new Date(c.updated_at).getTime() - new Date(c.created_at).getTime() <= 60_000;
+}
