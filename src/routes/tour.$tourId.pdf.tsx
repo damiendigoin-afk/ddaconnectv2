@@ -1,3 +1,4 @@
+import { finiteOrNull, formatMeasure, normalizeMeasureValue } from "@/lib/measure";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -167,7 +168,7 @@ function PdfPage() {
       p.status === "watch" ||
       p.status === "defect" ||
       Boolean(p.comment) ||
-      p.measure_value != null,
+      normalizeMeasureValue(p.measure_value, p.measure_unit) != null,
   );
 
   // Regroupement par zone, dans l'ordre réel des points enregistrés : aucune
@@ -300,7 +301,7 @@ function PdfPage() {
                     {STATUS_FR[p.status] ?? p.status}
                   </td>
                   <td className={cell}>
-                    {[p.measure_value ? `${p.measure_value} ${p.measure_unit ?? ""}`.trim() : "", p.comment ?? ""]
+                    {[formatMeasure(p.measure_value, p.measure_unit) ?? "", p.comment ?? ""]
                       .filter(Boolean)
                       .join(" — ")}
                   </td>
@@ -325,7 +326,7 @@ function PdfPage() {
                     {STATUS_FR[o.status] ?? o.status}
                   </td>
                   <td className={cell}>
-                    {[o.measure_value ? `${o.measure_value} ${o.measure_unit ?? ""}`.trim() : "", o.comment ?? ""]
+                    {[formatMeasure(o.measure_value, o.measure_unit) ?? "", o.comment ?? ""]
                       .filter(Boolean)
                       .join(" — ")}
                   </td>

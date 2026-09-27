@@ -6,6 +6,7 @@
  * sévérité global, validation ou correction humaine mémorisée, puis préparation
  * automatique des sept propositions tarifaires.
  */
+import { finiteOrNull, normalizeMeasureValue } from "@/lib/measure";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, ChevronDown, ChevronUp, ImagePlus, Loader2, PencilLine, Check } from "lucide-react";
@@ -387,7 +388,7 @@ export function TireWheelCard({
       setStatus(st);
       await persist(next, {
         status: st,
-        measure_value: ai.depth_mm != null ? String(ai.depth_mm) : null,
+        measure_value: normalizeMeasureValue(ai.depth_mm, "mm"),
         measure_unit: "mm",
         comment: partial ? "Analyse partielle : qualité des photos insuffisante" : point.comment,
       });
@@ -455,7 +456,7 @@ export function TireWheelCard({
     setStatus(st);
     await persist(next, {
       status: st,
-      measure_value: draft.depth_mm != null ? String(draft.depth_mm) : null,
+      measure_value: normalizeMeasureValue(draft.depth_mm, "mm"),
       measure_unit: "mm",
     });
 
@@ -923,7 +924,7 @@ function EditForm({
             value={draft.depth_mm ?? ""}
             onChange={(e) =>
               set({
-                depth_mm: e.target.value.trim() === "" ? null : Number(e.target.value.replace(",", ".")),
+                depth_mm: finiteOrNull(e.target.value),
                 depth_kind: "mesure",
               })
             }

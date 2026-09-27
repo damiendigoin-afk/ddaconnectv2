@@ -1,3 +1,4 @@
+import { formatMeasure } from "./measure";
 import { createClient } from "@supabase/supabase-js";
 
 import { brandedEmail, emailButton, sendEmail } from "./email.server";
@@ -87,13 +88,13 @@ export async function sendTourReportEmail(args: {
     ...((points ?? []) as Row[]).map((p) => ({
       title: `${s(p["zone_label"])} — ${s(p["point_label"])}`,
       status: s(p["status"]),
-      measure: [s(p["measure_value"]), s(p["measure_unit"])].filter(Boolean).join(" "),
+      measure: formatMeasure(p["measure_value"], s(p["measure_unit"])) ?? "",
       comment: s(p["client_comment"]) || s(p["comment"]),
     })),
     ...((obs ?? []) as Row[]).map((o) => ({
       title: `${s(o["category"])} — ${s(o["element"])}`,
       status: s(o["status"]),
-      measure: [s(o["measure_value"]), s(o["measure_unit"])].filter(Boolean).join(" "),
+      measure: formatMeasure(o["measure_value"], s(o["measure_unit"])) ?? "",
       comment: s(o["client_comment"]) || s(o["comment"]),
     })),
   ];

@@ -1,3 +1,4 @@
+import { formatMeasure } from "./measure";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
@@ -120,7 +121,7 @@ export async function buildTourPdf(args: {
     line("POINTS CONTROLES", 12, true);
     for (const p of args.points) {
       const extra = [
-        p["measure_value"] ? `${s(p["measure_value"])} ${s(p["measure_unit"])}`.trim() : "",
+        formatMeasure(p["measure_value"], s(p["measure_unit"])) ?? "",
         s(p["comment"]),
       ]
         .filter(Boolean)
@@ -140,7 +141,9 @@ export async function buildTourPdf(args: {
     for (const o of args.observations) {
       line(
         `${s(o["category"])} / ${s(o["element"])} : ${STATUS_FR[s(o["status"])] ?? s(o["status"])}${
-          s(o["comment"]) ? ` — ${s(o["comment"])}` : ""
+          [formatMeasure(o["measure_value"], s(o["measure_unit"])), s(o["comment"])].filter(Boolean).length
+            ? ` — ${[formatMeasure(o["measure_value"], s(o["measure_unit"])), s(o["comment"])].filter(Boolean).join(" — ")}`
+            : ""
         }`,
         9,
       );

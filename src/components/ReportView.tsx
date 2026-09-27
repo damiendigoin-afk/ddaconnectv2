@@ -1,3 +1,4 @@
+import { finiteOrNull, formatMeasure, normalizeMeasureValue } from "@/lib/measure";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -152,9 +153,9 @@ export function ReportBody({
                   {...(onSaved ? { onSaved } : {})}
                 />
               ) : null}
-              {o.measure_value && !editable ? (
+              {formatMeasure(o.measure_value, o.measure_unit) && !editable ? (
                 <div className="text-sm">
-                  Mesure : {o.measure_value} {o.measure_unit}
+                  Mesure : {formatMeasure(o.measure_value, o.measure_unit)}
                 </div>
               ) : null}
               {editable && !clientView ? null : clientView ? (
@@ -209,9 +210,9 @@ export function ReportBody({
                     {...(onSaved ? { onSaved } : {})}
                   />
                 ) : null}
-                {p.measure_value && !editable ? (
+                {formatMeasure(p.measure_value, p.measure_unit) && !editable ? (
                   <div className="text-sm">
-                    Mesure : {p.measure_value} {p.measure_unit}
+                    Mesure : {formatMeasure(p.measure_value, p.measure_unit)}
                   </div>
                 ) : null}
                 {editable && !clientView ? null : clientView ? (
@@ -336,7 +337,7 @@ function ItemEditor({
         status: st,
         comment: text.trim() ? text.trim() : null,
         client_comment: null,
-        measure_value: measure.trim() ? measure.trim() : null,
+        measure_value: normalizeMeasureValue(measure, measureUnit),
       };
       const { error } =
         table === "inspection_points"

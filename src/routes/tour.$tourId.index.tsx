@@ -1,3 +1,4 @@
+import { formatMeasure, normalizeMeasureValue } from "@/lib/measure";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -836,9 +837,9 @@ function Free(props: SharedProps) {
             <div>
               <div className="font-bold">{o.element}</div>
               <div className="text-xs text-muted-foreground">{o.category}</div>
-              {o.measure_value ? (
+              {formatMeasure(o.measure_value, o.measure_unit) ? (
                 <div className="text-xs">
-                  Mesure : {o.measure_value} {o.measure_unit}
+                  Mesure : {formatMeasure(o.measure_value, o.measure_unit)}
                 </div>
               ) : null}
               {o.comment ? <div className="mt-1 text-sm">{o.comment}</div> : null}
@@ -902,8 +903,8 @@ function ObservationForm({
         category,
         element,
         status: status === "unset" ? "watch" : status,
-        measure_value: measure || null,
-        measure_unit: measure ? unit : null,
+        measure_value: normalizeMeasureValue(measure, unit),
+        measure_unit: normalizeMeasureValue(measure, unit) ? unit : null,
         comment: comment || null,
       };
       let row = saved;
