@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { normalizePurchaseExtract } from "@/lib/purchase-extract";
 import { guessDocumentSite, matchSupplier } from "@/lib/parts-site";
 import { docSiteText } from "@/lib/purchase-doc";
+import { autoSupplier } from "@/lib/order-supplier";
 
 // Réponse OCR type pour le bon de commande réel 0332b1a5… (Commande n° 45834714).
 const ocr = {
@@ -61,5 +62,23 @@ describe("bon de commande 45834714 (régression)", () => {
   it("fournisseur non trouvé : nom conservé, pas de match arbitraire", () => {
     expect(matchSupplier("RENAULT SARLAT - GROUPE FAURIE", [{ id: "z", name: "AUTODISTRIBUTION" }])).toBeNull();
     expect(x.supplier).toBeTruthy();
+  });
+});
+
+describe("commande : Repère/OR ≠ Commande n°", () => {
+  it("order_reference=50413=OR → document_number 45834714", () => {
+    const x = normalizePurchaseExtract({ ...ocr, order_reference: "50413", or_number: "50413", document_number: "45834714" });
+    expect(x.order_reference).toBe("45834714");
+    expect(x.or_number).toBe("50413");
+  });
+});
+
+describe("fournisseur chargé après le document", () => {
+  it("auto-sélection à l'arrivée de la liste, sans écraser un choix manuel", () => {
+    const name = normalizePurchaseExtract(ocr).supplier;
+    expect(autoSupplier("", false, name, undefined)).toBe("");
+    expect(autoSupplier("", false, name, suppliers)).toBe("s1");
+    expect(autoSupplier("s2", true, name, suppliers)).toBe("s2");
+    expect(autoSupplier("", true, name, suppliers)).toBe("");
   });
 });

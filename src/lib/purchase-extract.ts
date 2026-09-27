@@ -83,16 +83,24 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
 
   // Plaque : seulement si réellement imprimée sur le document.
   const platePrinted = o.plate_printed === true || o.plate_printed === "true";
+  const kind = str(o.doc_kind);
+  const orNumber = digits(pick(o, ["or_number", "customer_reference", "order_mark", "repere_commande"]));
+  const docNumber = str(o.document_number);
+  // Ne jamais confondre Repère commande / OR avec « Commande n° ».
+  let orderRef = pick(o, ["order_reference", "order_number", "supplier_order_number"]);
+  const sameAsOr = (v: string | null) => !!v && !!orNumber && digits(v) === orNumber;
+  if (sameAsOr(orderRef)) orderRef = null;
+  if (!orderRef && kind === "commande" && docNumber && !sameAsOr(docNumber)) orderRef = docNumber;
   return {
-    doc_kind: str(o.doc_kind),
+    doc_kind: kind,
     supplier: pick(o, ["supplier", "distributor", "distributeur", "vendor", "seller"]),
-    document_number: str(o.document_number),
+    document_number: docNumber,
     document_date: str(o.document_date),
-    order_reference: pick(o, ["order_reference", "order_number", "supplier_order_number"]) ?? (str(o.doc_kind) === "commande" ? str(o.document_number) : null),
+    order_reference: orderRef,
     delivery_note_number: str(o.delivery_note_number),
     invoice_number: str(o.invoice_number),
     invoice_date: str(o.invoice_date),
-    or_number: digits(pick(o, ["or_number", "customer_reference", "order_mark", "repere_commande"])),
+    or_number: orNumber,
     plate: platePrinted ? str(o.plate) : null,
     customer_or_site: str(o.customer_or_site),
     lines: lines.map(({ client_price: _c, ...l }) => l),
