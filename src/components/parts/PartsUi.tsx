@@ -106,8 +106,15 @@ export function SupplierSelect({ value, onChange, required }: { value: string; o
 }
 
 /** Rattachement OR WinMotor existant (par n°) ou par immatriculation. Ne crée jamais de n° d'OR. */
-export function OrPicker({ value, onChange }: { value: { or: OrLite | null; plate: string; vehicleId: string | null }; onChange: (v: { or: OrLite | null; plate: string; vehicleId: string | null }) => void }) {
-  const [num, setNum] = useState(value.or?.or_number ?? "");
+export function OrPicker({ value, onChange, initialNumber, onNumberChange }: { value: { or: OrLite | null; plate: string; vehicleId: string | null }; onChange: (v: { or: OrLite | null; plate: string; vehicleId: string | null }) => void; initialNumber?: string | null; onNumberChange?: (n: string) => void }) {
+  const [num, setNumRaw] = useState(value.or?.or_number ?? initialNumber ?? "");
+  const [touched, setTouched] = useState(false);
+  const setNum = (v: string) => { setNumRaw(v); onNumberChange?.(v); };
+  useEffect(() => {
+    const next = syncOrNumber(num, touched, value.or?.or_number ?? initialNumber);
+    if (next !== num) setNum(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNumber, value.or?.or_number, touched]);
   const [msg, setMsg] = useState<string | null>(null);
   const [cands, setCands] = useState<OrLite[]>([]);
   async function lookupNum() {
