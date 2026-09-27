@@ -8,6 +8,7 @@
  * exploitable, le message précis d'origine est conservé.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { axleMonteLabel, consolidateAxles, readingsFromPoints } from "./tire-axle";
 import { ocrBatteryTest } from "./ocr.functions";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";
 import { blobToDataUrl, mediaUrl } from "./photo";
@@ -16,7 +17,7 @@ import type { TireLabelAi, TireWheelAi } from "./tire-types";
 import {
   axleKindOf,
   buildSevenOffers,
-  defaultBrandOf,
+  quoteBrandsOf,
   fetchBrandTiers,
   publicItemsToOffers,
   requiredFromLabel,
@@ -145,14 +146,27 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
   const stored = (labelPoint?.tire_label ?? null) as { label?: TireLabelAi | null } | null;
   const label = stored?.label ?? null;
 
-  const { data: existing } = await supabase
-    .from("tire_quote_offers")
-    .select("id, inspection_point_id, selected, total_ttc")
-    .eq("inspection_id", inspectionId);
-
-  const bySelected = new Set(
-    (existing ?? []).filter((o) => o.selected && o.total_ttc != null).map((o) => o.inspection_point_id ?? ""),
+  const [{ data: existing }, { data: tourMedia }] = await Promise.all([
+    supabase
+      .from("tire_quote_offers")
+      .select("id, inspection_point_id, selected, total_ttc, initial_payload, created_at")
+      .eq("inspection_id", inspectionId)
+      .order("created_at"),
+    supabase.from("media").select("id, inspection_point_id").eq("inspection_id", inspectionId),
+  ]);
+  // Monte consolidée par essieu, à partir de toutes les roues (y compris OK) et photos.
+  const montes = consolidateAxles(
+    readingsFromPoints(points, (tourMedia ?? []) as { id: string; inspection_point_id: string | null }[]),
   );
+
+  // Sélection opérateur existante : conservée (même case) lors de la régénération.
+  const selectedSlotByPoint = new Map<string, string>();
+  for (const o of existing ?? []) {
+    if (!o.selected || o.total_ttc == null) continue;
+    const slot = (o.initial_payload as { slot?: unknown } | null)?.slot;
+    if (typeof slot === "string") selectedSlotByPoint.set(o.inspection_point_id ?? "", slot);
+  }
+  const bySelected = new Set(selectedSlotByPoint.keys());
 
   // Une seule offre retenue par essieu : le devis ne double jamais les pneus.
   const axleTaken = new Set<string>();
@@ -173,7 +187,6 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
   const publicCache = new Map<string, PublicTireItem[]>();
 
   for (const wheel of wheels) {
-    if (bySelected.has(wheel.id)) continue;
     const code = wheel.point_key.replace("pneu_", "");
     const axle = axleKindOf(code);
 
@@ -181,11 +194,17 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
     const mountedAi = analysis?.final ?? analysis?.ai ?? null;
 
     const fromLabel = requiredFromLabel(label, code);
+    const monte = montes[axle];
+    const monteOk = monte.status !== "conflit";
     const required = {
-      size: fromLabel.size ?? mountedAi?.size ?? null,
-      load: fromLabel.load ?? mountedAi?.load_index ?? null,
-      speed: fromLabel.speed ?? mountedAi?.speed_index ?? null,
+      size: fromLabel.size ?? mountedAi?.size ?? (monteOk ? monte.size : null),
+      load: fromLabel.load ?? mountedAi?.load_index ?? (monteOk ? monte.load : null),
+      speed: fromLabel.speed ?? mountedAi?.speed_index ?? (monteOk ? monte.speed : null),
     };
+    if (!required.size && monte.status === "conflit") {
+      report.notes.push(`${wheel.point_label} : ${axleMonteLabel(monte)}.`);
+      continue;
+    }
     if (!required.size) {
       report.notes.push(
         `${wheel.point_label} : dimension inconnue (étiquette pneumatiques non exploitable).`,
@@ -197,10 +216,7 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
     if (!items) {
       // Marques des gammes paramétrées : consultées explicitement chez le
       // fournisseur, sinon elles restent invisibles au-delà de la 1re page.
-      const neededBrands = [
-        ...(["entree", "milieu", "haut"] as const).map((t) => defaultBrandOf(brands, t)),
-        mountedAi?.brand ?? null,
-      ].filter((b): b is string => Boolean(b && b.trim()));
+      const neededBrands = quoteBrandsOf(brands, [mountedAi?.brand ?? null]);
       const res = await fetchPublicTireOffers({ data: { size: required.size, brands: neededBrands } });
 
       if (!res.ok) {
@@ -231,7 +247,9 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
       required,
     });
 
-    const best = axleTaken.has(axle) ? null : pickBestOffer(offers);
+    const keptSlot = selectedSlotByPoint.get(wheel.id) ?? null;
+    const kept = keptSlot ? offers.find((o) => o.slot === keptSlot && o.available && o.totalTtc != null) ?? null : null;
+    const best = kept ?? (axleTaken.has(axle) ? null : pickBestOffer(offers));
     if (best) axleTaken.add(axle);
 
     const preserve = await supabase.from("tire_quote_offers").update({ selected: false }).eq("inspection_point_id", wheel.id);

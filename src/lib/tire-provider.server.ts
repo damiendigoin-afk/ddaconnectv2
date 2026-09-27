@@ -150,7 +150,7 @@ export function brandsToRefetch(
     .filter((b) => !complete(b))
     .map((b) => ({ brand: b, id: filters.get(b) }))
     .filter((x): x is { brand: string; id: string } => Boolean(x.id))
-    .slice(0, 6);
+    .slice(0, 12);
 }
 
 

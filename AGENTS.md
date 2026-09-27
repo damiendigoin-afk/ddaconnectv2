@@ -18,3 +18,4 @@
 - Measures: all measure display/save goes through src/lib/measure.ts (NaN/Infinity/empty/non-numeric => null). Why: "NaN mm" leaked into reports.
 - tslib pinned to ^2 via package.json overrides. Why: pdf-lib with tslib 1.x crashed in the server bundle (__extends/__toESM).
 - Tour tire quotes persist one grouped quote line per axle group with seven offer snapshots in computation; only selected_slot contributes to totals. Why: preserve the shared tire engine while preventing duplicate wheel lines.
+- Tire monte is consolidated per wheel then per axle (src/lib/tire-axle.ts: all wheels incl. OK, conflicts block fusion, never copied across axles); tier slots fall back through active brands in sort_order. Why: more photos = more reliable monte, no empty slots when the default brand lacks stock.

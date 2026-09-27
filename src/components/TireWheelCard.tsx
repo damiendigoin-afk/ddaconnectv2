@@ -45,6 +45,7 @@ import {
   type TireGrade,
   type TireOffer,
   type TireSeason,
+  quoteBrandsOf,
 } from "@/lib/tires";
 import type { PointRow } from "@/components/PointCard";
 
@@ -272,10 +273,16 @@ export function TireWheelCard({
 
   // Consultation publique réelle des prix TTC, refaite à chaque chiffrage/recalcul.
   const publicQuery = useQuery({
-    queryKey: ["tire-public-offers", effectiveSize],
+    queryKey: ["tire-public-offers", effectiveSize, Boolean(engine.data)],
     enabled: Boolean(effectiveSize) && Boolean(stored.grade && needsQuote(stored.grade)),
     staleTime: 0,
-    queryFn: () => publicOffers({ data: { size: effectiveSize as string } }),
+    queryFn: () =>
+      publicOffers({
+        data: {
+          size: effectiveSize as string,
+          brands: quoteBrandsOf(engine.data?.brands ?? [], [result?.brand ?? null]),
+        },
+      }),
   });
 
 

@@ -3,10 +3,10 @@ import { parseTireReference, type SevenOffer, type TireSeason, type TireTier } f
 export const STANDARD_TIRE_SLOTS = [
   "identique",
   "entree_ete",
-  "milieu_ete",
-  "haut_ete",
   "entree_quatre_saisons",
+  "milieu_ete",
   "milieu_quatre_saisons",
+  "haut_ete",
   "haut_quatre_saisons",
 ] as const;
 
@@ -27,7 +27,7 @@ export type TireGroup<T> = {
   values: T[];
 };
 
-export function groupTireAxles<T>(entries: TireGroupInput<T>[]): TireGroup<T>[] {
+export function groupTireAxles<T>(entries: TireGroupInput<T>[], allowMerge = true): TireGroup<T>[] {
   const byAxle = new Map<TireAxle, { size: string | null; values: T[] }>();
   for (const entry of entries) {
     const current = byAxle.get(entry.axle) ?? { size: entry.size, values: [] };
@@ -37,7 +37,7 @@ export function groupTireAxles<T>(entries: TireGroupInput<T>[]): TireGroup<T>[] 
   }
   const front = byAxle.get("avant");
   const rear = byAxle.get("arriere");
-  if (front && rear && front.size && rear.size && normalizedSize(front.size) === normalizedSize(rear.size)) {
+  if (allowMerge && front && rear && front.size && rear.size && normalizedSize(front.size) === normalizedSize(rear.size)) {
     return [{ key: "quatre", axles: ["avant", "arriere"], size: front.size, quantity: 4, values: [...front.values, ...rear.values] }];
   }
   return [
@@ -131,7 +131,15 @@ export function placeholderSevenOffers(quantity: 2 | 4, size: string | null): Ti
 }
 
 export function normalizeSevenChoices(offers: TireQuoteChoice[], quantity: 2 | 4, size: string | null) {
-  const bySlot = new Map(offers.map((offer) => [offer.slot, offer]));
+  // Plusieurs instantanés pour une même case (roues d'un essieu, recalculs) :
+  // le plus récent chiffré l'emporte, jamais remplacé par un instantané indisponible.
+  const bySlot = new Map<string, TireQuoteChoice>();
+  for (const offer of offers) {
+    const current = bySlot.get(offer.slot);
+    const usable = offer.available && offer.totalTtc != null;
+    const currentUsable = current ? current.available && current.totalTtc != null : false;
+    if (!current || usable || !currentUsable) bySlot.set(offer.slot, offer);
+  }
   return placeholderSevenOffers(quantity, size).map((fallback) => {
     const found = bySlot.get(fallback.slot);
     return found ? { ...found, quantity } : fallback;

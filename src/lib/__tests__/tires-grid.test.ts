@@ -134,7 +134,7 @@ describe("prix pneus", () => {
     const entreeEte = grid.find((o) => o.slot === "entree_ete")!;
     expect(entreeEte.available).toBe(true);
     expect(entreeEte.brand).toBe("Sailun");
-    // Marque de gamme absente de la dimension : offre indisponible, sans substitution.
+    // Aucune marque de la gamme ne répond : offre indisponible.
     const milieu = grid.find((o) => o.slot === "milieu_ete")!;
     expect(milieu.available).toBe(false);
     expect(milieu.brand).toBe("Kleber");

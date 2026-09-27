@@ -32,6 +32,15 @@ import {
   type TireQuoteComputation,
 } from "./tour-tire-groups";
 import { laborRate } from "./pricing";
+import {
+  axleMonteLabel,
+  axlesIdentical,
+  consolidateAxles,
+  monteDisplay,
+  readingsFromPoints,
+  type AxleMonte,
+  type TireAxleKey,
+} from "./tire-axle";
 
 type PointRow = {
   id: string;
@@ -154,7 +163,7 @@ export async function priceTour(args: {
   brand?: string | null;
   model?: string | null;
 }): Promise<{ ctx: EngineContext; vehicle: VehicleProfile; items: PricedItem[] }> {
-  const [{ data: points }, { data: tireOffers }, ctx, vehicle] = await Promise.all([
+  const [{ data: points }, { data: tireOffers }, ctx, vehicle, { data: tourMedia }] = await Promise.all([
     supabase
       .from("inspection_points")
       .select(
@@ -168,10 +177,20 @@ export async function priceTour(args: {
       .eq("inspection_id", args.inspectionId),
     loadEngineContext(),
     vehicleProfileForPlate(args.plate, { brand: args.brand ?? null, model: args.model ?? null }),
+    supabase.from("media").select("id, inspection_point_id").eq("inspection_id", args.inspectionId),
   ]);
+  const axleMontes = consolidateAxles(
+    readingsFromPoints(
+      ((points ?? []) as PointRow[]).map((p) => ({ id: p.id, point_key: p.point_key, tire_analysis: p.tire_analysis })),
+      (tourMedia ?? []) as { id: string; inspection_point_id: string | null }[],
+    ),
+  );
 
   const offersByPoint = new Map<string, TireQuoteOffer[]>();
-  for (const o of (tireOffers ?? []) as TireQuoteOffer[]) {
+  const sortedOffers = ((tireOffers ?? []) as TireQuoteOffer[])
+    .slice()
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
+  for (const o of sortedOffers) {
     const key = o.inspection_point_id ?? "";
     offersByPoint.set(key, [...(offersByPoint.get(key) ?? []), o]);
   }
@@ -293,7 +312,7 @@ export async function priceTour(args: {
 
   if (pendingTires.length) {
     const memory = await tireMemoryFor(args.inspectionId);
-    items.push(...buildTireGroupItems(pendingTires, offersByPoint, memory, vehicle.homologatedTireSize ?? null));
+    items.push(...buildTireGroupItems(pendingTires, offersByPoint, memory, vehicle.homologatedTireSize ?? null, axleMontes));
   }
 
   return { ctx, vehicle, items };
@@ -523,17 +542,24 @@ function tireGroups(
   pending: { point: PointRow; priority: Priority; offersReady: number }[],
   memory: { front: string | null; rear: string | null },
   homologated: string | null,
+  montes: Record<TireAxleKey, AxleMonte> | null = null,
 ) {
+  const merge = montes ? axlesIdentical(montes.avant, montes.arriere) : true;
   return groupTireAxles(
     pending.map((entry) => {
       const axle = /_ar/.test(entry.point.point_key) ? "arriere" as const : "avant" as const;
+      const monte = montes?.[axle] ?? null;
+      // Monte consolidée de l'essieu (toutes roues/photos) ; en conflit, rien n'est choisi.
+      if (monte?.status === "conflit") return { axle, size: null, value: entry };
       const size =
+        (monte ? monteDisplay(monte) : null) ||
         tireSizeOfPoint(entry.point.tire_analysis) ||
         parseTireReference(axle === "arriere" ? memory.rear : memory.front).display ||
         parseTireReference(homologated).display ||
         null;
       return { axle, size, value: entry };
     }),
+    merge,
   );
 }
 
@@ -582,15 +608,17 @@ export function buildTireGroupItems(
   offersByPoint: Map<string, TireQuoteOffer[]>,
   memory: { front: string | null; rear: string | null } = { front: null, rear: null },
   homologated: string | null = null,
+  montes: Record<TireAxleKey, AxleMonte> | null = null,
 ): PricedItem[] {
-  return tireGroups(pending, memory, homologated).map((group) => {
+  return tireGroups(pending, memory, homologated, montes).map((group) => {
     const rows = group.values.flatMap((entry) => offersByPoint.get(entry.point.id) ?? []);
     const choices = normalizeSevenChoices(
       rows.map(choiceFromRow).filter((choice): choice is TireQuoteChoice => Boolean(choice)).map((choice) => resizeChoice(choice, group.quantity)),
       group.quantity,
       group.size,
     );
-    const selectedRow = rows.find((row) => row.selected && row.total_ttc != null);
+    // Lignes triées par date : la dernière sélection active l'emporte.
+    const selectedRow = [...rows].reverse().find((row) => row.selected && row.total_ttc != null);
     const selectedSlot = selectedRow ? choiceFromRow(selectedRow)?.slot ?? null : null;
     const computation: TireQuoteComputation = {
       method: "tour_tire_group",
@@ -610,7 +638,9 @@ export function buildTireGroupItems(
       needsContact: !selected,
       message: group.size ? "Choisir une proposition pneu." : "Dimension à confirmer.",
       label: tireGroupTitle(group),
-      detail: selected ? `${selected.brand ?? ""} ${selected.model ?? ""}`.trim() : "Les sept propositions restent visibles.",
+      detail: montes && group.axles.some((a) => montes[a].status === "conflit")
+        ? group.axles.map((a) => axleMonteLabel(montes[a])).join(" · ")
+        : selected ? `${selected.brand ?? ""} ${selected.model ?? ""}`.trim() : "Les sept propositions restent visibles.",
       block: "mecanique",
       priority,
       quantity: group.quantity,
