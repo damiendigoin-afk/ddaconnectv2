@@ -206,7 +206,9 @@ export async function notifyTourCompleted(args: {
   // Le PDF est un plus, pas une condition : si sa génération échoue, le Front
   // Office est tout de même averti de la clôture (l'échec est journalisé).
   let pdfBase64: string | null = null;
-  let photoCount = 0;
+  // Compteur = médias réellement présents sur le tour, indépendant du PDF.
+  const photoCount = ((media ?? []) as Row[]).length;
+  let pdfPhotoCount = 0;
   let pdfError = "";
   try {
     const { buildTourPdf, tourLogoUrl } = await import("./tour-pdf.server");
@@ -222,7 +224,7 @@ export async function notifyTourCompleted(args: {
       logoUrl: tourLogoUrl(origin),
     });
     pdfBase64 = built.base64;
-    photoCount = built.photoCount;
+    pdfPhotoCount = built.photoCount;
   } catch (e) {
     pdfError = `Génération du PDF impossible : ${e instanceof Error ? e.message : String(e)}`;
     console.error("[tour-notify]", pdfError);
@@ -245,7 +247,7 @@ export async function notifyTourCompleted(args: {
     <div style="text-align:center;padding:8px 0 16px 0;">${emailButton("Ouvrir le Tour Véhicule", tourLink)}</div>
     <p style="font-size:13px;color:#71717a;">${
       pdfBase64
-        ? `Rapport PDF complet joint à cet e-mail (${photoCount} photo(s)).`
+        ? `Rapport PDF complet joint à cet e-mail (${pdfPhotoCount} photo(s) sur ${photoCount}).`
         : "Le rapport PDF n'a pas pu être généré : le détail complet reste consultable en ligne via le lien ci-dessus."
     }</p>`;
 

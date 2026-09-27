@@ -1,3 +1,4 @@
+import { normalizeMeasureValue } from "@/lib/measure";
 import { Camera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -32,7 +33,7 @@ export function PointCard({
   onChanged?: ((status: PointStatus) => void) | undefined;
 }) {
   const [status, setStatus] = useState<PointStatus>(point.status as PointStatus);
-  const [measure, setMeasure] = useState(point.measure_value ?? "");
+  const [measure, setMeasure] = useState(normalizeMeasureValue(point.measure_value, point.measure_unit) ?? "");
   const [comment, setComment] = useState(point.comment ?? "");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -136,7 +137,10 @@ export function PointCard({
             value={measure}
             onChange={(e) => {
               setMeasure(e.target.value);
-              debounced({ measure_value: e.target.value, measure_unit: def.measure!.unit });
+              debounced({
+                measure_value: normalizeMeasureValue(e.target.value, def.measure!.unit),
+                measure_unit: def.measure!.unit,
+              });
             }}
             className="w-24 rounded-lg border-2 border-border px-2 py-2 text-center text-base outline-none focus:border-brand"
           />
