@@ -519,8 +519,8 @@ export function TireWheelCard({
 
   async function selectOffer(offer: SevenOffer) {
     setSelectedSlot(offer.slot);
-    const purge = await supabase.from("tire_quote_offers").delete().eq("inspection_point_id", point.id);
-    if (purge.error) toast.warning(`Anciennes offres non supprimées : ${purge.error.message}`);
+    const preserve = await supabase.from("tire_quote_offers").update({ selected: false }).eq("inspection_point_id", point.id);
+    if (preserve.error) toast.warning(`Anciennes sélections non désactivées : ${preserve.error.message}`);
     const saved = await insertOffersResilient(
       offerRows(offers, {
         inspectionId,

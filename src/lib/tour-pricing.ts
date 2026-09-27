@@ -472,11 +472,11 @@ export function groupTireItems(
 
   const out: PricedItem[] = [];
   for (const g of groups) {
-    const quantity = g.axles.length * 2;
+    const quantity = g.quantity;
     const mount = mountPackageFor(ctx.packages, quantity);
-    const wheels = g.entries.map((e) => e.point.point_label).join(", ");
-    const priority: Priority = g.entries.some((e) => e.priority === "urgent") ? "urgent" : "a_surveiller";
-    const offersReady = g.entries.reduce((s, e) => s + e.offersReady, 0);
+    const wheels = g.values.map((e) => e.point.point_label).join(", ");
+    const priority: Priority = g.values.some((e) => e.priority === "urgent") ? "urgent" : "a_surveiller";
+    const offersReady = g.values.reduce((s, e) => s + e.offersReady, 0);
     const ttc = mount?.totalTtc ?? 0;
     const ht = Math.round((ttc / 1.2) * 100) / 100;
     const axleLabel = g.axles.length === 2 ? "avant et arrière" : g.axles[0] === "arriere" ? "arrière" : "avant";
@@ -508,12 +508,12 @@ export function groupTireItems(
         method: "proposition_generique_pneus",
         size: g.size,
         axles: g.axles,
-        wheels: g.entries.map((e) => e.point.point_key),
+        wheels: g.values.map((e) => e.point.point_key),
         mount_package: mount?.label ?? null,
         mount_total_ttc: mount?.totalTtc ?? null,
         tire_price_ht: null,
       },
-      originPointKey: g.entries[0]?.point.point_key ?? null,
+      originPointKey: g.values[0]?.point.point_key ?? null,
     });
   }
   return out;

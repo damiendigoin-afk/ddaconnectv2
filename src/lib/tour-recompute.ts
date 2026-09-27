@@ -212,7 +212,9 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
       publicCache.set(required.size, items);
     }
 
-    const quantity = wheels.filter((w) => axleKindOf(w.point_key.replace("pneu_", "")) === axle).length || 1;
+    // Le chiffrage est toujours par paire sur un essieu, même si une seule roue
+    // est signalée. Le regroupement final peut ensuite fusionner deux essieux en 4.
+    const quantity = 2;
 
     const offers = buildSevenOffers({
       offers: [...publicItemsToOffers(items, brands), ...catalog],
@@ -232,10 +234,10 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
     const best = axleTaken.has(axle) ? null : pickBestOffer(offers);
     if (best) axleTaken.add(axle);
 
-    const purge = await supabase.from("tire_quote_offers").delete().eq("inspection_point_id", wheel.id);
-    if (purge.error) {
+    const preserve = await supabase.from("tire_quote_offers").update({ selected: false }).eq("inspection_point_id", wheel.id);
+    if (preserve.error) {
       report.notes.push(
-        `${wheel.point_label} : anciennes offres non supprimées (${purge.error.message}) — les nouvelles s'ajoutent.`,
+        `${wheel.point_label} : anciennes sélections non désactivées (${preserve.error.message}) — contrôle manuel requis.`,
       );
     }
     const rows = offerRows(offers, {

@@ -61,13 +61,13 @@ describe("chiffrage tour — cas Captur (batterie + 2 pneus à surveiller)", () 
     ]);
     expect(items).toHaveLength(1);
     expect(items[0]!.quantity).toBe(2);
-    expect(items[0]!.label).toContain("205/60 R16 92H");
+    expect(items[0]!.label).toContain("PNEUS AV — 205/60 R16 92H — 2 pneus");
   });
 
   it("garde la proposition pneus même sans dimension exploitable", () => {
     const blank = { ...(tirePoint("pneu_ard") as unknown as Record<string, unknown>), tire_analysis: null } as never;
     const items = groupTireItems(ctx, [{ point: blank, priority: "urgent", offersReady: 0 }]);
-    expect(items[0]!.label).toContain("dimension à renseigner");
+    expect(items[0]!.label).toContain("dimension à confirmer");
     expect(items[0]!.priority).toBe("urgent");
   });
 
