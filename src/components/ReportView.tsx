@@ -423,7 +423,7 @@ function ItemEditor({
             onChange={(e) => setMeasure(e.target.value)}
             aria-label="Mesure"
             placeholder={measureUnit ? `Mesure (${measureUnit})` : "Mesure"}
-            className="w-24 rounded-lg border-2 border-border bg-card px-2 py-2 text-center text-sm outline-none focus:border-brand"
+            className="w-32 rounded-lg border-2 border-border bg-card px-2 py-2 text-center text-sm outline-none focus:border-brand"
           />
           {/* Jamais d'unité seule : affichée uniquement avec une valeur valide. */}
           {normalizeMeasureValue(measure, measureUnit) != null && measureUnit ? (
