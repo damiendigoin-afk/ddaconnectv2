@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { ageDays, Badge, OrLink, SiteFilter, usePartsCtx } from "@/components/parts/PartsUi";
+import { ageDays, Badge, OrLink, ActiveSiteNote, usePartsCtx } from "@/components/parts/PartsUi";
 import { closeRegularization, listRegularizations, REGUL_LABELS, type RegulItem } from "@/lib/parts";
 
 export const Route = createFileRoute("/pieces-achats/regulariser")({
@@ -22,9 +21,9 @@ export const Route = createFileRoute("/pieces-achats/regulariser")({
 });
 
 function RegulPage() {
-  const { siteName, actor } = usePartsCtx();
+  const { siteName, actor, readSite } = usePartsCtx();
   const qc = useQueryClient();
-  const [scope, setScope] = useState("groupe");
+  const scope = readSite ?? "groupe";
   const q = useQuery({ queryKey: ["regul", scope], queryFn: () => listRegularizations(scope === "groupe" ? null : scope) });
 
   async function close(item: RegulItem) {
@@ -38,7 +37,7 @@ function RegulPage() {
   return (
     <AppShell title="À régulariser" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
       <div className="space-y-3">
-        <SiteFilter value={scope} onChange={setScope} />
+        <ActiveSiteNote />
         {q.data && !q.data.length ? <p className="card-surface p-4 text-sm text-muted-foreground">Rien à régulariser.</p> : null}
         {(q.data ?? []).map((r) => (
           <div key={r.key} className="rounded-xl border-2 border-border bg-card p-3 text-sm">

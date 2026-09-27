@@ -4,12 +4,19 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteFilter, SupplierSelect, usePartsCtx, WriteSiteSelect } from "@/components/parts/PartsUi";
-import { cancelReceiptIncident, getOrder, listOrders, listReceipts, listSupplierDocs, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
+import { DocDropZone } from "@/components/parts/DocDropZone";
+import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
+import { cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
+import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders } from "@/lib/parts-site";
+import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
+import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { isOverReceipt } from "@/lib/parts-rules";
 
 export const Route = createFileRoute("/pieces-achats/reception")({
-  validateSearch: (s: Record<string, unknown>): { order?: string } => (typeof s["order"] === "string" ? { order: s["order"] } : {}),
+  validateSearch: (s: Record<string, unknown>): { order?: string; doc?: string } => ({
+    ...(typeof s["order"] === "string" ? { order: s["order"] } : {}),
+    ...(typeof s["doc"] === "string" ? { doc: s["doc"] } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Réception pièces — DDA Connect" },
@@ -25,33 +32,120 @@ export const Route = createFileRoute("/pieces-achats/reception")({
 
 const blank = (): ReceiptLineInput => ({ order_line_id: null, physical_reference: "", designation: "", qty_expected: null, qty_received: 1, condition: "usable", destination: "or", allocate_qty: 1, unit_cost: null, expected_cost: null, ordered_reference: null, comment: "" });
 
+type Mode = null | "order" | "physical" | "document";
+
 function ReceptionPage() {
   const search = Route.useSearch();
-  const [mode, setMode] = useState<null | "order" | "physical" | "document">(search.order ? "order" : null);
+  const [mode, setMode] = useState<Mode>(search.order ? "order" : null);
+  const [orderId, setOrderId] = useState<string | null>(search.order ?? null);
+  const [doc, setDoc] = useState<SupplierDoc | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { actor, writeSite } = usePartsCtx();
+
+  useEffect(() => {
+    if (!search.doc) return;
+    void getSupplierDoc(search.doc).then((d) => d && setDoc(d));
+  }, [search.doc]);
+
+  async function onFile(file: File) {
+    if (!writeSite) return void toast.error("Choisissez le site actif dans la barre du haut.");
+    setBusy(true);
+    try {
+      const r = await readPurchaseDoc(file);
+      if (r.warning) toast.warning(r.warning);
+      // Le BL rejoint la file documents existante : aucun redépôt ultérieur nécessaire.
+      const created = await uploadSupplierDoc({ file: r.file, extracted: { ...r.extracted, doc_kind: r.extracted.doc_kind ?? "bl" }, siteId: writeSite, userId: actor.userId, userName: actor.name });
+      setDoc(created);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Dépôt impossible");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const reset = () => { setMode(null); setOrderId(null); setDoc(null); };
+
   return (
-    <AppShell title="Réception pièces" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
-      {mode ? <ReceiptForm mode={mode} initialOrder={search.order ?? null} onDone={() => setMode(null)} /> : (
-        <div className="space-y-3">
-          <button className={`${btnPrimary} w-full`} onClick={() => setMode("order")}>Réceptionner une commande</button>
-          <button className={`${btnGhost} w-full`} onClick={() => setMode("physical")}>Réception physique sans document</button>
-          <button className={`${btnGhost} w-full`} onClick={() => setMode("document")}>Avec un BL / facture déjà déposé</button>
-          <p className="text-xs text-muted-foreground">Seule la validation d'une réception physique fait bouger le stock. Un BL reçu par e-mail sans livraison ne change rien au stock.</p>
-          <RecentReceipts />
-        </div>
-      )}
+    <AppShell title="Réceptionner des pièces" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
+      <div className="space-y-3">
+        <ActiveSiteNote />
+        {mode ? (
+          <ReceiptForm mode={mode} initialOrder={orderId} doc={doc} onDone={reset} />
+        ) : doc ? (
+          <DocMatch doc={doc} onOrder={(id) => { setOrderId(id); setMode("order"); }} onNoOrder={() => setMode("document")} onCancel={reset} />
+        ) : (
+          <>
+            <DocDropZone title="Scanner / déposer un BL" hint="Glissez-déposez le bon de livraison (PDF, photo, capture) : rapprochement automatique" busy={busy} onFile={onFile} />
+            <PendingOrderList onPick={(id) => { setOrderId(id); setMode("order"); }} />
+            <button className={`${btnGhost} w-full`} onClick={() => setMode("physical")}>Réception physique sans document</button>
+            <p className="text-xs text-muted-foreground">Seule la validation d'une réception physique fait bouger le stock. Un BL reçu par e-mail sans livraison ne change rien au stock.</p>
+            <RecentReceipts />
+          </>
+        )}
+      </div>
     </AppShell>
   );
 }
 
+function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
+  const { readSite, siteName } = usePartsCtx();
+  const q = useQuery({ queryKey: ["open-orders", readSite], queryFn: async () => pendingReceptionOrders(await listOrders({ siteId: readSite })) });
+  return (
+    <section className="space-y-2">
+      <h2 className="text-xs font-bold uppercase text-muted-foreground">Commandes en attente de réception</h2>
+      {q.data && !q.data.length ? <p className="card-surface p-3 text-sm text-muted-foreground">Aucune commande en attente sur ce site.</p> : null}
+      {(q.data ?? []).map((o) => (
+        <button key={o.id} className="block w-full rounded-xl border-2 border-border bg-card p-3 text-left text-sm" onClick={() => onPick(o.id)}>
+          <div className="flex justify-between gap-2"><b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur à préciser"}</b>{o.status === "partial" ? <Badge tone="warn">Reliquat</Badge> : null}</div>
+          <div className="text-xs text-muted-foreground">
+            {siteName(o.site_id)} · {(o.repair_orders as { or_number: string | null } | null)?.or_number ? `OR ${(o.repair_orders as { or_number: string }).or_number}` : o.plate ?? "sans OR"} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
+          </div>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+/** Rapprochement BL ↔ commandes en attente du site actif. Jamais bloquant. */
+export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierDoc; onOrder: (id: string) => void; onNoOrder: () => void; onCancel: () => void }) {
+  const { writeSite, sites } = usePartsCtx();
+  const suppliers = useSuppliers();
+  const x = doc.extracted;
+  const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
+  const matches = matchOrders(x, orders.data ?? [], writeSite);
+  const sup = matchSupplier(x.supplier, suppliers.data ?? []);
+  return (
+    <div className="card-surface space-y-3 p-4">
+      <p className="text-xs font-extrabold uppercase text-muted-foreground">Document : {doc.file_name}</p>
+      <SiteMismatchAlert docSite={guessDocumentSite(docSiteText(x), sites)} />
+      <div className="text-xs">
+        <p>Fournisseur : <b>{sup?.name ?? x.supplier ?? "non lu"}</b></p>
+        <p>OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · Réf. commande : <b>{x.order_reference ?? "—"}</b></p>
+        <p>{(x.lines ?? []).length} ligne(s) lue(s)</p>
+      </div>
+      {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
+      {matches.map((m) => (
+        <button key={m.order.id} className="block w-full rounded-lg border-2 border-brand p-3 text-left text-sm" onClick={() => onOrder(m.order.id)}>
+          <Badge tone={m.level === "certain" ? "ok" : "warn"}>{m.level === "certain" ? "Correspondance certaine" : "Correspondance probable"}</Badge>{" "}
+          <b>{(m.order.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b>
+          {(m.order.repair_orders as { or_number: string | null } | null)?.or_number ? ` · OR ${(m.order.repair_orders as { or_number: string }).or_number}` : ""}
+          {m.order.plate ? ` · ${m.order.plate}` : ""} — Contrôler la réception
+        </button>
+      ))}
+      {orders.data && !matches.length ? <p className="text-sm text-muted-foreground">Aucune commande DDA correspondante sur ce site.</p> : null}
+      <button className={`${btnGhost} w-full`} onClick={onNoOrder}>Réceptionner sans commande (depuis le BL)</button>
+      <button className="w-full text-xs underline" onClick={onCancel}>Annuler</button>
+    </div>
+  );
+}
+
 function RecentReceipts() {
-  const { siteName, actor } = usePartsCtx();
-  const [scope, setScope] = useState("groupe");
+  const { siteName, actor, readSite } = usePartsCtx();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["part-receipts", scope], queryFn: () => listReceipts(scope === "groupe" ? null : scope) });
+  const q = useQuery({ queryKey: ["part-receipts", readSite], queryFn: () => listReceipts(readSite) });
   return (
     <section className="space-y-2 pt-2">
       <h2 className="text-xs font-bold uppercase text-muted-foreground">Réceptions récentes</h2>
-      <SiteFilter value={scope} onChange={setScope} />
       {(q.data ?? []).map((r) => (
         <div key={r.id} className="rounded-xl border-2 border-border bg-card p-3 text-sm">
           <div className="flex justify-between gap-2">
@@ -74,17 +168,36 @@ function RecentReceipts() {
   );
 }
 
-function ReceiptForm({ mode, initialOrder, onDone }: { mode: "order" | "physical" | "document"; initialOrder: string | null; onDone: () => void }) {
+function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "physical" | "document"; initialOrder: string | null; doc: SupplierDoc | null; onDone: () => void }) {
   const { actor, writeSite, siteName } = usePartsCtx();
+  const suppliers = useSuppliers();
   const qc = useQueryClient();
+  const x = doc?.extracted ?? {};
   const [site, setSite] = useState<string | null>(writeSite);
   const [orderId, setOrderId] = useState<string | null>(initialOrder);
   const [supplier, setSupplier] = useState("");
-  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: "", vehicleId: null });
-  const [docId, setDocId] = useState("");
+  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ?? "", vehicleId: null });
+  const [docId, setDocId] = useState(doc?.id ?? "");
   const [packages, setPackages] = useState("");
   const [comment, setComment] = useState("");
-  const [lines, setLines] = useState<ReceiptLineInput[]>(mode === "order" ? [] : [blank()]);
+  const [lines, setLines] = useState<ReceiptLineInput[]>(() => {
+    if (mode === "order") return [];
+    const fromDoc = (x.lines ?? []).filter((l) => l.reference || l.label).map((l) => ({ ...blank(), physical_reference: l.reference ?? "", designation: l.label ?? "", qty_expected: l.quantity ?? null, qty_received: l.quantity ?? 1, allocate_qty: l.quantity ?? 1, unit_cost: l.unit_price ?? null }));
+    return fromDoc.length ? fromDoc : [blank()];
+  });
+
+  // Pré-remplissage depuis le BL : fournisseur connu et OR existant (jamais de création d'OR).
+  useEffect(() => {
+    if (!doc || mode === "order") return;
+    if (x.or_number) void findOrByNumber(x.or_number).then((o) => { if (o) setOrv({ or: o, plate: o.plate ?? x.plate ?? "", vehicleId: o.vehicle_id }); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc?.id]);
+  useEffect(() => {
+    if (!doc || supplier || mode === "order") return;
+    const m = matchSupplier(x.supplier, suppliers.data ?? []);
+    if (m) setSupplier(m.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suppliers.data, doc?.id]);
   const [busy, setBusy] = useState(false);
 
   const openOrders = useQuery({ queryKey: ["open-orders", site], enabled: mode === "order", queryFn: async () => (await listOrders({ siteId: site })).filter((o) => o.status === "ordered" || o.status === "partial") });
@@ -110,13 +223,12 @@ function ReceiptForm({ mode, initialOrder, onDone }: { mode: "order" | "physical
   const set = (i: number, p: Partial<ReceiptLineInput>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   async function submit() {
-    if (!site) return void toast.error("Choisissez le site qui reçoit physiquement.");
-    if (!supplier && mode !== "order") return void toast.error("Fournisseur obligatoire.");
+    if (!site) return void toast.error("Choisissez le site actif dans la barre du haut.");
     const over = lines.filter((l) => isOverReceipt(l.qty_expected, l.qty_received));
     if (over.length && !window.confirm(`Sur-réception : ${over.map((l) => `${l.physical_reference} attendu ${l.qty_expected} / reçu ${l.qty_received}`).join(", ")}. Confirmer les quantités réellement reçues ?`)) return;
     setBusy(true);
     try {
-      await validateReceipt({
+      const receiptId = await validateReceipt({
         site_id: site,
         supplier_id: supplier || null,
         order_id: orderId,
@@ -129,6 +241,10 @@ function ReceiptForm({ mode, initialOrder, onDone }: { mode: "order" | "physical
         comment: comment.trim() || null,
         lines: lines.map((l) => ({ ...l, destination: l.destination === "or" && !orv.or ? "unknown" : l.destination })),
       }, actor);
+      // Rien ne bloque : ce qui manque part dans « À régulariser ».
+      if (!orderId && docId) await openRegularization({ site_id: site, kind: "reception_sans_commande", source_table: "part_receipts", source_id: receiptId, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate: orv.plate.trim() || null, comment: "Réception faite depuis un BL sans commande DDA" }, actor);
+      if (!supplier && !orderId) await openRegularization({ site_id: site, kind: "commande_sans_fournisseur", source_table: "part_receipts", source_id: receiptId, plate: orv.plate.trim() || null, comment: "Réception sans fournisseur identifié" }, actor);
+      if (docId) await updateSupplierDoc(docId, { status: "a_verifier" }).catch(() => undefined);
       toast.success("Réception validée — stock mis à jour");
       qc.invalidateQueries();
       onDone();
@@ -141,7 +257,7 @@ function ReceiptForm({ mode, initialOrder, onDone }: { mode: "order" | "physical
 
   return (
     <div className="card-surface space-y-3 p-4">
-      <WriteSiteSelect value={site} onChange={setSite} />
+      <p className="text-xs font-extrabold uppercase text-muted-foreground">Réception sur {site ? siteName(site) : "?"}{doc ? ` · BL ${doc.file_name}` : ""}</p>
       {mode === "order" && !orderId ? (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase text-muted-foreground">Commandes en attente</p>
@@ -155,8 +271,8 @@ function ReceiptForm({ mode, initialOrder, onDone }: { mode: "order" | "physical
       ) : null}
       {mode !== "order" || orderId ? (
         <>
-          {mode !== "order" ? <SupplierSelect value={supplier} onChange={setSupplier} required /> : null}
-          {mode === "document" ? (
+          {mode !== "order" ? <SupplierSelect value={supplier} onChange={setSupplier} /> : null}
+          {mode === "document" && !doc ? (
             <select className={inputCls} value={docId} onChange={(e) => setDocId(e.target.value)}>
               <option value="">— BL / facture déposé —</option>
               {(docs.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.file_name} · {new Date(d.created_at).toLocaleDateString("fr-FR")}</option>)}

@@ -220,7 +220,7 @@ export async function allocateToOr(a: { articleId: string; siteId: string; orId:
 export type OrderLineInput = { line_kind: "part" | "fee" | "deposit"; physical_reference: string; designation: string; qty_ordered: number | null; expected_unit_cost_ht: number | null };
 
 export async function createOrder(
-  o: { site_id: string; supplier_id: string; order_mode: "simplified" | "detailed"; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; appointment_date: string | null; supplier_order_ref: string | null; comment: string | null; lines: OrderLineInput[] },
+  o: { site_id: string; supplier_id: string | null; source_document_id?: string | null; order_mode: "simplified" | "detailed"; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; appointment_date: string | null; supplier_order_ref: string | null; comment: string | null; lines: OrderLineInput[] },
   actor: Actor,
 ) {
   const { lines, ...head } = o;
@@ -492,6 +492,8 @@ export const REGUL_LABELS: Record<string, string> = {
   commande_non_enrichie: "Commande non détaillée ancienne",
   travaux_forces: "Travaux terminés forcés",
   reference_a_completer: "Référence à compléter",
+  commande_sans_fournisseur: "Commande sans fournisseur",
+  reception_sans_commande: "Réception sans commande DDA",
 };
 
 export type RegulItem = {

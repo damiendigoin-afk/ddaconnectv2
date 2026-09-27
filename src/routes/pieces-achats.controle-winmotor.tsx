@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, SiteFilter, usePartsCtx } from "@/components/parts/PartsUi";
+import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, ActiveSiteNote, usePartsCtx } from "@/components/parts/PartsUi";
 import { supabase } from "@/integrations/supabase/client";
 import { adjustStock, findStockByRef } from "@/lib/parts";
 import { sessionMinutes } from "@/lib/parts-rules";
@@ -40,15 +40,15 @@ function ControlPage() {
 }
 
 function OrList() {
-  const { siteName } = usePartsCtx();
-  const [scope, setScope] = useState("groupe");
+  const { siteName, readSite } = usePartsCtx();
+  const scope = readSite ?? "groupe";
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const list = useQuery({ queryKey: ["wm-ors", scope, q, page], queryFn: () => listBilledOrs(scope === "groupe" ? null : scope, page, q) });
   return (
     <div className="space-y-3">
       <input className={inputCls} placeholder="N° OR, n° facture ou immatriculation exacte" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
-      <SiteFilter value={scope} onChange={(v) => { setScope(v); setPage(0); }} />
+      <ActiveSiteNote />
       {list.data && !list.data.length ? <p className="card-surface p-4 text-sm text-muted-foreground">Aucune facture WinMotor importée. Importez les exports depuis Paramétrage › Imports WinMotor.</p> : null}
       {(list.data ?? []).map((g) => (
         <Link key={`${g.site_id}|${g.or_number}`} to="/pieces-achats/controle-winmotor" search={{ site: g.site_id, or: g.or_number }} className="block rounded-xl border-2 border-border bg-card p-3 text-sm">

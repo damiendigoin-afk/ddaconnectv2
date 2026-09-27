@@ -14,3 +14,4 @@
 - Phase B stock: stock levels are derived only from `stock_movements` deltas (view `stock_levels`); rules live in src/lib/parts-rules.ts. Why: traceable, physical-only stock, testable.
 - WinMotor invoices: imported only via SECURITY DEFINER RPCs wm_* (site chosen explicitly, OR identity = site + or_number, or_sale_final once per link). Why: WinMotor primacy, idempotent re-imports, traceable stock.
 - Supplier real cost: invoice lines link to receipt lines via supplier_cost_lines (src/lib/supplier-cost.ts); only valuation (PAMP, last PA, unit_cost_real) changes, never quantities. Why: physical stock ≠ financial documents, idempotent re-control.
+- Pièces & achats follows the global active site (TopBar ActivePicker → usePartsCtx writeSite/readSite, rules in src/lib/parts-site.ts); no per-screen site selectors. Why: one site at a time, never write silently on the other company.
