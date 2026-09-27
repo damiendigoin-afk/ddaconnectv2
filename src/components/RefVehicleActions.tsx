@@ -22,7 +22,10 @@ export function IxellioFillButton({ vehicle, disabled }: { vehicle: Veh; disable
   const plate = String(vehicle["registration_normalized"] ?? vehicle["registration_display"] ?? "").replace(/[^A-Za-z0-9]/g, "");
 
   async function run() {
-    if (plate.length < 4) return toast.error("Immatriculation absente : interrogation IXELLIO impossible.");
+    if (plate.length < 4) {
+      toast.error("Immatriculation absente : interrogation IXELLIO impossible.");
+      return;
+    }
     setBusy(true);
     try {
       const res = await lookup({ data: { plate } });
