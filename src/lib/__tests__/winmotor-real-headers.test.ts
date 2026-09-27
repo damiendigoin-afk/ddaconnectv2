@@ -79,7 +79,8 @@ describe("réparation des fiches mal mappées", () => {
   });
 });
 
-import { rawRowsToCsv, sanitizeDeep } from "@/lib/winmotor/invoices";
+import { rawRowsToCsv, sanitizeDeep, sanitizeText } from "@/lib/winmotor/invoices";
+import { formatImportError, importErrorInfo } from "@/lib/winmotor/invoice-import";
 describe("caractères de contrôle (NUL) dans l'export Détail", () => {
   const H = [...DH, "Colonne extra"];
   const bad = [...row.slice(0, 20), "Filtre\u0000 huile\u0007 écrou", ...row.slice(21), "val\u0000eur\u001F"];
@@ -89,12 +90,35 @@ describe("caractères de contrôle (NUL) dans l'export Détail", () => {
     expect(l.designation).toBe("Filtre huile écrou");
     expect(l.extra?.["Colonne extra"]).toBe("valeur");
     expect(r.sanitizedChars).toBe(4);
+    expect(r.sanitizedIssues).toEqual([
+      { line_no: 2, invoice: "606695", column: "Libellé", count: 2 },
+      { line_no: 2, invoice: "606695", column: "Colonne extra", count: 2 },
+    ]);
   });
   it("JSON envoyé sans \\u0000 ni contrôle", () => {
     const json = JSON.stringify(sanitizeDeep([{ a: "x\u0000y", b: ["\u0001é"] }]));
     expect(json).not.toMatch(/\\u00[01]/);
     expect(JSON.stringify(r.invoices)).not.toMatch(/\\u00[01][0-9a-f]/i);
     expect(json).toContain("é");
+  });
+  it("reproduit le défaut réel : facture 300192, ligne 9, NUL dans Code TVA", () => {
+    const real = [...row];
+    real[15] = "300192";
+    real[27] = "\u0000";
+    const rows = [DH.join(";"), ...Array.from({ length: 9 }, () => real.join(";"))].join("\r\n");
+    const parsed = parseExport(rows, "details", "Windows-1252");
+    expect(parsed.sanitizedChars).toBe(9);
+    expect(parsed.sanitizedIssues[8]).toEqual({ line_no: 10, invoice: "300192", column: "Code TVA", count: 1 });
+    expect(parsed.invoices[0]!.lines[8]!.vat_code).toBe("");
+    expect(JSON.stringify(parsed.invoices)).not.toContain("\\u0000");
+  });
+  it("retire les surrogates isolés mais conserve emoji, accents et œ", () => {
+    expect(sanitizeText("Pièce cœur 😀 \ud800 fin")).toEqual({ text: "Pièce cœur 😀  fin", removed: 1 });
+  });
+  it("conserve le diagnostic PostgREST utile sans objet Error", () => {
+    const source = { message: "unsupported Unicode escape sequence", code: "22P05", details: "\\u0000 cannot be converted to text.", hint: null };
+    expect(importErrorInfo(source)).toEqual({ message: source.message, code: "22P05", details: source.details });
+    expect(formatImportError(source)).toBe("unsupported Unicode escape sequence — code 22P05 — \\u0000 cannot be converted to text.");
   });
 });
 

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { Badge, btnGhost, btnPrimary, usePartsCtx, WriteSiteSelect } from "@/components/parts/PartsUi";
-import { listBatches, listRejects, prepareFile, reprocessHeadersFromRaw, runImport, type Prepared } from "@/lib/winmotor/invoice-import";
+import { formatImportError, listBatches, listRejects, prepareFile, reprocessHeadersFromRaw, runImport, type Prepared } from "@/lib/winmotor/invoice-import";
 import type { ImportKind } from "@/lib/winmotor/invoices";
 
 export const Route = createFileRoute("/parametrage/imports-winmotor")({
@@ -78,7 +78,7 @@ function DropZone({ kind, site }: { kind: ImportKind; site: string | null }) {
       setPrep(null); setProgress(null);
       qc.invalidateQueries({ queryKey: ["wm-batches"] });
     } catch (e) {
-      toast.error(`Import interrompu : ${e instanceof Error ? e.message : "erreur"}. Relancer le même fichier reprend sans doublon.`);
+      toast.error(`Import interrompu : ${formatImportError(e)}. Relancer le même fichier reprend sans doublon.`);
     } finally { setBusy(false); }
   }
   const p = prep?.parsed;
@@ -150,7 +150,7 @@ function History() {
       const r = await reprocessHeadersFromRaw(b, actor.name, (d, t, ph) => setRun({ id: b.id, text: `${ph} : ${d.toLocaleString("fr-FR")} / ${t.toLocaleString("fr-FR")}` }));
       toast.success(`Retraitement terminé : ${r.updated} mise(s) à jour, ${r.unchanged} inchangée(s), ${r.created} nouvelle(s). Période ${r.dateMin ?? "?"} → ${r.dateMax ?? "?"}.`);
     } catch (e) {
-      toast.error(`Retraitement interrompu : ${e instanceof Error ? e.message : "erreur"}. Il peut être relancé sans doublon.`);
+      toast.error(`Retraitement interrompu : ${formatImportError(e)}. Il peut être relancé sans doublon.`);
     } finally { setRun(null); qc.invalidateQueries({ queryKey: ["wm-batches"] }); }
   }
   return (
@@ -165,6 +165,7 @@ function History() {
           </div>
           <div className="text-muted-foreground">{b.file_name} · {new Date(b.created_at).toLocaleString("fr-FR")} · {b.created_by_name} · empreinte {b.file_hash.slice(0, 10)}…</div>
           <div>Période observée {b.date_min ?? "?"} → {b.date_max ?? "?"} · {b.rows_total} lignes · {b.invoices_seen} factures ({b.invoices_created} nouvelles, {b.invoices_updated} mises à jour, {b.invoices_unchanged} inchangées){b.lines_inserted ? ` · ${b.lines_inserted} lignes` : ""}</div>
+          {b.status === "failed" && b.report && typeof b.report === "object" && "error" in b.report ? <div className="font-bold text-destructive">{String(b.report.error)}{"errorCode" in b.report && b.report.errorCode ? ` — code ${String(b.report.errorCode)}` : ""}{"errorDetails" in b.report && b.report.errorDetails ? ` — ${String(b.report.errorDetails)}` : ""}</div> : null}
           {b.import_type === "headers" && b.status === "done" && !b.file_hash.includes("#") ? (
             run?.id === b.id ? <div className="font-bold">Retraitement en cours — {run.text}</div>
               : <button className="font-bold underline" disabled={!!run} onClick={() => void reprocess(b)}>Retraiter avec le mapping actuel (sans réimporter le fichier)</button>

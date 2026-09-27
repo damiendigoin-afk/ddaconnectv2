@@ -2,6 +2,25 @@
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_VAT, MAPPING_VERSION, decodeBuffer, parseExport, rawRowsToCsv, sanitizeDeep, type ImportKind, type ParseResult } from "./invoices";
 
+export type ImportErrorInfo = { message: string; code?: string; details?: string; hint?: string };
+
+const safeErrorText = (value: unknown) => typeof value === "string" ? value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "").slice(0, 1200) : undefined;
+
+export function importErrorInfo(error: unknown): ImportErrorInfo {
+  const source = error && typeof error === "object" ? error as Record<string, unknown> : {};
+  return {
+    message: safeErrorText(source.message) ?? (error instanceof Error ? safeErrorText(error.message) : undefined) ?? "Erreur inconnue",
+    ...(safeErrorText(source.code) ? { code: safeErrorText(source.code) } : {}),
+    ...(safeErrorText(source.details) ? { details: safeErrorText(source.details) } : {}),
+    ...(safeErrorText(source.hint) ? { hint: safeErrorText(source.hint) } : {}),
+  };
+}
+
+export function formatImportError(error: unknown): string {
+  const e = importErrorInfo(error);
+  return [e.message, e.code ? `code ${e.code}` : null, e.details].filter(Boolean).join(" — ");
+}
+
 export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", buf);
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -56,7 +75,7 @@ export async function runImport(p: Prepared, siteId: string, actorName: string, 
     const parts = chunk(p.parsed.headerRows, 200);
     for (let i = 0; i < parts.length; i++) {
       const { data, error } = await supabase.rpc("wm_import_headers", { _batch: batchId, _site: siteId, _rows: sanitizeDeep(parts[i], cleaned) as never });
-      if (error) { await failBatch(batchId, error.message, i * 200); throw error; }
+       if (error) { await failBatch(batchId, error, i * 200, p.parsed, cleaned.n); throw error; }
       const r = data as { created: number; updated: number; unchanged: number };
       tot.created += r.created; tot.updated += r.updated; tot.unchanged += r.unchanged;
       onProgress(Math.min((i + 1) * 200, p.parsed.headerRows.length), p.parsed.headerRows.length);
@@ -74,7 +93,7 @@ export async function runImport(p: Prepared, siteId: string, actorName: string, 
     let done = 0;
     for (const part of parts) {
       const { data, error } = await supabase.rpc("wm_import_details", { _batch: batchId, _site: siteId, _invoices: sanitizeDeep(part, cleaned) as never });
-      if (error) { await failBatch(batchId, error.message, done); throw error; }
+       if (error) { await failBatch(batchId, error, done, p.parsed, cleaned.n); throw error; }
       const r = data as { created: number; updated: number; unchanged: number; lines: number };
       tot.created += r.created; tot.updated += r.updated; tot.unchanged += r.unchanged; tot.lines += r.lines;
       done += part.length;
@@ -85,13 +104,14 @@ export async function runImport(p: Prepared, siteId: string, actorName: string, 
   const { data: link } = await supabase.rpc("wm_link_orders", { _site: siteId, _mirror_since: since });
   await supabase
     .from("winmotor_import_batches")
-    .update({ status: "done", completed_at: new Date().toISOString(), invoices_seen: p.parsed.kind === "headers" ? p.parsed.headerRows.length : p.parsed.invoices.length, invoices_created: tot.created, invoices_updated: tot.updated, invoices_unchanged: tot.unchanged, lines_inserted: tot.lines, report: { orLinks: link, missing: p.parsed.missing, map: p.parsed.map, duplicateInvoiceRows: p.parsed.duplicateInvoiceRows, sanitizedChars: p.parsed.sanitizedChars + cleaned.n } as never })
+     .update({ status: "done", completed_at: new Date().toISOString(), invoices_seen: p.parsed.kind === "headers" ? p.parsed.headerRows.length : p.parsed.invoices.length, invoices_created: tot.created, invoices_updated: tot.updated, invoices_unchanged: tot.unchanged, lines_inserted: tot.lines, report: { orLinks: link, missing: p.parsed.missing, map: p.parsed.map, duplicateInvoiceRows: p.parsed.duplicateInvoiceRows, sanitizedChars: p.parsed.sanitizedChars + cleaned.n, sanitizedIssues: p.parsed.sanitizedIssues } as never })
     .eq("id", batchId);
   return { alreadyImported: false as const, batchId, ...tot, orLinks: link, storageWarning };
 }
 
-async function failBatch(id: string, message: string, at: number) {
-  await supabase.from("winmotor_import_batches").update({ status: "failed", report: { error: message, stoppedAt: at } as never }).eq("id", id);
+async function failBatch(id: string, error: unknown, at: number, parsed: ParseResult, payloadSanitized: number) {
+  const info = importErrorInfo(error);
+  await supabase.from("winmotor_import_batches").update({ status: "failed", report: { error: info.message, errorCode: info.code, errorDetails: info.details, errorHint: info.hint, stoppedAt: at, sanitizedChars: parsed.sanitizedChars + payloadSanitized, sanitizedIssues: parsed.sanitizedIssues } as never }).eq("id", id);
 }
 
 export async function listBatches() {
@@ -129,14 +149,14 @@ export async function reprocessHeadersFromRaw(orig: { id: string; site_id: strin
   const parts = chunk(parsed.headerRows, 200);
   for (let i = 0; i < parts.length; i++) {
     const { data, error } = await supabase.rpc("wm_import_headers", { _batch: batchId, _site: orig.site_id, _rows: sanitizeDeep(parts[i], cleaned) as never });
-    if (error) { await failBatch(batchId, error.message, i * 200); throw error; }
+    if (error) { await failBatch(batchId, error, i * 200, parsed, cleaned.n); throw error; }
     const r = data as { created: number; updated: number; unchanged: number };
     tot.created += r.created; tot.updated += r.updated; tot.unchanged += r.unchanged;
     onProgress(Math.min((i + 1) * 200, parsed.headerRows.length), parsed.headerRows.length, "mise à jour");
   }
   const since = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
   const { data: link } = await supabase.rpc("wm_link_orders", { _site: orig.site_id, _mirror_since: since });
-  await supabase.from("winmotor_import_batches").update({ status: "done", completed_at: new Date().toISOString(), invoices_seen: parsed.headerRows.length, invoices_created: tot.created, invoices_updated: tot.updated, invoices_unchanged: tot.unchanged, report: { reprocessOf: orig.id, source: "header_raw", mappingVersion: MAPPING_VERSION, orLinks: link, map: parsed.map, sanitizedChars: parsed.sanitizedChars + cleaned.n } as never }).eq("id", batchId);
+  await supabase.from("winmotor_import_batches").update({ status: "done", completed_at: new Date().toISOString(), invoices_seen: parsed.headerRows.length, invoices_created: tot.created, invoices_updated: tot.updated, invoices_unchanged: tot.unchanged, report: { reprocessOf: orig.id, source: "header_raw", mappingVersion: MAPPING_VERSION, orLinks: link, map: parsed.map, sanitizedChars: parsed.sanitizedChars + cleaned.n, sanitizedIssues: parsed.sanitizedIssues } as never }).eq("id", batchId);
   const prev = orig.report && typeof orig.report === "object" ? (orig.report as Record<string, unknown>) : {};
   await supabase.from("winmotor_import_batches").update({ date_min: parsed.dateMin, date_max: parsed.dateMax, report: { ...prev, reprocessedBy: batchId, reprocessedAt: new Date().toISOString() } as never }).eq("id", orig.id);
   return { batchId, ...tot, dateMin: parsed.dateMin, dateMax: parsed.dateMax };
