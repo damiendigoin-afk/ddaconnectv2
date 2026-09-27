@@ -74,4 +74,4 @@ Reste à faire :
 - [x] buildSevenOffers : fallback marques de la gamme (sort_order), prix réels pour 4
 - [x] Affichage Équivalence + matrice 3x2 (atelier + client)
 - [x] Rapport : Synthèse par défaut, Détail en accordéons, pas d'unité seule
-- [ ] Tests, typecheck, build, publication
+- [x] Tests, typecheck, build, publication
