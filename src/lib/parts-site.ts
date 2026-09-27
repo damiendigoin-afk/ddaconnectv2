@@ -137,8 +137,8 @@ export function matchSupplier<T extends { id: string; name: string; active?: boo
 export function orderGaps(o: { supplier_id: string | null; hasDocument: boolean; lines: number; repair_order_id: string | null; plate: string | null; destination: string; requested_or_number?: string | null }): string[] {
   const gaps: string[] = [];
   if (!o.supplier_id) gaps.push("commande_sans_fournisseur");
-  if (o.destination === "or" && !o.repair_order_id && (o.requested_or_number ?? "").trim()) gaps.push("or_non_importe");
-  else if (o.destination === "or" && !o.repair_order_id && !(o.plate ?? "").trim()) gaps.push("destination_inconnue");
+  // N° de dossier lu (requested_or_number) ou plaque = commande suffisamment rattachée ; la facture WinMotor confirmera.
+  if (o.destination === "or" && !o.repair_order_id && !(o.requested_or_number ?? "").trim() && !(o.plate ?? "").trim()) gaps.push("destination_inconnue");
   if (o.hasDocument && o.lines === 0) gaps.push("reference_a_completer");
   return gaps;
 }

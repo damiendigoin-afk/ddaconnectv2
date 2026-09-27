@@ -117,7 +117,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const [vehFound, setVehFound] = useState<string | null>(null);
 
   // OR lu sur le document : rattachement automatique s'il existe dans DDA (jamais de création d'OR).
-  // Sinon, plaque imprimée → véhicule DDA rattaché ; le n° d'OR est conservé pour rattachement ultérieur.
+  // Sinon, plaque imprimée → véhicule DDA rattaché ; le n° de dossier est conservé ; la facture WinMotor confirmera.
   if (doc && !orLooked && (x.or_number || x.plate)) {
     setOrLooked(true);
     void (async () => {
@@ -182,7 +182,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       }, actor);
       const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: clean.length, repair_order_id: orv.or?.id ?? null, plate, destination, requested_or_number: requestedOr });
       for (const kind of gaps) {
-        await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: id, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate, comment: kind === "or_non_importe" ? `OR ${requestedOr} lu sur le document, pas encore importé de WinMotor — rattachement automatique à l'import` : "Commande validée avec informations manquantes" }, actor);
+        await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: id, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate, comment: "Commande validée avec informations manquantes" }, actor);
       }
       toast.success(gaps.length ? `Commande enregistrée — ${gaps.length} point(s) envoyé(s) dans « À régulariser »` : "Commande enregistrée — en attente de réception");
       qc.invalidateQueries({ queryKey: ["part-orders"] });
@@ -210,8 +210,8 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
       <OrPicker value={orv} onChange={setOrv} />
       {requestedOr ? (
-        <p className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs font-bold">
-          OR {requestedOr} non encore importé{vehFound ? ` · véhicule ${vehFound} retrouvé` : ""} — le numéro est conservé et la commande sera rattachée automatiquement à l'import WinMotor.
+        <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
+          Dossier {requestedOr}{vehFound ? ` · véhicule ${vehFound}` : ""} — sera rapproché à la facture WinMotor.
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-2">

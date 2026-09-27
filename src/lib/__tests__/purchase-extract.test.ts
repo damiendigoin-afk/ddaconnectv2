@@ -4,6 +4,7 @@ import { normalizePurchaseExtract } from "@/lib/purchase-extract";
 import { guessDocumentSite, matchSupplier, orderGaps } from "@/lib/parts-site";
 import { docSiteText } from "@/lib/purchase-doc";
 import { autoSupplier } from "@/lib/order-supplier";
+import { matchDossierOrders } from "@/lib/winmotor/reconcile";
 
 // Réponse OCR type pour le bon de commande réel 0332b1a5… (Commande n° 45834714).
 const ocr = {
@@ -103,9 +104,25 @@ describe("commande 45873330 : OR non importé + plaque imprimée", () => {
     expect(l.unit_price).not.toBe(510.3);
     expect(guessDocumentSite(docSiteText(x), sites as never)).toBe("cas");
   });
-  it("régularisation OR non importé même si la plaque est connue, sans blocage", () => {
+  it("n° de dossier sans OR DDA = commande valide, aucune anomalie", () => {
     const g = orderGaps({ supplier_id: "s1", hasDocument: true, lines: 1, repair_order_id: null, plate: "FG-315-YS", destination: "or", requested_or_number: "48416" });
-    expect(g).toEqual(["or_non_importe"]);
-    expect(orderGaps({ supplier_id: "s1", hasDocument: true, lines: 1, repair_order_id: "or1", plate: "FG-315-YS", destination: "or", requested_or_number: null })).toEqual([]);
+    expect(g).toEqual([]);
+    expect(orderGaps({ supplier_id: "s1", hasDocument: true, lines: 1, repair_order_id: null, plate: null, destination: "or", requested_or_number: "48416" })).toEqual([]);
+  });
+});
+
+describe("facture WinMotor = événement final du dossier", () => {
+  const o = (id: string, site: string, num: string | null, plate: string | null) => ({ id, site_id: site, requested_or_number: num, plate });
+  it("retrouve la commande même site + même n° de dossier", () => {
+    const r = matchDossierOrders({ site_id: "cas", or_number: "48416", plate: "FG315YS" }, [o("a", "cas", "48416", "FG-315-YS"), o("b", "dda", "48416", "FG-315-YS"), o("c", "cas", "99999", null)]);
+    expect(r.ambiguous).toBe(false);
+    expect(r.orders.map((x) => x.id)).toEqual(["a"]);
+  });
+  it("ambiguïté (véhicules différents) = pas de liaison automatique", () => {
+    const r = matchDossierOrders({ site_id: "cas", or_number: "48416", plate: null }, [o("a", "cas", "48416", "FG-315-YS"), o("b", "cas", "48416", "AB-123-CD")]);
+    expect(r.ambiguous).toBe(true);
+  });
+  it("plaque facture incompatible = contrôle manuel", () => {
+    expect(matchDossierOrders({ site_id: "cas", or_number: "48416", plate: "ZZ999ZZ" }, [o("a", "cas", "48416", "FG-315-YS")]).ambiguous).toBe(true);
   });
 });
