@@ -314,7 +314,7 @@ export async function runIxellioAuthTest(input: {
         searchStatus: local.status,
         bytes: localHtml.length,
         vehicle: localParsed.vehicle,
-        detectedFields: Object.keys(localParsed.vehicle),
+        detectedFields: localParsed.detectedFields,
         fieldCount: localParsed.fieldCount,
         pairCount: localParsed.pairCount,
         isVersionList: localParsed.isVersionList,
