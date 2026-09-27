@@ -194,13 +194,12 @@ export function consolidateWheelOcr(p2: TireOcrRead | null, p3: TireOcrRead | nu
         provenance[field] = "photo2+photo3";
         return a;
       }
-      if (!critical || p3?.complete) {
-        provenance[field] = "photo3";
-        if (critical) return a;
-        return field === "brand" || field === "model" || field === "season" ? (p3?.complete ? a : b) : a;
+      if (critical && !p3?.complete) {
+        conflicts.push({ field, values: [a, b] });
+        return null;
       }
-      conflicts.push({ field, values: [a, b] });
-      return null;
+      provenance[field] = "photo3";
+      return a;
     }
     const v = a ?? b;
     if (v) provenance[field] = a ? "photo3" : "photo2";
