@@ -108,11 +108,29 @@ export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[
 }
 
 /** Fournisseur connu correspondant au nom lu (sinon null : l'utilisateur choisit). */
+const GENERIC_WORDS = new Set(["groupe", "group", "auto", "autos", "automobile", "automobiles", "garage", "sas", "sarl", "distribution", "pieces", "piece", "france", "societe", "ets", "etablissements"]);
+const sigWords = (s: string) => norm(s).split(" ").filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));
+
 export function matchSupplier<T extends { id: string; name: string; active?: boolean | null }>(name: string | null | undefined, suppliers: T[]): T | null {
   const n = norm(name);
   if (n.length < 3) return null;
-  const hits = suppliers.filter((s) => s.active !== false && norm(s.name).length >= 3 && (n.includes(norm(s.name)) || norm(s.name).includes(n)));
-  return hits.length === 1 ? hits[0]! : null;
+  const pool = suppliers.filter((s) => s.active !== false && norm(s.name).length >= 3);
+  const hits = pool.filter((s) => n.includes(norm(s.name)) || norm(s.name).includes(n));
+  if (hits.length === 1) return hits[0]!;
+  if (hits.length > 1) return null;
+  // Mots significatifs communs, ordre indifférent (« X SARLAT - GROUPE FAURIE » ↔ « FAURIE AUTO SARLAT »).
+  const words = new Set(sigWords(n));
+  const scored = pool
+    .map((s) => {
+      const sw = sigWords(s.name);
+      const shared = sw.filter((w) => words.has(w)).length;
+      return { s, shared, ok: sw.length > 0 && (shared >= 2 || (shared === sw.length && shared >= 1)) };
+    })
+    .filter((x) => x.ok)
+    .sort((a, b) => b.shared - a.shared);
+  if (!scored.length) return null;
+  if (scored.length > 1 && scored[1]!.shared === scored[0]!.shared) return null;
+  return scored[0]!.s;
 }
 
 /** Régularisations à ouvrir après validation d'une commande — jamais de blocage. */

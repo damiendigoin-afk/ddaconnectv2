@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { askVision, parseJsonBlock } from "./ocr.server";
+import { normalizePurchaseExtract } from "./purchase-extract";
 
 const fileInput = z.object({ dataUrl: z.string().min(10), filename: z.string().optional() });
 
@@ -194,17 +195,23 @@ export const ocrPurchaseDocument = createServerFn({ method: "POST" })
 capture d'écran d'un site fournisseur, bon de livraison (BL) ou facture. Formats et mises en page variés, photo possible.
 Réponds STRICTEMENT en JSON :
 {"doc_kind":"commande|bl|facture|autre|null","supplier":null,"document_number":null,"document_date":null,
-"order_reference":null,"delivery_note_number":null,"invoice_number":null,"or_number":null,"plate":null,
+"order_reference":null,"delivery_note_number":null,"invoice_number":null,"or_number":null,"plate":null,"plate_printed":false,
 "customer_or_site":null,
-"lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"amount":null,"delay":null}],
-"total_ht":null,"handwritten_notes":null}
-- or_number : numéro d'OR / de dossier / "réf. client" atelier s'il apparaît (chiffres uniquement).
-- plate au format AB-123-CD. customer_or_site : nom/adresse du client livré ou facturé (garage destinataire).
-- delay : délai ou date de disponibilité tel qu'écrit. Dates ISO YYYY-MM-DD. Nombres avec un point décimal.
+"lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"client_price":null,"amount":null,"delay":null}],
+"total_ht":null,"vat_amount":null,"total_ttc":null,"handwritten_notes":null}
+- supplier : le vendeur qui émet le document (libellés possibles : « Distributeur », « Fournisseur », « Vendeur », en-tête/logo émetteur). JAMAIS le client/garage destinataire.
+- order_reference : numéro de commande fournisseur (« Commande n° », « N° de commande »).
+- or_number : numéro d'OR / dossier atelier (« Repère commande », « Votre référence », « Réf. client », « N° OR »), chiffres uniquement.
+  Ne pas confondre avec « N° client » ni « Compte de facturation ».
+- lines : une entrée par article (« Réf », « Désignation », « Qté »). unit_price = prix d'achat NET unitaire HT ;
+  client_price = « Prix client », « Prix public », prix catalogue (ne pas le mettre dans unit_price) ; amount = montant net HT de la ligne.
+- plate au format AB-123-CD et plate_printed=true UNIQUEMENT si une immatriculation est réellement imprimée ; sinon plate=null.
+- customer_or_site : nom/adresse du client livré ou facturé (garage destinataire).
+- delay : délai / date de livraison tel qu'écrit. Dates ISO YYYY-MM-DD. Nombres avec un point décimal.
 Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun prix, aucune référence.`;
     const result = await askVision(prompt, data.dataUrl, data.filename, "supplier_invoice");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible : complétez à la main.", json: "" };
-    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+    return { ok: true as const, error: "", json: JSON.stringify(normalizePurchaseExtract(parsed)) };
   });
