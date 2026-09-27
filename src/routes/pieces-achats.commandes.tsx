@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { autoSupplier } from "@/lib/order-supplier";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -93,11 +94,18 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const navigate = useNavigate();
   const x = doc?.extracted ?? {};
   const [destination, setDestination] = useState<"or" | "store_sale" | "stock">("or");
-  const [supplier, setSupplier] = useState(initialSupplier);
+  const [supplier, setSupplierRaw] = useState(initialSupplier);
+  const [supplierTouched, setSupplierTouched] = useState(false);
+  const setSupplier = (v: string) => { setSupplierTouched(true); setSupplierRaw(v); };
+  const suppliersQ = useSuppliers();
+  useEffect(() => {
+    const next = autoSupplier(supplier, supplierTouched, x.supplier, suppliersQ.data);
+    if (next !== supplier) setSupplierRaw(next);
+  }, [suppliersQ.data, supplier, supplierTouched, x.supplier]);
   const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ?? "", vehicleId: null });
-  const [comment, setComment] = useState(x.supplier && !initialSupplier ? `Fournisseur lu : ${x.supplier}` : "");
+  const [comment, setComment] = useState("");
   const [rdv, setRdv] = useState("");
-  const [supRef, setSupRef] = useState(x.order_reference ?? x.document_number ?? "");
+  const [supRef, setSupRef] = useState(x.order_reference ?? "");
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
     const ls = (x.lines ?? []).filter((l) => l.reference || l.label).map((l) => ({ line_kind: "part" as const, physical_reference: l.reference ?? "", designation: [l.label, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "), qty_ordered: l.quantity ?? 1, expected_unit_cost_ht: l.unit_price ?? null }));
     return ls.length ? ls : doc ? [emptyLine()] : [];
