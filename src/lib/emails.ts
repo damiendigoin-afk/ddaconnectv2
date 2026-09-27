@@ -142,7 +142,7 @@ export type IncomingEmail = {
   personName?: string | null;
   accountId?: string | null;
   siteId?: string | null;
-  attachments?: { filename: string; mimeType?: string | null; sizeBytes?: number | null }[];
+  attachments?: { filename: string; mimeType?: string | null; sizeBytes?: number | null; gmailAttachmentId?: string | null }[];
 };
 
 /**
