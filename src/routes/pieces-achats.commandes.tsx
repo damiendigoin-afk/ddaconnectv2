@@ -179,6 +179,11 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       </p>
       {doc ? <SiteMismatchAlert docSite={docSite} /> : null}
       <SupplierSelect value={supplier} onChange={setSupplier} />
+      {!supplier && x.supplier ? (
+        <p className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs font-bold">
+          Fournisseur lu sur le document : « {x.supplier} » — aucun fournisseur existant ne correspond. Choisissez-le dans la liste ou créez-le dans Paramétrage › Fournisseurs.
+        </p>
+      ) : null}
       {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
       <OrPicker value={orv} onChange={setOrv} />
       {doc && x.or_number && !orv.or ? <p className="text-xs text-muted-foreground">OR lu sur le document : {x.or_number} (non trouvé dans DDA).</p> : null}

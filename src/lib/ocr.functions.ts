@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { askVision, parseJsonBlock } from "./ocr.server";
+import { normalizePurchaseExtract } from "./purchase-extract";
 
 const fileInput = z.object({ dataUrl: z.string().min(10), filename: z.string().optional() });
 
