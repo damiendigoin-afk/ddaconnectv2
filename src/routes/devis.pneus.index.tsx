@@ -21,7 +21,8 @@ import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { prepareCapture } from "@/lib/photo-capture";
 import { useSite } from "@/lib/site-context";
 import { suggestBrands } from "@/lib/tire-brands";
-import { analyzeTireLabelPhoto, analyzeWheelPhotos } from "@/lib/tire-ai.functions";
+import { analyzeTireLabelPhoto } from "@/lib/tire-ai.functions";
+import { ocrTirePhoto } from "@/lib/tire-ocr.client";
 import { buildTireQuotePdf, openPdfBlob } from "@/lib/tire-quote-pdf";
 
 import {
@@ -492,7 +493,6 @@ function TirePhotoFlow({
   onFields: (patch: Partial<TireQuoteForm>) => void;
   onFinish: () => void;
 }) {
-  const analyzeWheel = useServerFn(analyzeWheelPhotos);
   const analyzeLabel = useServerFn(analyzeTireLabelPhoto);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -530,8 +530,11 @@ function TirePhotoFlow({
           toast.warning("Étiquette non exploitable — saisie manuelle possible");
         }
       } else {
-        const res = await analyzeWheel({ data: { images: [dataUrl] } });
-        const ai = res.ok && res.json ? (JSON.parse(res.json) as TireWheelAi) : null;
+        // OCR local gratuit : aucun appel IA pour la roue.
+        const read = await ocrTirePhoto(capture.blob).catch(() => null);
+        const ai = read && (read.size || read.brand)
+          ? ({ size: read.size, load_index: read.load, speed_index: read.speed, brand: read.brand } as TireWheelAi)
+          : null;
         if (!ai) {
           toast.warning("Lecture impossible — saisissez la dimension manuellement");
         } else if (step.key === "dimension") {

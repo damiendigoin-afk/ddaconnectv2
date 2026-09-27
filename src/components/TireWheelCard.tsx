@@ -19,9 +19,10 @@ import { StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { insertOffersResilient, offerRows } from "@/lib/tour-recompute";
 import { useAuth } from "@/lib/auth";
-import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
+import { uploadPhoto } from "@/lib/photo";
 import type { CommercialSettings, ServicePackage } from "@/lib/pricing-engine";
-import { analyzeWheelPhotos } from "@/lib/tire-ai.functions";
+import { ocrTirePhoto } from "@/lib/tire-ocr.client";
+import { consolidateWheelOcr, wheelOcrSummary, type TireOcrRead, type WheelOcr } from "@/lib/tire-ocr-parse";
 import { fetchPublicTireOffers } from "@/lib/tire-provider.functions";
 import type { TireWheelAi } from "@/lib/tire-types";
 import {
@@ -120,6 +121,8 @@ type Stored = {
   photoHash?: string | null;
   /** Référence pneumatique confirmée par l'opérateur (ex « 195/55 R16 87H »). */
   confirmedRef?: string | null;
+  /** OCR local par photo (texte brut conservé pour audit) + synthèse roue. */
+  ocr?: { photo2: TireOcrRead | null; photo3: TireOcrRead | null; wheel: WheelOcr | null } | null;
 };
 
 function readStored(value: unknown): Stored {
@@ -134,17 +137,8 @@ function readStored(value: unknown): Stored {
     attempts: v.attempts ?? 0,
     photoHash: v.photoHash ?? null,
     confirmedRef: v.confirmedRef ?? null,
+    ocr: v.ocr ?? null,
   };
-}
-
-/** Empreinte locale et rapide d'un lot de photos (aucun coût, aucun réseau). */
-function hashOf(parts: string[]): string {
-  let h = 0;
-  const joined = parts.join("|");
-  for (let i = 0; i < joined.length; i += 1) {
-    h = (h * 31 + joined.charCodeAt(i)) | 0;
-  }
-  return `${joined.length}:${h}`;
 }
 
 /** Construit « 195/55 R16 87H » à partir des éléments disponibles. */
@@ -174,7 +168,6 @@ export function TireWheelCard({
   requiredSpeed: string | null;
 }) {
   const { user, displayName } = useAuth();
-  const analyze = useServerFn(analyzeWheelPhotos);
 
   const [stored, setStored] = useState<Stored>(() => readStored(point.tire_analysis));
   const [status, setStatus] = useState<PointStatus>(point.status as PointStatus);
@@ -268,8 +261,8 @@ export function TireWheelCard({
 
   const effectiveSize = refConfirmed ? parseTireReference(axleRef).size : null;
   // Photo 3 (caractères du pneu) : uniquement si aucune référence exploitable.
-  const needsCharShot = !refConfirmed && !parseTireReference(readRef).complete;
-  const captureSteps = needsCharShot ? [...STEPS, CHAR_STEP] : STEPS;
+  // Trois photos systématiques : bande (preuve), roue complète (OCR bonus), dimension (OCR principal).
+  const captureSteps = [...STEPS, CHAR_STEP];
 
   // Consultation publique réelle des prix TTC, refaite à chaque chiffrage/recalcul.
   const publicQuery = useQuery({
@@ -341,72 +334,93 @@ export function TireWheelCard({
     void runAnalysis(shots, free);
   }
 
+  /**
+   * Lecture locale gratuite (aucun appel IA) : OCR des photos 2 et 3, règles
+   * métier, consolidation ROUE. La profondeur est saisie par le compagnon.
+   */
   async function runAnalysis(shots: BurstShot[], free: boolean) {
     setBusy(true);
     try {
-      const dataUrls: string[] = [];
       for (const shot of shots) {
         await uploadPhoto(shot.blob, `inspections/${inspectionId}`, {
           inspection_id: inspectionId,
           inspection_point_id: point.id,
           label: shot.label,
         });
-        const small = await compressImage(shot.blob, 1400, 0.8);
-        dataUrls.push(await blobToDataUrl(small));
       }
       setPhotoKey((k) => k + 1);
 
-      // Anti-doublon : photos inchangées = aucune nouvelle analyse payante.
-      const hash = hashOf(dataUrls);
-      if (hash === stored.photoHash && stored.ai) {
-        setBusy(false);
-        return;
+      const brands = (engine.data?.brands ?? []).map((b) => b.brand);
+      let photo2 = free ? (stored.ocr?.photo2 ?? null) : null;
+      let photo3 = free ? (stored.ocr?.photo3 ?? null) : null;
+      for (const shot of shots) {
+        if (shot.label === STEPS[0]!.label) continue; // bande : preuve d'usure, pas d'OCR
+        try {
+          const read = await ocrTirePhoto(shot.blob, brands);
+          if (shot.label === CHAR_STEP.label || (free && read.complete && !photo3?.complete)) photo3 = read;
+          else photo2 = read;
+        } catch (e) {
+          console.warn("OCR local indisponible", e);
+        }
       }
-
-      const res = await analyze({ data: { images: dataUrls.slice(0, 5) } });
-      if (!res.ok || !res.json) {
-        toast.error(res.error || "Analyse indisponible — saisie manuelle possible.");
-        await persist({
-          ...stored,
-          partial: true,
-          attempts: stored.attempts + 1,
-          photoHash: hash,
-          confirmedRef: null,
-        });
-        return;
-      }
-      const ai = JSON.parse(res.json) as TireWheelAi;
-      const attempts = free ? stored.attempts : stored.attempts + 1;
-      const partial = ai.photo_quality === "insuffisante";
-      const judged = judgeTire(ai, grid, severity);
+      const wheel = consolidateWheelOcr(photo2, photo3);
+      const prev = stored.final ?? stored.ai;
+      const conf = wheel.confidence === "confirme" ? "elevee" : wheel.confidence === "structure" ? "moyenne" : "faible";
+      const ai: TireWheelAi = {
+        ...EMPTY,
+        ...(prev ?? {}),
+        brand: wheel.brand ?? prev?.brand ?? null,
+        model: wheel.model ?? prev?.model ?? null,
+        size: wheel.size,
+        load_index: wheel.load,
+        speed_index: wheel.speed,
+        season: wheel.season ?? prev?.season ?? null,
+        confidence: { size: wheel.size ? conf : "faible" },
+        unreadable: [
+          ...(wheel.size ? [] : ["dimension"]),
+          ...(wheel.load && wheel.speed ? [] : ["indices"]),
+        ],
+        model_used: "ocr-local",
+      };
+      const depth = finiteOrNull(prev?.depth_mm ?? null);
+      const judged = depth != null ? judgeTire({ ...ai, depth_mm: depth }, grid, severity) : null;
       const next: Stored = {
         ai,
         final: null,
-        grade: judged.grade,
-        reasons: judged.reasons,
+        grade: judged?.grade ?? null,
+        reasons: judged?.reasons ?? [],
         confirmed: false,
-        partial,
-        attempts,
-        photoHash: hash,
-        // Photos différentes = nouvelle lecture : l'ancienne confirmation est invalidée.
-        confirmedRef: null,
+        partial: wheel.confidence === "aucune",
+        attempts: free ? stored.attempts : stored.attempts + 1,
+        photoHash: null,
+        confirmedRef: wheel.confidence === "conflit" ? null : stored.confirmedRef ?? null,
+        ocr: { photo2, photo3, wheel },
       };
-      const st = statusFor(judged.grade);
-      setStatus(st);
-      await persist(next, {
-        status: st,
-        measure_value: normalizeMeasureValue(ai.depth_mm, "mm"),
-        measure_unit: "mm",
-        comment: partial ? "Analyse partielle : qualité des photos insuffisante" : point.comment,
-      });
-      if (st === "watch" || st === "defect") await prefillOpposite({ status: st });
-      if (partial) toast.warning("Analyse partielle — la dimension pourra être saisie au chiffrage");
+      await persist(next);
+      const summary = wheelOcrSummary(wheel);
+      if (summary) toast.success(`Lu : ${summary}`);
+      else toast.message("Flanc non lu — saisissez la dimension et la profondeur.");
     } catch (e) {
       console.error(e);
-      toast.error("Échec de l'analyse — saisie manuelle possible.");
+      toast.error("Lecture impossible — saisie manuelle possible.");
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Profondeur saisie par le compagnon : seule source de la note d'usure. */
+  async function saveDepth(raw: string) {
+    const depth = finiteOrNull(Number(raw.replace(",", ".").trim() || NaN));
+    if (depth == null) return;
+    const base = { ...EMPTY, ...(stored.final ?? stored.ai ?? {}), depth_mm: depth, depth_kind: "mesure" as const };
+    const judged = judgeTire(base, grid, severity);
+    const st = statusFor(judged.grade);
+    setStatus(st);
+    await persist(
+      { ...stored, ai: stored.final ? stored.ai : base, final: stored.final ? base : null, grade: judged.grade, reasons: judged.reasons },
+      { status: st, measure_value: depth, measure_unit: "mm" },
+    );
+    if (st === "watch" || st === "defect") await prefillOpposite({ status: st });
   }
 
   /** Confirme la référence pneumatique et la mémorise sur la fiche véhicule. */
@@ -573,7 +587,7 @@ export function TireWheelCard({
       >
         {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
         {busy
-          ? "Analyse en cours…"
+          ? "Lecture du flanc…"
           : stored.ai
             ? `Reprendre les ${captureSteps.length} photos`
             : `Photographier la roue (${captureSteps.length} photos)`}
@@ -596,6 +610,30 @@ export function TireWheelCard({
         <p className="rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-950">
           Analyse partielle : qualité des photos insuffisante.
         </p>
+      ) : null}
+
+      {stored.ocr?.wheel && wheelOcrSummary(stored.ocr.wheel) ? (
+        <p className="rounded-lg bg-secondary px-3 py-2 text-xs">
+          <span className="font-bold">Lu au flanc :</span> {wheelOcrSummary(stored.ocr.wheel)}
+          <span className="text-muted-foreground">
+            {" "}· {stored.ocr.wheel.confidence === "confirme" ? "confirmé par 2 photos" : stored.ocr.wheel.confidence === "structure" ? "lecture unique" : stored.ocr.wheel.confidence === "conflit" ? "conflit" : "partiel"}
+          </span>
+        </p>
+      ) : null}
+
+      {stored.ai || stored.ocr ? (
+        <label className="flex items-center gap-2 text-xs font-bold uppercase">
+          Profondeur mesurée
+          <input
+            key={`d-${result?.depth_mm ?? ""}`}
+            inputMode="decimal"
+            defaultValue={result?.depth_mm ?? ""}
+            placeholder="mm"
+            onBlur={(e) => void saveDepth(e.target.value)}
+            className="w-20 rounded-lg border-2 border-border px-2 py-1 text-center text-sm"
+          />
+          mm
+        </label>
       ) : null}
 
       {result ? (

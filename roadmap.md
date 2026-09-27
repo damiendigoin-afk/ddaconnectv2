@@ -75,3 +75,7 @@ Reste à faire :
 - [x] Affichage Équivalence + matrice 3x2 (atelier + client)
 - [x] Rapport : Synthèse par défaut, Détail en accordéons, pas d'unité seule
 - [x] Tests, typecheck, build, publication
+
+## Pneus sans IA — OCR local photo 2 + photo 3
+- [x] Désactiver tire_wheel automatique ; OCR local (photos 2 et 3), parser métier, consolidation roue
+- [x] Synthèse discrète + correction manuelle ; tests parsing/consolidation ; publication
