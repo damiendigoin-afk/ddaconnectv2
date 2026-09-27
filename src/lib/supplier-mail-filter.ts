@@ -76,3 +76,46 @@ export function operationalMails<T extends MailLite>(
     .map((m) => ({ ...m, files: documentAttachments(m.files), effective_site_id: effectiveMailSite(m, sites) }))
     .filter((m) => !activeSite || m.effective_site_id === activeSite || m.effective_site_id === null);
 }
+
+/* ---------------- Import d'une pièce jointe e-mail dans DDA ---------------- */
+
+type GmailPart = { filename?: string; mimeType?: string; body?: { attachmentId?: string; size?: number }; parts?: GmailPart[] };
+
+/** Retrouve la partie Gmail d'une pièce jointe : identifiant stocké d'abord, sinon nom de fichier unique. */
+export function pickGmailPart(payload: GmailPart | null | undefined, filename: string, storedId?: string | null): GmailPart | null {
+  const all: GmailPart[] = [];
+  const walk = (p: GmailPart) => {
+    if (p.filename && p.body?.attachmentId) all.push(p);
+    (p.parts ?? []).forEach(walk);
+  };
+  if (payload) walk(payload);
+  if (storedId) {
+    const byId = all.find((p) => p.body?.attachmentId === storedId);
+    if (byId) return byId;
+  }
+  const byName = all.filter((p) => p.filename === filename);
+  return byName.length >= 1 ? byName[0]! : null;
+}
+
+export type AttachmentState = "importable" | "deja_ajoute" | "non_archive";
+
+/** État d'une pièce jointe : déjà ajoutée (doc DDA lié), importable (fichier stocké ou récupérable Gmail), sinon non archivée. */
+export function attachmentState(a: { storage_path: string | null; imported_doc_id: string | null }, gmailRecoverable: boolean): AttachmentState {
+  if (a.imported_doc_id) return "deja_ajoute";
+  if (a.storage_path || gmailRecoverable) return "importable";
+  return "non_archive";
+}
+
+/** Le mail peut sortir de la file quand toutes ses pièces documentaires sont ajoutées à DDA. */
+export function mailFullyImported(atts: { filename: string; imported_doc_id: string | null }[]): boolean {
+  const docs = atts.filter((a) => documentAttachments([a.filename]).length);
+  return docs.length > 0 && docs.every((a) => !!a.imported_doc_id);
+}
+
+/** Écran de destination selon le type lu. */
+export function importDestination(docKind: string | null | undefined): "reception" | "facture" | "documents" {
+  const k = norm(docKind);
+  if (k === "bl" || k.includes("livraison")) return "reception";
+  if (k === "facture" || k === "avoir") return "facture";
+  return "documents";
+}
