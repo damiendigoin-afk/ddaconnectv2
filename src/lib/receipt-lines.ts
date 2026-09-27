@@ -55,3 +55,53 @@ export function mailDetail(m: MailFull) {
     body: (m.body_text ?? "").trim() || (m.snippet ?? "").trim() || "(corps vide)",
   };
 }
+
+type OrderLike = { repair_orders?: { or_number?: string | null } | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null };
+
+/** Repère d'une commande : OR DDA > dossier lu (requested_or_number) > plaque > « sans repère ». Jamais « sans OR » si un dossier existe. */
+export function orderMarker(o: OrderLike): string {
+  const parts: string[] = [];
+  const orN = o.repair_orders?.or_number?.trim();
+  const req = o.requested_or_number?.trim();
+  if (orN) parts.push(`OR ${orN}`);
+  else if (req) parts.push(`Dossier / OR WinMotor ${req}`);
+  if (o.plate?.trim()) parts.push(o.plate.trim());
+  if (!parts.length) parts.push("sans repère");
+  if (o.supplier_order_ref?.trim()) parts.push(`commande ${o.supplier_order_ref.trim()}`);
+  return parts.join(" · ");
+}
+
+const normTxt = (s: unknown) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\W/g, "").toUpperCase();
+
+type DocLike = { id: string; site_id: string | null; created_at: string; extracted: { supplier?: string | null; doc_kind?: string | null; document_number?: string | null; order_reference?: string | null; or_number?: string | null; lines?: DocLine[] | null } };
+
+/** Identité canonique stricte : site + fournisseur + type + n° + dossier + lignes. */
+export function docIdentity(d: DocLike): string {
+  const x = d.extracted ?? {};
+  const lines = (x.lines ?? []).map((l) => `${normTxt(l.reference)}:${normTxt(l.label)}:${l.quantity ?? ""}:${l.unit_price ?? ""}`).join("|");
+  return [d.site_id ?? "", normTxt(x.supplier), normTxt(x.doc_kind), normTxt(x.document_number ?? x.order_reference), normTxt(x.or_number), lines].join("#");
+}
+
+/** Une seule carte par document strictement identique (le plus récent gagne). */
+export function dedupeDocs<T extends DocLike>(docs: T[]): T[] {
+  const seen = new Map<string, T>();
+  for (const d of [...docs].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
+    const k = docIdentity(d);
+    if (!seen.has(k)) seen.set(k, d);
+  }
+  const keep = new Set([...seen.values()].map((d) => d.id));
+  return docs.filter((d) => keep.has(d.id));
+}
+
+/** Nom de fichier sûr pour le stockage, en conservant le nom original et son extension. */
+export function storageFileName(name: string): string {
+  const n = name.replace(/[\\/?#%*:|"<>\u0000-\u001f]+/g, "_").trim();
+  return (n || "piece-jointe").slice(-150);
+}
+
+const EXT_MIME: Record<string, string> = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif", heic: "image/heic", tif: "image/tiff", tiff: "image/tiff" };
+/** Type MIME fiable : celui connu, sinon déduit de l'extension. */
+export function mimeFor(name: string, mime?: string | null): string {
+  if (mime && mime !== "application/octet-stream") return mime;
+  return EXT_MIME[(name.split(".").pop() ?? "").toLowerCase()] ?? mime ?? "application/octet-stream";
+}
