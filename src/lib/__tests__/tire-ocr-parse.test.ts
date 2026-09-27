@@ -52,3 +52,29 @@ describe("consolidation photo 2 + photo 3", () => {
     expect(consolidateWheelOcr(null, null).confidence).toBe("aucune");
   });
 });
+
+import { confirmTireFields, depthForJudgement, depthLabel, parseGaugeDepth } from "../tire-ocr-parse";
+
+describe("photo 1 — jauge et profondeur", () => {
+  it("lit une jauge « 3 mm »", () => {
+    expect(parseGaugeDepth("TREAD 3 mm")).toMatchObject({ value: 3, confidence: "elevee", source: "jauge" });
+    expect(parseGaugeDepth("4,5MM")).toMatchObject({ value: 4.5 });
+  });
+  it("rejette hors plage et n'invente rien", () => {
+    expect(parseGaugeDepth("25 mm")).toBeNull();
+    expect(parseGaugeDepth("MICHELIN 205")).toBeNull();
+  });
+  it("une estimation seule ne sert jamais au jugement ; la saisie prime", () => {
+    const est = parseGaugeDepth("3 mm");
+    expect(depthForJudgement(null, est)).toBeNull();
+    expect(depthLabel(null, est)).toBe("≈ 3 mm (estimé sur photo) — confirmer");
+    expect(depthForJudgement(5, est)).toBe(5);
+    expect(depthLabel(5, est)).toBe("5 mm · confirmé");
+    expect(depthLabel(null, null)).toBe("profondeur à confirmer");
+  });
+  it("la confirmation finale marque les données confirmées", () => {
+    const c = confirmTireFields({ depth: 3, size: "155/65 r14", load: "75", speed: "t", brand: "Cooper", model: "", season: "hiver", xl: false, runflat: false, ms: true, pmsf: true });
+    expect(c).toMatchObject({ confirmed: true, depth_kind: "mesure", size: "155/65R14", speed: "T", ref: "155/65 R14 75T", model: null });
+    expect(confirmTireFields({ depth: null, size: null, load: null, speed: null, brand: null, model: null, season: null, xl: false, runflat: false, ms: false, pmsf: false })).toMatchObject({ depth_kind: null, ref: null });
+  });
+});

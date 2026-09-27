@@ -22,7 +22,8 @@ import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
 import type { CommercialSettings, ServicePackage } from "@/lib/pricing-engine";
 import { ocrTirePhoto } from "@/lib/tire-ocr.client";
-import { consolidateWheelOcr, wheelOcrSummary, type TireOcrRead, type WheelOcr } from "@/lib/tire-ocr-parse";
+import { TireConfirmPanel } from "@/components/TireConfirmPanel";
+import { confirmTireFields, consolidateWheelOcr, depthForJudgement, depthLabel, parseGaugeDepth, wheelOcrSummary, type DepthEstimate, type TireConfirmFields, type TireOcrRead, type WheelOcr } from "@/lib/tire-ocr-parse";
 import { fetchPublicTireOffers } from "@/lib/tire-provider.functions";
 import type { TireWheelAi } from "@/lib/tire-types";
 import {
@@ -122,7 +123,9 @@ type Stored = {
   /** Référence pneumatique confirmée par l'opérateur (ex « 195/55 R16 87H »). */
   confirmedRef?: string | null;
   /** OCR local par photo (texte brut conservé pour audit) + synthèse roue. */
-  ocr?: { photo2: TireOcrRead | null; photo3: TireOcrRead | null; wheel: WheelOcr | null } | null;
+  ocr?: { photo2: TireOcrRead | null; photo3: TireOcrRead | null; wheel: WheelOcr | null; depth?: DepthEstimate | null; depthRaw?: string | null } | null;
+  /** Marquages confirmés par le compagnon. */
+  flags?: { xl: boolean; runflat: boolean; ms: boolean; pmsf: boolean } | null;
 };
 
 function readStored(value: unknown): Stored {
@@ -138,6 +141,7 @@ function readStored(value: unknown): Stored {
     photoHash: v.photoHash ?? null,
     confirmedRef: v.confirmedRef ?? null,
     ocr: v.ocr ?? null,
+    flags: v.flags ?? null,
   };
 }
 
@@ -353,8 +357,20 @@ export function TireWheelCard({
       const brands = (engine.data?.brands ?? []).map((b) => b.brand);
       let photo2 = free ? (stored.ocr?.photo2 ?? null) : null;
       let photo3 = free ? (stored.ocr?.photo3 ?? null) : null;
+      let depthEst: DepthEstimate | null = free ? (stored.ocr?.depth ?? null) : null;
+      let depthRaw: string | null = free ? (stored.ocr?.depthRaw ?? null) : null;
       for (const shot of shots) {
-        if (shot.label === STEPS[0]!.label) continue; // bande : preuve d'usure, pas d'OCR
+        if (shot.label === STEPS[0]!.label) {
+          // Bande : recherche locale d'une jauge graduée (jamais une mesure définitive).
+          try {
+            const r = await ocrTirePhoto(shot.blob);
+            depthRaw = r.raw;
+            depthEst = parseGaugeDepth(r.raw) ?? depthEst;
+          } catch (e) {
+            console.warn("OCR jauge indisponible", e);
+          }
+          continue;
+        }
         try {
           const read = await ocrTirePhoto(shot.blob, brands);
           if (shot.label === CHAR_STEP.label || (free && read.complete && !photo3?.complete)) photo3 = read;
@@ -382,7 +398,8 @@ export function TireWheelCard({
         ],
         model_used: "ocr-local",
       };
-      const depth = finiteOrNull(prev?.depth_mm ?? null);
+      // Seule une profondeur saisie par le compagnon sert au jugement d'usure.
+      const depth = depthForJudgement(prev?.depth_kind === "mesure" ? finiteOrNull(prev.depth_mm) : null, depthEst);
       const judged = depth != null ? judgeTire({ ...ai, depth_mm: depth }, grid, severity) : null;
       const next: Stored = {
         ai,
@@ -394,7 +411,7 @@ export function TireWheelCard({
         attempts: free ? stored.attempts : stored.attempts + 1,
         photoHash: null,
         confirmedRef: wheel.confidence === "conflit" ? null : stored.confirmedRef ?? null,
-        ocr: { photo2, photo3, wheel },
+        ocr: { photo2, photo3, wheel, depth: depthEst, depthRaw },
       };
       await persist(next);
       const summary = wheelOcrSummary(wheel);
@@ -408,19 +425,47 @@ export function TireWheelCard({
     }
   }
 
-  /** Profondeur saisie par le compagnon : seule source de la note d'usure. */
-  async function saveDepth(raw: string) {
-    const depth = finiteOrNull(Number(raw.replace(",", ".").trim() || NaN));
-    if (depth == null) return;
-    const base = { ...EMPTY, ...(stored.final ?? stored.ai ?? {}), depth_mm: depth, depth_kind: "mesure" as const };
-    const judged = judgeTire(base, grid, severity);
-    const st = statusFor(judged.grade);
-    setStatus(st);
+  /** Confirmation humaine finale : verrouille le pneu et alimente essieu + chiffrage. */
+  async function confirmTire(fields: TireConfirmFields) {
+    const c = confirmTireFields(fields);
+    const base: TireWheelAi = {
+      ...EMPTY,
+      ...(result ?? {}),
+      brand: c.brand,
+      model: c.model,
+      size: c.size,
+      load_index: c.load,
+      speed_index: c.speed,
+      season: c.season,
+      depth_mm: c.depth,
+      depth_kind: c.depth_kind,
+      confidence: { ...(result?.confidence ?? {}), size: c.size ? "elevee" : "faible" },
+    };
+    const judged = c.depth != null ? judgeTire(base, grid, severity) : null;
+    const st = judged ? statusFor(judged.grade) : null;
+    if (st) setStatus(st);
     await persist(
-      { ...stored, ai: stored.final ? stored.ai : base, final: stored.final ? base : null, grade: judged.grade, reasons: judged.reasons },
-      { status: st, measure_value: depth, measure_unit: "mm" },
+      {
+        ...stored,
+        ai: stored.ai ?? base,
+        final: base,
+        confirmed: true,
+        grade: judged?.grade ?? null,
+        reasons: judged?.reasons ?? [],
+        confirmedRef: c.ref ?? stored.confirmedRef ?? null,
+        flags: { xl: c.xl, runflat: c.runflat, ms: c.ms, pmsf: c.pmsf },
+      },
+      st ? { status: st, measure_value: c.depth, measure_unit: "mm" } : {},
     );
-    if (st === "watch" || st === "defect") await prefillOpposite({ status: st });
+    if (c.ref && vehicleId) {
+      await supabase
+        .from("vehicles")
+        .update({ ...(rearAxle ? { tire_size_rear: c.ref } : { tire_size_front: c.ref }), tire_size_confirmed_at: new Date().toISOString() })
+        .eq("id", vehicleId);
+      void fitment.refetch();
+    }
+    if (st === "watch" || st === "defect" || c.ref) await prefillOpposite({ ...(st ? { status: st } : {}), ...(c.ref ? { ref: c.ref } : {}) });
+    toast.success(c.depth != null ? "Pneu confirmé" : "Pneu confirmé — profondeur à saisir pour noter l'usure");
   }
 
   /** Confirme la référence pneumatique et la mémorise sur la fiche véhicule. */
@@ -622,18 +667,25 @@ export function TireWheelCard({
       ) : null}
 
       {stored.ai || stored.ocr ? (
-        <label className="flex items-center gap-2 text-xs font-bold uppercase">
-          Profondeur mesurée
-          <input
-            key={`d-${result?.depth_mm ?? ""}`}
-            inputMode="decimal"
-            defaultValue={result?.depth_mm ?? ""}
-            placeholder="mm"
-            onBlur={(e) => void saveDepth(e.target.value)}
-            className="w-20 rounded-lg border-2 border-border px-2 py-1 text-center text-sm"
-          />
-          mm
-        </label>
+        <TireConfirmPanel
+          key={`${stored.attempts}-${stored.confirmed}`}
+          depthText={depthLabel(result?.depth_kind === "mesure" ? finiteOrNull(result.depth_mm) : null, stored.ocr?.depth ?? null)}
+          confirmed={stored.confirmed}
+          initial={{
+            depth: result?.depth_kind === "mesure" ? finiteOrNull(result.depth_mm) : (stored.ocr?.depth?.value ?? null),
+            size: result?.size ?? null,
+            load: result?.load_index ?? null,
+            speed: result?.speed_index ?? null,
+            brand: result?.brand ?? null,
+            model: result?.model ?? null,
+            season: (result?.season as TireConfirmFields["season"]) ?? null,
+            xl: stored.flags?.xl ?? stored.ocr?.wheel?.xl ?? false,
+            runflat: stored.flags?.runflat ?? stored.ocr?.wheel?.runflat ?? false,
+            ms: stored.flags?.ms ?? stored.ocr?.wheel?.ms ?? false,
+            pmsf: stored.flags?.pmsf ?? stored.ocr?.wheel?.pmsf ?? false,
+          }}
+          onConfirm={(f) => void confirmTire(f)}
+        />
       ) : null}
 
       {result ? (
