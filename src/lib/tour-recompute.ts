@@ -16,7 +16,7 @@ import type { TireLabelAi, TireWheelAi } from "./tire-types";
 import {
   axleKindOf,
   buildSevenOffers,
-  defaultBrandOf,
+  quoteBrandsOf,
   fetchBrandTiers,
   publicItemsToOffers,
   requiredFromLabel,
@@ -197,10 +197,7 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
     if (!items) {
       // Marques des gammes paramétrées : consultées explicitement chez le
       // fournisseur, sinon elles restent invisibles au-delà de la 1re page.
-      const neededBrands = [
-        ...(["entree", "milieu", "haut"] as const).map((t) => defaultBrandOf(brands, t)),
-        mountedAi?.brand ?? null,
-      ].filter((b): b is string => Boolean(b && b.trim()));
+      const neededBrands = quoteBrandsOf(brands, [mountedAi?.brand ?? null]);
       const res = await fetchPublicTireOffers({ data: { size: required.size, brands: neededBrands } });
 
       if (!res.ok) {

@@ -810,6 +810,24 @@ export function adjustOffersMargin(offers: SevenOffer[], adjustmentPct: number):
   return offers.map((o) => adjustOfferMargin(o, adjustmentPct));
 }
 
+/**
+ * Marques à consulter chez le fournisseur pour chiffrer les 7 cases : toutes les
+ * marques actives des trois gammes, entrelacées par rang de préférence (les
+ * marques par défaut d'abord, puis les premiers replis de chaque gamme).
+ */
+export function quoteBrandsOf(rows: BrandTierRow[], extra: (string | null | undefined)[] = []): string[] {
+  const lists = (["entree", "milieu", "haut"] as TireTier[]).map((t) => brandsOfTier(rows, t));
+  const out: string[] = [];
+  const push = (b: string | null | undefined) => {
+    const v = (b ?? "").trim();
+    if (v && !out.some((x) => x.toLowerCase() === v.toLowerCase())) out.push(v);
+  };
+  extra.forEach(push);
+  const max = Math.max(0, ...lists.map((l) => l.length));
+  for (let i = 0; i < max; i += 1) for (const l of lists) push(l[i]);
+  return out.slice(0, 24);
+}
+
 /** Marques d'une gamme d'après le paramétrage : marque par défaut en premier. */
 export function brandsOfTier(rows: BrandTierRow[], tier: TireTier): string[] {
   return rows

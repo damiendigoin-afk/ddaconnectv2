@@ -9,7 +9,7 @@ import { z } from "zod";
 const input = z.object({
   size: z.string().min(3),
   /** Marques nécessaires au chiffrage (gammes paramétrées + marque demandée). */
-  brands: z.array(z.string().min(1)).max(12).optional(),
+  brands: z.array(z.string().min(1)).max(24).optional(),
 });
 
 export const fetchPublicTireOffers = createServerFn({ method: "POST" })
