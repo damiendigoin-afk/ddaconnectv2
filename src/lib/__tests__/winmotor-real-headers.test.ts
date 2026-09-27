@@ -64,3 +64,17 @@ describe("export Entêtes WinMotor réel", () => {
     expect(r.headerRows[0]!.date).toBe("2018-01-03");
   });
 });
+
+import { isLegacyMisMappedCustomer } from "@/lib/winmotor/invoices";
+describe("réparation des fiches mal mappées", () => {
+  const base = { source_system: "winmotor", last_name: null, company_name: null, first_name: "DUPONT JEAN", created_at: "2026-09-26T18:00:00Z", updated_at: "2026-09-26T18:00:00Z" };
+  it("ancienne fiche mal mappée corrigée", () => expect(isLegacyMisMappedCustomer(base, "DUPONT JEAN")).toBe(true));
+  it("fiche modifiée à la main conservée", () => {
+    expect(isLegacyMisMappedCustomer({ ...base, updated_at: "2026-09-27T09:00:00Z" }, "DUPONT JEAN")).toBe(false);
+    expect(isLegacyMisMappedCustomer({ ...base, first_name: "Paul", last_name: "MARTIN" }, "MARTIN PAUL")).toBe(false);
+  });
+  it("fiche non WinMotor ou valeur différente ignorée", () => {
+    expect(isLegacyMisMappedCustomer({ ...base, source_system: "dda" }, "DUPONT JEAN")).toBe(false);
+    expect(isLegacyMisMappedCustomer(base, "DUPONT J")).toBe(false);
+  });
+});
