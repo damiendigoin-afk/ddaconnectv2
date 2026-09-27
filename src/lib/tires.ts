@@ -911,35 +911,36 @@ export function buildSevenOffers(args: {
   const used = new Set<string>();
   for (const tier of ["entree", "milieu", "haut"] as TireTier[]) {
     for (const season of ["ete", "quatre_saisons"] as TireSeason[]) {
-      // Marque présélectionnée de la gamme dans le paramétrage global : aucune
-      // substitution par une autre marque, même moins chère ou plus disponible.
-      const brand = defaultBrandOf(brands, tier);
-      const brandKey = (brand ?? "").trim().toLowerCase();
-      const pool = brandKey
-        ? offers.filter(
-            (o) =>
-              o.active &&
-              sizeMatch(o) &&
-              !used.has(String(o.id)) &&
-              o.brand.trim().toLowerCase() === brandKey &&
-              // Charge et vitesse demandées : un produit clairement non conforme
-              // n'est jamais proposé, même s'il est le moins cher.
-              offerMeetsRequirement({
-                offerLoad: o.load_index,
-                offerSpeed: o.speed_index,
-                season,
-                is3pmsf: offerIs3pmsf(o),
-                requiredLoad: required.load,
-                requiredSpeed: required.speed,
-              }),
-          )
-        : [];
-
-      const exact = pool.filter((o) => o.season === season);
-      // Un produit dont la saison n'est pas publiée reste exploitable : il est
-      // proposé à défaut, jamais à la place d'une offre de saison identifiée.
-      const candidates = exact.length ? exact : pool.filter((o) => !o.season);
-      const offer = cheapest(candidates);
+      // Marques de la gamme dans l'ordre du paramétrage (défaut puis sort_order) :
+      // la première marque offrant un produit conforme et chiffrable est retenue.
+      const tierBrands = brandsOfTier(brands, tier);
+      const brand = tierBrands[0] ?? defaultBrandOf(brands, tier);
+      let offer: TireOffer | null = null;
+      for (const candidateBrand of tierBrands) {
+        const brandKey = candidateBrand.trim().toLowerCase();
+        const pool = offers.filter(
+          (o) =>
+            o.active &&
+            sizeMatch(o) &&
+            !used.has(String(o.id)) &&
+            o.brand.trim().toLowerCase() === brandKey &&
+            sourceHtOf(o) > 0 &&
+            Number.isFinite(sourceHtOf(o)) &&
+            offerMeetsRequirement({
+              offerLoad: o.load_index,
+              offerSpeed: o.speed_index,
+              season,
+              is3pmsf: offerIs3pmsf(o),
+              requiredLoad: required.load,
+              requiredSpeed: required.speed,
+            }),
+        );
+        const exact = pool.filter((o) => o.season === season);
+        // Saison non publiée : proposée à défaut, jamais à la place d'une saison identifiée.
+        const candidates = exact.length ? exact : pool.filter((o) => !o.season);
+        offer = cheapest(candidates);
+        if (offer) break;
+      }
       const title = `${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`;
       if (offer) {
         used.add(String(offer.id));
@@ -963,8 +964,8 @@ export function buildSevenOffers(args: {
           tier,
           season,
           available: false,
-          unavailableReason: brand
-            ? `Offre indisponible dans cette marque (${brand})`
+          unavailableReason: tierBrands.length
+            ? `Aucune offre conforme dans la gamme (${tierBrands.join(", ")})`
             : "Aucune marque configurée pour cette gamme",
           brand,
           model: null,
