@@ -162,6 +162,13 @@
       "when": 1790517723042,
       "tag": "0022_inbox_documents_email_source",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790518899082,
+      "tag": "0023_part_receipts_requested_or_number",
+      "breakpoints": true
     }
   ]
 }

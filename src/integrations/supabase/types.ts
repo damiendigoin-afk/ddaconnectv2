@@ -4342,6 +4342,7 @@ export type Database = {
           received_by: string | null
           received_by_name: string | null
           repair_order_id: string | null
+          requested_or_number: string | null
           site_id: string
           source_document_id: string | null
           status: string
@@ -4361,6 +4362,7 @@ export type Database = {
           received_by?: string | null
           received_by_name?: string | null
           repair_order_id?: string | null
+          requested_or_number?: string | null
           site_id: string
           source_document_id?: string | null
           status?: string
@@ -4380,6 +4382,7 @@ export type Database = {
           received_by?: string | null
           received_by_name?: string | null
           repair_order_id?: string | null
+          requested_or_number?: string | null
           site_id?: string
           source_document_id?: string | null
           status?: string
