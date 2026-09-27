@@ -45,7 +45,7 @@ export const fetchEmailAttachment = createServerFn({ method: "POST" })
           .eq("account_id", r.account_id!)
           .maybeSingle();
         if (!tok?.access_token) { lastErr = "Boîte Gmail d'origine non connectée."; continue; }
-        const { accessToken, refreshed, newTokens } = await getValidAccessToken(tok);
+        const { accessToken, refreshed, newTokens } = await getValidAccessToken({ ...tok, access_token: tok.access_token });
         if (refreshed && newTokens?.access_token) {
           await supabaseAdmin.from("email_oauth_tokens").update({ access_token: newTokens.access_token, expires_at: newTokens.expires_at ?? null, updated_at: new Date().toISOString() }).eq("account_id", r.account_id!);
         }
