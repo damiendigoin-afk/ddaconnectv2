@@ -1,5 +1,5 @@
+import { operationalMails } from "@/lib/supplier-mail-filter";
 /**
- * BL et factures fournisseur : dépôt (photo, image, PDF), lecture OCR tolérante,
  * validation manuelle obligatoire puis suivi d'état.
  * Réutilise la table `inbox_documents` existante : aucune nouvelle table.
  */
