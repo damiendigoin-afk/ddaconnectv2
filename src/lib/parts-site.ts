@@ -142,3 +142,10 @@ export function orderGaps(o: { supplier_id: string | null; hasDocument: boolean;
   if (o.hasDocument && o.lines === 0) gaps.push("reference_a_completer");
   return gaps;
 }
+
+/** N° de dossier / OR WinMotor conservé quand aucun OR DDA réel n'est rattaché (jamais d'OR fictif). */
+export function requestedDossier(realOr: { id: string } | null | undefined, typed: string | null | undefined): string | null {
+  if (realOr) return null;
+  const v = (typed ?? "").trim();
+  return v || null;
+}
