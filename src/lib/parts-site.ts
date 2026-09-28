@@ -57,6 +57,9 @@ type OrderLike = {
   supplier_id: string | null;
   plate: string | null;
   supplier_order_ref: string | null;
+  comment?: string | null;
+  created_by_name?: string | null;
+  created_at?: string;
   suppliers?: { name: string } | null;
   repair_orders?: { or_number: string | null } | null;
   part_order_lines?: { physical_reference: string | null; line_kind: string; status: string }[] | null;
@@ -121,14 +124,15 @@ export function receptionSuggestions<T extends OrderLike>(doc: DocExtractLite, o
   return { certain: certain.slice(0, max), probable, hasExact: certain.length > 0 };
 }
 
-/** Recherche manuelle compacte parmi les commandes en attente : n° commande, OR/dossier, immat, réf. pièce, fournisseur. */
+/** Recherche manuelle compacte parmi les commandes en attente : n° commande, OR/dossier, immat, réf. pièce, fournisseur, commentaire, créateur. */
 export function searchPendingOrders<T extends OrderLike & { requested_or_number?: string | null }>(orders: T[], query: string, siteId: string | null, max = 20): T[] {
   const q = norm(query);
   const qk = plateKey(query);
-  const pending = pendingReceptionOrders(orders).filter((o) => !siteId || o.site_id === siteId);
+  const recentFirst = (a: T, b: T) => (b.created_at ?? "").localeCompare(a.created_at ?? "");
+  const pending = pendingReceptionOrders(orders).filter((o) => !siteId || o.site_id === siteId).sort(recentFirst);
   if (!q) return pending.slice(0, max);
   return pending.filter((o) => {
-    const hay = [o.supplier_order_ref, o.repair_orders?.or_number, o.requested_or_number, o.suppliers?.name, ...(o.part_order_lines ?? []).map((l) => l.physical_reference)].map((v) => norm(v ?? ""));
+    const hay = [o.supplier_order_ref, o.repair_orders?.or_number, o.requested_or_number, o.suppliers?.name, o.comment, o.created_by_name, ...(o.part_order_lines ?? []).map((l) => l.physical_reference)].map((v) => norm(v ?? ""));
     if (hay.some((h) => h && h.includes(q))) return true;
     if (qk.length >= 3 && plateKey(o.plate).includes(qk)) return true;
     const rq = normalizeRef(query);

@@ -132,13 +132,21 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const [manual, setManual] = useState(false);
   const [q, setQ] = useState("");
   const found = manual ? searchPendingOrders(orders.data ?? [], q, writeSite, 15) : [];
-  const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null) => (
-    <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-xs" onClick={() => onOrder(o.id)}>
-      {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Suggestion"}</Badge>{" "}</> : null}
-      <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
-      <OrderLinesCompact lines={o.part_order_lines ?? []} />
-    </button>
-  );
+  const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null) => {
+    const meta = o as unknown as { comment?: string | null; created_by_name?: string | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null };
+    return (
+      <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-xs" onClick={() => onOrder(o.id)}>
+        {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Suggestion"}</Badge>{" "}</> : null}
+        <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+        <span className="block text-muted-foreground">
+          {meta.created_by_name ? `Créée par ${meta.created_by_name} · ` : ""}
+          OR/dossier demandé : {meta.requested_or_number ?? (o.repair_orders as { or_number: string | null } | null)?.or_number ?? "—"} · Immat : {meta.plate ?? "—"} · N° commande fournisseur : {meta.supplier_order_ref ?? "—"}
+        </span>
+        {meta.comment ? <span className="block font-semibold">Commentaire : {meta.comment}</span> : null}
+        <OrderLinesCompact lines={o.part_order_lines ?? []} />
+      </button>
+    );
+  };
   return (
     <div className="card-surface space-y-3 p-4">
       <p className="text-xs font-extrabold uppercase text-muted-foreground">Document lu : {doc.file_name}</p>
@@ -168,7 +176,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
 
       {manual ? (
         <div className="space-y-2 rounded-lg border-2 border-border p-2">
-          <input className={inputCls} autoFocus placeholder="N° commande, OR, immat, réf. pièce, fournisseur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className={inputCls} autoFocus placeholder="N° commande, OR, immat, réf. pièce, fournisseur, commentaire / créateur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
           {found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">Aucune commande en attente ne correspond.</p>}
         </div>
       ) : null}
