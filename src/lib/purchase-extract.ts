@@ -81,7 +81,7 @@ function normLine(l: Raw): NormLine {
     discount_pct: num(l.discount_pct),
     amount,
     delay: pick(l, ["delay", "delivery", "delivery_info", "availability"]),
-    isolated_number: str(l.isolated_number),
+    isolated_number: str(l["isolated_number"]),
     client_price: clientPrice,
   };
 }
@@ -110,7 +110,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   let orNumber = digits(pick(o, ["or_number", "customer_reference", "order_mark", "repere_commande"]));
   const docNumber = str(o.document_number);
   if (!orNumber) {
-    orNumber = isolatedOrNumber(lines, [docNumber, str(o.delivery_note_number), str(o.invoice_number), str(o.order_reference), str(o.order_number)]);
+    orNumber = isolatedOrNumber(lines, [docNumber, str(o.delivery_note_number), str(o.invoice_number), str(o["order_reference"]), str(o["order_number"])]);
   }
   // Ne jamais confondre Repère commande / OR avec « Commande n° ».
   let orderRef = pick(o, ["order_reference", "order_number", "supplier_order_number"]);

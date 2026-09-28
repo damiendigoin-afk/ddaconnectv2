@@ -139,7 +139,7 @@ describe("BL 914765 : dossier 50875 imprimé seul sous la désignation", () => {
     expect(x.lines![0]!.reference).toBe("8550503695");
     expect(x.lines![0]!.quantity).toBe(1);
     expect(x.lines![0]!.unit_price).toBe(44.72);
-    expect((x.lines![0] as Record<string, unknown>).isolated_number).toBeUndefined();
+    expect((x.lines![0] as Record<string, unknown>)["isolated_number"]).toBeUndefined();
   });
   it("OR libellé prioritaire", () => {
     expect(normalizePurchaseExtract({ ...base, or_number: "Repère 48416" }).or_number).toBe("48416");
