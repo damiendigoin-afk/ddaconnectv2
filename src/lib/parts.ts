@@ -237,7 +237,19 @@ export async function createOrder(
   return data.id;
 }
 
-const ORDER_SELECT = "*, suppliers(name), repair_orders(or_number), part_order_lines(*)";
+const ORDER_SELECT = "*, suppliers(name), repair_orders(or_number), part_order_lines(*), inbox_documents(id, extracted)";
+
+/** Rattache / corrige le fournisseur d'une commande (et de son document source). Interdit sur commande annulée. */
+export async function setOrderSupplier(o: { id: string; site_id: string; status: string; source_document_id: string | null }, supplierId: string, actor: Actor) {
+  if (o.status === "cancelled") throw new Error("Commande annulée : fournisseur non modifiable");
+  const { error } = await supabase.from("part_orders").update({ supplier_id: supplierId }).eq("id", o.id);
+  if (error) throw error;
+  if (o.source_document_id) {
+    const { linkDocSupplier } = await import("@/lib/supplier-docs");
+    await linkDocSupplier(o.source_document_id, supplierId);
+  }
+  await logEvent({ site_id: o.site_id, entity: "part_order", entity_id: o.id, action: "supplier_set", detail: { supplier_id: supplierId } }, actor);
+}
 
 export async function listOrders(f: { siteId: string | null; status?: string; supplierId?: string; orId?: string }) {
   let q = supabase.from("part_orders").select(ORDER_SELECT).order("created_at", { ascending: false }).limit(200);
