@@ -2,9 +2,35 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { askVision, parseJsonBlock } from "./ocr.server";
+import { learnSupplierProfile, readDocument } from "./doc-pipeline.server";
+import type { DocKind } from "./doc-rules";
 import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
 
-const fileInput = z.object({ dataUrl: z.string().min(10), filename: z.string().optional() });
+const fileInput = z.object({
+  dataUrl: z.string().min(10),
+  filename: z.string().optional(),
+  /** Texte OCR local / natif PDF (première passe sans IA, calculée dans le navigateur). */
+  text: z.string().max(40000).optional(),
+});
+
+/**
+ * Pipeline commun : OCR/règles d'abord, IA texte puis vision en ultime recours.
+ * Renvoie le même contrat que l'ancien askVision (contenu JSON) pour ne pas toucher aux écrans.
+ */
+async function viaPipeline(
+  kind: DocKind,
+  prompt: string,
+  data: z.infer<typeof fileInput>,
+  feature: string,
+  visionExtra?: Record<string, unknown>,
+) {
+  const r = await readDocument({ feature, kind, prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename, visionExtra });
+  const any = Object.values(r.fields).some((v) => v != null && v !== "" && !(Array.isArray(v) && !v.length) && !(typeof v === "object" && !Array.isArray(v) && !Object.keys(v as object).length));
+  if (!any) {
+    return { ok: false as const, error: "Lecture automatique sans résultat : complétez les informations manuellement.", route: r.route, content: "" };
+  }
+  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "" };
+}
 
 export const ocrRepairOrder = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => fileInput.parse(data))
@@ -20,7 +46,7 @@ IMPORTANT pour "client_remarks" et "requested_work" : ces zones contiennent souv
 ou plusieurs demandes distinctes (listes, tirets, numérotation, phrases successives, texte manuscrit).
 Restitue l'INTÉGRALITÉ du texte lu, sans résumer ni fusionner, une demande par ligne, séparées par des
 retours à la ligne "\\n". Conserve l'ordre du document. N'invente rien.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("repair_order", prompt, data, "ocr_or");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible.", json: "" };
@@ -33,7 +59,7 @@ export const ocrPlate = createServerFn({ method: "POST" })
     const prompt = `Lis la plaque d'immatriculation visible sur cette photo.
 Réponds STRICTEMENT en JSON : {"plate":"AB-123-CD","confidence":0.0}
 Si aucune plaque lisible : {"plate":null,"confidence":0}`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("plate", prompt, data, "ocr_plaque");
     if (!result.ok) return { ok: false as const, error: result.error, plate: "" };
     const parsed = parseJsonBlock(result.content);
     const plate = typeof parsed?.["plate"] === "string" ? (parsed["plate"] as string) : "";
@@ -47,7 +73,7 @@ export const ocrOdometer = createServerFn({ method: "POST" })
     const prompt = `Lis le kilométrage total affiché sur ce compteur de véhicule (pas le trip / journalier).
 Réponds STRICTEMENT en JSON : {"mileage":78452,"unit":"km"}
 Si illisible : {"mileage":null,"unit":null}`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("odometer", prompt, data, "ocr_compteur");
     if (!result.ok) return { ok: false as const, error: result.error, mileage: 0 };
     const parsed = parseJsonBlock(result.content);
     const raw = parsed?.["mileage"];
@@ -66,7 +92,7 @@ ct_due_date = prochaine échéance du contrôle technique au format YYYY-MM-DD.
 pollution_due_date = prochaine échéance du contrôle complémentaire pollution, uniquement si elle est réellement indiquée.
 vehicle_kind = "vu" pour un véhicule utilitaire soumis au contrôle complémentaire pollution, sinon "vp".
 Ne confonds pas date du contrôle réalisé et date limite du prochain contrôle. Mets null si illisible. N'invente rien.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("technical_control", prompt, data, "ocr_ct");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Dates du contrôle technique illisibles.", json: "" };
@@ -83,7 +109,7 @@ Réponds STRICTEMENT en JSON :
 plate = champ A (format AB-123-CD), vin = champ E, brand = champ D.1, model = champ D.2 ou D.3,
 first_registration = champ B au format ISO YYYY-MM-DD, energy = champ P.3, owner_name = champs C.1/C.4.1.
 Mets null pour tout champ non lisible. N'invente rien.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("registration", prompt, data, "ocr_carte_grise");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Carte grise illisible.", json: "" };
@@ -106,7 +132,7 @@ Extrais uniquement ce que tu lis réellement. Réponds STRICTEMENT en JSON :
 "summary":null}
 doc_kind parmi : plaque, carte_grise, or, avis_sinistre, rapport_expertise, constat, devis, facture, bl, courrier, autre.
 plate au format AB-123-CD. Dates ISO YYYY-MM-DD. mileage entier. Mets null si absent. N'invente rien.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("any_document", prompt, data, "ocr_document");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible.", json: "" };
@@ -133,7 +159,7 @@ Règles impératives :
 - Les nombres utilisent la virgule décimale dans le document : convertis en point (112,50 -> 112.50).
 - Une valeur absente, vide ou "-" doit valoir null, JAMAIS 0.
 - N'invente aucun productif et ne recalcule aucun ratio : recopie les valeurs du rapport.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("none", prompt, data, "ocr_productivite");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Rapport Winmotor illisible.", json: "" };
@@ -152,7 +178,7 @@ Réponds STRICTEMENT en JSON :
 {"verdict":"bonne|a_surveiller|a_remplacer|null","voltage":null,"cca_measured":null,"cca_rated":null,"soh_pct":null,"soc_pct":null}
 verdict : "bonne" (GOOD / BON), "a_surveiller" (GOOD-RECHARGE / RECHARGE / MARGINAL), "a_remplacer" (REPLACE / BAD / REMPLACER).
 Nombres uniquement, sans unité. Mets null pour toute valeur non lisible. N'invente rien.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("battery", prompt, data, "ocr_batterie");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Ticket batterie illisible.", json: "" };
@@ -178,7 +204,8 @@ Dates ISO YYYY-MM-DD. Nombres décimaux avec un point, sans symbole ni unité.
 - supplier_info : coordonnées de l'ÉMETTEUR uniquement, telles qu'imprimées (en-tête/pied de page) : {"address","postal_code","city","phone","email","website","siret","vat_number"} ; champ absent = omis ; null si rien.
 handwritten_notes : recopie littérale UNIQUEMENT du texte manuscrit réellement lisible (ex : "Pas BL retour / Frs à remb", "retour"). Jamais la description d'un symbole, d'une coche, d'un trait, d'une couleur, d'un cercle, d'un tampon ou d'une signature (ex interdit : "cochée au stylo noir") ; sinon null.
 Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun montant.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename, "supplier_invoice");
+    const result = await viaPipeline("purchase", prompt, data, "supplier_invoice");
+    if (result.ok) void learnSupplierProfile((parseJsonBlock(result.content)?.["supplier"] as string) ?? null, data.text, result.route);
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document fournisseur illisible : saisissez les informations manuellement.", json: "" };
@@ -215,7 +242,7 @@ Réponds STRICTEMENT en JSON :
 Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun prix, aucune référence.
 Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
     // Lecture rapide : raisonnement minimal (la sortie était gonflée de 2 à 3,5k jetons de réflexion pour ~500 caractères utiles).
-    const result = await askVision(prompt, data.dataUrl, data.filename, "supplier_invoice", {
+    const result = await viaPipeline("purchase", prompt, data, "supplier_invoice", {
       reasoning_effort: "low",
       max_tokens: 3000,
     });
@@ -223,7 +250,9 @@ Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible : complétez à la main.", json: "" };
     let norm = normalizePurchaseExtract(parsed);
-    if (needsIdentifierPass(norm)) {
+    void learnSupplierProfile(norm.supplier ?? null, data.text, result.route);
+    // Passe ciblée vision uniquement si la voie vision a déjà été nécessaire (jamais « par confort »).
+    if (result.route === "ai_vision_fallback" && needsIdentifierPass(norm)) {
       // Second passage court et ciblé : uniquement les repères atelier souvent manqués (« Mes références »…).
       const second = await askVision(IDENT_PROMPT, data.dataUrl, data.filename, "supplier_invoice_ids", { reasoning_effort: "low", max_tokens: 400 });
       const p2 = second.ok ? parseJsonBlock(second.content) : null;
@@ -250,7 +279,7 @@ export const ocrOrOrPlate = createServerFn({ method: "POST" })
 Réponds STRICTEMENT en JSON compact : {"or_number":null,"plate":null}
 - or_number : numéro d'OR / dossier imprimé (« OR n° », « Ordre de réparation », « Dossier »), chiffres uniquement ; null si c'est une simple plaque.
 - plate : immatriculation lue (ex. AB-123-CD). N'invente rien, null si absent.`;
-    const result = await askVision(prompt, data.dataUrl, data.filename);
+    const result = await viaPipeline("or_or_plate", prompt, data, "ocr_or_plaque");
     if (!result.ok) return { ok: false as const, error: result.error, or_number: null, plate: null };
     const p = parseIdentifierPass(parseJsonBlock(result.content));
     if (!p.or_number && !p.plate) return { ok: false as const, error: "Ni OR ni plaque détectés.", or_number: null, plate: null };
