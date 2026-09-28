@@ -188,3 +188,15 @@ describe("BL 914776 : immatriculation dans « mes références » / désignation
     expect(m[0]!.level).toBe("certain");
   });
 });
+
+import { winmotorOrHistory } from "@/lib/plate";
+describe("HG732GH : historique WinMotor", () => {
+  it("dernier OR connu 48751 puis 46585, sans doublon", () => {
+    const h = winmotorOrHistory([{ or_number: "46585", invoice_date: "2026-02-03" }, { or_number: "48751", invoice_date: "2026-04-30" }, { or_number: "48751", invoice_date: "2026-04-30" }, { or_number: null, invoice_date: "2026-05-01" }]);
+    expect(h).toEqual([{ or_number: "48751", date: "2026-04-30" }, { or_number: "46585", date: "2026-02-03" }]);
+  });
+  it("un ancien OR WinMotor ne crée aucune correspondance commande", () => {
+    const base = { site_id: "cas", status: "ordered", supplier_order_ref: null, suppliers: { name: "FAURIE AUTO SARLAT" }, repair_orders: { or_number: "48751" }, part_order_lines: [] };
+    expect(matchOrders({ supplier: "FAURIE AUTO SARLAT", plate: "HG-732-GH", or_number: null }, [{ ...base, id: "x", plate: null }] as never, "cas")).toEqual([]);
+  });
+});
