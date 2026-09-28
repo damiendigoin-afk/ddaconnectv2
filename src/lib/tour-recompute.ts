@@ -317,7 +317,7 @@ async function rereadBatteryTicket(inspectionId: string, points: PointRow[], rep
       if (!url) continue;
       const blob = await (await fetch(url)).blob();
       const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrBatteryTest({ data: { dataUrl, filename: "batterie.jpg" } });
+      const res = await ocrBatteryTest({ data: { text: await localDocText(dataUrl), dataUrl, filename: "batterie.jpg" } });
       if (!res.ok) continue;
       const parsed = JSON.parse(res.json) as { verdict?: string | null; cca_measured?: number | null };
       if (!parsed.verdict) continue;

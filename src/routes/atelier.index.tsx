@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { localDocText } from "@/lib/doc-text.browser";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search, History, Loader2 } from "lucide-react";
@@ -71,7 +72,7 @@ function AtelierHub() {
     try {
       const blob = await compressImage(file, 1400, 0.85);
       const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrOrOrPlate({ data: { dataUrl } });
+      const res = await ocrOrOrPlate({ data: { text: await localDocText(dataUrl), dataUrl } });
       if (!res.ok) {
         setOrNote(`${res.error} Saisissez le numéro manuellement.`);
         return;

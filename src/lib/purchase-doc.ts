@@ -12,7 +12,7 @@ export async function readPurchaseDoc(file: File): Promise<ReadDoc> {
   const usable = compressed ? new File([compressed], file.name, { type: compressed.type || file.type }) : file;
   try {
     const dataUrl = await blobToDataUrl(usable);
-    const res = await ocrPurchaseDocument({ data: { dataUrl, filename: usable.name } });
+    const res = await ocrPurchaseDocument({ data: { text: await localDocText(dataUrl), dataUrl, filename: usable.name } });
     if (res.ok) return { file: usable, extracted: normalizePurchaseExtract(JSON.parse(res.json)) as InvoiceExtract, warning: null };
     return { file: usable, extracted: {}, warning: `${res.error} Complétez à la main.` };
   } catch {

@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { localDocText } from "@/lib/doc-text.browser";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { FileUp, Loader2 } from "lucide-react";
@@ -78,7 +79,7 @@ function ImportPage() {
     setBusy(true);
     try {
       const dataUrl = await blobToDataUrl(f);
-      const res = await ocrProductivityReport({ data: { dataUrl, filename: f.name } });
+      const res = await ocrProductivityReport({ data: { text: await localDocText(dataUrl), dataUrl, filename: f.name } });
       if (!res.ok) throw new Error(res.error);
       const ops = await fetchOperators();
       const parsed = parseReportJson(res.json, ops);

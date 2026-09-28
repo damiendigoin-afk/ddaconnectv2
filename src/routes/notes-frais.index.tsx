@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { localDocText } from "@/lib/doc-text.browser";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, Camera, CheckCircle2, Loader2, ScanLine, Send } from "lucide-react";
@@ -128,7 +129,7 @@ function ExpenseHub() {
     setScanning(true);
     try {
       const dataUrl = await blobToDataUrl(file);
-      const res = await ocrExpenseReceipt({ data: { dataUrl, filename: file.name } });
+      const res = await ocrExpenseReceipt({ data: { text: await localDocText(dataUrl), dataUrl, filename: file.name } });
       if (!res.ok) {
         toast.message("Lecture automatique indisponible", { description: "Complétez la note à la main." });
         return;

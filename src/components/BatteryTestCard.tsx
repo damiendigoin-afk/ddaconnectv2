@@ -67,7 +67,7 @@ export function BatteryTestCard({
         inspection_point_id: pointId,
       });
       const dataUrl = await blobToDataUrl(compressed);
-      const res = await ocrBatteryTest({ data: { dataUrl, filename: "batterie.jpg" } });
+      const res = await ocrBatteryTest({ data: { text: await localDocText(dataUrl), dataUrl, filename: "batterie.jpg" } });
       if (!res.ok) {
         toast.error(res.error || "Lecture du ticket impossible — saisie manuelle possible.");
         return;

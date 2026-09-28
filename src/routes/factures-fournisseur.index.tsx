@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { localDocText } from "@/lib/doc-text.browser";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Camera, FileText, Loader2, Paperclip } from "lucide-react";
@@ -82,7 +83,7 @@ function SupplierInvoices() {
       let extracted: InvoiceExtract = {};
       try {
         const dataUrl = await blobToDataUrl(usable);
-        const res = await ocrSupplierInvoice({ data: { dataUrl, filename: usable.name } });
+        const res = await ocrSupplierInvoice({ data: { text: await localDocText(dataUrl), dataUrl, filename: usable.name } });
         if (res.ok) extracted = JSON.parse(res.json) as InvoiceExtract;
         else toast.warning(`${res.error} Le document est enregistré : complétez à la main.`);
       } catch {

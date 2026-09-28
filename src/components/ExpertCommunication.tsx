@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { localDocText } from "@/lib/doc-text.browser";
 import { useState } from "react";
 import { Loader2, Send } from "lucide-react";
 
@@ -70,7 +71,7 @@ export function ExpertCommunication({ row, onSent }: { row?: CaseRow | null; onS
 
   /** Identifie le dossier à partir de la photo de l'OR (n° d'OR, puis immatriculation). */
   async function identify(orShot: BurstShot): Promise<CaseRow | null> {
-    const res = await ocrRepairOrder({ data: { dataUrl: orShot.dataUrl } });
+    const res = await ocrRepairOrder({ data: { text: await localDocText(orShot.dataUrl), dataUrl: orShot.dataUrl } });
     if (!res.ok) return null;
     const parsed = JSON.parse(res.json) as {
       order?: { or_number?: string | null };
