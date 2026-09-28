@@ -110,9 +110,9 @@ function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
         <button key={o.id} className="block w-full rounded-xl border-2 border-border bg-card p-3 text-left text-sm" onClick={() => onPick(o.id)}>
           <div className="flex justify-between gap-2"><b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur à préciser"}</b>{o.status === "partial" ? <Badge tone="warn">Reliquat</Badge> : null}</div>
           <div className="text-xs text-muted-foreground">
-            {siteName(o.site_id)} · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
+            {siteName(o.site_id)} · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
           </div>
-          <OrderLinesCompact lines={o.part_order_lines ?? []} />
+          <OrderLinesCompact lines={o.part_order_lines ?? []} order={o as never} />
         </button>
       ))}
     </section>
@@ -379,8 +379,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
           <p className="text-xs font-bold uppercase text-muted-foreground">Commandes en attente</p>
           {(openOrders.data ?? []).map((o) => (
             <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-sm" onClick={() => setOrderId(o.id)}>
-              <b>{(o.suppliers as { name: string } | null)?.name}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
-               <OrderLinesCompact lines={o.part_order_lines ?? []} />
+              <b>{(o.suppliers as { name: string } | null)?.name}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+               <OrderLinesCompact lines={o.part_order_lines ?? []} order={o as never} />
             </button>
           ))}
           {openOrders.data && !openOrders.data.length ? <p className="text-sm text-muted-foreground">Aucune commande en attente sur ce site.</p> : null}
