@@ -11,6 +11,7 @@ import { cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceip
 import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
+import { ensureSupplierByName } from "@/lib/suppliers";
 import { isOverReceipt } from "@/lib/parts-rules";
 import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
@@ -235,9 +236,15 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
     if (over.length && !window.confirm(`Sur-réception : ${over.map((l) => `${l.physical_reference} attendu ${l.qty_expected} / reçu ${l.qty_received}`).join(", ")}. Confirmer les quantités réellement reçues ?`)) return;
     setBusy(true);
     try {
+      // Fournisseur détecté sur le BL mais non sélectionné : rattachement/création à la validation.
+      let supplierId = supplier || null;
+      if (!supplierId && x.supplier) {
+        supplierId = await ensureSupplierByName(x.supplier);
+        if (supplierId) { setSupplier(supplierId); void qc.invalidateQueries({ queryKey: ["suppliers"] }); }
+      }
       const receiptId = await validateReceipt({
         site_id: site,
-        supplier_id: supplier || null,
+        supplier_id: supplierId,
         order_id: orderId,
         repair_order_id: orv.or?.id ?? null,
         vehicle_id: orv.vehicleId,
