@@ -126,3 +126,29 @@ describe("facture WinMotor = événement final du dossier", () => {
     expect(matchDossierOrders({ site_id: "cas", or_number: "48416", plate: "ZZ999ZZ" }, [o("a", "cas", "48416", "FG-315-YS")]).ambiguous).toBe(true);
   });
 });
+
+describe("BL 914765 : dossier 50875 imprimé seul sous la désignation", () => {
+  const base = {
+    doc_kind: "bl", distributor: "FAURIE AUTO SARLAT", document_number: "914765", delivery_note_number: "914765",
+    or_number: null, total_ht: 44.72,
+    lines: [{ ref: "8550503695", designation: "MOTRIO MOTRIO Kit accessoires", qty: "1", unit_price: "44,72", isolated_number: "50875" }],
+  };
+  it("reconnu comme OR, lignes intactes", () => {
+    const x = normalizePurchaseExtract(base);
+    expect(x.or_number).toBe("50875");
+    expect(x.lines![0]!.reference).toBe("8550503695");
+    expect(x.lines![0]!.quantity).toBe(1);
+    expect(x.lines![0]!.unit_price).toBe(44.72);
+    expect((x.lines![0] as Record<string, unknown>)["isolated_number"]).toBeUndefined();
+  });
+  it("OR libellé prioritaire", () => {
+    expect(normalizePurchaseExtract({ ...base, or_number: "Repère 48416" }).or_number).toBe("48416");
+  });
+  it("ambigu ou confondable => aucun OR inventé", () => {
+    const two = { ...base, lines: [...base.lines, { ref: "77", designation: "x", qty: 1, unit_price: 1, isolated_number: "50999" }] };
+    expect(normalizePurchaseExtract(two).or_number).toBeNull();
+    expect(normalizePurchaseExtract({ ...base, document_number: "50875" }).or_number).toBeNull();
+    expect(normalizePurchaseExtract({ ...base, lines: [{ ...base.lines[0], isolated_number: "123456" }] }).or_number).toBeNull();
+    expect(normalizePurchaseExtract({ ...base, lines: [{ ...base.lines[0], ref: "8550875", isolated_number: "50875" }] }).or_number).toBeNull();
+  });
+});
