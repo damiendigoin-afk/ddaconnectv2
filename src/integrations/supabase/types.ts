@@ -4138,6 +4138,10 @@ export type Database = {
       part_orders: {
         Row: {
           appointment_date: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cancelled_by_name: string | null
           comment: string | null
           created_at: string
           created_by: string | null
@@ -4158,6 +4162,10 @@ export type Database = {
         }
         Insert: {
           appointment_date?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cancelled_by_name?: string | null
           comment?: string | null
           created_at?: string
           created_by?: string | null
@@ -4178,6 +4186,10 @@ export type Database = {
         }
         Update: {
           appointment_date?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cancelled_by_name?: string | null
           comment?: string | null
           created_at?: string
           created_by?: string | null
@@ -4337,6 +4349,10 @@ export type Database = {
       }
       part_receipts: {
         Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          cancelled_by_name: string | null
           comment: string | null
           created_at: string
           id: string
@@ -4357,6 +4373,10 @@ export type Database = {
           vehicle_id: string | null
         }
         Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cancelled_by_name?: string | null
           comment?: string | null
           created_at?: string
           id?: string
@@ -4377,6 +4397,10 @@ export type Database = {
           vehicle_id?: string | null
         }
         Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          cancelled_by_name?: string | null
           comment?: string | null
           created_at?: string
           id?: string
@@ -6152,6 +6176,7 @@ export type Database = {
           receipt_line_id: string | null
           reconciliation_link_id: string | null
           repair_order_id: string | null
+          reversal_of: string | null
           site_id: string
           unit_cost: number | null
         }
@@ -6172,6 +6197,7 @@ export type Database = {
           receipt_line_id?: string | null
           reconciliation_link_id?: string | null
           repair_order_id?: string | null
+          reversal_of?: string | null
           site_id: string
           unit_cost?: number | null
         }
@@ -6192,6 +6218,7 @@ export type Database = {
           receipt_line_id?: string | null
           reconciliation_link_id?: string | null
           repair_order_id?: string | null
+          reversal_of?: string | null
           site_id?: string
           unit_cost?: number | null
         }
@@ -6229,6 +6256,13 @@ export type Database = {
             columns: ["repair_order_id"]
             isOneToOne: false
             referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_reversal_of_fkey"
+            columns: ["reversal_of"]
+            isOneToOne: false
+            referencedRelation: "stock_movements"
             referencedColumns: ["id"]
           },
           {
@@ -8325,6 +8359,14 @@ export type Database = {
       can_manage_expense: {
         Args: { _action: string; _site_id: string; _user_id: string }
         Returns: boolean
+      }
+      cancel_part_order: {
+        Args: { _order: string; _reason: string; _user_name: string }
+        Returns: Json
+      }
+      cancel_part_receipt: {
+        Args: { _reason: string; _receipt: string; _user_name: string }
+        Returns: Json
       }
       finish_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }

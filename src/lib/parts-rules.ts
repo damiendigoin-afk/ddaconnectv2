@@ -146,3 +146,32 @@ export const USAGE_REASONS = [
   "Reportée à une autre intervention",
   "Autre",
 ] as const;
+
+// ---------- Annulations (miroir pur des RPC cancel_part_receipt / cancel_part_order) ----------
+export type HistMove = Deltas & { id: string; is_reversal?: boolean; reversal_of?: string | null };
+
+/** Mouvements inverses exacts : un seul par mouvement d'origine, jamais pour un mouvement déjà inversé. */
+export function reversalMoves(moves: HistMove[]): (Deltas & { reversal_of: string })[] {
+  const done = new Set(moves.filter((m) => m.reversal_of).map((m) => m.reversal_of as string));
+  return moves
+    .filter((m) => !m.is_reversal && !done.has(m.id))
+    .map((m) => ({ reversal_of: m.id, delta_available: -m.delta_available, delta_allocated: -m.delta_allocated, delta_quarantine: -m.delta_quarantine }));
+}
+
+export function assertCancellable(kind: "receipt" | "order", status: string, reason: string): void {
+  if (reason.trim().length < 3) throw new Error("Motif d'annulation obligatoire");
+  if (status === "cancelled") throw new Error(kind === "receipt" ? "Réception déjà annulée" : "Commande déjà annulée");
+  if (kind === "order" && status === "received") throw new Error("Commande entièrement reçue : annulez plutôt la réception.");
+}
+
+/** Ligne de commande après annulation d'une réception : reliquat remis à jour. */
+export function orderLineAfterReceiptCancel(l: { qty_ordered: number | null; qty_received: number; status: string }, cancelledQty: number): { qty_received: number; status: string } {
+  const rec = Math.max(0, l.qty_received - cancelledQty);
+  return { qty_received: rec, status: l.status === "cancelled" ? "cancelled" : orderLineStatus(l.qty_ordered, rec) };
+}
+
+/** Annulation de commande : seules les lignes encore en attente passent « cancelled » ; le reçu reste tracé. */
+export function cancelOrderLines<T extends { status: string; line_kind?: string; qty_received: number }>(lines: T[]): { lines: T[]; alreadyReceived: number } {
+  const alreadyReceived = lines.filter((l) => (l.line_kind ?? "part") === "part").reduce((s, l) => s + (l.qty_received || 0), 0);
+  return { lines: lines.map((l) => (l.status === "ordered" || l.status === "partial" ? { ...l, status: "cancelled" } : l)), alreadyReceived };
+}

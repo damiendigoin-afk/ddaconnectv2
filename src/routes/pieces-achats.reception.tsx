@@ -7,7 +7,8 @@ import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
-import { cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
+import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
+import { CancelAction } from "@/components/parts/CancelAction";
 import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
@@ -156,10 +157,10 @@ function RecentReceipts() {
     <section className="space-y-2 pt-2">
       <h2 className="text-xs font-bold uppercase text-muted-foreground">Réceptions récentes</h2>
       {(q.data ?? []).map((r) => (
-        <div key={r.id} className="rounded-xl border-2 border-border bg-card p-3 text-sm">
+        <div key={r.id} className={`rounded-xl border-2 border-border bg-card p-3 text-sm ${r.status === "cancelled" ? "opacity-60" : ""}`}>
           <div className="flex justify-between gap-2">
-            <b>{(r.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b>
-            {r.status === "incident" ? <Badge tone="bad">Incident</Badge> : r.receipt_type === "physical_without_document" ? <Badge tone="warn">En attente de document</Badge> : <Badge tone="ok">Validée</Badge>}
+            <b className={r.status === "cancelled" ? "line-through" : ""}>{(r.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b>
+            {r.status === "cancelled" ? <Badge tone="bad">Annulée</Badge> : r.status === "incident" ? <Badge tone="bad">Incident</Badge> : r.receipt_type === "physical_without_document" ? <Badge tone="warn">En attente de document</Badge> : <Badge tone="ok">Validée</Badge>}
           </div>
           <div className="text-xs text-muted-foreground">
             {siteName(r.site_id)} · {new Date(r.received_at).toLocaleString("fr-FR")} · {r.received_by_name}
@@ -167,9 +168,24 @@ function RecentReceipts() {
             {r.plate ? ` · ${r.plate}` : ""}
           </div>
           <div className="text-xs">{(r.part_receipt_lines ?? []).map((l) => `${l.qty_received}× ${l.physical_reference ?? l.designation ?? "?"}`).join(", ") || r.comment}</div>
+          {r.status === "cancelled" ? (
+            <p className="text-xs font-bold">Annulée le {r.cancelled_at ? new Date(r.cancelled_at).toLocaleString("fr-FR") : "?"} par {r.cancelled_by_name ?? "?"} — {r.cancel_reason}</p>
+          ) : null}
           {r.order_id ? <Link to="/pieces-achats/commande/$orderId" params={{ orderId: r.order_id }} className="text-xs underline">Voir la commande</Link> : null}
-          {r.status !== "incident" ? (
+          {r.status === "validated" ? (
             <button className="ml-3 text-xs underline" onClick={async () => { const why = window.prompt("Incident (ex. livré au mauvais site) — motif :"); if (!why) return; await cancelReceiptIncident(r.id, r.site_id, why, actor); qc.invalidateQueries({ queryKey: ["part-receipts"] }); toast.success("Incident enregistré — pensez à corriger le stock si nécessaire."); }}>Signaler incident</button>
+          ) : null}
+          {r.status !== "cancelled" ? (
+            <CancelAction
+              label="Annuler la réception"
+              warning={`Annuler cette réception ? Le stock sera remis dans l'état précédent par des mouvements inverses${r.order_id ? " et le reliquat de la commande sera rouvert" : ""}. L'historique est conservé.`}
+              onConfirm={async (why) => {
+                const res = await cancelReceipt(r.id, why, actor);
+                void qc.invalidateQueries({ queryKey: ["part-receipts"] });
+                void qc.invalidateQueries({ queryKey: ["part-orders"] });
+                return `Réception annulée — ${res.reversed_movements} mouvement(s) de stock inversé(s)`;
+              }}
+            />
           ) : null}
         </div>
       ))}

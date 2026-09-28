@@ -183,6 +183,13 @@
       "when": 1790587119243,
       "tag": "0025_storage_fournisseurs_access",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790598432379,
+      "tag": "0026_cancel_receipts_orders",
+      "breakpoints": true
     }
   ]
 }
