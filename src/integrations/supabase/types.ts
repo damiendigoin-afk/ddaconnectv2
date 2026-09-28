@@ -4355,6 +4355,7 @@ export type Database = {
           cancelled_by_name: string | null
           comment: string | null
           created_at: string
+          free_reference: string | null
           id: string
           order_id: string | null
           packages: string | null
@@ -4369,6 +4370,7 @@ export type Database = {
           source_document_id: string | null
           status: string
           supplier_id: string | null
+          supplier_order_ref: string | null
           updated_at: string
           vehicle_id: string | null
         }
@@ -4379,6 +4381,7 @@ export type Database = {
           cancelled_by_name?: string | null
           comment?: string | null
           created_at?: string
+          free_reference?: string | null
           id?: string
           order_id?: string | null
           packages?: string | null
@@ -4393,6 +4396,7 @@ export type Database = {
           source_document_id?: string | null
           status?: string
           supplier_id?: string | null
+          supplier_order_ref?: string | null
           updated_at?: string
           vehicle_id?: string | null
         }
@@ -4403,6 +4407,7 @@ export type Database = {
           cancelled_by_name?: string | null
           comment?: string | null
           created_at?: string
+          free_reference?: string | null
           id?: string
           order_id?: string | null
           packages?: string | null
@@ -4417,6 +4422,7 @@ export type Database = {
           source_document_id?: string | null
           status?: string
           supplier_id?: string | null
+          supplier_order_ref?: string | null
           updated_at?: string
           vehicle_id?: string | null
         }

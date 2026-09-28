@@ -190,6 +190,13 @@
       "when": 1790598432379,
       "tag": "0026_cancel_receipts_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790608738338,
+      "tag": "0027_receipt_user_markers",
+      "breakpoints": true
     }
   ]
 }
