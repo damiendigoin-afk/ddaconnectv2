@@ -1,4 +1,5 @@
 /**
+import { simplifiedEnrichment } from "@/lib/receipt-lines";
  * Pièces & achats V3 (Phase B) : commandes, réceptions physiques, stock, pointage OR, temps, travaux terminés.
  * Écritures toujours sur un site explicite (site par défaut de l'utilisateur) — jamais silencieusement sur l'autre.
  */
@@ -346,7 +347,21 @@ export async function validateReceipt(
   r: { site_id: string; supplier_id: string | null; order_id: string | null; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; source_document_id: string | null; receipt_type: "document" | "physical_without_document" | "invoice_as_delivery"; packages: string | null; comment: string | null; requested_or_number?: string | null; supplier_order_ref?: string | null; free_reference?: string | null; lines: ReceiptLineInput[] },
   actor: Actor,
 ) {
-  const { lines, ...head } = r;
+  const { lines: inLines, ...head } = r;
+  let lines = inLines;
+  // Commande simplifiée sans lignes choisie explicitement : on l'enrichit des lignes reçues (traçabilité commande → BL → réception).
+  if (r.order_id) {
+    const { data: ord } = await supabase.from("part_orders").select("order_mode, part_order_lines(id)").eq("id", r.order_id).single();
+    const toAdd = simplifiedEnrichment(ord ? { order_mode: ord.order_mode, line_count: (ord.part_order_lines as unknown[] | null)?.length ?? 0 } : null, lines);
+    if (toAdd.length) {
+      const { data: created, error: eo } = await supabase.from("part_order_lines").insert(
+        toAdd.map((l) => ({ order_id: r.order_id!, line_kind: "part", physical_reference: l.physical_reference.trim() || null, designation: l.designation.trim() || null, qty_ordered: l.qty_received, expected_unit_cost_ht: l.unit_cost })),
+      ).select("id");
+      if (eo) throw eo;
+      const ids = new Map(toAdd.map((l, i) => [l, created?.[i]?.id ?? null]));
+      lines = lines.map((l) => (ids.has(l) ? { ...l, order_line_id: ids.get(l) ?? null } : l));
+    }
+  }
   const { data: rec, error } = await supabase.from("part_receipts").insert({ ...head, received_by_name: actor.name }).select("id").single();
   if (error) throw error;
 
