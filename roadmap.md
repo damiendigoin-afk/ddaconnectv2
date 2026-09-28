@@ -79,3 +79,5 @@ Reste à faire :
 ## Pneus sans IA — OCR local photo 2 + photo 3
 - [x] Désactiver tire_wheel automatique ; OCR local (photos 2 et 3), parser métier, consolidation roue
 - [x] Synthèse discrète + correction manuelle ; tests parsing/consolidation ; publication
+
+- [ ] Autoriser le dépôt de BL fournisseur (stockage fournisseurs/) aux non-managers du site (erreur RLS Adrien)
