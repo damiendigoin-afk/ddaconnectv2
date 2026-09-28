@@ -34,12 +34,18 @@ export type InvoiceLine = {
   delay?: string | null;
 };
 
+export type SupplierInfo = { address?: string | null; postal_code?: string | null; city?: string | null; phone?: string | null; email?: string | null; website?: string | null; siret?: string | null; vat_number?: string | null };
+
 export type InvoiceExtract = {
   or_number?: string | null;
   document_number?: string | null;
   document_date?: string | null;
   doc_kind?: string | null;
   supplier?: string | null;
+  /** Coordonnées de l'émetteur lues sur le document (préremplissage de la fiche). */
+  supplier_info?: SupplierInfo | null;
+  /** Fiche fournisseur rattachée au document (dès l'import). */
+  supplier_id?: string | null;
   invoice_number?: string | null;
   invoice_date?: string | null;
   delivery_note_number?: string | null;
