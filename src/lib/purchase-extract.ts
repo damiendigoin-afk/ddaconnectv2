@@ -39,7 +39,29 @@ const close = (a: number, b: number) => Math.abs(a - b) <= Math.max(0.02, Math.a
  * PA unitaire attendu : le montant net de ligne (÷ quantité) prime sur un « prix client / public ».
  * Si la somme des montants nets est cohérente avec le total HT, elle fait foi.
  */
-function normLine(l: Raw): InvoiceLine & { client_price?: number | null } {
+type NormLine = InvoiceLine & { client_price?: number | null; isolated_number?: string | null };
+
+/**
+ * Dossier atelier imprimé seul sous la désignation (BL Renault/Faurie…) : retenu seulement
+ * si exactement 5 chiffres, une valeur unique sur tout le document, et distinct des
+ * n° de document/BL/commande/facture et des références article.
+ */
+export function isolatedOrNumber(lines: NormLine[], exclude: (string | null | undefined)[]): string | null {
+  const vals = new Set<string>();
+  for (const l of lines) {
+    const raw = (l.isolated_number ?? "").trim();
+    if (!raw) continue;
+    if (!/^\d{5}$/.test(raw.replace(/\s/g, ""))) return null;
+    vals.add(raw.replace(/\s/g, ""));
+  }
+  if (vals.size !== 1) return null;
+  const v = [...vals][0]!;
+  const blocked = [...exclude, ...lines.map((l) => l.reference)].map((x) => (x ?? "").replace(/\D/g, ""));
+  if (blocked.some((b) => b && (b === v || b.includes(v)))) return null;
+  return v;
+}
+
+function normLine(l: Raw): NormLine {
   const quantity = num(l.quantity ?? l.qty ?? l.qte) ?? null;
   const amount = num(l.amount ?? l.net_amount ?? l.line_total_ht ?? l.montant_net ?? l.total_ht);
   const unitNet = num(l.net_unit_price ?? l.unit_net_price);
@@ -59,6 +81,7 @@ function normLine(l: Raw): InvoiceLine & { client_price?: number | null } {
     discount_pct: num(l.discount_pct),
     amount,
     delay: pick(l, ["delay", "delivery", "delivery_info", "availability"]),
+    isolated_number: str(l.isolated_number),
     client_price: clientPrice,
   };
 }
@@ -84,8 +107,11 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   // Plaque : seulement si réellement imprimée sur le document.
   const platePrinted = o.plate_printed === true || o.plate_printed === "true";
   const kind = str(o.doc_kind);
-  const orNumber = digits(pick(o, ["or_number", "customer_reference", "order_mark", "repere_commande"]));
+  let orNumber = digits(pick(o, ["or_number", "customer_reference", "order_mark", "repere_commande"]));
   const docNumber = str(o.document_number);
+  if (!orNumber) {
+    orNumber = isolatedOrNumber(lines, [docNumber, str(o.delivery_note_number), str(o.invoice_number), str(o.order_reference), str(o.order_number)]);
+  }
   // Ne jamais confondre Repère commande / OR avec « Commande n° ».
   let orderRef = pick(o, ["order_reference", "order_number", "supplier_order_number"]);
   const sameAsOr = (v: string | null) => !!v && !!orNumber && digits(v) === orNumber;
@@ -103,7 +129,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     or_number: orNumber,
     plate: platePrinted ? str(o.plate) : null,
     customer_or_site: str(o.customer_or_site),
-    lines: lines.map(({ client_price: _c, ...l }) => l),
+    lines: lines.map(({ client_price: _c, isolated_number: _i, ...l }) => l),
     total_ht: totalHt,
     vat_amount: num(o.vat_amount),
     total_ttc: num(o.total_ttc),

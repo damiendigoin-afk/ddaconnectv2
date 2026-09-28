@@ -22,12 +22,13 @@ export async function askVision(
   dataUrl: string,
   filename?: string,
   feature = "vision",
+  extra: Record<string, unknown> = {},
 ) {
   const res = await runPaidAi({
     feature,
     fingerprintSeed: `${prompt}\u0000${dataUrl}`,
     model: VISION_MODEL,
-    body: { messages: [{ role: "user", content: [{ type: "text", text: prompt }, blockFor(dataUrl, filename)] }] },
+    body: { ...extra, messages: [{ role: "user", content: [{ type: "text", text: prompt }, blockFor(dataUrl, filename)] }] },
   });
   if (!res.ok) return { ok: false as const, error: res.error };
   return { ok: true as const, content: res.content };
