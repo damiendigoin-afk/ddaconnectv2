@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, Hourglass, Play, Square } from "lucide-react";
 import { toast } from "sonner";
 
+import { PendingReceiptsForOr } from "@/components/parts/PendingReceiptsForOr";
 import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, usePartsCtx } from "@/components/parts/PartsUi";
 import { addUnplannedUsage, confirmUsage, finishWork, getWorkState, listSessions, listUsage, myOpenSessions, orPartsOverview, returnUnusedToStock, startTime, stopTime } from "@/lib/parts";
 import { finishCheck, formatMinutes, partsCompleteness, sessionMinutes, USAGE_REASONS } from "@/lib/parts-rules";
@@ -12,7 +13,7 @@ import { finishCheck, formatMinutes, partsCompleteness, sessionMinutes, USAGE_RE
  * Tableau d'actions terrain du dossier OR (V3 Phase B).
  * Sans OR WinMotor officiel : aucun pointage ni « Travaux terminés ». « Arrêter » ≠ « Travaux terminés ».
  */
-export function OrActionBoard({ hasOfficialOr, orId, orSiteId }: { hasOfficialOr: boolean; orId: string; orSiteId: string | null }) {
+export function OrActionBoard({ hasOfficialOr, orId, orSiteId, orNumber = null, vehicleId = null, plate = null }: { hasOfficialOr: boolean; orId: string; orSiteId: string | null; orNumber?: string | null; vehicleId?: string | null; plate?: string | null }) {
   if (!hasOfficialOr) {
     return (
       <section className="space-y-2">
@@ -30,6 +31,7 @@ export function OrActionBoard({ hasOfficialOr, orId, orSiteId }: { hasOfficialOr
       <WorkStateBanner orId={orId} />
       <TimePanel orId={orId} orSiteId={orSiteId} />
       <PartsStatus orId={orId} />
+      <PendingReceiptsForOr or={{ id: orId, or_number: orNumber, site_id: orSiteId, vehicle_id: vehicleId }} plate={plate} />
       <UsagePanel orId={orId} orSiteId={orSiteId} />
       <FinishPanel orId={orId} orSiteId={orSiteId} />
     </section>
