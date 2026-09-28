@@ -1,32 +1,32 @@
-# Audit IA du 27/09 — résultat (lecture seule, aucune modification)
+# Erreur « new row violates row-level security policy » — dépôt de BL (Adrien Benoist, Castillon)
 
-Aucun code modifié, aucune publication, aucun appel IA déclenché. Sources : journal d'usage IA de DDA, cache IA (réponses enregistrées), photos, points et kilométrages du tour CW-862-AY, journal de la passerelle IA.
+## Diagnostic (lecture seule)
 
-## Les 3 appels `vision` (17:13:50, 17:14:47, 17:16:06) — confiance élevée
+1. **Ce qui échoue** : ce n'est pas une table de Pièces & achats. C'est l'**envoi du fichier** (photo ou PDF du BL) dans le stockage `dda-media`. L'application le range sous `fournisseurs/<uuid>.<ext>` (src/lib/supplier-docs.ts, `uploadSupplierDoc`). L'envoi se fait avant l'insertion `inbox_documents`, et l'erreur arrive à ce moment-là.
+2. **Règle qui bloque** : `dda_media_insert` sur le stockage appelle `storage_object_owned(name, uid)`. Cette fonction n'autorise que les dossiers `inspections`, `tours`, `expertises`, `orders` et `notes-frais`. Tous les autres dossiers passent par `ELSE has_role(uid,'manager')`. Le dossier `fournisseurs/` n'est donc accessible qu'aux managers.
+3. **Profil d'Adrien : il est cohérent.** Statut active, site Castillon, `site_scope=site`, entrée `user_sites` Castillon, rôle `salarie`, module `magasin` accordé. Les règles des tables sont vérifiées (`inbox_documents` : utilisateur actif ; `part_receipts`, `stock_movements`, `supplier_cost_lines` : utilisateur actif et site accessible) et elles l'autorisent toutes sur Castillon. Rien n'est à corriger sur son compte.
+4. **Autres utilisateurs** : les **19 utilisateurs actifs non-manager** sont tous touchés. Le même blocage touche aussi, pour les non-managers, d'autres dossiers du même stockage : `magasin/`, `returns/`, `winmotor-imports/`, `emails/`, `carrosserie/`, `cases/`, `ads/`, `productivite/`. Les envois faits par le serveur avec les droits complets (`returns-workflow`, `emails/`) ne sont pas bloqués.
 
-- Écran : **Atelier > Scanner une plaque** (fonction `ocrPlate`, seule à utiliser ce libellé sur cet écran).
-- Preuve : les 3 réponses en cache sont identiques, `{"plate":"CW-862-AY","confidence":0.95}`. Ce sont 3 photos différentes (empreintes distinctes, 0 réutilisation du cache), donc 3 prises de plaque successives.
-- Suite de l'enchaînement : dossier DDA-2026-00129 créé à 17:16:54 avec le kilométrage 189 444, puis le tour créé à 17:17:06. Les 3 lectures ont donc eu lieu avant le tour, pendant l'ouverture du dossier.
-- Limite : le journal n'enregistre ni l'utilisateur ni la raison des 2 reprises. Le résultat était le même les 3 fois, et le cache n'a pas servi parce que les photos différaient.
+## Correction minimale recommandée
 
-## Les 2 appels `tire_wheel` — confirmés
+Une migration ajoute la branche suivante à `storage_object_owned`, sans rien retirer :
 
-- 17:18:22 : pneu avant gauche, 3 photos prises à 17:18:00–02. Lecture : 155/65R14 75T, 3 mm.
-- 17:21:29 : pneu arrière gauche, 3 photos prises à 17:21:06–08. Lecture : Cooper 155/65R14.
+```text
+WHEN 'fournisseurs' THEN (
+  has_role(uid,'manager')
+  OR EXISTS (SELECT 1 FROM inbox_documents d
+             WHERE d.storage_path = _name
+               AND (d.site_id IS NULL OR user_can_access_site(uid, d.site_id)))
+  OR NOT EXISTS (SELECT 1 FROM inbox_documents d WHERE d.storage_path = _name)  -- envoi initial
+)
+```
 
-## `supplier_invoice` 16:14:46 — confirmé
+Avec cette branche, un utilisateur actif peut envoyer un nouveau fichier fournisseur. Il ne peut relire que les fichiers liés à un document d'un site auquel il a accès. Le contrôle « utilisateur actif » existant reste en tête de la fonction.
 
-- Écran : Pièces & achats, lecture d'un document fournisseur.
-- Document : bon de livraison FAURIE AUTO SARLAT n° 914730 du 25/09, commande 45841139, OR 50878.
-- 16:26:15 et 16:26:41 : réponses reprises du cache, 0 crédit.
+En option, dans une seconde étape à valider : ajouter des branches équivalentes pour `magasin/`, `returns/`, `carrosserie/`, `cases/` et `winmotor-imports/` si ces écrans doivent fonctionner pour les non-managers.
 
-## Totaux
+## Vérification après correction
 
-- Total des lignes fournies : 0,17 + 0,19 + 0,04 + 0,03 + 0,03 + 0,16 = **0,62 crédit**, estimé par DDA.
-- Coût facturé par la passerelle IA pour ces 6 mêmes appels : **0,183 crédit** (0,0188 + 0,0203 + 0,0193 + 0,0154 + 0,0154 + 0,0933).
-- Mon audit précédent (environ 0,41 crédit pour les 9 appels du jour) reprenait le coût facturé, pas l'estimation de DDA. Il ne sous-estimait donc pas ce qui est facturé. L'estimation affichée dans DDA est environ 3 fois plus élevée que le coût réel.
-
-## Suite possible (non incluse, à demander)
-
-- Enregistrer l'utilisateur et l'écran dans le journal d'usage IA.
-- Aligner l'estimation de DDA sur le coût réel facturé.
+- Se connecter comme un non-manager sur Castillon, déposer un BL : le document est créé, sans erreur.
+- Vérifier que ce non-manager ne peut pas ouvrir un BL d'un site non autorisé.
+- Aucun changement du code de l'application, ni de Notes de frais.
