@@ -20,3 +20,5 @@
 - Tour tire quotes persist one grouped quote line per axle group with seven offer snapshots in computation; only selected_slot contributes to totals. Why: preserve the shared tire engine while preventing duplicate wheel lines.
 - Tire monte is consolidated per wheel then per axle (src/lib/tire-axle.ts: all wheels incl. OK, conflicts block fusion, never copied across axles); tier slots fall back through active brands in sort_order. Why: more photos = more reliable monte, no empty slots when the default brand lacks stock.
 - Tire wheel reading is local OCR only (tesseract.js, src/lib/tire-ocr.client.ts + pure parser src/lib/tire-ocr-parse.ts; photo 1 gauge => estimate only); analyzeWheelPhotos is a no-op; wear is judged only from a human-confirmed depth via TireConfirmPanel. Why: no paid AI calls in the normal tire flow.
+
+- Storage dda-media `fournisseurs/`: active users with module `magasin` may upload unlinked files; linked files readable only if the inbox_documents site is accessible (storage_object_owned). Why: non-managers were blocked by the manager-only ELSE branch.
