@@ -9,6 +9,7 @@ import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
 import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
 import { syncOrNumber } from "@/lib/receipt-lines";
+import { formatPlate } from "@/lib/plate";
 
 export const inputCls = "h-11 w-full rounded-lg border-2 border-border bg-card px-3 text-sm";
 export const btnPrimary = "h-11 rounded-lg bg-brand px-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50";
@@ -126,11 +127,15 @@ export function OrPicker({ value, onChange, initialNumber, onNumberChange }: { v
   }
   async function lookupPlate() {
     setMsg(null);
+    const pretty = formatPlate(value.plate);
     const r = await findOrsByPlate(value.plate);
     setCands(r.ors);
-    onChange({ ...value, vehicleId: r.vehicleId });
-    if (!r.vehicleId) setMsg("Véhicule inconnu — l'immatriculation sera gardée telle quelle.");
-    else if (!r.ors.length) setMsg("Aucun OR WinMotor connu pour ce véhicule — dossier en attente OR.");
+    onChange({ ...value, plate: pretty, vehicleId: r.vehicleId });
+    const last = r.wmHistory[0];
+    const hist = last ? ` Dernier OR historique (historique uniquement, jamais rattaché) : ${last.or_number} du ${new Date(last.date).toLocaleDateString("fr-FR")}.` : "";
+    if (!r.ors.length && r.wmHistory.length) setMsg(`Immatriculation connue dans l'historique WinMotor — aucun OR DDA actuel rattaché. Vous pouvez valider le BL et rattacher l'OR plus tard.${hist}`);
+    else if (!r.vehicleId) setMsg("Véhicule inconnu — l'immatriculation sera gardée telle quelle. Vous pouvez valider le BL.");
+    else if (!r.ors.length) setMsg("Aucun OR WinMotor connu pour ce véhicule — vous pouvez valider le BL et rattacher l'OR plus tard.");
   }
   return (
     <div className="space-y-2">

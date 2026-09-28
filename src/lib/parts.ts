@@ -3,7 +3,8 @@
  * Écritures toujours sur un site explicite (site par défaut de l'utilisateur) — jamais silencieusement sur l'autre.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { normalizePlate } from "@/lib/plate";
+import { normalizePlate, winmotorOrHistory } from "@/lib/plate";
+import { allocationPlan, canAttachTo, orphanReceiptsForPlate, type AttachLine, type OrphanReceipt } from "@/lib/receipt-attach";
 import {
   movementDeltas,
   nextPamp,
@@ -54,20 +55,73 @@ export async function findOrByNumber(num: string): Promise<OrLite | null> {
   return r ? { id: r.id, or_number: r.or_number, site_id: r.site_id, vehicle_id: r.vehicle_id, plate: r.vehicles?.plate ?? null } : null;
 }
 
-export async function findOrsByPlate(plate: string): Promise<{ vehicleId: string | null; ors: OrLite[] }> {
+export async function findOrsByPlate(plate: string): Promise<{ vehicleId: string | null; ors: OrLite[]; wmHistory: { or_number: string; date: string }[] }> {
   const pn = normalizePlate(plate);
-  if (!pn) return { vehicleId: null, ors: [] };
+  if (!pn) return { vehicleId: null, ors: [], wmHistory: [] };
   const { data: veh } = await supabase.from("vehicles").select("id, plate").eq("plate_normalized", pn).limit(1);
   const v = veh?.[0];
-  if (!v) return { vehicleId: null, ors: [] };
-  const { data } = await supabase
-    .from("repair_orders")
-    .select("id, or_number, site_id, vehicle_id")
-    .eq("vehicle_id", v.id)
-    .not("or_number", "is", null)
-    .order("or_date", { ascending: false })
-    .limit(10);
-  return { vehicleId: v.id, ors: (data ?? []).map((o) => ({ ...o, plate: v.plate })) };
+  let ors: OrLite[] = [];
+  if (v) {
+    const { data } = await supabase
+      .from("repair_orders")
+      .select("id, or_number, site_id, vehicle_id")
+      .eq("vehicle_id", v.id)
+      .not("or_number", "is", null)
+      .order("or_date", { ascending: false })
+      .limit(10);
+    ors = (data ?? []).map((o) => ({ ...o, plate: v.plate }));
+  }
+  let wmHistory: { or_number: string; date: string }[] = [];
+  if (!v || !ors.length) {
+    // Historique WinMotor : information seule, jamais une cible de rattachement.
+    const { data: wm } = await supabase.from("winmotor_invoices").select("or_number, invoice_date").eq("plate_normalized", pn).order("invoice_date", { ascending: false }).limit(20);
+    wmHistory = winmotorOrHistory(wm ?? []);
+  }
+  return { vehicleId: v?.id ?? null, ors, wmHistory };
+}
+
+/** Réceptions validées sans OR, même site, même immatriculation normalisée (non annulées). */
+export async function listOrphanReceiptsForPlate(siteId: string | null, plate: string | null) {
+  if (normalizePlate(plate ?? "").length < 5) return [];
+  let q = supabase
+    .from("part_receipts")
+    .select("id, site_id, plate, repair_order_id, status, cancelled_at, received_at, received_by_name, source_document_id, supplier_order_ref, free_reference, suppliers(name), inbox_documents:source_document_id(extracted), part_receipt_lines(id, article_id, condition, qty_received, qty_allocated, repair_order_id, physical_reference, designation)")
+    .is("repair_order_id", null)
+    .not("plate", "is", null)
+    .neq("status", "cancelled")
+    .order("received_at", { ascending: false })
+    .limit(300);
+  if (siteId) q = q.eq("site_id", siteId);
+  const { data } = await q;
+  return orphanReceiptsForPlate((data ?? []) as unknown as (OrphanReceipt & Record<string, unknown>)[], plate, siteId);
+}
+
+/** Rattachement confirmé par le mécanicien : OR + véhicule, lignes, affectations manquantes (aucun nouveau receipt_in), régularisations fermées sans DELETE. */
+export async function attachReceiptToOr(receiptId: string, or: { id: string; or_number: string | null; site_id: string | null; vehicle_id: string | null }, actor: Actor): Promise<{ allocated: number }> {
+  if (!canAttachTo(or)) throw new Error("OR officiel requis");
+  const { data: rec, error } = await supabase.from("part_receipts").select("id, site_id, status, cancelled_at, repair_order_id, part_receipt_lines(id, article_id, condition, qty_received, qty_allocated, repair_order_id, physical_reference, designation, destination)").eq("id", receiptId).single();
+  if (error) throw error;
+  if (rec.status === "cancelled" || rec.cancelled_at) throw new Error("Réception annulée");
+  if (rec.repair_order_id && rec.repair_order_id !== or.id) throw new Error("Réception déjà rattachée à un autre OR");
+  const { error: e1 } = await supabase.from("part_receipts").update({ repair_order_id: or.id, vehicle_id: or.vehicle_id }).eq("id", receiptId).is("repair_order_id", null);
+  if (e1) throw e1;
+  const lines = (rec.part_receipt_lines ?? []) as unknown as (AttachLine & { destination: string })[];
+  const plan = allocationPlan(lines, or.id);
+  const lineIds = lines.filter((l) => !l.repair_order_id).map((l) => l.id);
+  if (lineIds.length) await supabase.from("part_receipt_lines").update({ repair_order_id: or.id, destination: "or" }).in("id", lineIds).is("repair_order_id", null);
+  let allocated = 0;
+  for (const p of plan) {
+    await allocateToOr({ articleId: p.line.article_id!, siteId: rec.site_id, orId: or.id, qty: p.qty, ref: p.line.physical_reference ?? "", designation: p.line.designation, receiptLineId: p.line.id }, actor);
+    await supabase.from("part_receipt_lines").update({ qty_allocated: Number(p.line.qty_allocated || 0) + p.qty }).eq("id", p.line.id);
+    allocated += p.qty;
+  }
+  const now = new Date().toISOString();
+  const closing = `Réception rattachée à l'OR ${or.or_number} (confirmé par ${actor.name})`;
+  const close = { status: "closed", closed_by: actor.userId, closed_by_name: actor.name, closed_at: now, closing_comment: closing, repair_order_id: or.id };
+  await supabase.from("parts_regularizations").update(close).eq("status", "open").eq("source_id", receiptId).eq("kind", "reception_sans_commande");
+  if (lines.length) await supabase.from("parts_regularizations").update(close).eq("status", "open").eq("kind", "destination_inconnue").in("source_id", lines.map((l) => l.id));
+  await logEvent({ site_id: rec.site_id, entity: "part_receipt", entity_id: receiptId, repair_order_id: or.id, action: "attach_or", detail: { or_number: or.or_number, allocated } }, actor);
+  return { allocated };
 }
 
 // ---------- Stock ----------
