@@ -80,6 +80,6 @@ describe("règles déterministes", () => {
   it("OR papier ou plaque", () => {
     expect(orOrPlateRules("ORDRE DE REPARATION N° 50890")).toMatchObject({ or_number: "50890" });
     expect(orOrPlateRules("HG-732-GH")).toMatchObject({ plate: "HG-732-GH", or_number: null });
-    expect(orOrPlateRules("205/55 R16 91V").plate).toBeNull();
+    expect(orOrPlateRules("205/55 R16 91V")["plate"]).toBeNull();
   });
 });
