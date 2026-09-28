@@ -64,3 +64,23 @@ describe("recherche manuelle : commentaire et créateur", () => {
     expect(r.probable).toEqual([]);
   });
 });
+
+describe("recherche manuelle : commandes simplifiées uniquement", () => {
+  const simp = o({ id: "simp", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T07:37:42Z" });
+  const detailed = o({ id: "det", order_mode: "detailed", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T08:30:00Z" });
+  const legacy = o({ id: "legacy", order_mode: null, created_at: "2026-09-28T09:00:00Z" });
+  const list = [detailed, legacy, simp];
+  const ids = (q: string) => searchPendingOrders(list, q, "cas").map((x) => (x as { id: string }).id);
+  it("une commande detailed n'apparaît jamais, même à vide ou sur commentaire", () => {
+    expect(ids("")).toEqual(["legacy", "simp"]);
+    expect(ids("PNEUS AV MICHELIN 4S")).toEqual(["simp"]);
+    expect(ids("Frederic")).toEqual(["simp"]);
+  });
+  it("order_mode inconnu/null est exclu de la recherche manuelle", () => {
+    expect(ids("").includes("legacy")).toBe(false);
+  });
+  it("la commandé détaillée reste candidate au rapprochement automatique", () => {
+    const r = receptionSuggestions({ supplier: "FAURIE", plate: "HG732GH" }, [detailed], "cas");
+    expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["det"]);
+  });
+});
