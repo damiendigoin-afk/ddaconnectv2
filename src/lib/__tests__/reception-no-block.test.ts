@@ -86,3 +86,28 @@ describe("recherche manuelle : commandes simplifiées uniquement", () => {
     expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["det2"]);
   });
 });
+
+describe("carte commande simplifiée : commentaire / créateur / heure", () => {
+  it("simplifiée sans lignes mais avec commentaire : méta affichée, pas « Contenu non détaillé »", () => {
+    const m = simplifiedOrderMeta(o({ comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T07:37:42Z" }));
+    expect(m.hasMeta).toBe(true);
+    expect(m.comment).toBe("PNEUS AV MICHELIN 4S");
+    expect(m.createdBy).toBe("Frederic TEIXEIRA");
+    expect(m.when).toContain("07:37");
+  });
+  it("commande détaillée : pas de bloc simplifié", () => {
+    const m = simplifiedOrderMeta(o({ order_mode: "detailed", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T07:37:42Z" }));
+    expect(m.hasMeta).toBe(false);
+  });
+  it("simplifiée sans commentaire ni créateur : repli « Contenu non détaillé »", () => {
+    expect(simplifiedOrderMeta(o({})).hasMeta).toBe(false);
+    expect(simplifiedOrderMeta(o({ comment: "   " })).hasMeta).toBe(false);
+  });
+  it("simplifiée avec lignes : commentaire affiché en plus des lignes", () => {
+    const line = [{ physical_reference: "7701208174", line_kind: "part", status: "ordered" }];
+    const m = simplifiedOrderMeta(o({ comment: "4 pneus", part_order_lines: line }));
+    expect(m.hasMeta).toBe(true);
+    expect(m.comment).toBe("4 pneus");
+  });
+});
+
