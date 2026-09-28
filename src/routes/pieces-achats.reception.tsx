@@ -269,6 +269,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const [orderId, setOrderId] = useState<string | null>(initialOrder);
   const [supplier, setSupplier] = useState("");
   const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ? formatPlate(x.plate) : "", vehicleId: null });
+  // Immat lue (y compris par le second passage) : préremplie sans attendre « Chercher », jamais écrasée si déjà saisie.
+  useEffect(() => { if (x.plate) setOrv((v) => (v.plate.trim() ? v : { ...v, plate: formatPlate(x.plate!) })); }, [x.plate]);
   const [docId, setDocId] = useState(doc?.id ?? "");
   const [packages, setPackages] = useState("");
   const [comment, setComment] = useState("");
