@@ -15,6 +15,7 @@ export type AiUsageRow = {
   cache_hit: boolean;
   blocked_reason: string | null;
   estimated_credits: number;
+  route: string | null;
 };
 
 export type AiBudget = {
@@ -34,6 +35,7 @@ export type AiCostSummary = {
   blockedToday: number;
   failedBilledToday: number;
   byFeature: { feature: string; calls: number; credits: number; cacheHits: number }[];
+  byRoute: { route: string; label: string; ops: number; credits: number }[];
 };
 
 function startOfDay(): string {
@@ -45,26 +47,49 @@ function startOfMonth(): string {
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), 1)).toISOString();
 }
 
+export const ROUTE_LABELS: Record<string, string> = {
+  ocr_rules: "OCR / règles sans IA (0 crédit)",
+  manual: "Non reconnu, saisie manuelle (0 crédit)",
+  cache: "Réutilisation de cache (0 crédit)",
+  ai_text_fallback: "Repli IA texte",
+  ai_vision_fallback: "Repli IA vision",
+};
+export function routeOf(r: Pick<AiUsageRow, "route" | "cache_hit">): string {
+  return r.route ?? (r.cache_hit ? "cache" : "ai_vision_fallback");
+}
+/** Seules les voies IA sont de la consommation IA facturée. */
+export const isAiRoute = (route: string) => route === "ai_text_fallback" || route === "ai_vision_fallback";
+
 export function summarize(rows: AiUsageRow[]): AiCostSummary {
   const day = startOfDay();
   const month = startOfMonth();
   const inDay = rows.filter((r) => r.created_at >= day);
   const inMonth = rows.filter((r) => r.created_at >= month);
   const map = new Map<string, { feature: string; calls: number; credits: number; cacheHits: number }>();
-  for (const r of inMonth) {
+  for (const r of inMonth.filter((x) => isAiRoute(routeOf(x)))) {
     const e = map.get(r.feature) ?? { feature: r.feature, calls: 0, credits: 0, cacheHits: 0 };
     e.calls += 1;
     e.credits += Number(r.estimated_credits ?? 0);
     if (r.cache_hit) e.cacheHits += 1;
     map.set(r.feature, e);
   }
+  const rmap = new Map<string, { route: string; label: string; ops: number; credits: number }>();
+  for (const r of inMonth) {
+    const k = routeOf(r);
+    const e = rmap.get(k) ?? { route: k, label: ROUTE_LABELS[k] ?? k, ops: 0, credits: 0 };
+    e.ops += 1;
+    e.credits += Number(r.estimated_credits ?? 0);
+    rmap.set(k, e);
+  }
+  const billed = (r: AiUsageRow) => isAiRoute(routeOf(r));
   return {
+    byRoute: [...rmap.values()].sort((a, b) => b.ops - a.ops),
     rows,
     today: inDay.reduce((s, r) => s + Number(r.estimated_credits ?? 0), 0),
     month: inMonth.reduce((s, r) => s + Number(r.estimated_credits ?? 0), 0),
-    callsToday: inDay.filter((r) => !r.cache_hit).length,
+    callsToday: inDay.filter((r) => billed(r) && !r.blocked_reason).length,
     cacheHitsToday: inDay.filter((r) => r.cache_hit).length,
-    blockedToday: inDay.filter((r) => r.blocked_reason).length,
+    blockedToday: inDay.filter((r) => billed(r) && r.blocked_reason).length,
     failedBilledToday: inDay.filter((r) => !r.success && Number(r.estimated_credits ?? 0) > 0).length,
     byFeature: [...map.values()].sort((a, b) => b.credits - a.credits),
   };
@@ -74,7 +99,7 @@ export async function fetchAiCosts(): Promise<AiCostSummary> {
   const { data } = await supabase
     .from("ai_usage_log")
     .select(
-      "id, created_at, feature, model, entity, tokens_in, tokens_out, duration_ms, http_status, success, cache_hit, blocked_reason, estimated_credits",
+      "id, created_at, feature, model, entity, tokens_in, tokens_out, duration_ms, http_status, success, cache_hit, blocked_reason, estimated_credits, route",
     )
     .gte("created_at", startOfMonth())
     .order("created_at", { ascending: false })
