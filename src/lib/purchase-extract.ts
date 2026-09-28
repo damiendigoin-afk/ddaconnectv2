@@ -139,6 +139,15 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   let orderRef = pick(o, ["order_reference", "order_number", "supplier_order_number"]);
   const sameAsOr = (v: string | null) => !!v && !!orNumber && digits(v) === orNumber;
   if (sameAsOr(orderRef)) orderRef = null;
+  // Repère court 5/6 chiffres (« Commande *****50320 ») = dossier/OR atelier par défaut, pas un n° fournisseur.
+  if (!orNumber && orderRef) {
+    const compact = orderRef.replace(/[\s*#.:°\-]/g, "").replace(/^(n|no|num)/i, "");
+    const docNums = [docNumber, str(o.delivery_note_number), str(o.invoice_number)].map((v) => (v ?? "").replace(/\D/g, ""));
+    if (/^\d{5,6}$/.test(compact) && !docNums.includes(compact)) {
+      orNumber = compact;
+      orderRef = null;
+    }
+  }
   if (!orderRef && kind === "commande" && docNumber && !sameAsOr(docNumber)) orderRef = docNumber;
   return {
     doc_kind: kind,

@@ -200,3 +200,28 @@ describe("HG732GH : historique WinMotor", () => {
     expect(matchOrders({ supplier: "FAURIE AUTO SARLAT", plate: "HG-732-GH", or_number: null }, [{ ...base, id: "x", plate: null }] as never, "cas")).toEqual([]);
   });
 });
+
+describe("repère court 5/6 chiffres = dossier/OR", () => {
+  it("CAZES 432024 / Commande *****50320", () => {
+    const x = normalizePurchaseExtract({ doc_kind: "bl", distributor: "CAZES", document_number: "432024", delivery_note_number: "432024", order_reference: "*****50320", lines: [] });
+    expect(x.or_number).toBe("50320");
+    expect(x.order_reference).toBeNull();
+  });
+  it("commande 45913063 + dossier 50901", () => {
+    const x = normalizePurchaseExtract({ doc_kind: "bl", order_reference: "45913063", or_number: "50901", lines: [] });
+    expect(x.order_reference).toBe("45913063");
+    expect(x.or_number).toBe("50901");
+  });
+  it("immat dans repère", () => {
+    const x = normalizePurchaseExtract({ doc_kind: "bl", or_number: "HG 732 GH", lines: [] });
+    expect(x.plate).toBe("HG-732-GH");
+    expect(x.or_number).toBeNull();
+  });
+  it("8/9 chiffres jamais reclassés", () => {
+    for (const r of ["45913063", "179963252"]) {
+      const x = normalizePurchaseExtract({ doc_kind: "bl", order_reference: r, lines: [] });
+      expect(x.order_reference).toBe(r);
+      expect(x.or_number).toBeNull();
+    }
+  });
+});
