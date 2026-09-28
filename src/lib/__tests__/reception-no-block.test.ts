@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 
-const o = (p: Record<string, unknown>) => ({ id: "o", status: "ordered", site_id: "cas", supplier_id: "s1", plate: null, supplier_order_ref: null, requested_or_number: null, suppliers: { name: "FAURIE AUTO SARLAT" }, repair_orders: null, part_order_lines: [], ...p }) as never;
+const o = (p: Record<string, unknown>) => ({ id: "o", status: "ordered", site_id: "cas", supplier_id: "s1", plate: null, supplier_order_ref: null, requested_or_number: null, order_mode: "simplified", suppliers: { name: "FAURIE AUTO SARLAT" }, repair_orders: null, part_order_lines: [], ...p }) as never;
 
 describe("réception jamais bloquée", () => {
   it("sans match : aucune suggestion, même fournisseur", () => {

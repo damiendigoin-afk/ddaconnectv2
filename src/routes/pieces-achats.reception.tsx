@@ -176,7 +176,9 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
 
       {manual ? (
         <div className="space-y-2 rounded-lg border-2 border-border p-2">
+          <p className="text-xs font-bold uppercase text-muted-foreground">Commandes manuelles / front office</p>
           <input className={inputCls} autoFocus placeholder="N° commande, OR, immat, réf. pièce, fournisseur, commentaire / créateur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
+          <p className="text-xs text-muted-foreground">Seules les commandes simplifiées saisies au comptoir sont listées ici ; les commandes détaillées/importées restent proposées par le rapprochement automatique.</p>
           {found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">Aucune commande en attente ne correspond.</p>}
         </div>
       ) : null}
