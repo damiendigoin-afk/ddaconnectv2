@@ -72,7 +72,7 @@ describe("recherche manuelle : commandes simplifiées uniquement", () => {
   const list = [detailed, legacy, simp];
   const ids = (q: string) => searchPendingOrders(list, q, "cas").map((x) => (x as { id: string }).id);
   it("une commande detailed n'apparaît jamais, même à vide ou sur commentaire", () => {
-    expect(ids("")).toEqual(["legacy", "simp"]);
+    expect(ids("")).toEqual(["simp"]);
     expect(ids("PNEUS AV MICHELIN 4S")).toEqual(["simp"]);
     expect(ids("Frederic")).toEqual(["simp"]);
   });
@@ -80,7 +80,8 @@ describe("recherche manuelle : commandes simplifiées uniquement", () => {
     expect(ids("").includes("legacy")).toBe(false);
   });
   it("la commande détaillée reste candidate au rapprochement automatique", () => {
-    const r = receptionSuggestions({ supplier: "FAURIE", plate: "HG732GH" }, [detailed], "cas");
-    expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["det"]);
+    const detailedPlate = o({ id: "det2", order_mode: "detailed", plate: "HG-732-GH" });
+    const r = receptionSuggestions({ supplier: "FAURIE", plate: "HG732GH" }, [detailedPlate], "cas");
+    expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["det2"]);
   });
 });
