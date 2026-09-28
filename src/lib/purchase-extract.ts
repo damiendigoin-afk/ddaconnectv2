@@ -179,16 +179,16 @@ export function parseIdentifierPass(input: unknown): { plate: string | null; or_
 }
 
 /** Fusionne le second passage dans le premier : ne remplit que les champs manquants, n'écrase jamais une valeur existante. */
-export function mergeIdentifierPass<T extends { plate: string | null; or_number: string | null; order_reference: string | null }>(first: T, second: ReturnType<typeof parseIdentifierPass>): T {
+export function mergeIdentifierPass<T extends { plate?: string | null; or_number?: string | null; order_reference?: string | null }>(first: T, second: ReturnType<typeof parseIdentifierPass>): T {
   const out = { ...first };
   if (!out.plate && second.plate) out.plate = second.plate;
-  const excluded = [first.order_reference, (first as Record<string, unknown>)["delivery_note_number"], (first as Record<string, unknown>)["document_number"], (first as Record<string, unknown>)["invoice_number"]].map((v) => (typeof v === "string" ? v.replace(/\D/g, "") : ""));
+  const excluded = [first.order_reference ?? null, (first as Record<string, unknown>)["delivery_note_number"], (first as Record<string, unknown>)["document_number"], (first as Record<string, unknown>)["invoice_number"]].map((v) => (typeof v === "string" ? v.replace(/\D/g, "") : ""));
   if (!out.or_number && second.or_number && !excluded.includes(second.or_number)) out.or_number = second.or_number;
-  if (!out.order_reference && second.order_reference && second.order_reference.replace(/\D/g, "") !== out.or_number) out.order_reference = second.order_reference;
+  if (!out.order_reference && second.order_reference && second.order_reference.replace(/\D/g, "") !== (out.or_number ?? "")) out.order_reference = second.order_reference;
   return out;
 }
 
 /** Faut-il relancer un second passage ciblé ? Oui si ni immat ni OR n'ont été lus. */
-export function needsIdentifierPass(x: { plate: string | null; or_number: string | null }): boolean {
+export function needsIdentifierPass(x: { plate?: string | null; or_number?: string | null }): boolean {
   return !x.plate && !x.or_number;
 }
