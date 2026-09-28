@@ -29,6 +29,8 @@ export type PaidAiInput = {
   siteId?: string | null;
   /** Coût maximal accepté pour cette opération (crédits). */
   maxCredits?: number | null;
+  /** Voie du pipeline documentaire (ai_text_fallback | ai_vision_fallback). */
+  route?: "ai_text_fallback" | "ai_vision_fallback";
 };
 
 export type PaidAiResult =
@@ -99,6 +101,7 @@ type LogRow = {
   cache_hit?: boolean;
   blocked_reason?: string | null;
   estimated_credits?: number;
+  route?: string | null;
 };
 
 async function journal(row: LogRow) {
@@ -120,10 +123,16 @@ async function journal(row: LogRow) {
       cache_hit: row.cache_hit ?? false,
       blocked_reason: row.blocked_reason ?? null,
       estimated_credits: row.estimated_credits ?? 0,
+      route: row.route ?? null,
     });
   } catch (e) {
     console.error("ai_usage_log insert failed", e);
   }
+}
+
+/** Journal d'une lecture SANS IA (OCR/règles) : 0 crédit, jamais comptée comme consommation IA. */
+export async function journalLocal(row: { feature: string; fingerprint: string; route: "ocr_rules" | "manual"; success: boolean; blocked_reason?: string | null }) {
+  await journal({ feature: row.feature, fingerprint: row.fingerprint, model: "local-ocr", success: row.success, blocked_reason: row.blocked_reason ?? null, calls: 0, estimated_credits: 0, route: row.route });
 }
 
 /* ------------------------------ Appel payant ------------------------------ */
@@ -150,6 +159,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
         user_id: input.userId,
         site_id: input.siteId,
         entity: input.entity,
+        route: "cache",
         success: true,
         cache_hit: true,
         estimated_credits: 0,
@@ -165,6 +175,11 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
   if (!apiKey) return { ok: false, error: MANUAL_FALLBACK_MESSAGE };
 
   const budget = await readBudget();
+  // Règle DDA : toute IA est un repli ultime ; réglage « repli IA » désactivé => aucun appel.
+  if (!budget.fallbackAiEnabled) {
+    await journal({ feature: input.feature, fingerprint: fp, model: input.model, user_id: input.userId, site_id: input.siteId, entity: input.entity, success: false, blocked_reason: "repli_ia_desactive", calls: 0, estimated_credits: 0, route: input.route ?? "ai_vision_fallback" });
+    return { ok: false, error: MANUAL_FALLBACK_MESSAGE, blocked: true };
+  }
   const now = new Date();
   const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
@@ -180,6 +195,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
       user_id: input.userId,
       site_id: input.siteId,
       entity: input.entity,
+      route: input.route ?? "ai_vision_fallback",
       success: false,
       blocked_reason: blocked,
       estimated_credits: 0,
@@ -205,6 +221,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
       user_id: input.userId,
       site_id: input.siteId,
       entity: input.entity,
+      route: input.route ?? "ai_vision_fallback",
       success: false,
       duration_ms: Date.now() - started,
       estimated_credits: 0,
@@ -222,6 +239,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
       user_id: input.userId,
       site_id: input.siteId,
       entity: input.entity,
+      route: input.route ?? "ai_vision_fallback",
       success: false,
       duration_ms: Date.now() - started,
       http_status: res.status,

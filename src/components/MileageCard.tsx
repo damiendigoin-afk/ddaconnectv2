@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { localDocText } from "@/lib/doc-text.browser";
 import { Camera, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -215,8 +216,9 @@ export function MileageCard({
         });
         return;
       }
+      const localText = await localDocText(prepared.value);
       const read = await runStep("ocr", () =>
-        ocrOdometer({ data: { dataUrl: prepared.value, filename: capture.name } }),
+        ocrOdometer({ data: { text: localText, dataUrl: prepared.value, filename: capture.name } }),
       );
       if (!read.ok) {
         setLocalError({

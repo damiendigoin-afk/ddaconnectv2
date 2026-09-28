@@ -8,6 +8,7 @@
  * exploitable, le message précis d'origine est conservé.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { localDocText } from "@/lib/doc-text.browser";
 import { axleMonteLabel, consolidateAxles, readingsFromPoints } from "./tire-axle";
 import { ocrBatteryTest } from "./ocr.functions";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";
@@ -317,7 +318,7 @@ async function rereadBatteryTicket(inspectionId: string, points: PointRow[], rep
       if (!url) continue;
       const blob = await (await fetch(url)).blob();
       const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrBatteryTest({ data: { dataUrl, filename: "batterie.jpg" } });
+      const res = await ocrBatteryTest({ data: { text: await localDocText(dataUrl), dataUrl, filename: "batterie.jpg" } });
       if (!res.ok) continue;
       const parsed = JSON.parse(res.json) as { verdict?: string | null; cca_measured?: number | null };
       if (!parsed.verdict) continue;

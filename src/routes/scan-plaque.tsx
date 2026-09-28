@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { localDocText } from "@/lib/doc-text.browser";
 import { useEffect, useRef, useState } from "react";
 import { Camera, Car, Images, Loader2, Search } from "lucide-react";
 
@@ -56,7 +57,7 @@ function ScanPlate() {
     try {
       const blob = await compressImage(file, 1400, 0.85);
       const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrOrOrPlate({ data: { dataUrl } });
+      const res = await ocrOrOrPlate({ data: { text: await localDocText(dataUrl), dataUrl } });
       if (res.ok) {
         if (res.plate) setPlate(formatPlate(res.plate));
         if (res.or_number) {

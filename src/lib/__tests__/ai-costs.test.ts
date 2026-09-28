@@ -16,6 +16,7 @@ const row = (o: Partial<AiUsageRow>): AiUsageRow => ({
   cache_hit: false,
   blocked_reason: null,
   estimated_credits: 0.03,
+  route: null,
   ...o,
 });
 
@@ -28,6 +29,7 @@ describe("summarize", () => {
       row({ success: false, http_status: 499, estimated_credits: 1.4, feature: "memento_fallback" }),
     ]);
     expect(s.callsToday).toBe(3);
+    expect(summarize([row({ route: "ocr_rules", estimated_credits: 0 })]).callsToday).toBe(0);
     expect(s.cacheHitsToday).toBe(1);
     expect(s.blockedToday).toBe(1);
     expect(s.failedBilledToday).toBe(1);

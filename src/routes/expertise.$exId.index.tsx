@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { localDocText } from "@/lib/doc-text.browser";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Camera, Check, Loader2, Plus, Trash2 } from "lucide-react";
@@ -193,7 +194,7 @@ function ExpertiseRunner() {
         });
         if (shot.key === "compteur") {
           try {
-            const res = await ocrOdometer({ data: { dataUrl: shot.dataUrl, filename: "compteur.jpg" } });
+            const res = await ocrOdometer({ data: { text: await localDocText(shot.dataUrl), dataUrl: shot.dataUrl, filename: "compteur.jpg" } });
             if (res.ok) detectedMileage = res.mileage;
           } catch (err) {
             console.error(err);
@@ -501,7 +502,7 @@ function MileageStep({
         required: true,
       });
       const dataUrl = await blobToDataUrl(compressed);
-      const res = await ocrOdometer({ data: { dataUrl, filename: file.name } });
+      const res = await ocrOdometer({ data: { text: await localDocText(dataUrl), dataUrl, filename: file.name } });
       if (res.ok) {
         onMileage(res.mileage);
         toast.success(`Kilométrage détecté : ${res.mileage.toLocaleString("fr-FR")} km`);

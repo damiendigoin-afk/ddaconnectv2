@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { localDocText } from "@/lib/doc-text.browser";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,7 +43,7 @@ export function TechnicalControlCard({
         label: "Contrôle technique",
       });
       const scan = await compressImage(file, 1600, 0.82);
-      const result = await ocrTechnicalControl({ data: { dataUrl: await blobToDataUrl(scan), filename: file.name } });
+      const result = await ocrTechnicalControl({ data: { text: await localDocText(await blobToDataUrl(scan)), dataUrl: await blobToDataUrl(scan), filename: file.name } });
       if (!result.ok) {
         toast.error(result.error);
         return;

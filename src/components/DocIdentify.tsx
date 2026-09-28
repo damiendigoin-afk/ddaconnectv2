@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { localDocText } from "@/lib/doc-text.browser";
 import { Camera, Paperclip, Loader2 } from "lucide-react";
 
 import { DOC_ACCEPT, isImage, rejectReason } from "@/lib/documents";
@@ -75,7 +76,7 @@ export function DocIdentify({
       if (analysable) {
         const blob = isImage(file) ? await compressImage(file, 1600, 0.82) : file;
         const dataUrl = await blobToDataUrl(blob);
-        const res = await ocrAnyDocument({ data: { dataUrl, filename: file.name } });
+        const res = await ocrAnyDocument({ data: { text: await localDocText(dataUrl), dataUrl, filename: file.name } });
         if (res.ok) extracted = JSON.parse(res.json) as DocExtract;
         else onError?.(res.error);
       } else {
