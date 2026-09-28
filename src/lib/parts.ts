@@ -253,7 +253,7 @@ export async function listOrders(f: { siteId: string | null; status?: string; su
 export async function getOrder(id: string) {
   const { data, error } = await supabase.from("part_orders").select(ORDER_SELECT).eq("id", id).single();
   if (error) throw error;
-  const { data: receipts } = await supabase.from("part_receipts").select("id, received_at, received_by_name, receipt_type, comment").eq("order_id", id).order("received_at", { ascending: false });
+  const { data: receipts } = await supabase.from("part_receipts").select("id, received_at, received_by_name, receipt_type, comment, status, cancel_reason").eq("order_id", id).order("received_at", { ascending: false });
   return { ...data, receipts: receipts ?? [] };
 }
 
@@ -368,9 +368,24 @@ export async function listReceipts(siteId: string | null) {
   return data ?? [];
 }
 
+/** Signalement d'anomalie : statut « incident » + journal. Aucun mouvement de stock. */
 export async function cancelReceiptIncident(id: string, siteId: string, reason: string, actor: Actor) {
   await supabase.from("part_receipts").update({ status: "incident", comment: reason }).eq("id", id);
   await logEvent({ site_id: siteId, entity: "part_receipt", entity_id: id, action: "incident", detail: { reason } }, actor);
+}
+
+/** Annulation d'une réception saisie par erreur : mouvements inverses exacts, reliquat commande remis, sans DELETE. */
+export async function cancelReceipt(id: string, reason: string, actor: Actor) {
+  const { data, error } = await supabase.rpc("cancel_part_receipt", { _receipt: id, _reason: reason, _user_name: actor.name ?? "" });
+  if (error) throw new Error(error.message);
+  return data as { reversed_movements: number; order_lines: number };
+}
+
+/** Annulation d'une commande : seules les quantités encore en attente sont annulées ; les réceptions restent. */
+export async function cancelOrder(id: string, reason: string, actor: Actor) {
+  const { data, error } = await supabase.rpc("cancel_part_order", { _order: id, _reason: reason, _user_name: actor.name ?? "" });
+  if (error) throw new Error(error.message);
+  return data as { qty_already_received: number; lines_cancelled: number };
 }
 
 export async function listSupplierDocs(siteId: string | null) {
