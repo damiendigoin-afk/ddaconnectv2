@@ -58,13 +58,13 @@ export function DocSupplierLink({ extracted, docId, onLinked }: { extracted: Inv
   }, []);
 
   if (!suppliers.data) return null;
-  if (linked) return <p className="text-xs">Fournisseur : <b>{linked.name}</b> <span className="font-bold text-success">✓ fiche rattachée</span></p>;
+  if (linked) return <p className="text-xs">Fournisseur : <b>{linked.name}</b> <span className="font-bold text-brand">✓ fiche rattachée</span></p>;
   if (!res || res.kind === "none") return null;
   if (res.kind === "found") return <p className="text-xs">Fournisseur : <b>{res.supplier.name}</b></p>;
 
   if (res.kind === "ambiguous") {
     return (
-      <div className="space-y-1 rounded-lg border-2 border-warning p-2 text-xs">
+      <div className="space-y-1 rounded-lg border-2 border-brand p-2 text-xs">
         <p><b>« {extracted.supplier} »</b> ressemble à plusieurs fiches : choisissez la bonne.</p>
         <div className="flex gap-2">
           <select className={inputCls} value={pick} onChange={(e) => setPick(e.target.value)}>
@@ -94,7 +94,7 @@ export function DocSupplierLink({ extracted, docId, onLinked }: { extracted: Inv
   }
 
   return (
-    <div className="space-y-2 rounded-lg border-2 border-warning p-2 text-xs">
+    <div className="space-y-2 rounded-lg border-2 border-brand p-2 text-xs">
       <p><b>Nouveau fournisseur</b> : « {extracted.supplier} » n'existe pas encore. Vérifiez la fiche préremplie puis créez-la.</p>
       <div className="grid grid-cols-2 gap-2">
         {FIELDS.map((f) => (
