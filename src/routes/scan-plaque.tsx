@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Car, Images, Loader2, Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -13,9 +13,9 @@ import { OR_SELECT } from "@/lib/queries";
 import { customerName, findRefVehicleByPlate, vehicleLabel, type RefCustomer, type RefVehicle } from "@/lib/refbase";
 
 export const Route = createFileRoute("/scan-plaque")({
-  validateSearch: (s: Record<string, unknown>): { plate?: string; note?: string } => ({
-    plate: typeof s.plate === "string" ? s.plate : undefined,
-    note: typeof s.note === "string" ? s.note : undefined,
+  validateSearch: (s: Record<string, unknown>): { plate?: string | undefined; note?: string | undefined } => ({
+    plate: typeof s["plate"] === "string" ? s["plate"] : undefined,
+    note: typeof s["note"] === "string" ? s["note"] : undefined,
   }),
   head: () => ({
     meta: [
