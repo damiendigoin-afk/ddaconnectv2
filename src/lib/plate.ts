@@ -49,3 +49,13 @@ export function winmotorOrHistory(rows: { or_number: string | null; invoice_date
   }
   return [...best].map(([or_number, date]) => ({ or_number, date })).sort((a, b) => b.date.localeCompare(a.date));
 }
+
+/** Immat du champ « Vos repères » après sélection d'une commande : jamais effacée par une commande sans plaque, saisie utilisateur prioritaire. */
+export function plateAfterOrderPick(current: string, docPlate: string | null | undefined, orderPlate: string | null | undefined, userTouched: boolean): string {
+  const cur = (current || "").trim();
+  if (userTouched && cur) return formatPlate(cur);
+  if (cur) return formatPlate(cur);
+  if (orderPlate && orderPlate.trim()) return formatPlate(orderPlate);
+  if (docPlate && docPlate.trim()) return formatPlate(docPlate);
+  return "";
+}

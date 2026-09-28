@@ -19,7 +19,7 @@ import { isOverReceipt } from "@/lib/parts-rules";
 import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
 import { Check } from "lucide-react";
-import { findFrenchPlate, formatPlate, normalizePlate, winmotorOrHistory } from "@/lib/plate";
+import { findFrenchPlate, formatPlate, normalizePlate, plateAfterOrderPick, winmotorOrHistory } from "@/lib/plate";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
 import { receiptLinesFromOrder } from "@/lib/receipt-lines";
@@ -297,7 +297,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   // Pré-remplissage depuis le BL : fournisseur connu et OR existant (jamais de création d'OR).
   useEffect(() => {
     if (!doc || mode === "order") return;
-    if (x.or_number) void findOrByNumber(x.or_number).then((o) => { if (o) setOrv({ or: o, plate: o.plate ?? x.plate ?? "", vehicleId: o.vehicle_id }); });
+    if (x.or_number) void findOrByNumber(x.or_number).then((o) => { if (o) setOrv((v) => ({ or: o, plate: plateAfterOrderPick(v.plate, x.plate, o.plate, false), vehicleId: o.vehicle_id })); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.id]);
   useEffect(() => {
@@ -318,7 +318,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       setSite(o.site_id);
       setSupplier(o.supplier_id ?? "");
       setDossier(o.requested_or_number ?? "");
-      setOrv({ or: o.repair_order_id ? { id: o.repair_order_id, or_number: (o.repair_orders as { or_number: string | null } | null)?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id, plate: o.plate } : null, plate: o.plate ?? "", vehicleId: o.vehicle_id });
+      setOrv({ or: o.repair_order_id ? { id: o.repair_order_id, or_number: (o.repair_orders as { or_number: string | null } | null)?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id, plate: o.plate } : null, plate: plateAfterOrderPick(orv.plate, x.plate, o.plate, false), vehicleId: o.vehicle_id });
       const dest = o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination;
        const parts = receiptLinesFromOrder(o.part_order_lines ?? [], dest as ReceiptLineInput["destination"]);
        setLines(parts.length ? parts : [{ ...blank(), destination: dest as ReceiptLineInput["destination"] }]);
