@@ -119,21 +119,21 @@ function AtelierHub() {
               <button type="submit" className="shrink-0 rounded-lg bg-primary px-4 font-bold uppercase text-primary-foreground" aria-label="Ouvrir l'OR">
                 <Search className="h-5 w-5" />
               </button>
-              <button
-                type="button"
-                disabled={scanning}
-                onClick={() => cameraRef.current?.click()}
-                className="shrink-0 rounded-lg bg-brand px-4 text-brand-foreground disabled:opacity-60"
+              <label
+                htmlFor="atelier-or-camera"
+                aria-disabled={scanning}
+                className={`flex shrink-0 cursor-pointer items-center rounded-lg bg-brand px-4 text-brand-foreground ${scanning ? "pointer-events-none opacity-60" : ""}`}
                 aria-label="Photographier un OR ou une plaque"
               >
                 {scanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
-              </button>
+              </label>
               <input
+                id="atelier-or-camera"
                 ref={cameraRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
-                className="hidden"
+                className="sr-only"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   e.target.value = "";
