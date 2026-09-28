@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Car, Images, Loader2, Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -13,6 +13,10 @@ import { OR_SELECT } from "@/lib/queries";
 import { customerName, findRefVehicleByPlate, vehicleLabel, type RefCustomer, type RefVehicle } from "@/lib/refbase";
 
 export const Route = createFileRoute("/scan-plaque")({
+  validateSearch: (s: Record<string, unknown>): { plate?: string | undefined; note?: string | undefined } => ({
+    plate: typeof s["plate"] === "string" ? s["plate"] : undefined,
+    note: typeof s["note"] === "string" ? s["note"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Scanner une plaque — DDA Connect" },
@@ -31,13 +35,20 @@ type OrRow = { id: string; or_number: string | null; or_date: string | null; veh
 
 function ScanPlate() {
   const navigate = useNavigate();
-  const [plate, setPlate] = useState("");
+  const initial = Route.useSearch();
+  const [plate, setPlate] = useState(initial.plate ? formatPlate(initial.plate) : "");
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(initial.note ?? null);
   const [results, setResults] = useState<OrRow[] | null>(null);
   const [refVehicle, setRefVehicle] = useState<(RefVehicle & { customer: RefCustomer | null }) | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Arrivée depuis le bouton caméra de l'Atelier : plaque déjà lue, on lance directement la recherche.
+    if (initial.plate) void search(initial.plate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial.plate]);
 
   async function analyse(file: File) {
     setBusy(true);

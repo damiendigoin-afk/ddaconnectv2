@@ -1,13 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search, History } from "lucide-react";
+import { useRef, useState } from "react";
+import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search, History, Loader2 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useModuleAccess } from "@/lib/module-access";
 import { useSite } from "@/lib/site-context";
 import { formatPlate } from "@/lib/plate";
+import { compressImage, blobToDataUrl } from "@/lib/photo";
+import { ocrOrOrPlate } from "@/lib/ocr.functions";
+import { decideOrScan } from "@/lib/or-scan-decision";
 
 export const Route = createFileRoute("/atelier/")({
   head: () => ({
@@ -35,6 +38,8 @@ function AtelierHub() {
   const siteName = (id: string | null) => sites.find((s) => s.id === id)?.name ?? null;
   const [orNum, setOrNum] = useState("");
   const [orNote, setOrNote] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const recent = useQuery({
     queryKey: ["atelier-recent-or"],
@@ -60,22 +65,40 @@ function AtelierHub() {
     else setOrNote("Plusieurs dossiers portent ce numéro : utilisez la recherche de l'accueil pour choisir le bon site.");
   }
 
+  async function scanPhoto(file: File) {
+    setScanning(true);
+    setOrNote(null);
+    try {
+      const blob = await compressImage(file, 1400, 0.85);
+      const dataUrl = await blobToDataUrl(blob);
+      const res = await ocrOrOrPlate({ data: { dataUrl } });
+      if (!res.ok) {
+        setOrNote(`${res.error} Saisissez le numéro manuellement.`);
+        return;
+      }
+      let orIds: string[] = [];
+      if (res.or_number) {
+        setOrNum(res.or_number);
+        const { data } = await supabase.from("repair_orders").select("id").eq("or_number", res.or_number).limit(2);
+        orIds = (data ?? []).map((d) => d.id);
+      }
+      const d = decideOrScan({ or_number: res.or_number ?? null, plate: res.plate ? formatPlate(res.plate) : null, orIds });
+      if (d.kind === "open_or") navigate({ to: "/or/$orId", params: { orId: d.orId } });
+      else if (d.kind === "plate") navigate({ to: "/scan-plaque", search: { plate: d.plate, note: d.note ?? undefined } });
+      else setOrNote(d.note);
+    } catch (e) {
+      console.error(e);
+      setOrNote("Analyse impossible. Saisissez le numéro manuellement.");
+    } finally {
+      setScanning(false);
+    }
+  }
+
   const cls = "flex items-center gap-4 rounded-xl border-2 border-border bg-card px-4 py-4 active:scale-[0.99]";
 
   return (
     <AppShell title="Atelier" back={{ to: "/" }}>
       <div className="space-y-3">
-        {can("tour") ? (
-          <Link to="/scan-plaque" className="flex items-center gap-4 rounded-xl bg-brand px-4 py-5 text-brand-foreground shadow-sm">
-            <Camera className="h-7 w-7 shrink-0" />
-            <div className="flex-1">
-              <div className="text-base font-extrabold uppercase">Scanner OR / plaque</div>
-              <div className="text-xs font-medium opacity-80">Plaque : fiche véhicule · N° OR : dossier atelier</div>
-            </div>
-            <ChevronRight className="h-5 w-5" />
-          </Link>
-        ) : null}
-
         {can("tour") ? (
           <form
             className="card-surface space-y-2 p-4"
@@ -93,9 +116,30 @@ function AtelierHub() {
                 placeholder="N° OR WinMotor"
                 className="min-w-0 flex-1 rounded-lg border-2 border-border bg-card px-3 py-3 text-base outline-none focus:border-brand"
               />
-              <button type="submit" className="rounded-lg bg-primary px-4 font-bold uppercase text-primary-foreground" aria-label="Ouvrir l'OR">
+              <button type="submit" className="shrink-0 rounded-lg bg-primary px-4 font-bold uppercase text-primary-foreground" aria-label="Ouvrir l'OR">
                 <Search className="h-5 w-5" />
               </button>
+              <button
+                type="button"
+                disabled={scanning}
+                onClick={() => cameraRef.current?.click()}
+                className="shrink-0 rounded-lg bg-brand px-4 text-brand-foreground disabled:opacity-60"
+                aria-label="Photographier un OR ou une plaque"
+              >
+                {scanning ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+              </button>
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void scanPhoto(f);
+                }}
+              />
             </div>
             {orNote ? <p className="text-xs text-muted-foreground">{orNote}</p> : null}
           </form>
