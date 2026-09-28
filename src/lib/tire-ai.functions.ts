@@ -8,7 +8,7 @@ const images = z.object({ images: z.array(z.string().min(10)).min(1).max(5) });
 export const analyzeWheelPhotos = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => images.parse(d))
   .handler(async ({ data }) => {
-    // Désactivé : la roue est lue par OCR local (tire-ocr.client). Aucun appel IA « tire_wheel ».
+    // Désactivé : la roue est lue par OCR local (tire-ocr.browser). Aucun appel IA « tire_wheel ».
     void data;
     void analyzeTireWheel;
     return { ok: false, error: "Analyse IA des pneus désactivée — lecture locale utilisée.", json: "" };
