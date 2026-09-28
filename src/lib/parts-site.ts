@@ -110,6 +110,32 @@ export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[
     .map(({ order, score }) => ({ order, score, level: score >= 4 ? ("certain" as const) : ("probable" as const) }));
 }
 
+/**
+ * Présentation UX du rapprochement : certaines (plaque / n° commande / OR+réf) à part,
+ * au plus 3 suggestions probables, jamais sur le fournisseur seul. Rien n'est jamais obligatoire.
+ */
+export function receptionSuggestions<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null, max = 3) {
+  const all = matchOrders(doc, orders, siteId);
+  const certain = all.filter((m) => m.level === "certain" && scoreOrderMatch({ ...doc, supplier: null }, m.order) >= 4);
+  const probable = all.filter((m) => !certain.includes(m)).slice(0, Math.max(0, max - Math.min(certain.length, max)));
+  return { certain: certain.slice(0, max), probable, hasExact: certain.length > 0 };
+}
+
+/** Recherche manuelle compacte parmi les commandes en attente : n° commande, OR/dossier, immat, réf. pièce, fournisseur. */
+export function searchPendingOrders<T extends OrderLike & { requested_or_number?: string | null }>(orders: T[], query: string, siteId: string | null, max = 20): T[] {
+  const q = norm(query);
+  const qk = plateKey(query);
+  const pending = pendingReceptionOrders(orders).filter((o) => !siteId || o.site_id === siteId);
+  if (!q) return pending.slice(0, max);
+  return pending.filter((o) => {
+    const hay = [o.supplier_order_ref, o.repair_orders?.or_number, o.requested_or_number, o.suppliers?.name, ...(o.part_order_lines ?? []).map((l) => l.physical_reference)].map((v) => norm(v ?? ""));
+    if (hay.some((h) => h && h.includes(q))) return true;
+    if (qk.length >= 3 && plateKey(o.plate).includes(qk)) return true;
+    const rq = normalizeRef(query);
+    return !!rq && (o.part_order_lines ?? []).some((l) => normalizeRef(l.physical_reference ?? "").includes(rq));
+  }).slice(0, max);
+}
+
 /** Fournisseur connu correspondant au nom lu (sinon null : l'utilisateur choisit). */
 const GENERIC_WORDS = new Set(["groupe", "group", "auto", "autos", "automobile", "automobiles", "garage", "sas", "sarl", "distribution", "pieces", "piece", "france", "societe", "ets", "etablissements"]);
 const sigWords = (s: string) => norm(s).split(" ").filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));

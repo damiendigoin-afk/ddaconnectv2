@@ -9,7 +9,7 @@ import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { CancelAction } from "@/components/parts/CancelAction";
-import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
@@ -119,35 +119,70 @@ function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
   );
 }
 
-/** Rapprochement BL ↔ commandes en attente du site actif. Jamais bloquant. */
+/** Rapprochement BL ↔ commandes en attente du site actif. Jamais bloquant : il y a toujours une étape suivante. */
 export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierDoc; onOrder: (id: string) => void; onNoOrder: () => void; onCancel: () => void }) {
   const { writeSite, sites } = usePartsCtx();
   const suppliers = useSuppliers();
   const x0 = doc.extracted;
   const x = { ...x0, plate: x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")) };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
-  const matches = matchOrders(x, orders.data ?? [], writeSite);
+  const sugg = receptionSuggestions(x, orders.data ?? [], writeSite);
   const sup = matchSupplier(x.supplier, suppliers.data ?? []);
+  const [showSugg, setShowSugg] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [q, setQ] = useState("");
+  const found = manual ? searchPendingOrders(orders.data ?? [], q, writeSite, 15) : [];
+  const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null) => (
+    <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-xs" onClick={() => onOrder(o.id)}>
+      {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Suggestion"}</Badge>{" "}</> : null}
+      <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
+      <OrderLinesCompact lines={o.part_order_lines ?? []} />
+    </button>
+  );
   return (
     <div className="card-surface space-y-3 p-4">
-      <p className="text-xs font-extrabold uppercase text-muted-foreground">Document : {doc.file_name}</p>
+      <p className="text-xs font-extrabold uppercase text-muted-foreground">Document lu : {doc.file_name}</p>
       <SiteMismatchAlert docSite={guessDocumentSite(docSiteText(x), sites)} />
-      <div className="text-xs">
+      <div className="text-xs space-y-1">
         {x.supplier ? <DocSupplierLink extracted={x} docId={doc.id} /> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
-        <p>OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · Réf. commande : <b>{x.order_reference ?? "—"}</b></p>
-        <p>{(x.lines ?? []).length} ligne(s) lue(s)</p>
+        <p>Repères détectés — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° commande : <b>{x.order_reference ?? "—"}</b> · {(x.lines ?? []).length} ligne(s)</p>
       </div>
-      {x.plate ? <PlateInfo plate={x.plate} /> : null}
       {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
-      {matches.map((m) => (
-        <button key={m.order.id} className="block w-full rounded-lg border-2 border-brand p-3 text-left text-sm" onClick={() => onOrder(m.order.id)}>
-          <Badge tone={m.level === "certain" ? "ok" : "warn"}>{m.level === "certain" ? "Correspondance certaine" : "Correspondance probable"}</Badge>{" "}
-          <b>{(m.order.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b>
-          {` · ${orderMarker(m.order as never)}`} — Contrôler la réception
-        </button>
-      ))}
-      {orders.data && !matches.length ? <p className="text-sm text-muted-foreground">Aucune commande DDA correspondante sur ce site.</p> : null}
-      <button className={`${btnGhost} w-full`} onClick={onNoOrder}>Réceptionner sans commande (depuis le BL)</button>
+
+      {sugg.hasExact ? (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase text-muted-foreground">Correspondance certaine</p>
+          {sugg.certain.map((m) => orderBtn(m.order, "ok"))}
+        </div>
+      ) : orders.data ? (
+        <div className="rounded-lg border-2 border-status-warn p-3">
+          <p className="text-sm font-extrabold">Aucun rapprochement exact trouvé</p>
+          <p className="text-xs text-muted-foreground">Vous pouvez renseigner vos propres repères puis réceptionner quand même.</p>
+        </div>
+      ) : null}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button className={`${btnPrimary} w-full`} onClick={onNoOrder}>{sugg.hasExact ? "Réceptionner sans commande" : "Continuer sans rapprochement"}</button>
+        <button className={`${btnGhost} w-full`} onClick={() => setManual((v) => !v)}>Rechercher une commande manuellement</button>
+      </div>
+
+      {manual ? (
+        <div className="space-y-2 rounded-lg border-2 border-border p-2">
+          <input className={inputCls} autoFocus placeholder="N° commande, OR, immat, réf. pièce, fournisseur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
+          {found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">Aucune commande en attente ne correspond.</p>}
+        </div>
+      ) : null}
+
+      {sugg.probable.length ? (
+        <div>
+          <button className="text-xs font-bold underline" onClick={() => setShowSugg((v) => !v)}>
+            {showSugg ? "▾" : "▸"} Suggestions de rapprochement ({sugg.probable.length}) — facultatif
+          </button>
+          {showSugg ? <div className="mt-2 space-y-2">{sugg.probable.map((m) => orderBtn(m.order, "warn"))}</div> : null}
+        </div>
+      ) : null}
+
+      {x.plate ? <PlateInfo plate={x.plate} /> : null}
       <button className="w-full text-xs underline" onClick={onCancel}>Annuler</button>
     </div>
   );
@@ -238,6 +273,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const [packages, setPackages] = useState("");
   const [comment, setComment] = useState("");
   const [dossier, setDossier] = useState(x.or_number ?? "");
+  const [supplierRef, setSupplierRef] = useState(x.order_reference && x.order_reference !== x.or_number ? x.order_reference : "");
+  const [freeRef, setFreeRef] = useState(x.handwritten_notes ?? "");
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [lines, setLines] = useState<ReceiptLineInput[]>(() => {
     if (mode === "order") return [];
@@ -304,10 +341,13 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
         packages: packages.trim() || null,
         comment: comment.trim() || null,
         requested_or_number: reqOr,
+        supplier_order_ref: supplierRef.trim() || null,
+        free_reference: freeRef.trim() || null,
         lines: lines.map((l) => ({ ...l, destination: l.destination === "or" && !orv.or ? "unknown" : l.destination })),
       }, actor);
-      // Rien ne bloque : ce qui manque part dans « À régulariser ».
-      if (!orderId && docId) await openRegularization({ site_id: site, kind: "reception_sans_commande", source_table: "part_receipts", source_id: receiptId, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate: orv.plate.trim() || null, comment: "Réception faite depuis un BL sans commande DDA" }, actor);
+      // Rien ne bloque : ce qui manque part dans « À régulariser », avec les repères saisis.
+      const markers = [reqOr && `Dossier/OR ${reqOr}`, orv.plate.trim() && `Immat ${orv.plate.trim()}`, supplierRef.trim() && `Cde fournisseur ${supplierRef.trim()}`, freeRef.trim() && `Repère ${freeRef.trim()}`].filter(Boolean).join(" · ");
+      if (!orderId && docId) await openRegularization({ site_id: site, kind: "reception_sans_commande", source_table: "part_receipts", source_id: receiptId, repair_order_id: orv.or?.id ?? null, supplier_id: supplierId, plate: orv.plate.trim() || null, comment: `Réception faite depuis un BL sans commande DDA${markers ? ` — ${markers}` : " — aucun repère saisi"}` }, actor);
       if (!supplier && !orderId) await openRegularization({ site_id: site, kind: "commande_sans_fournisseur", source_table: "part_receipts", source_id: receiptId, plate: orv.plate.trim() || null, comment: "Réception sans fournisseur identifié" }, actor);
       if (docId) await updateSupplierDoc(docId, { status: "a_verifier" }).catch(() => undefined);
       toast.success("Réception validée — stock mis à jour");
@@ -354,15 +394,25 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
               <p>Immatriculation<br /><b>{orv.plate || x.plate || "—"}</b></p>
             </div>
           ) : null}
-          <OrPicker value={orv} onChange={setOrv} initialNumber={dossier || x.or_number || null} onNumberChange={setDossier} />
+          <div className="space-y-2 rounded-lg border-2 border-border p-2">
+            <p className="text-xs font-bold uppercase text-muted-foreground">Vos repères (facultatifs, modifiables)</p>
+            <OrPicker value={orv} onChange={setOrv} initialNumber={dossier || x.or_number || null} onNumberChange={setDossier} />
+            {mode !== "order" ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input className={inputCls} placeholder="N° commande fournisseur" aria-label="N° commande fournisseur" value={supplierRef} onChange={(e) => setSupplierRef(e.target.value)} />
+                <input className={inputCls} placeholder="Repère libre / référence client" aria-label="Repère libre / référence client" value={freeRef} onChange={(e) => setFreeRef(e.target.value)} />
+              </div>
+            ) : null}
+            {mode !== "order" && normalizePlate(orv.plate).length >= 5 ? <PlateInfo plate={orv.plate} /> : null}
+          </div>
           {!orv.or ? (
             <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
-              {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}Les pièces « Pour l'OR » entrent en stock, destination à régulariser.
+              {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}La validation reste possible : les pièces entrent en stock et la réception part dans « À régulariser ».
             </p>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
             <input className={inputCls} placeholder="Colis / cartons (facultatif)" value={packages} onChange={(e) => setPackages(e.target.value)} />
-            <input className={inputCls} placeholder="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
+            <input className={inputCls} placeholder="Commentaire" aria-label="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
            <div className="hidden grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
              <span>Référence</span><span>Désignation</span><span>Commandée</span><span>Déjà reçue</span><span>Reçue maintenant</span><span>PA HT</span><span>État</span><span>Destination</span><span>Ctrl</span>

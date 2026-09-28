@@ -1,0 +1,1 @@
+ALTER TABLE public.part_receipts ADD COLUMN IF NOT EXISTS supplier_order_ref text, ADD COLUMN IF NOT EXISTS free_reference text;
