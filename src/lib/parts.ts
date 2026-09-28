@@ -1,5 +1,5 @@
-/**
 import { simplifiedEnrichment } from "@/lib/receipt-lines";
+/**
  * Pièces & achats V3 (Phase B) : commandes, réceptions physiques, stock, pointage OR, temps, travaux terminés.
  * Écritures toujours sur un site explicite (site par défaut de l'utilisateur) — jamais silencieusement sur l'autre.
  */
@@ -358,7 +358,7 @@ export async function validateReceipt(
         toAdd.map((l) => ({ order_id: r.order_id!, line_kind: "part", physical_reference: l.physical_reference.trim() || null, designation: l.designation.trim() || null, qty_ordered: l.qty_received, expected_unit_cost_ht: l.unit_cost })),
       ).select("id");
       if (eo) throw eo;
-      const ids = new Map(toAdd.map((l, i) => [l, created?.[i]?.id ?? null]));
+      const ids = new Map<ReceiptLineInput, string | null>(toAdd.map((l, i) => [l, (created?.[i]?.id as string | undefined) ?? null]));
       lines = lines.map((l) => (ids.has(l) ? { ...l, order_line_id: ids.get(l) ?? null } : l));
     }
   }
