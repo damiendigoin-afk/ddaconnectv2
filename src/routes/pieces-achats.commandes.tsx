@@ -13,6 +13,7 @@ import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, OrPi
 import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
 import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
+import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 import { orderLinesFromDoc } from "@/lib/receipt-lines";
 
@@ -160,7 +161,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       let docId: string | null = null;
       if (doc) {
         try {
-          docId = (await uploadSupplierDoc({ file: doc.file, extracted: doc.extracted, siteId: writeSite, userId: actor.userId, userName: actor.name, docType: ORDER_DOC_TYPE })).id;
+          docId = (await uploadSupplierDoc({ file: doc.file, extracted: { ...doc.extracted, supplier_id: supplier || doc.extracted.supplier_id || null }, siteId: writeSite, userId: actor.userId, userName: actor.name, docType: ORDER_DOC_TYPE })).id;
         } catch (e) {
           toast.warning(`Document non archivé (${e instanceof Error ? e.message : "erreur"}) : la commande est tout de même enregistrée.`);
         }
@@ -203,6 +204,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
         {doc ? `Contrôle du document : ${doc.file.name}` : "Saisie manuelle rapide"} · site {writeSite ? siteName(writeSite) : "?"}
       </p>
       {doc ? <SiteMismatchAlert docSite={docSite} /> : null}
+      {doc && !supplier ? <DocSupplierLink extracted={x} onLinked={(id) => { void qc.invalidateQueries({ queryKey: ["suppliers-list"] }); setSupplier(id); }} /> : null}
       <SupplierSelect value={supplier} onChange={setSupplier} />
       {!supplier && x.supplier ? (
         <p className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs font-bold">

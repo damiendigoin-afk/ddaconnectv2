@@ -9,12 +9,14 @@ import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { ActiveSiteNote, Badge, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { listOrders } from "@/lib/parts";
-import { guessDocumentSite, matchOrders, matchSupplier } from "@/lib/parts-site";
+import { guessDocumentSite, matchOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { fetchPendingSupplierDocs, fetchSupplierMails, importEmailAttachment, statusLabel, uploadSupplierDoc, type MailAttachment, type SupplierMail } from "@/lib/supplier-docs";
 import { fetchEmailAttachment, openEmailAttachment } from "@/lib/email-attachment.functions";
 import { importDestination } from "@/lib/supplier-mail-filter";
 import { mailDetail } from "@/lib/receipt-lines";
+import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
+import { docSupplierId } from "@/lib/supplier-identify";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/pieces-achats/documents")({
@@ -126,7 +128,7 @@ function DocumentsPage() {
           {docs.data && !docs.data.length ? <p className="card-surface p-3 text-sm text-muted-foreground">Aucun document en attente.</p> : null}
           {(docs.data ?? []).map((d) => {
             const x = d.extracted;
-            const sup = matchSupplier(x.supplier, suppliers.data ?? []);
+            const sup = (suppliers.data ?? []).find((s) => s.id === docSupplierId(x, suppliers.data ?? []));
             const best = matchOrders(x, orders.data ?? [], d.site_id)[0];
             const docSite = guessDocumentSite(docSiteText(x), sites);
             return (
@@ -139,6 +141,7 @@ function DocumentsPage() {
                   {x.doc_kind === "facture" ? "Facture" : "BL"} · {siteName(d.site_id)} · {new Date(d.created_at).toLocaleDateString("fr-FR")}
                   {x.or_number ? ` · OR ${x.or_number}` : ""}{x.plate ?? d.plate ? ` · ${x.plate ?? d.plate}` : ""}
                 </div>
+                {x.supplier ? <DocSupplierLink extracted={x} docId={d.id} /> : null}
                 {best ? <p className="text-xs">Commande {best.level === "certain" ? "trouvée" : "probable"} : {(best.order.suppliers as { name: string } | null)?.name ?? "?"}{best.order.plate ? ` · ${best.order.plate}` : ""}</p> : <p className="text-xs text-muted-foreground">Aucune commande DDA rapprochée.</p>}
                 {docSite && d.site_id && docSite !== d.site_id ? <p className="text-xs font-bold">Semble appartenir à {siteName(docSite)}.</p> : null}
                 <div className="mt-2 flex flex-wrap gap-3 text-xs font-extrabold uppercase">

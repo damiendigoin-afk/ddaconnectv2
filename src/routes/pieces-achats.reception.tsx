@@ -12,6 +12,8 @@ import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders }
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
+import { docSupplierId } from "@/lib/supplier-identify";
+import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { isOverReceipt } from "@/lib/parts-rules";
 import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
@@ -127,7 +129,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
       <p className="text-xs font-extrabold uppercase text-muted-foreground">Document : {doc.file_name}</p>
       <SiteMismatchAlert docSite={guessDocumentSite(docSiteText(x), sites)} />
       <div className="text-xs">
-        <p>Fournisseur : <b>{sup?.name ?? x.supplier ?? "non lu"}</b></p>
+        {x.supplier ? <DocSupplierLink extracted={x} docId={doc.id} /> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
         <p>OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · Réf. commande : <b>{x.order_reference ?? "—"}</b></p>
         <p>{(x.lines ?? []).length} ligne(s) lue(s)</p>
       </div>
@@ -203,8 +205,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   }, [doc?.id]);
   useEffect(() => {
     if (!doc || supplier || mode === "order") return;
-    const m = matchSupplier(x.supplier, suppliers.data ?? []);
-    if (m) setSupplier(m.id);
+    const id = docSupplierId(x, suppliers.data ?? []);
+    if (id) setSupplier(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suppliers.data, doc?.id]);
   const [busy, setBusy] = useState(false);
@@ -240,7 +242,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       let supplierId = supplier || null;
       if (!supplierId && x.supplier) {
         supplierId = await ensureSupplierByName(x.supplier);
-        if (supplierId) { setSupplier(supplierId); void qc.invalidateQueries({ queryKey: ["suppliers"] }); }
+        if (supplierId) { setSupplier(supplierId); void qc.invalidateQueries({ queryKey: ["suppliers-list"] }); }
       }
       const receiptId = await validateReceipt({
         site_id: site,
@@ -287,6 +289,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       ) : null}
       {mode !== "order" || orderId ? (
         <>
+          {doc && mode !== "order" && !supplier && x.supplier ? <DocSupplierLink extracted={x} docId={doc.id} onLinked={setSupplier} /> : null}
           {mode !== "order" ? <SupplierSelect value={supplier} onChange={setSupplier} /> : null}
           {mode === "document" && !doc ? (
             <select className={inputCls} value={docId} onChange={(e) => setDocId(e.target.value)}>
@@ -296,7 +299,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
           ) : null}
           {doc ? (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border-2 border-border bg-muted p-2 text-xs md:grid-cols-5">
-              <p>Fournisseur<br /><b>{matchSupplier(x.supplier, suppliers.data ?? [])?.name ?? x.supplier ?? "—"}</b></p>
+              <p>Fournisseur<br /><b>{(suppliers.data ?? []).find((s) => s.id === (supplier || docSupplierId(x, suppliers.data ?? [])))?.name ?? x.supplier ?? "—"}</b></p>
               <p>BL n°<br /><b>{x.delivery_note_number ?? x.document_number ?? "—"}</b></p>
               <p>N° commande fournisseur<br /><b>{x.order_reference && x.order_reference !== x.or_number ? x.order_reference : "—"}</b></p>
               <p>N° dossier / OR WinMotor<br /><b>{orv.or?.or_number ?? (dossier || x.or_number) ?? "—"}</b></p>

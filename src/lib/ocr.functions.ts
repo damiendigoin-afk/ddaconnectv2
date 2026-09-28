@@ -170,11 +170,12 @@ export const ocrSupplierInvoice = createServerFn({ method: "POST" })
     const prompt = `Tu lis un bon de livraison ou une facture d'un fournisseur de pièces automobiles (France).
 Le document peut être une photo imparfaite, froissée, annotée à la main.
 Réponds STRICTEMENT en JSON :
-{"doc_kind":"bl|facture|null","supplier":null,"invoice_number":null,"invoice_date":null,"delivery_note_number":null,
+{"doc_kind":"bl|facture|null","supplier":null,"supplier_info":null,"invoice_number":null,"invoice_date":null,"delivery_note_number":null,
 "customer_or_site":null,"order_reference":null,"plate":null,"currency":"EUR",
 "lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"discount_pct":null,"amount":null}],
 "total_ht":null,"vat_amount":null,"total_ttc":null,"handwritten_notes":null}
 Dates ISO YYYY-MM-DD. Nombres décimaux avec un point, sans symbole ni unité.
+- supplier_info : coordonnées de l'ÉMETTEUR uniquement, telles qu'imprimées (en-tête/pied de page) : {"address","postal_code","city","phone","email","website","siret","vat_number"} ; champ absent = omis ; null si rien.
 handwritten_notes : recopie littérale des mentions manuscrites (ex : "Pas BL retour / Frs à remb", "retour").
 Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun montant.`;
     const result = await askVision(prompt, data.dataUrl, data.filename, "supplier_invoice");
@@ -194,12 +195,13 @@ export const ocrPurchaseDocument = createServerFn({ method: "POST" })
     const prompt = `Tu lis un document d'achat de pièces automobiles (France) : bon de commande, confirmation de commande,
 capture d'écran d'un site fournisseur, bon de livraison (BL) ou facture. Formats et mises en page variés, photo possible.
 Réponds STRICTEMENT en JSON :
-{"doc_kind":"commande|bl|facture|autre|null","supplier":null,"document_number":null,"document_date":null,
+{"doc_kind":"commande|bl|facture|autre|null","supplier":null,"supplier_info":null,"document_number":null,"document_date":null,
 "order_reference":null,"delivery_note_number":null,"invoice_number":null,"or_number":null,"plate":null,"plate_printed":false,
 "customer_or_site":null,
 "lines":[{"reference":null,"label":null,"quantity":null,"unit_price":null,"client_price":null,"amount":null,"delay":null,"isolated_number":null}],
 "total_ht":null,"vat_amount":null,"total_ttc":null,"handwritten_notes":null}
 - supplier : le vendeur qui émet le document (libellés possibles : « Distributeur », « Fournisseur », « Vendeur », en-tête/logo émetteur). JAMAIS le client/garage destinataire.
+- supplier_info : coordonnées de l'ÉMETTEUR uniquement, telles qu'imprimées (en-tête/pied de page) : {"address","postal_code","city","phone","email","website","siret","vat_number"} ; champ absent = omis ; null si rien.
 - order_reference : numéro de commande fournisseur (« Commande n° », « N° de commande »).
 - or_number : numéro d'OR / dossier atelier (« Repère commande », « Votre référence », « Réf. client », « N° OR »), chiffres uniquement.
   Ne pas confondre avec « N° client » ni « Compte de facturation ».

@@ -22,3 +22,4 @@
 - Tire wheel reading is local OCR only (tesseract.js, src/lib/tire-ocr.client.ts + pure parser src/lib/tire-ocr-parse.ts; photo 1 gauge => estimate only); analyzeWheelPhotos is a no-op; wear is judged only from a human-confirmed depth via TireConfirmPanel. Why: no paid AI calls in the normal tire flow.
 
 - Storage dda-media `fournisseurs/`: active users with module `magasin` may upload unlinked files; linked files readable only if the inbox_documents site is accessible (storage_object_owned). Why: non-managers were blocked by the manager-only ELSE branch.
+- Supplier identification happens at document import (src/lib/supplier-identify.ts + DocSupplierLink): found => extracted.supplier_id, unknown => prefilled quick create, ambiguous => manual pick; reception-time ensureSupplierByName is only a safety net. Why: no receipt/document left with "Fournisseur ?".
