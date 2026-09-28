@@ -80,4 +80,4 @@ Reste à faire :
 - [x] Désactiver tire_wheel automatique ; OCR local (photos 2 et 3), parser métier, consolidation roue
 - [x] Synthèse discrète + correction manuelle ; tests parsing/consolidation ; publication
 
-- [ ] Autoriser le dépôt de BL fournisseur (stockage fournisseurs/) aux non-managers du site (erreur RLS Adrien)
+- [x] Autoriser le dépôt de BL fournisseur (stockage fournisseurs/) aux non-managers du site (erreur RLS Adrien)
