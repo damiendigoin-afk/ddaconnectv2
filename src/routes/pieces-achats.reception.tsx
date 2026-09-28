@@ -143,7 +143,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
           OR/dossier demandé : {meta.requested_or_number ?? (o.repair_orders as { or_number: string | null } | null)?.or_number ?? "—"} · Immat : {meta.plate ?? "—"} · N° commande fournisseur : {meta.supplier_order_ref ?? "—"}
         </span>
         {meta.comment ? <span className="block font-semibold">Commentaire : {meta.comment}</span> : null}
-        <OrderLinesCompact lines={o.part_order_lines ?? []} />
+        <OrderLinesCompact lines={o.part_order_lines ?? []} order={(o.part_order_lines ?? []).length ? (o as never) : null} />
       </button>
     );
   };
