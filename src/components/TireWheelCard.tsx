@@ -21,7 +21,7 @@ import { insertOffersResilient, offerRows } from "@/lib/tour-recompute";
 import { useAuth } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/photo";
 import type { CommercialSettings, ServicePackage } from "@/lib/pricing-engine";
-import { ocrTirePhoto } from "@/lib/tire-ocr.client";
+import { ocrTirePhoto } from "@/lib/tire-ocr.browser";
 import { TireConfirmPanel } from "@/components/TireConfirmPanel";
 import { confirmTireFields, consolidateWheelOcr, depthForJudgement, depthLabel, parseGaugeDepth, wheelOcrSummary, type DepthEstimate, type TireConfirmFields, type TireOcrRead, type WheelOcr } from "@/lib/tire-ocr-parse";
 import { fetchPublicTireOffers } from "@/lib/tire-provider.functions";

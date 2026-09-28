@@ -22,7 +22,7 @@ import { prepareCapture } from "@/lib/photo-capture";
 import { useSite } from "@/lib/site-context";
 import { suggestBrands } from "@/lib/tire-brands";
 import { analyzeTireLabelPhoto } from "@/lib/tire-ai.functions";
-import { ocrTirePhoto } from "@/lib/tire-ocr.client";
+import { ocrTirePhoto } from "@/lib/tire-ocr.browser";
 import { buildTireQuotePdf, openPdfBlob } from "@/lib/tire-quote-pdf";
 
 import {
