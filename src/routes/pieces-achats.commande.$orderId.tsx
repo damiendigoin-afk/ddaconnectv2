@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { Badge, fmtEur, ORDER_STATUS, OrLink, usePartsCtx } from "@/components/parts/PartsUi";
 import { getOrder } from "@/lib/parts";
+import { OrderSupplierFix } from "@/components/parts/OrderSupplierFix";
 
 export const Route = createFileRoute("/pieces-achats/commande/$orderId")({
   head: () => ({
@@ -30,7 +31,7 @@ function OrderDetail() {
         <div className="space-y-3">
           <div className="card-surface space-y-1 p-4 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-lg font-extrabold">{(o.suppliers as { name: string } | null)?.name}</span>
+              <span className="text-lg font-extrabold">{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur à rattacher"}</span>
               <Badge tone={(ORDER_STATUS[o.status] ?? ORDER_STATUS["ordered"]!).tone}>{(ORDER_STATUS[o.status] ?? ORDER_STATUS["ordered"]!).label}</Badge>
             </div>
             <div>{siteName(o.site_id)} · {o.order_mode === "simplified" ? "Simplifiée" : "Détaillée"} · créée le {new Date(o.created_at).toLocaleString("fr-FR")} par {o.created_by_name}</div>
@@ -41,6 +42,7 @@ function OrderDetail() {
               {o.supplier_order_ref ? <span>Réf. fournisseur {o.supplier_order_ref}</span> : null}
             </div>
             {o.comment ? <p className="text-muted-foreground">{o.comment}</p> : null}
+            <OrderSupplierFix o={o as never} />
           </div>
           <Link to="/pieces-achats/reception" search={{ order: o.id }} className="block rounded-lg bg-brand py-3 text-center text-sm font-extrabold uppercase text-brand-foreground">
             Réceptionner cette commande
