@@ -19,7 +19,7 @@ import { isOverReceipt } from "@/lib/parts-rules";
 import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
 import { Check } from "lucide-react";
-import { findFrenchPlate, normalizePlate } from "@/lib/plate";
+import { findFrenchPlate, normalizePlate, winmotorOrHistory } from "@/lib/plate";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
 import { receiptLinesFromOrder } from "@/lib/receipt-lines";
@@ -153,23 +153,30 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   );
 }
 
-/** Immatriculation lue sur le document : véhicule et dossiers WinMotor connus (lecture seule). */
+/** Immatriculation lue sur le document : véhicule, OR DDA et historique WinMotor connus (lecture seule, jamais de rattachement). */
 function PlateInfo({ plate }: { plate: string }) {
+  const key = normalizePlate(plate);
   const q = useQuery({
-    queryKey: ["plate-info", normalizePlate(plate)],
+    queryKey: ["plate-info", key],
     queryFn: async () => {
-      const { data: v } = await supabase.from("vehicles").select("id, brand, model").eq("plate_normalized", normalizePlate(plate)).limit(1).maybeSingle();
-      if (!v) return null;
-      const { data: ors } = await supabase.from("repair_orders").select("id, or_number").eq("vehicle_id", v.id).order("created_at", { ascending: false }).limit(3);
-      return { v, ors: ors ?? [] };
+      const [{ data: v }, { data: wm }] = await Promise.all([
+        supabase.from("vehicles").select("id, brand, model").eq("plate_normalized", key).limit(1).maybeSingle(),
+        supabase.from("winmotor_invoices").select("or_number, invoice_date").eq("plate_normalized", key).order("invoice_date", { ascending: false }).limit(20),
+      ]);
+      const { data: ors } = v ? await supabase.from("repair_orders").select("id, or_number").eq("vehicle_id", v.id).order("created_at", { ascending: false }).limit(3) : { data: [] };
+      return { v, ors: ors ?? [], wm: winmotorOrHistory(wm ?? []) };
     },
   });
+  const d = q.data;
   return (
-    <div className="rounded-lg border-2 border-brand p-2 text-xs">
+    <div className="rounded-lg border-2 border-brand p-2 text-xs space-y-0.5">
       <p>Immatriculation détectée : <b>{plate}</b></p>
-      {q.data ? (
-        <p>{[q.data.v.brand, q.data.v.model].filter(Boolean).join(" ") || "Véhicule connu"}{q.data.ors.length ? ` · OR ${q.data.ors.map((o) => o.or_number ?? "en attente").join(", ")}` : " · aucun OR"}</p>
-      ) : q.isFetched ? <p className="text-muted-foreground">Véhicule inconnu de la base : la plaque sera conservée sur la réception pour rapprochement ultérieur.</p> : null}
+      {d?.v ? <p>Véhicule DDA : {[d.v.brand, d.v.model].filter(Boolean).join(" ") || "connu"}{d.ors.length ? ` · OR ${d.ors.map((o) => o.or_number ?? "en attente").join(", ")}` : ""}</p> : null}
+      {d?.wm.length ? (
+        <p>Véhicule connu dans l'historique WinMotor · dernier OR connu <b>{d.wm[0]!.or_number}</b> du {new Date(d.wm[0]!.date).toLocaleDateString("fr-FR")}
+          {d.wm.length > 1 ? ` (précédents : ${d.wm.slice(1, 4).map((o) => o.or_number).join(", ")})` : ""} — historique, pas forcément l'OR en cours.</p>
+      ) : null}
+      {d && !d.v && !d.wm.length ? <p className="text-muted-foreground">Véhicule inconnu de la base et de WinMotor : la plaque sera conservée sur la réception pour rapprochement ultérieur.</p> : null}
     </div>
   );
 }

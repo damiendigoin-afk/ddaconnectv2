@@ -39,3 +39,13 @@ export function findFrenchPlate(text: string | null | undefined): string | null 
   if (found.size !== 1) return null;
   return formatPlate([...found][0]!);
 }
+
+/** Historique WinMotor d'une plaque : un OR par numéro, le plus récent d'abord (information seule, jamais un rattachement). */
+export function winmotorOrHistory(rows: { or_number: string | null; invoice_date: string | null }[]): { or_number: string; date: string }[] {
+  const best = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.or_number || !r.invoice_date) continue;
+    if (!best.has(r.or_number) || best.get(r.or_number)! < r.invoice_date) best.set(r.or_number, r.invoice_date);
+  }
+  return [...best].map(([or_number, date]) => ({ or_number, date })).sort((a, b) => b.date.localeCompare(a.date));
+}
