@@ -9,7 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { ActiveSiteNote, Badge, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { listOrders } from "@/lib/parts";
-import { guessDocumentSite, matchOrders, matchSupplier } from "@/lib/parts-site";
+import { guessDocumentSite, matchOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { fetchPendingSupplierDocs, fetchSupplierMails, importEmailAttachment, statusLabel, uploadSupplierDoc, type MailAttachment, type SupplierMail } from "@/lib/supplier-docs";
 import { fetchEmailAttachment, openEmailAttachment } from "@/lib/email-attachment.functions";
