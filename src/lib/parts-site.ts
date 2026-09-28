@@ -57,6 +57,8 @@ type OrderLike = {
   supplier_id: string | null;
   plate: string | null;
   supplier_order_ref: string | null;
+  /** Commandes simplifiées (front office) vs détaillées/importées. */
+  order_mode?: string | null;
   comment?: string | null;
   created_by_name?: string | null;
   created_at?: string;
@@ -124,12 +126,20 @@ export function receptionSuggestions<T extends OrderLike>(doc: DocExtractLite, o
   return { certain: certain.slice(0, max), probable, hasExact: certain.length > 0 };
 }
 
-/** Recherche manuelle compacte parmi les commandes en attente : n° commande, OR/dossier, immat, réf. pièce, fournisseur, commentaire, créateur. */
+/**
+ * Recherche manuelle compacte : UNIQUEMENT les commandes manuelles simplifiées du front office
+ * (`order_mode = "simplified"`) — les commandes détaillées/importées restent du ressort du
+ * rapprochement automatique. Recherche par n° commande, OR/dossier, immat, réf. pièce,
+ * fournisseur, commentaire, créateur.
+ */
 export function searchPendingOrders<T extends OrderLike & { requested_or_number?: string | null }>(orders: T[], query: string, siteId: string | null, max = 20): T[] {
   const q = norm(query);
   const qk = plateKey(query);
   const recentFirst = (a: T, b: T) => (b.created_at ?? "").localeCompare(a.created_at ?? "");
-  const pending = pendingReceptionOrders(orders).filter((o) => !siteId || o.site_id === siteId).sort(recentFirst);
+  const pending = pendingReceptionOrders(orders)
+    .filter((o) => o.order_mode === "simplified")
+    .filter((o) => !siteId || o.site_id === siteId)
+    .sort(recentFirst);
   if (!q) return pending.slice(0, max);
   return pending.filter((o) => {
     const hay = [o.supplier_order_ref, o.repair_orders?.or_number, o.requested_or_number, o.suppliers?.name, o.comment, o.created_by_name, ...(o.part_order_lines ?? []).map((l) => l.physical_reference)].map((v) => norm(v ?? ""));

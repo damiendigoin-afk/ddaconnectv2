@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 
-const o = (p: Record<string, unknown>) => ({ id: "o", status: "ordered", site_id: "cas", supplier_id: "s1", plate: null, supplier_order_ref: null, requested_or_number: null, suppliers: { name: "FAURIE AUTO SARLAT" }, repair_orders: null, part_order_lines: [], ...p }) as never;
+const o = (p: Record<string, unknown>) => ({ id: "o", status: "ordered", site_id: "cas", supplier_id: "s1", plate: null, supplier_order_ref: null, requested_or_number: null, order_mode: "simplified", suppliers: { name: "FAURIE AUTO SARLAT" }, repair_orders: null, part_order_lines: [], ...p }) as never;
 
 describe("réception jamais bloquée", () => {
   it("sans match : aucune suggestion, même fournisseur", () => {
@@ -62,5 +62,26 @@ describe("recherche manuelle : commentaire et créateur", () => {
     expect(r.hasExact).toBe(false);
     expect(r.certain).toEqual([]);
     expect(r.probable).toEqual([]);
+  });
+});
+
+describe("recherche manuelle : commandes simplifiées uniquement", () => {
+  const simp = o({ id: "simp", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T07:37:42Z" });
+  const detailed = o({ id: "det", order_mode: "detailed", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T08:30:00Z" });
+  const legacy = o({ id: "legacy", order_mode: null, created_at: "2026-09-28T09:00:00Z" });
+  const list = [detailed, legacy, simp];
+  const ids = (q: string) => searchPendingOrders(list, q, "cas").map((x) => (x as { id: string }).id);
+  it("une commande detailed n'apparaît jamais, même à vide ou sur commentaire", () => {
+    expect(ids("")).toEqual(["simp"]);
+    expect(ids("PNEUS AV MICHELIN 4S")).toEqual(["simp"]);
+    expect(ids("Frederic")).toEqual(["simp"]);
+  });
+  it("order_mode inconnu/null est exclu de la recherche manuelle", () => {
+    expect(ids("").includes("legacy")).toBe(false);
+  });
+  it("la commande détaillée reste candidate au rapprochement automatique", () => {
+    const detailedPlate = o({ id: "det2", order_mode: "detailed", plate: "HG-732-GH" });
+    const r = receptionSuggestions({ supplier: "FAURIE", plate: "HG732GH" }, [detailedPlate], "cas");
+    expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["det2"]);
   });
 });
