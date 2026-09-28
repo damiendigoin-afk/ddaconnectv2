@@ -39,3 +39,28 @@ describe("réception jamais bloquée", () => {
     expect(ids("autodoc")).toEqual(["e"]);
   });
 });
+
+describe("recherche manuelle : commentaire et créateur", () => {
+  const simplified = o({ id: "simp", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", requested_or_number: "50890", created_at: "2026-09-28T07:37:42Z", part_order_lines: [] });
+  const other = o({ id: "other", comment: null, created_by_name: "Damien DIGOIN", created_at: "2026-09-27T10:00:00Z" });
+  const list = [other, simplified];
+  const ids = (q: string) => searchPendingOrders(list, q, "cas").map((x) => (x as { id: string }).id);
+  it("recherche par commentaire « PNEUS AV MICHELIN 4S »", () => {
+    expect(ids("pneu")).toEqual(["simp"]);
+    expect(ids("Michelin")).toEqual(["simp"]);
+    expect(ids("PNEUS AV MICHELIN 4S")).toEqual(["simp"]);
+  });
+  it("recherche par créateur « Frederic »", () => {
+    expect(ids("Frederic")).toEqual(["simp"]);
+    expect(ids("teixeira")).toEqual(["simp"]);
+  });
+  it("sans recherche : commandes simplifiées récentes en premier", () => {
+    expect(ids("")).toEqual(["simp", "other"]);
+  });
+  it("le commentaire seul ne crée jamais de suggestion automatique", () => {
+    const r = receptionSuggestions({ supplier: "FAURIE AUTO SARLAT", lines: [{ reference: "MICHELIN" }] }, [simplified], "cas");
+    expect(r.hasExact).toBe(false);
+    expect(r.certain).toEqual([]);
+    expect(r.probable).toEqual([]);
+  });
+});
