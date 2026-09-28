@@ -289,7 +289,7 @@ export type ReceiptLineInput = {
 };
 
 export async function validateReceipt(
-  r: { site_id: string; supplier_id: string | null; order_id: string | null; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; source_document_id: string | null; receipt_type: "document" | "physical_without_document" | "invoice_as_delivery"; packages: string | null; comment: string | null; requested_or_number?: string | null; lines: ReceiptLineInput[] },
+  r: { site_id: string; supplier_id: string | null; order_id: string | null; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; source_document_id: string | null; receipt_type: "document" | "physical_without_document" | "invoice_as_delivery"; packages: string | null; comment: string | null; requested_or_number?: string | null; supplier_order_ref?: string | null; free_reference?: string | null; lines: ReceiptLineInput[] },
   actor: Actor,
 ) {
   const { lines, ...head } = r;
