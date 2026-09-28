@@ -79,3 +79,31 @@ export async function partsEmailFor(supplierId: string | null | undefined, suppl
   const s = supplier ?? (await getSupplier(supplierId));
   return s?.returns_email || s?.email || "";
 }
+
+const normName = (s: string | null | undefined) =>
+  (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * Rattache un fournisseur détecté (BL/facture) à la fiche existante, ou la crée.
+ * Anti-doublon : casse/espaces/accents/ponctuation ignorés, puis rapprochement
+ * par mots significatifs (matchSupplier). Ambiguïté entre plusieurs fiches => null
+ * (pas de création, pour ne pas dupliquer).
+ */
+export async function ensureSupplierByName(name: string | null | undefined): Promise<string | null> {
+  const clean = (name ?? "").replace(/\s+/g, " ").trim();
+  const n = normName(clean);
+  if (n.length < 3) return null;
+  const { data } = await supabase.from("suppliers").select("id, name, active");
+  const all = (data ?? []) as { id: string; name: string; active: boolean | null }[];
+  const exact = all.filter((s) => normName(s.name) === n);
+  if (exact.length) return (exact.find((s) => s.active !== false) ?? exact[0]!).id;
+  const { matchSupplier } = await import("@/lib/parts-site");
+  const m = matchSupplier(clean, all);
+  if (m) return m.id;
+  // Plusieurs fiches proches => ne pas créer de doublon, laisser à régulariser.
+  const close = all.filter((s) => { const sn = normName(s.name); return sn.length >= 3 && (sn.includes(n) || n.includes(sn)); });
+  if (close.length) return null;
+  const { data: created, error } = await supabase.from("suppliers").insert({ name: clean.toUpperCase() }).select("id").single();
+  if (error) throw new Error(`Création du fournisseur « ${clean} » impossible : ${error.message}`);
+  return created.id;
+}
