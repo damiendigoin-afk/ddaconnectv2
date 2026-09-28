@@ -162,3 +162,33 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     handwritten_notes: str(o.handwritten_notes),
   };
 }
+
+/** Second passage ciblé (identifiants atelier) : {plate, or_number, order_reference, evidence}. Une immat n'est jamais un OR. */
+export function parseIdentifierPass(input: unknown): { plate: string | null; or_number: string | null; order_reference: string | null; evidence: string | null } {
+  const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const s = (k: string) => (typeof o[k] === "string" || typeof o[k] === "number" ? String(o[k]).trim() || null : null);
+  let plate = s("plate") ? findFrenchPlate(s("plate")) : null;
+  let or: string | null = null;
+  const orRaw = s("or_number");
+  if (orRaw) {
+    const p = findFrenchPlate(orRaw);
+    if (p) plate ??= p;
+    else if (/^\D*\d{4,8}\D*$/.test(orRaw)) or = orRaw.replace(/\D/g, "");
+  }
+  return { plate, or_number: or, order_reference: s("order_reference"), evidence: s("evidence") };
+}
+
+/** Fusionne le second passage dans le premier : ne remplit que les champs manquants, n'écrase jamais une valeur existante. */
+export function mergeIdentifierPass<T extends { plate: string | null; or_number: string | null; order_reference: string | null }>(first: T, second: ReturnType<typeof parseIdentifierPass>): T {
+  const out = { ...first };
+  if (!out.plate && second.plate) out.plate = second.plate;
+  const excluded = [first.order_reference, (first as Record<string, unknown>)["delivery_note_number"], (first as Record<string, unknown>)["document_number"], (first as Record<string, unknown>)["invoice_number"]].map((v) => (typeof v === "string" ? v.replace(/\D/g, "") : ""));
+  if (!out.or_number && second.or_number && !excluded.includes(second.or_number)) out.or_number = second.or_number;
+  if (!out.order_reference && second.order_reference && second.order_reference.replace(/\D/g, "") !== out.or_number) out.order_reference = second.order_reference;
+  return out;
+}
+
+/** Faut-il relancer un second passage ciblé ? Oui si ni immat ni OR n'ont été lus. */
+export function needsIdentifierPass(x: { plate: string | null; or_number: string | null }): boolean {
+  return !x.plate && !x.or_number;
+}

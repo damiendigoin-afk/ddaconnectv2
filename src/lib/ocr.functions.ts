@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { askVision, parseJsonBlock } from "./ocr.server";
-import { normalizePurchaseExtract } from "./purchase-extract";
+import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
 
 const fileInput = z.object({ dataUrl: z.string().min(10), filename: z.string().optional() });
 
@@ -222,5 +222,37 @@ Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible : complétez à la main.", json: "" };
-    return { ok: true as const, error: "", json: JSON.stringify(normalizePurchaseExtract(parsed)) };
+    let norm = normalizePurchaseExtract(parsed);
+    if (needsIdentifierPass(norm)) {
+      // Second passage court et ciblé : uniquement les repères atelier souvent manqués (« Mes références »…).
+      const second = await askVision(IDENT_PROMPT, data.dataUrl, data.filename, "supplier_invoice_ids", { reasoning_effort: "low", max_tokens: 400 });
+      const p2 = second.ok ? parseJsonBlock(second.content) : null;
+      if (p2) norm = mergeIdentifierPass(norm, parseIdentifierPass(p2));
+    }
+    return { ok: true as const, error: "", json: JSON.stringify(norm) };
+  });
+
+const IDENT_PROMPT = `Document d'achat de pièces automobiles (France). Lis UNIQUEMENT les identifiants atelier dans les zones
+« Mes références », « Repère », « Repère commande », « Votre référence », « Réf client », « Véhicule », et les petites lignes
+isolées proches des désignations d'articles. Réponds STRICTEMENT en JSON compact :
+{"plate":null,"or_number":null,"order_reference":null,"evidence":null}
+- plate : immatriculation française (ex. HG 732 GH, HG-732-GH, HG732GH) telle que lue ; jamais une dimension de pneu.
+- or_number : numéro de dossier/OR atelier (chiffres) ; si le repère est une immatriculation, le mettre dans plate et or_number=null.
+- order_reference : n° de commande fournisseur (« Commande n° »).
+- evidence : le libellé et le texte lus, très court.
+N'invente rien, null si absent.`;
+
+/** Scan atelier : photo d'une plaque OU d'un OR papier — renvoie {or_number, plate}. */
+export const ocrOrOrPlate = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => fileInput.parse(data))
+  .handler(async ({ data }) => {
+    const prompt = `Photo d'une plaque d'immatriculation OU d'un ordre de réparation (OR) papier d'un garage français.
+Réponds STRICTEMENT en JSON compact : {"or_number":null,"plate":null}
+- or_number : numéro d'OR / dossier imprimé (« OR n° », « Ordre de réparation », « Dossier »), chiffres uniquement ; null si c'est une simple plaque.
+- plate : immatriculation lue (ex. AB-123-CD). N'invente rien, null si absent.`;
+    const result = await askVision(prompt, data.dataUrl, data.filename);
+    if (!result.ok) return { ok: false as const, error: result.error, or_number: null, plate: null };
+    const p = parseIdentifierPass(parseJsonBlock(result.content));
+    if (!p.or_number && !p.plate) return { ok: false as const, error: "Ni OR ni plaque détectés.", or_number: null, plate: null };
+    return { ok: true as const, error: "", or_number: p.or_number, plate: p.plate };
   });
