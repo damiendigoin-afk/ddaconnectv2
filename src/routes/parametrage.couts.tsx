@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { Section } from "@/components/bits";
 import { useAuth } from "@/lib/auth";
-import { alertLevel, fetchAiBudget, fetchAiCosts, saveAiBudget, type AiBudget } from "@/lib/ai-costs";
+import { ROUTE_LABELS, alertLevel, fetchAiBudget, routeOf, fetchAiCosts, saveAiBudget, type AiBudget } from "@/lib/ai-costs";
 
 export const Route = createFileRoute("/parametrage/couts")({
   head: () => ({
@@ -101,7 +101,20 @@ function CostsPage() {
         ) : null}
       </Section>
 
-      <Section title="Par fonction (mois)">
+      <Section title="Par voie de lecture (mois)">
+        <div className="space-y-1">
+          {(s?.byRoute ?? []).map((r) => (
+            <div key={r.route} className="flex items-center justify-between rounded-lg border border-border px-2 py-2 text-[12px]">
+              <span className="font-bold">{r.label}</span>
+              <span className="text-muted-foreground">
+                {r.ops} op. · {fmt(r.credits)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Par fonction (mois, IA uniquement)">
         <div className="space-y-1">
           {(s?.byFeature ?? []).map((f) => (
             <div
@@ -172,7 +185,7 @@ function CostsPage() {
             <div key={r.id} className="rounded-lg border border-border px-2 py-1.5 text-[11px]">
               <div className="flex justify-between gap-2">
                 <span className="font-bold">{r.feature}</span>
-                <span>{r.cache_hit ? "cache · 0 cr." : fmt(Number(r.estimated_credits))}</span>
+                <span>{ROUTE_LABELS[routeOf(r)] ?? routeOf(r)} · {fmt(Number(r.estimated_credits))}</span>
               </div>
               <div className="text-muted-foreground">
                 {new Date(r.created_at).toLocaleString("fr-FR")} · {r.model ?? "—"} ·{" "}
