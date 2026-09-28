@@ -9,7 +9,7 @@ import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { CancelAction } from "@/components/parts/CancelAction";
-import { guessDocumentSite, matchOrders, matchSupplier, pendingReceptionOrders } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
@@ -119,35 +119,70 @@ function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
   );
 }
 
-/** Rapprochement BL ↔ commandes en attente du site actif. Jamais bloquant. */
+/** Rapprochement BL ↔ commandes en attente du site actif. Jamais bloquant : il y a toujours une étape suivante. */
 export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierDoc; onOrder: (id: string) => void; onNoOrder: () => void; onCancel: () => void }) {
   const { writeSite, sites } = usePartsCtx();
   const suppliers = useSuppliers();
   const x0 = doc.extracted;
   const x = { ...x0, plate: x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")) };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
-  const matches = matchOrders(x, orders.data ?? [], writeSite);
+  const sugg = receptionSuggestions(x, orders.data ?? [], writeSite);
   const sup = matchSupplier(x.supplier, suppliers.data ?? []);
+  const [showSugg, setShowSugg] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [q, setQ] = useState("");
+  const found = manual ? searchPendingOrders(orders.data ?? [], q, writeSite, 15) : [];
+  const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null) => (
+    <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-xs" onClick={() => onOrder(o.id)}>
+      {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Suggestion"}</Badge>{" "}</> : null}
+      <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
+      <OrderLinesCompact lines={o.part_order_lines ?? []} />
+    </button>
+  );
   return (
     <div className="card-surface space-y-3 p-4">
-      <p className="text-xs font-extrabold uppercase text-muted-foreground">Document : {doc.file_name}</p>
+      <p className="text-xs font-extrabold uppercase text-muted-foreground">Document lu : {doc.file_name}</p>
       <SiteMismatchAlert docSite={guessDocumentSite(docSiteText(x), sites)} />
-      <div className="text-xs">
+      <div className="text-xs space-y-1">
         {x.supplier ? <DocSupplierLink extracted={x} docId={doc.id} /> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
-        <p>OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · Réf. commande : <b>{x.order_reference ?? "—"}</b></p>
-        <p>{(x.lines ?? []).length} ligne(s) lue(s)</p>
+        <p>Repères détectés — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° commande : <b>{x.order_reference ?? "—"}</b> · {(x.lines ?? []).length} ligne(s)</p>
       </div>
-      {x.plate ? <PlateInfo plate={x.plate} /> : null}
       {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
-      {matches.map((m) => (
-        <button key={m.order.id} className="block w-full rounded-lg border-2 border-brand p-3 text-left text-sm" onClick={() => onOrder(m.order.id)}>
-          <Badge tone={m.level === "certain" ? "ok" : "warn"}>{m.level === "certain" ? "Correspondance certaine" : "Correspondance probable"}</Badge>{" "}
-          <b>{(m.order.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b>
-          {` · ${orderMarker(m.order as never)}`} — Contrôler la réception
-        </button>
-      ))}
-      {orders.data && !matches.length ? <p className="text-sm text-muted-foreground">Aucune commande DDA correspondante sur ce site.</p> : null}
-      <button className={`${btnGhost} w-full`} onClick={onNoOrder}>Réceptionner sans commande (depuis le BL)</button>
+
+      {sugg.hasExact ? (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase text-muted-foreground">Correspondance certaine</p>
+          {sugg.certain.map((m) => orderBtn(m.order, "ok"))}
+        </div>
+      ) : orders.data ? (
+        <div className="rounded-lg border-2 border-status-warn p-3">
+          <p className="text-sm font-extrabold">Aucun rapprochement exact trouvé</p>
+          <p className="text-xs text-muted-foreground">Vous pouvez renseigner vos propres repères puis réceptionner quand même.</p>
+        </div>
+      ) : null}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button className={`${btnPrimary} w-full`} onClick={onNoOrder}>{sugg.hasExact ? "Réceptionner sans commande" : "Continuer sans rapprochement"}</button>
+        <button className={`${btnGhost} w-full`} onClick={() => setManual((v) => !v)}>Rechercher une commande manuellement</button>
+      </div>
+
+      {manual ? (
+        <div className="space-y-2 rounded-lg border-2 border-border p-2">
+          <input className={inputCls} autoFocus placeholder="N° commande, OR, immat, réf. pièce, fournisseur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
+          {found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">Aucune commande en attente ne correspond.</p>}
+        </div>
+      ) : null}
+
+      {sugg.probable.length ? (
+        <div>
+          <button className="text-xs font-bold underline" onClick={() => setShowSugg((v) => !v)}>
+            {showSugg ? "▾" : "▸"} Suggestions de rapprochement ({sugg.probable.length}) — facultatif
+          </button>
+          {showSugg ? <div className="mt-2 space-y-2">{sugg.probable.map((m) => orderBtn(m.order, "warn"))}</div> : null}
+        </div>
+      ) : null}
+
+      {x.plate ? <PlateInfo plate={x.plate} /> : null}
       <button className="w-full text-xs underline" onClick={onCancel}>Annuler</button>
     </div>
   );
