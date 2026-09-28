@@ -420,6 +420,7 @@ export type Database = {
           model: string | null
           provider: string
           retries: number
+          route: string | null
           site_id: string | null
           success: boolean
           tokens_in: number | null
@@ -441,6 +442,7 @@ export type Database = {
           model?: string | null
           provider?: string
           retries?: number
+          route?: string | null
           site_id?: string | null
           success?: boolean
           tokens_in?: number | null
@@ -462,6 +464,7 @@ export type Database = {
           model?: string | null
           provider?: string
           retries?: number
+          route?: string | null
           site_id?: string | null
           success?: boolean
           tokens_in?: number | null
@@ -6455,6 +6458,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      supplier_doc_profiles: {
+        Row: {
+          doc_number_label: string | null
+          header_tokens: string[]
+          rules_success: number
+          supplier_key: string
+          supplier_name: string
+          updated_at: string
+          uses: number
+        }
+        Insert: {
+          doc_number_label?: string | null
+          header_tokens?: string[]
+          rules_success?: number
+          supplier_key: string
+          supplier_name: string
+          updated_at?: string
+          uses?: number
+        }
+        Update: {
+          doc_number_label?: string | null
+          header_tokens?: string[]
+          rules_success?: number
+          supplier_key?: string
+          supplier_name?: string
+          updated_at?: string
+          uses?: number
+        }
+        Relationships: []
       }
       suppliers: {
         Row: {
