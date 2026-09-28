@@ -8,6 +8,7 @@
  * exploitable, le message précis d'origine est conservé.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { localDocText } from "@/lib/doc-text.browser";
 import { axleMonteLabel, consolidateAxles, readingsFromPoints } from "./tire-axle";
 import { ocrBatteryTest } from "./ocr.functions";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";

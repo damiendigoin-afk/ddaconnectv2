@@ -12,10 +12,10 @@ export type ReadDocInput = {
   kind: DocKind;
   /** Prompt historique (schéma JSON attendu). */
   prompt: string;
-  text?: string | null;
+  text?: string | null | undefined;
   dataUrl?: string | null;
-  filename?: string;
-  visionExtra?: Record<string, unknown>;
+  filename?: string | undefined;
+  visionExtra?: Record<string, unknown> | undefined;
 };
 
 async function supplierHints(): Promise<SupplierHint[]> {

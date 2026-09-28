@@ -278,7 +278,7 @@ export function anyDocumentRules(raw: string): Fields {
               : /bon de livraison/.test(low)
                 ? "bl"
                 : null;
-  const km = odometerRules(text).mileage;
+  const km = odometerRules(text)["mileage"];
   return {
     doc_kind,
     plate: findFrenchPlate(text),
@@ -297,7 +297,7 @@ export function repairOrderRules(raw: string): Fields {
   const text = cleanText(raw);
   return {
     client: {},
-    vehicle: { plate: findFrenchPlate(text), vin: findVin(text), mileage: odometerRules(text).mileage },
+    vehicle: { plate: findFrenchPlate(text), vin: findVin(text), mileage: odometerRules(text)["mileage"] },
     order: { or_number: firstMatch(text, [OR_LABEL]), or_date: isoDate(text) },
   };
 }

@@ -4,6 +4,7 @@
  * reste vide et le verdict n'est jamais inventé.
  */
 import { useState } from "react";
+import { localDocText } from "@/lib/doc-text.browser";
 import { BatteryCharging, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 

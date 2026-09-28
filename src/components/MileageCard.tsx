@@ -216,8 +216,9 @@ export function MileageCard({
         });
         return;
       }
+      const localText = await localDocText(prepared.value);
       const read = await runStep("ocr", () =>
-        ocrOdometer({ data: { text: await localDocText(prepared.value), dataUrl: prepared.value, filename: capture.name } }),
+        ocrOdometer({ data: { text: localText, dataUrl: prepared.value, filename: capture.name } }),
       );
       if (!read.ok) {
         setLocalError({

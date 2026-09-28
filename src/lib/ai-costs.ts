@@ -87,7 +87,7 @@ export function summarize(rows: AiUsageRow[]): AiCostSummary {
     rows,
     today: inDay.reduce((s, r) => s + Number(r.estimated_credits ?? 0), 0),
     month: inMonth.reduce((s, r) => s + Number(r.estimated_credits ?? 0), 0),
-    callsToday: inDay.filter((r) => billed(r) && !r.blocked_reason).length,
+    callsToday: inDay.filter(billed).length,
     cacheHitsToday: inDay.filter((r) => r.cache_hit).length,
     blockedToday: inDay.filter((r) => billed(r) && r.blocked_reason).length,
     failedBilledToday: inDay.filter((r) => !r.success && Number(r.estimated_credits ?? 0) > 0).length,

@@ -1,5 +1,6 @@
 /** Lecture d'un document d'achat déposé (commande, BL, facture) : compression image + OCR tolérant. */
 import { isImage } from "@/lib/documents";
+import { localDocText } from "@/lib/doc-text.browser";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { ocrPurchaseDocument } from "@/lib/ocr.functions";
 import type { InvoiceExtract } from "@/lib/supplier-docs";
