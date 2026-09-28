@@ -153,7 +153,6 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     or_number: orNumber,
     plate: (platePrinted && str(o.plate) ? findFrenchPlate(str(o.plate)) ?? str(o.plate) : null)
       ?? refPlate
-      ?? findFrenchPlate(str(o.plate))
       ?? findFrenchPlate([str(o.handwritten_notes), ...lines.map((l) => l.label)].filter(Boolean).join(" | ")),
     customer_or_site: str(o.customer_or_site),
     lines: lines.map(({ client_price: _c, isolated_number: _i, ...l }) => l),
