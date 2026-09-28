@@ -176,7 +176,7 @@ Réponds STRICTEMENT en JSON :
 "total_ht":null,"vat_amount":null,"total_ttc":null,"handwritten_notes":null}
 Dates ISO YYYY-MM-DD. Nombres décimaux avec un point, sans symbole ni unité.
 - supplier_info : coordonnées de l'ÉMETTEUR uniquement, telles qu'imprimées (en-tête/pied de page) : {"address","postal_code","city","phone","email","website","siret","vat_number"} ; champ absent = omis ; null si rien.
-handwritten_notes : recopie littérale des mentions manuscrites (ex : "Pas BL retour / Frs à remb", "retour").
+handwritten_notes : recopie littérale UNIQUEMENT du texte manuscrit réellement lisible (ex : "Pas BL retour / Frs à remb", "retour"). Jamais la description d'un symbole, d'une coche, d'un trait, d'une couleur, d'un cercle, d'un tampon ou d'une signature (ex interdit : "cochée au stylo noir") ; sinon null.
 Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun montant.`;
     const result = await askVision(prompt, data.dataUrl, data.filename, "supplier_invoice");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };

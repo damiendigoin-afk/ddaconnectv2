@@ -22,7 +22,7 @@ import { Check } from "lucide-react";
 import { findFrenchPlate, formatPlate, normalizePlate, plateAfterOrderPick, winmotorOrHistory } from "@/lib/plate";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
-import { receiptLinesFromOrder } from "@/lib/receipt-lines";
+import { defaultFreeReference, linesAfterOrderPick } from "@/lib/receipt-lines";
 
 export const Route = createFileRoute("/pieces-achats/reception")({
   validateSearch: (s: Record<string, unknown>): { order?: string; doc?: string } => ({
@@ -286,7 +286,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const [comment, setComment] = useState("");
   const [dossier, setDossier] = useState(x.or_number ?? "");
   const [supplierRef, setSupplierRef] = useState(x.order_reference && x.order_reference !== x.or_number ? x.order_reference : "");
-  const [freeRef, setFreeRef] = useState(x.handwritten_notes ?? "");
+  const [freeRef, setFreeRef] = useState(defaultFreeReference(x as { customer_reference?: string | null }));
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [lines, setLines] = useState<ReceiptLineInput[]>(() => {
     if (mode === "order") return [];
@@ -320,8 +320,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       setDossier(o.requested_or_number ?? "");
       setOrv({ or: o.repair_order_id ? { id: o.repair_order_id, or_number: (o.repair_orders as { or_number: string | null } | null)?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id, plate: o.plate } : null, plate: plateAfterOrderPick(orv.plate, x.plate, o.plate, false), vehicleId: o.vehicle_id });
       const dest = o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination;
-       const parts = receiptLinesFromOrder(o.part_order_lines ?? [], dest as ReceiptLineInput["destination"]);
-       setLines(parts.length ? parts : [{ ...blank(), destination: dest as ReceiptLineInput["destination"] }]);
+      setLines(linesAfterOrderPick(o.part_order_lines ?? [], x.lines, dest as ReceiptLineInput["destination"]));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);

@@ -161,3 +161,22 @@ export function mimeFor(name: string, mime?: string | null): string {
   if (mime && mime !== "application/octet-stream") return mime;
   return EXT_MIME[(name.split(".").pop() ?? "").toLowerCase()] ?? mime ?? "application/octet-stream";
 }
+
+/** Repère libre par défaut : jamais tiré de handwritten_notes (coches/couleurs OCR) ; seul un vrai champ explicite compte. */
+export function defaultFreeReference(x: { customer_reference?: string | null } | null | undefined): string {
+  return (x?.customer_reference ?? "").trim();
+}
+
+/** Lignes après choix d'une commande : lignes de commande si elle en a, sinon lignes du BL (jamais effacées), sinon ligne vide. */
+export function linesAfterOrderPick(orderLines: PendingOrderLine[], docLines: DocLine[] | null | undefined, destination: ReceiptLineInput["destination"]): ReceiptLineInput[] {
+  const fromOrder = receiptLinesFromOrder(orderLines, destination);
+  if (orderLines.some((l) => l.line_kind === "part")) return fromOrder.length ? fromOrder : [{ ...blankReceiptLine(), destination }];
+  const fromDoc = receiptLinesFromDoc(docLines).map((l) => ({ ...l, destination }));
+  return fromDoc.length ? fromDoc : [{ ...blankReceiptLine(), destination }];
+}
+
+/** Lignes de commande à créer pour tracer une commande simplifiée sans lignes (choix explicite requis). */
+export function simplifiedEnrichment(order: { order_mode?: string | null; line_count: number } | null, lines: ReceiptLineInput[]): ReceiptLineInput[] {
+  if (!order || order.order_mode !== "simplified" || order.line_count > 0) return [];
+  return lines.filter((l) => !l.order_line_id && l.qty_received > 0 && (l.physical_reference.trim() || l.designation.trim()));
+}
