@@ -273,6 +273,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const [packages, setPackages] = useState("");
   const [comment, setComment] = useState("");
   const [dossier, setDossier] = useState(x.or_number ?? "");
+  const [supplierRef, setSupplierRef] = useState(x.order_reference && x.order_reference !== x.or_number ? x.order_reference : "");
+  const [freeRef, setFreeRef] = useState(x.handwritten_notes ?? "");
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [lines, setLines] = useState<ReceiptLineInput[]>(() => {
     if (mode === "order") return [];
@@ -339,10 +341,13 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
         packages: packages.trim() || null,
         comment: comment.trim() || null,
         requested_or_number: reqOr,
+        supplier_order_ref: supplierRef.trim() || null,
+        free_reference: freeRef.trim() || null,
         lines: lines.map((l) => ({ ...l, destination: l.destination === "or" && !orv.or ? "unknown" : l.destination })),
       }, actor);
-      // Rien ne bloque : ce qui manque part dans « À régulariser ».
-      if (!orderId && docId) await openRegularization({ site_id: site, kind: "reception_sans_commande", source_table: "part_receipts", source_id: receiptId, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate: orv.plate.trim() || null, comment: "Réception faite depuis un BL sans commande DDA" }, actor);
+      // Rien ne bloque : ce qui manque part dans « À régulariser », avec les repères saisis.
+      const markers = [reqOr && `Dossier/OR ${reqOr}`, orv.plate.trim() && `Immat ${orv.plate.trim()}`, supplierRef.trim() && `Cde fournisseur ${supplierRef.trim()}`, freeRef.trim() && `Repère ${freeRef.trim()}`].filter(Boolean).join(" · ");
+      if (!orderId && docId) await openRegularization({ site_id: site, kind: "reception_sans_commande", source_table: "part_receipts", source_id: receiptId, repair_order_id: orv.or?.id ?? null, supplier_id: supplierId, plate: orv.plate.trim() || null, comment: `Réception faite depuis un BL sans commande DDA${markers ? ` — ${markers}` : " — aucun repère saisi"}` }, actor);
       if (!supplier && !orderId) await openRegularization({ site_id: site, kind: "commande_sans_fournisseur", source_table: "part_receipts", source_id: receiptId, plate: orv.plate.trim() || null, comment: "Réception sans fournisseur identifié" }, actor);
       if (docId) await updateSupplierDoc(docId, { status: "a_verifier" }).catch(() => undefined);
       toast.success("Réception validée — stock mis à jour");
@@ -389,15 +394,25 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
               <p>Immatriculation<br /><b>{orv.plate || x.plate || "—"}</b></p>
             </div>
           ) : null}
-          <OrPicker value={orv} onChange={setOrv} initialNumber={dossier || x.or_number || null} onNumberChange={setDossier} />
+          <div className="space-y-2 rounded-lg border-2 border-border p-2">
+            <p className="text-xs font-bold uppercase text-muted-foreground">Vos repères (facultatifs, modifiables)</p>
+            <OrPicker value={orv} onChange={setOrv} initialNumber={dossier || x.or_number || null} onNumberChange={setDossier} />
+            {mode !== "order" ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input className={inputCls} placeholder="N° commande fournisseur" aria-label="N° commande fournisseur" value={supplierRef} onChange={(e) => setSupplierRef(e.target.value)} />
+                <input className={inputCls} placeholder="Repère libre / référence client" aria-label="Repère libre / référence client" value={freeRef} onChange={(e) => setFreeRef(e.target.value)} />
+              </div>
+            ) : null}
+            {mode !== "order" && normalizePlate(orv.plate).length >= 5 ? <PlateInfo plate={orv.plate} /> : null}
+          </div>
           {!orv.or ? (
             <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
-              {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}Les pièces « Pour l'OR » entrent en stock, destination à régulariser.
+              {reqOr ? `Dossier ${reqOr} — aucun OR DDA rattaché : conservé pour le rapprochement à la facture WinMotor. ` : "Aucun OR DDA rattaché. "}La validation reste possible : les pièces entrent en stock et la réception part dans « À régulariser ».
             </p>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
             <input className={inputCls} placeholder="Colis / cartons (facultatif)" value={packages} onChange={(e) => setPackages(e.target.value)} />
-            <input className={inputCls} placeholder="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
+            <input className={inputCls} placeholder="Commentaire" aria-label="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
            <div className="hidden grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
              <span>Référence</span><span>Désignation</span><span>Commandée</span><span>Déjà reçue</span><span>Reçue maintenant</span><span>PA HT</span><span>État</span><span>Destination</span><span>Ctrl</span>
