@@ -86,7 +86,7 @@ export function scoreOrderMatch(doc: DocExtractLite, order: OrderLike): number {
   const orn = (doc.or_number ?? "").replace(/\D/g, "");
   const oorn = (order.repair_orders?.or_number ?? "").replace(/\D/g, "");
   if (orn && oorn && orn === oorn) s += 3;
-  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) s += 3;
+  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) s += 4;
   if (doc.order_reference && order.supplier_order_ref && normalizeRef(doc.order_reference) === normalizeRef(order.supplier_order_ref)) s += 4;
   const refs = new Set((order.part_order_lines ?? []).map((l) => normalizeRef(l.physical_reference ?? "")).filter(Boolean));
   let common = 0;
@@ -101,10 +101,13 @@ export type OrderMatch<T> = { order: T; score: number; level: "certain" | "proba
 export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null): OrderMatch<T>[] {
   return pendingReceptionOrders(orders)
     .filter((o) => !siteId || o.site_id === siteId)
-    .map((order) => ({ order, score: scoreOrderMatch(doc, order) }))
-    .filter((m) => m.score >= 2)
+    // Plaques différentes = autre véhicule : jamais candidate.
+    .filter((o) => !(plateKey(doc.plate) && plateKey(o.plate) && plateKey(doc.plate) !== plateKey(o.plate)))
+    .map((order) => ({ order, score: scoreOrderMatch(doc, order), strong: scoreOrderMatch({ ...doc, supplier: null }, order) }))
+    // Le fournisseur seul ne suffit jamais : il faut plaque, OR, n° commande ou référence commune.
+    .filter((m) => m.strong > 0 && m.score >= 2)
     .sort((a, b) => b.score - a.score)
-    .map((m) => ({ ...m, level: m.score >= 4 ? ("certain" as const) : ("probable" as const) }));
+    .map(({ order, score }) => ({ order, score, level: score >= 4 ? ("certain" as const) : ("probable" as const) }));
 }
 
 /** Fournisseur connu correspondant au nom lu (sinon null : l'utilisateur choisit). */

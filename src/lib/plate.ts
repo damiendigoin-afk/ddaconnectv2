@@ -26,3 +26,16 @@ export function formatPlate(input: string): string {
   if (old) return `${old[1]}-${old[2]}-${old[3]}`;
   return n;
 }
+/** Immatriculation SIV française (AA-123-AA) trouvée dans un texte libre, format affiché « HG-732-GH ». null si absente ou ambiguë. */
+export function findFrenchPlate(text: string | null | undefined): string | null {
+  const t = latinizePlate(text || "").toUpperCase();
+  const found = new Set<string>();
+  for (const m of t.matchAll(/(?<![A-Z0-9])([A-Z]{2})[\s.-]?(\d{3})[\s.-]?([A-Z]{2})(?![A-Z0-9])/g)) {
+    // SIV : pas de I, O, U ; blocs interdits SS / WW en tête.
+    const p = `${m[1]}${m[2]}${m[3]}`;
+    if (/[IOU]/.test(m[1]! + m[3]!) || m[2] === "000" || m[1] === "SS" || m[1] === "WW") continue;
+    found.add(p);
+  }
+  if (found.size !== 1) return null;
+  return formatPlate([...found][0]!);
+}
