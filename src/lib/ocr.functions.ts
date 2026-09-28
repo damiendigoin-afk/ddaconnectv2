@@ -204,7 +204,8 @@ Réponds STRICTEMENT en JSON :
 - supplier_info : coordonnées de l'ÉMETTEUR uniquement, telles qu'imprimées (en-tête/pied de page) : {"address","postal_code","city","phone","email","website","siret","vat_number"} ; champ absent = omis ; null si rien.
 - order_reference : numéro de commande fournisseur (« Commande n° », « N° de commande »).
 - or_number : numéro d'OR / dossier atelier (« Repère commande », « Votre référence », « Réf. client », « N° OR »), chiffres uniquement.
-  Ne pas confondre avec « N° client » ni « Compte de facturation ».
+  Ne pas confondre avec « N° client » ni « Compte de facturation ». Si ce repère (« Mes références », « Véhicule »…) est une
+  IMMATRICULATION (ex. HG 732 GH), la mettre dans plate avec plate_printed=true et laisser or_number à null.
 - isolated_number : nombre imprimé SEUL, sans libellé, sur une ligne sous la désignation de l'article (souvent 5 chiffres = dossier atelier). null sinon.
 - lines : une entrée par article (« Réf », « Désignation », « Qté »). unit_price = prix d'achat NET unitaire HT ;
   client_price = « Prix client », « Prix public », prix catalogue (ne pas le mettre dans unit_price) ; amount = montant net HT de la ligne.
