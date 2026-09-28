@@ -8,7 +8,7 @@ import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 import { compressImage, blobToDataUrl } from "@/lib/photo";
-import { ocrPlate } from "@/lib/ocr.functions";
+import { ocrOrOrPlate } from "@/lib/ocr.functions";
 import { OR_SELECT } from "@/lib/queries";
 import { customerName, findRefVehicleByPlate, vehicleLabel, type RefCustomer, type RefVehicle } from "@/lib/refbase";
 
@@ -45,10 +45,19 @@ function ScanPlate() {
     try {
       const blob = await compressImage(file, 1400, 0.85);
       const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrPlate({ data: { dataUrl } });
+      const res = await ocrOrOrPlate({ data: { dataUrl } });
       if (res.ok) {
-        setPlate(formatPlate(res.plate));
-        await search(res.plate);
+        if (res.plate) setPlate(formatPlate(res.plate));
+        if (res.or_number) {
+          const { data: ors } = await supabase.from("repair_orders").select("id").eq("or_number", res.or_number).limit(2);
+          if (ors?.length === 1) {
+            // Les réceptions en attente de la même immat sont proposées sur la fiche OR (confirmation obligatoire).
+            navigate({ to: "/or/$orId", params: { orId: ors[0]!.id } });
+            return;
+          }
+          setNote(`OR ${res.or_number} lu${res.plate ? ` · immat ${formatPlate(res.plate)}` : ""} — ${ors?.length ? "plusieurs dossiers portent ce numéro : utilisez la recherche de l'accueil." : "pas encore connu dans DDA : attendez/importez l'OR WinMotor (aucun OR créé)."}`);
+        }
+        if (res.plate) await search(res.plate);
       } else {
         setNote(`${res.error} Saisissez la plaque manuellement.`);
       }
