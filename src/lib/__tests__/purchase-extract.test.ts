@@ -96,7 +96,7 @@ describe("commande 45873330 : OR non importé + plaque imprimée", () => {
     expect(autoSupplier("", false, x.supplier, suppliers)).toBe("s1");
     expect(x.order_reference).toBe("45873330");
     expect(x.or_number).toBe("48416");
-    expect(x.plate).toBe("FG315YS");
+    expect(x.plate).toBe("FG-315-YS");
     const l = x.lines![0]!;
     expect(l.reference).toBe("8100166273");
     expect(l.quantity).toBe(1);
