@@ -1,9 +1,28 @@
 import { fmtEur } from "@/components/parts/PartsUi";
 import { pendingOrderLineMetrics, type PendingOrderLine } from "@/lib/receipt-lines";
+import { simplifiedOrderMeta } from "@/lib/parts-site";
 
-export function OrderLinesCompact({ lines }: { lines: PendingOrderLine[] }) {
+type OrderMeta = { order_mode?: string | null; comment?: string | null; created_by_name?: string | null; created_at?: string | null };
+
+function SimplifiedMetaLine({ order }: { order: OrderMeta }) {
+  const meta = simplifiedOrderMeta(order);
+  if (!meta.hasMeta) return null;
+  return (
+    <div className="mt-2 border-t border-border pt-2">
+      {meta.comment ? <p className="text-sm font-semibold">Commentaire : {meta.comment}</p> : null}
+      {meta.createdBy ? <p className="mt-0.5 text-xs text-muted-foreground">Créée par {meta.createdBy}{meta.when ? ` · ${meta.when}` : ""}</p> : null}
+    </div>
+  );
+}
+
+export function OrderLinesCompact({ lines, order }: { lines: PendingOrderLine[]; order?: OrderMeta | null }) {
   const parts = lines.filter((line) => line.line_kind === "part");
-  if (!parts.length) return <p className="mt-2 text-xs text-muted-foreground">Contenu non détaillé.</p>;
+  const simplified = order?.order_mode === "simplified";
+  if (!parts.length) {
+    // Commande simplifiée : commentaire / créateur / heure sont l'information principale, jamais remplacés par « Contenu non détaillé ».
+    if (simplified && simplifiedOrderMeta(order!).hasMeta) return <SimplifiedMetaLine order={order!} />;
+    return <p className="mt-2 text-xs text-muted-foreground">Contenu non détaillé.</p>;
+  }
 
   return (
     <div className="mt-2 border-t border-border pt-2">
@@ -25,6 +44,7 @@ export function OrderLinesCompact({ lines }: { lines: PendingOrderLine[] }) {
           );
         })}
       </div>
+      {simplified ? <SimplifiedMetaLine order={order!} /> : null}
     </div>
   );
 }

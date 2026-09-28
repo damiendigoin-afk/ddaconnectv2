@@ -150,6 +150,25 @@ export function searchPendingOrders<T extends OrderLike & { requested_or_number?
   }).slice(0, max);
 }
 
+/**
+ * Ligne d'identification d'une commande simplifiée : commentaire + créateur + date/heure.
+ * Pour ces commandes saisies au comptoir, le commentaire est le principal repère humain ;
+ * sans commentaire ni créateur on retombe sur « Contenu non détaillé ».
+ */
+export type SimplifiedOrderMeta = { comment: string | null; createdBy: string | null; when: string | null; hasMeta: boolean };
+
+export function simplifiedOrderMeta(o: { order_mode?: string | null; comment?: string | null; created_by_name?: string | null; created_at?: string | null }): SimplifiedOrderMeta {
+  if (o.order_mode !== "simplified") return { comment: null, createdBy: null, when: null, hasMeta: false };
+  const comment = o.comment?.trim() ? o.comment.trim() : null;
+  const createdBy = o.created_by_name?.trim() ? o.created_by_name.trim() : null;
+  let when: string | null = null;
+  if (o.created_at) {
+    const d = new Date(o.created_at);
+    when = isNaN(d.getTime()) ? null : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  }
+  return { comment, createdBy, when, hasMeta: !!(comment || createdBy) };
+}
+
 /** Fournisseur connu correspondant au nom lu (sinon null : l'utilisateur choisit). */
 const GENERIC_WORDS = new Set(["groupe", "group", "auto", "autos", "automobile", "automobiles", "garage", "sas", "sarl", "distribution", "pieces", "piece", "france", "societe", "ets", "etablissements"]);
 const sigWords = (s: string) => norm(s).split(" ").filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));
