@@ -25,6 +25,7 @@ import {
   type InvoiceExtract,
   type SupplierDoc,
 } from "@/lib/supplier-docs";
+import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 
 export const Route = createFileRoute("/factures-fournisseur/")({
   head: () => ({
@@ -189,6 +190,7 @@ function DocCard({ doc, open, onToggle }: { doc: SupplierDoc; open: boolean; onT
       {open ? (
         <div className="mt-3 space-y-3 border-t border-border pt-3 text-sm">
           <div className="grid grid-cols-2 gap-2">
+            {form.supplier ? <div className="col-span-2"><DocSupplierLink extracted={form} docId={doc.id} onLinked={(id) => setForm((f) => ({ ...f, supplier_id: id }))} /></div> : null}
             <Field label="Fournisseur" value={form.supplier ?? ""} onChange={(v) => setForm({ ...form, supplier: v || null })} />
             <Field label="N° facture" value={form.invoice_number ?? ""} onChange={(v) => setForm({ ...form, invoice_number: v || null })} />
             <Field label="N° BL" value={form.delivery_note_number ?? ""} onChange={(v) => setForm({ ...form, delivery_note_number: v || null })} />
