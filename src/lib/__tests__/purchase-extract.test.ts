@@ -96,7 +96,7 @@ describe("commande 45873330 : OR non importé + plaque imprimée", () => {
     expect(autoSupplier("", false, x.supplier, suppliers)).toBe("s1");
     expect(x.order_reference).toBe("45873330");
     expect(x.or_number).toBe("48416");
-    expect(x.plate).toBe("FG315YS");
+    expect(x.plate).toBe("FG-315-YS");
     const l = x.lines![0]!;
     expect(l.reference).toBe("8100166273");
     expect(l.quantity).toBe(1);
@@ -150,5 +150,41 @@ describe("BL 914765 : dossier 50875 imprimé seul sous la désignation", () => {
     expect(normalizePurchaseExtract({ ...base, document_number: "50875" }).or_number).toBeNull();
     expect(normalizePurchaseExtract({ ...base, lines: [{ ...base.lines[0], isolated_number: "123456" }] }).or_number).toBeNull();
     expect(normalizePurchaseExtract({ ...base, lines: [{ ...base.lines[0], ref: "8550875", isolated_number: "50875" }] }).or_number).toBeNull();
+  });
+});
+
+import { findFrenchPlate } from "@/lib/plate";
+import { matchOrders } from "@/lib/parts-site";
+
+describe("BL 914776 : immatriculation dans « mes références » / désignation", () => {
+  it("formats HG 732 GH / HG-732-GH / HG732GH", () => {
+    for (const s of ["HG 732 GH", "HG-732-GH", "HG732GH", "mes références : hg 732 gh"]) expect(findFrenchPlate(s)).toBe("HG-732-GH");
+  });
+  it("pas de faux positif sur OR 5 chiffres, dimension pneu ou plaques multiples", () => {
+    expect(findFrenchPlate("50875")).toBeNull();
+    expect(findFrenchPlate("MICHELIN 205/65 R16 107T C A B 73 AGILIS")).toBeNull();
+    expect(findFrenchPlate("AB-123-CD et EF-456-GH")).toBeNull();
+  });
+  it("repère = plaque => plate renseignée, OR vide", () => {
+    const x = normalizePurchaseExtract({ doc_kind: "bl", distributor: "FAURIE AUTO SARLAT", document_number: "914776", or_number: "HG 732 GH", lines: [{ ref: "7711640502", designation: "AGILIS CROSSCLIMATE", qty: 2, unit_price: 150.08 }] });
+    expect(x.plate).toBe("HG-732-GH");
+    expect(x.or_number).toBeNull();
+  });
+  it("plaque dans le libellé de ligne", () => {
+    const x = normalizePurchaseExtract({ doc_kind: "bl", document_number: "914776", lines: [{ ref: "7711640502", designation: "MICHELIN 205/65 R16 107T C A B 73 AGILIS CROSSCLIMATE (803302) hg 732 gh", qty: 2, unit_price: 150.08 }] });
+    expect(x.plate).toBe("HG-732-GH");
+    expect(x.or_number).toBeNull();
+  });
+  it("OR 5 chiffres reste un OR", () => {
+    expect(normalizePurchaseExtract({ or_number: "Repère 50413", lines: [] }).or_number).toBe("50413");
+    expect(normalizePurchaseExtract({ or_number: "Repère 50413", lines: [] }).plate).toBeNull();
+  });
+  it("fournisseur seul => aucune correspondance ; plaque => certaine ; autre plaque exclue", () => {
+    const base = { site_id: "cas", status: "ordered", supplier_order_ref: null, suppliers: { name: "FAURIE AUTO SARLAT" }, repair_orders: null, part_order_lines: [] };
+    const orders = [{ ...base, id: "a", plate: null }, { ...base, id: "b", plate: "HG-732-GH" }, { ...base, id: "c", plate: "AB-123-CD" }];
+    expect(matchOrders({ supplier: "FAURIE AUTO SARLAT", plate: null }, orders as never, "cas")).toEqual([]);
+    const m = matchOrders({ supplier: "FAURIE AUTO SARLAT", plate: "HG732GH" }, orders as never, "cas");
+    expect(m.map((x) => x.order.id)).toEqual(["b"]);
+    expect(m[0]!.level).toBe("certain");
   });
 });

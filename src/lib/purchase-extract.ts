@@ -2,6 +2,7 @@
  * Post-traitement générique d'un document d'achat lu par OCR (commande, BL, facture).
  * Aucune règle propre à un fournisseur : alias de libellés courants + cohérence des prix avec le total HT.
  */
+import { findFrenchPlate } from "@/lib/plate";
 import type { InvoiceExtract, InvoiceLine, SupplierInfo } from "@/lib/supplier-docs";
 
 type Raw = Record<string, unknown> & Partial<Record<"doc_kind"|"document_number"|"document_date"|"delivery_note_number"|"invoice_number"|"invoice_date"|"plate"|"plate_printed"|"customer_or_site"|"total_ht"|"vat_amount"|"total_ttc"|"handwritten_notes"|"lines"|"quantity"|"qty"|"qte"|"amount"|"net_amount"|"line_total_ht"|"montant_net"|"net_unit_price"|"unit_net_price"|"client_price"|"public_price"|"list_price"|"unit_price"|"price"|"discount_pct", unknown>>;
@@ -118,7 +119,18 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   // Plaque : seulement si réellement imprimée sur le document.
   const platePrinted = o.plate_printed === true || o.plate_printed === "true";
   const kind = str(o.doc_kind);
-  let orNumber = digits(pick(o, ["or_number", "customer_reference", "order_mark", "repere_commande"]));
+  // « Repère / Mes références / Réf. client / Véhicule » peut être une immatriculation : jamais un OR.
+  const refFields = ["or_number", "customer_reference", "order_mark", "repere_commande", "vehicle", "mes_references"];
+  let orRaw: string | null = null;
+  let refPlate: string | null = null;
+  for (const k of refFields) {
+    const v = str(o[k]);
+    if (!v) continue;
+    const p = findFrenchPlate(v);
+    if (p) { refPlate ??= p; continue; }
+    orRaw ??= v;
+  }
+  let orNumber = digits(orRaw);
   const docNumber = str(o.document_number);
   if (!orNumber) {
     orNumber = isolatedOrNumber(lines, [docNumber, str(o.delivery_note_number), str(o.invoice_number), str(o["order_reference"]), str(o["order_number"])]);
@@ -139,7 +151,9 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     invoice_number: str(o.invoice_number),
     invoice_date: str(o.invoice_date),
     or_number: orNumber,
-    plate: platePrinted ? str(o.plate) : null,
+    plate: (platePrinted && str(o.plate) ? findFrenchPlate(str(o.plate)) ?? str(o.plate) : null)
+      ?? refPlate
+      ?? findFrenchPlate([str(o.handwritten_notes), ...lines.map((l) => l.label)].filter(Boolean).join(" | ")),
     customer_or_site: str(o.customer_or_site),
     lines: lines.map(({ client_price: _c, isolated_number: _i, ...l }) => l),
     total_ht: totalHt,

@@ -19,6 +19,8 @@ import { isOverReceipt } from "@/lib/parts-rules";
 import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
 import { Check } from "lucide-react";
+import { findFrenchPlate, normalizePlate } from "@/lib/plate";
+import { supabase } from "@/integrations/supabase/client";
 import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
 import { receiptLinesFromOrder } from "@/lib/receipt-lines";
 
@@ -121,7 +123,8 @@ function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
 export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierDoc; onOrder: (id: string) => void; onNoOrder: () => void; onCancel: () => void }) {
   const { writeSite, sites } = usePartsCtx();
   const suppliers = useSuppliers();
-  const x = doc.extracted;
+  const x0 = doc.extracted;
+  const x = { ...x0, plate: x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")) };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
   const matches = matchOrders(x, orders.data ?? [], writeSite);
   const sup = matchSupplier(x.supplier, suppliers.data ?? []);
@@ -134,6 +137,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
         <p>OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · Réf. commande : <b>{x.order_reference ?? "—"}</b></p>
         <p>{(x.lines ?? []).length} ligne(s) lue(s)</p>
       </div>
+      {x.plate ? <PlateInfo plate={x.plate} /> : null}
       {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
       {matches.map((m) => (
         <button key={m.order.id} className="block w-full rounded-lg border-2 border-brand p-3 text-left text-sm" onClick={() => onOrder(m.order.id)}>
@@ -145,6 +149,27 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
       {orders.data && !matches.length ? <p className="text-sm text-muted-foreground">Aucune commande DDA correspondante sur ce site.</p> : null}
       <button className={`${btnGhost} w-full`} onClick={onNoOrder}>Réceptionner sans commande (depuis le BL)</button>
       <button className="w-full text-xs underline" onClick={onCancel}>Annuler</button>
+    </div>
+  );
+}
+
+/** Immatriculation lue sur le document : véhicule et dossiers WinMotor connus (lecture seule). */
+function PlateInfo({ plate }: { plate: string }) {
+  const q = useQuery({
+    queryKey: ["plate-info", normalizePlate(plate)],
+    queryFn: async () => {
+      const { data: v } = await supabase.from("vehicles").select("id, brand, model").eq("plate_normalized", normalizePlate(plate)).limit(1).maybeSingle();
+      if (!v) return null;
+      const { data: ors } = await supabase.from("repair_orders").select("id, or_number").eq("vehicle_id", v.id).order("created_at", { ascending: false }).limit(3);
+      return { v, ors: ors ?? [] };
+    },
+  });
+  return (
+    <div className="rounded-lg border-2 border-brand p-2 text-xs">
+      <p>Immatriculation détectée : <b>{plate}</b></p>
+      {q.data ? (
+        <p>{[q.data.v.brand, q.data.v.model].filter(Boolean).join(" ") || "Véhicule connu"}{q.data.ors.length ? ` · OR ${q.data.ors.map((o) => o.or_number ?? "en attente").join(", ")}` : " · aucun OR"}</p>
+      ) : q.isFetched ? <p className="text-muted-foreground">Véhicule inconnu de la base : la plaque sera conservée sur la réception pour rapprochement ultérieur.</p> : null}
     </div>
   );
 }
