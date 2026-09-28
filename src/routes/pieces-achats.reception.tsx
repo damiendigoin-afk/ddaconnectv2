@@ -19,7 +19,7 @@ import { isOverReceipt } from "@/lib/parts-rules";
 import { blankReceiptLine, lineAnomalies, receiptLinesFromDoc } from "@/lib/receipt-lines";
 import { requestedDossier } from "@/lib/parts-site";
 import { Check } from "lucide-react";
-import { findFrenchPlate, normalizePlate, winmotorOrHistory } from "@/lib/plate";
+import { findFrenchPlate, formatPlate, normalizePlate, winmotorOrHistory } from "@/lib/plate";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
 import { receiptLinesFromOrder } from "@/lib/receipt-lines";
@@ -124,7 +124,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const { writeSite, sites } = usePartsCtx();
   const suppliers = useSuppliers();
   const x0 = doc.extracted;
-  const x = { ...x0, plate: x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")) };
+  const x0p = x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")); const x = { ...x0, plate: x0p ? formatPlate(x0p) : null };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
   const sugg = receptionSuggestions(x, orders.data ?? [], writeSite);
   const sup = matchSupplier(x.supplier, suppliers.data ?? []);
@@ -268,7 +268,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const [site, setSite] = useState<string | null>(writeSite);
   const [orderId, setOrderId] = useState<string | null>(initialOrder);
   const [supplier, setSupplier] = useState("");
-  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ?? "", vehicleId: null });
+  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ? formatPlate(x.plate) : "", vehicleId: null });
   const [docId, setDocId] = useState(doc?.id ?? "");
   const [packages, setPackages] = useState("");
   const [comment, setComment] = useState("");
@@ -335,7 +335,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
         order_id: orderId,
         repair_order_id: orv.or?.id ?? null,
         vehicle_id: orv.vehicleId,
-        plate: orv.plate.trim() || null,
+        plate: orv.plate.trim() ? formatPlate(orv.plate) : null,
         source_document_id: docId || null,
         receipt_type: docId ? "document" : "physical_without_document",
         packages: packages.trim() || null,

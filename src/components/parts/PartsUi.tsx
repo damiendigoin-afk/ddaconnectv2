@@ -9,6 +9,7 @@ import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
 import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
 import { syncOrNumber } from "@/lib/receipt-lines";
+import { formatPlate } from "@/lib/plate";
 
 export const inputCls = "h-11 w-full rounded-lg border-2 border-border bg-card px-3 text-sm";
 export const btnPrimary = "h-11 rounded-lg bg-brand px-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50";
