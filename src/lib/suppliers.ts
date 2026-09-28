@@ -1,6 +1,7 @@
 /** Référentiel global Fournisseurs (transverse à tous les modules DDA Connect). */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { draftToSupplierRow, resolveSupplier, type SupplierDraft } from "@/lib/supplier-identify";
 
 export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
 export type SupplierContact = Database["public"]["Tables"]["supplier_contacts"]["Row"];
@@ -80,30 +81,30 @@ export async function partsEmailFor(supplierId: string | null | undefined, suppl
   return s?.returns_email || s?.email || "";
 }
 
-const normName = (s: string | null | undefined) =>
-  (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
-
 /**
  * Rattache un fournisseur détecté (BL/facture) à la fiche existante, ou la crée.
- * Anti-doublon : casse/espaces/accents/ponctuation ignorés, puis rapprochement
- * par mots significatifs (matchSupplier). Ambiguïté entre plusieurs fiches => null
- * (pas de création, pour ne pas dupliquer).
+ * Anti-doublon : resolveSupplier (casse/accents/ponctuation/espaces, mots significatifs).
+ * Ambiguïté entre plusieurs fiches => null (pas de création, pour ne pas dupliquer).
  */
 export async function ensureSupplierByName(name: string | null | undefined): Promise<string | null> {
   const clean = (name ?? "").replace(/\s+/g, " ").trim();
-  const n = normName(clean);
-  if (n.length < 3) return null;
+  if (!clean) return null;
+  const draft: SupplierDraft = { name: clean.toUpperCase(), address: "", postal_code: "", city: "", phone: "", email: "", website: "", siret: "", vat_number: "" };
+  const r = await createSupplierFromDraft(draft);
+  return r.id;
+}
+
+/**
+ * Création rapide d'une fiche depuis un document. Re-vérifie juste avant l'insertion
+ * qu'aucune fiche équivalente n'existe (autre utilisateur, autre onglet) : réutilisée le cas échéant.
+ */
+export async function createSupplierFromDraft(draft: SupplierDraft): Promise<{ id: string | null; created: boolean; ambiguous?: boolean }> {
   const { data } = await supabase.from("suppliers").select("id, name, active");
-  const all = (data ?? []) as { id: string; name: string; active: boolean | null }[];
-  const exact = all.filter((s) => normName(s.name) === n);
-  if (exact.length) return (exact.find((s) => s.active !== false) ?? exact[0]!).id;
-  const { matchSupplier } = await import("@/lib/parts-site");
-  const m = matchSupplier(clean, all);
-  if (m) return m.id;
-  // Plusieurs fiches proches => ne pas créer de doublon, laisser à régulariser.
-  const close = all.filter((s) => { const sn = normName(s.name); return sn.length >= 3 && (sn.includes(n) || n.includes(sn)); });
-  if (close.length) return null;
-  const { data: created, error } = await supabase.from("suppliers").insert({ name: clean.toUpperCase() }).select("id").single();
-  if (error) throw new Error(`Création du fournisseur « ${clean} » impossible : ${error.message}`);
-  return created.id;
+  const r = resolveSupplier(draft.name, (data ?? []) as { id: string; name: string; active: boolean | null }[]);
+  if (r.kind === "found") return { id: r.supplier.id, created: false };
+  if (r.kind === "ambiguous") return { id: null, created: false, ambiguous: true };
+  if (r.kind === "none") return { id: null, created: false };
+  const { data: created, error } = await supabase.from("suppliers").insert(draftToSupplierRow(draft)).select("id").single();
+  if (error) throw new Error(`Création du fournisseur « ${draft.name} » impossible : ${error.message}`);
+  return { id: created.id, created: true };
 }

@@ -6,6 +6,7 @@ import { mailFullyImported, operationalMails } from "@/lib/supplier-mail-filter"
 import { supabase } from "@/integrations/supabase/client";
 import { extensionOf, rejectReason } from "@/lib/documents";
 import { dedupeDocs } from "@/lib/receipt-lines";
+import { resolveSupplier } from "@/lib/supplier-identify";
 
 export const SUPPLIER_DOC_TYPE = "facture_fournisseur";
 const BUCKET = "dda-media";
@@ -118,6 +119,12 @@ export async function uploadSupplierDoc(opts: {
   dq = opts.siteId ? dq.eq("site_id", opts.siteId) : dq.is("site_id", null);
   const { data: same } = await dq;
   if (same?.[0]) return { ...same[0], extracted: toExtract(same[0].extracted) };
+  // Identification du fournisseur dès l'import : fiche existante sûre => rattachement immédiat.
+  if (!opts.extracted.supplier_id && opts.extracted.supplier) {
+    const { data: sups } = await supabase.from("suppliers").select("id,name,active");
+    const r = resolveSupplier(opts.extracted.supplier, sups ?? []);
+    if (r.kind === "found") opts = { ...opts, extracted: { ...opts.extracted, supplier_id: r.supplier.id } };
+  }
   const path = `fournisseurs/${crypto.randomUUID()}.${extensionOf(opts.file.name)}`;
   const up = await supabase.storage.from(BUCKET).upload(path, opts.file, {
     contentType: opts.file.type || "application/octet-stream",
@@ -168,6 +175,16 @@ export async function updateSupplierDoc(
     })
     .eq("id", id);
   if (error) throw error;
+}
+
+/** Rattache la fiche fournisseur au document (extracted.supplier_id), sans toucher au reste. */
+export async function linkDocSupplier(id: string, supplierId: string, supplierName?: string | null): Promise<void> {
+  const { data, error } = await supabase.from("inbox_documents").select("extracted").eq("id", id).maybeSingle();
+  if (error) throw error;
+  const x = toExtract(data?.extracted);
+  const next = { ...x, supplier_id: supplierId, supplier: x.supplier ?? supplierName ?? null };
+  const { error: e2 } = await supabase.from("inbox_documents").update({ extracted: next as never }).eq("id", id);
+  if (e2) throw e2;
 }
 
 /** Rattachement à un OR existant : bascule l'état en « Lié OR ». */

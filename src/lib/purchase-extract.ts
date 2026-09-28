@@ -2,7 +2,7 @@
  * Post-traitement générique d'un document d'achat lu par OCR (commande, BL, facture).
  * Aucune règle propre à un fournisseur : alias de libellés courants + cohérence des prix avec le total HT.
  */
-import type { InvoiceExtract, InvoiceLine } from "@/lib/supplier-docs";
+import type { InvoiceExtract, InvoiceLine, SupplierInfo } from "@/lib/supplier-docs";
 
 type Raw = Record<string, unknown> & Partial<Record<"doc_kind"|"document_number"|"document_date"|"delivery_note_number"|"invoice_number"|"invoice_date"|"plate"|"plate_printed"|"customer_or_site"|"total_ht"|"vat_amount"|"total_ttc"|"handwritten_notes"|"lines"|"quantity"|"qty"|"qte"|"amount"|"net_amount"|"line_total_ht"|"montant_net"|"net_unit_price"|"unit_net_price"|"client_price"|"public_price"|"list_price"|"unit_price"|"price"|"discount_pct", unknown>>;
 
@@ -86,6 +86,17 @@ function normLine(l: Raw): NormLine {
   };
 }
 
+function supplierInfo(v: unknown): SupplierInfo | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Raw;
+  const out: SupplierInfo = {};
+  for (const k of ["address", "postal_code", "city", "phone", "email", "website", "siret", "vat_number"] as const) {
+    const x = str(o[k]);
+    if (x) out[k] = x;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   const o = (input && typeof input === "object" ? input : {}) as Raw;
   const rawLines = Array.isArray(o.lines) ? (o.lines as Raw[]) : [];
@@ -120,6 +131,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   return {
     doc_kind: kind,
     supplier: pick(o, ["supplier", "distributor", "distributeur", "vendor", "seller"]),
+    supplier_info: supplierInfo(o.supplier_info),
     document_number: docNumber,
     document_date: str(o.document_date),
     order_reference: orderRef,
