@@ -9,7 +9,7 @@ export function CancelAction({ label, warning, onConfirm }: { label: string; war
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const stop = (e: React.SyntheticEvent) => { e.preventDefault(); e.stopPropagation(); };
-  if (!open) return <button type="button" className="ml-3 text-xs font-bold text-destructive underline" onClick={(e) => { stop(e); setOpen(true); }}>{label}</button>;
+  if (!open) return <button type="button" data-action="cancel" className="ml-3 text-xs font-bold text-destructive underline" onClick={(e) => { stop(e); setOpen(true); }}>{label}</button>;
   return (
     <div className="mt-2 space-y-2 rounded-lg border-2 border-destructive p-2 text-xs" onClick={stop}>
       <p className="font-bold">{warning}</p>
