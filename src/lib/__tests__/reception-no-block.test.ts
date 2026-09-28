@@ -79,7 +79,7 @@ describe("recherche manuelle : commandes simplifiées uniquement", () => {
   it("order_mode inconnu/null est exclu de la recherche manuelle", () => {
     expect(ids("").includes("legacy")).toBe(false);
   });
-  it("la commandé détaillée reste candidate au rapprochement automatique", () => {
+  it("la commande détaillée reste candidate au rapprochement automatique", () => {
     const r = receptionSuggestions({ supplier: "FAURIE", plate: "HG732GH" }, [detailed], "cas");
     expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["det"]);
   });
