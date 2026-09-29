@@ -130,7 +130,7 @@ function qtyOf(s: string): number | null {
 export function parseItemLines(text: string): Line[] {
   const out: Line[] = [];
   const refFirst = new RegExp(
-    String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*€?$`,
+    String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}\s*(?:€|EUR)?(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*(?:€|EUR)?$`,
     "i",
   );
   const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
