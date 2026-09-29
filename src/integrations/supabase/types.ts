@@ -8487,8 +8487,17 @@ export type Database = {
         Returns: boolean
       }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
+      is_garage_contact: {
+        Args: { _kind: string; _site?: string; _v: string }
+        Returns: boolean
+      }
+      is_internal_client: {
+        Args: { _id: string; _site?: string }
+        Returns: boolean
+      }
       next_dda_order_ref: { Args: never; Returns: string }
       next_part_return_ref: { Args: never; Returns: string }
+      norm_contact: { Args: { _v: string }; Returns: string }
       norm_person: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
       platform_storage_stats: {

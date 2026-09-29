@@ -5,6 +5,7 @@
  */
 import { findFrenchPlate, formatPlate } from "./plate";
 import { normSupplierName } from "./supplier-identify";
+import { isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
 
 export type Fields = Record<string, unknown>;
 export type DocKind =
@@ -303,6 +304,7 @@ export function findFrenchPhones(text: string): { phone: string | null; mobile: 
     const digits = m[0].replace(/\D/g, "").replace(/^(0033|33)/, "0");
     const d = digits.length === 9 ? `0${digits}` : digits;
     if (d.length !== 10) continue;
+    if (isGaragePhone(d)) continue; // téléphone de l'en-tête du garage
     const f = d.replace(/(\d{2})(?=\d)/g, "$1 ");
     if (/^0[67]/.test(d)) mobile ??= f;
     else phone ??= f;
@@ -327,11 +329,12 @@ export function repairOrderRules(raw: string): Fields {
   const text = cleanText(raw);
   const lines = text.split("\n");
   const upper = text.toUpperCase();
-  const email = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(text)?.[0]?.toLowerCase() ?? null;
+  // E-mail client = premier e-mail qui n'est pas celui du garage (en-tête de l'OR).
+  const email = [...text.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map((m) => m[0].toLowerCase()).find((e) => !isGarageEmail(e)) ?? null;
   const { phone, mobile } = findFrenchPhones(text);
   // Adresse : ligne « code postal + ville » précédée de la ligne de rue.
   let address: string | null = null, postal_code: string | null = null, city: string | null = null;
-  const cpIdx = lines.findIndex((l) => /^\d{5}\s+[A-ZÀ-Ü][A-ZÀ-Ü' -]{2,}$/i.test(l));
+  const cpIdx = lines.findIndex((l, i) => /^\d{5}\s+[A-ZÀ-Ü][A-ZÀ-Ü' -]{2,}$/i.test(l) && !isGarageAddress(lines[i - 1]) && !isGarageName(lines[i - 1]));
   if (cpIdx >= 0) {
     const m = /^(\d{5})\s+(.+)$/.exec(lines[cpIdx]!)!;
     postal_code = m[1]!;
@@ -341,8 +344,14 @@ export function repairOrderRules(raw: string): Fields {
   }
   // Client : « M. / Mme / Monsieur / Madame / Société / Client : NOM Prénom ».
   let last_name: string | null = null, first_name: string | null = null;
-  const cm = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text)
+  const cm0 = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text)
     ?? /client\s*:\s*([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text);
+  // Raison sociale du garage (en-tête) : jamais retenue comme client.
+  const cm = cm0 && !isGarageName(cm0.slice(1).filter(Boolean).join(" ")) ? cm0 : (() => {
+    const re = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/gim;
+    for (const m of text.matchAll(re)) if (!isGarageName(m.slice(1).filter(Boolean).join(" "))) return m as unknown as RegExpExecArray;
+    return /client\s*:\s*([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text);
+  })();
   if (cm && cm.length === 4 && !/SOCI|SARL|SAS|EURL|^SA$/i.test(cm[1]!) && !cm[3]) {
     // « DUPONT Jean » capturé d'un bloc (drapeau i) : nom = mots en majuscules, prénom = le reste.
     const toks = cm[2]!.trim().split(/\s+/);

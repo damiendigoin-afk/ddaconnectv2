@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { stripGarageContacts, type SiteLike } from "./garage-identity";
 import type { DossierConflict, DossierData, EnsureResult } from "./or-scan-decision";
 
 export type EnsureFullResult = EnsureResult & { conflicts?: DossierConflict[] };
@@ -14,9 +15,12 @@ export async function ensureWinmotorDossier(input: {
   plate?: string | null;
   data?: DossierData | null;
   userName?: string | null;
+  site?: SiteLike;
 }): Promise<EnsureFullResult> {
   if (!input.siteId) return { error: "site_required" };
-  const data: DossierData = input.data ?? { client: {}, vehicle: {}, order: {} };
+  const raw: DossierData = input.data ?? { client: {}, vehicle: {}, order: {} };
+  // Coordonnées du garage lues dans l'en-tête de l'OR : jamais des données client.
+  const data: DossierData = { ...raw, client: stripGarageContacts(raw.client ?? {}, input.site) };
   if (input.plate && !data.vehicle["plate"]) data.vehicle = { ...data.vehicle, plate: input.plate };
   const args: { _site: string; _or_number: string; _data: DossierData; _user_name?: string } = {
     _site: input.siteId,

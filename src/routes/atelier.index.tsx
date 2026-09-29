@@ -74,7 +74,7 @@ function AtelierHub() {
   });
 
   async function ensureAndOpen(orNumber: string, plate: string | null, data: DossierData | null) {
-    const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber, plate, data, userName: displayName || null });
+    const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber, plate, data, userName: displayName || null, site });
     const a = interpretEnsure(orNumber, r);
     if (a.kind === "open") {
       if (a.created) toast.success(`Fiche dossier OR WinMotor ${orNumber} créée`);
