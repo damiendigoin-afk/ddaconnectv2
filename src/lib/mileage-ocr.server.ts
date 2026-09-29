@@ -1,3 +1,4 @@
+import { plausibleMileage } from "./doc-rules";
 import { runPaidAi } from "./ai-usage.server";
 import { parseJsonBlock, VISION_MODEL } from "./ocr.server";
 
@@ -16,6 +17,9 @@ Si illisible : {"mileage":null,"unit":null}`;
     fingerprintSeed: storagePath,
     model: VISION_MODEL,
     entity: storagePath,
+    route: "ai_vision_fallback",
+    // Photo de compteur : aucune lecture locale fiable n'existe, la vision est l'étage métier.
+    essentialVision: true,
     body: {
       messages: [
         {
@@ -32,7 +36,7 @@ Si illisible : {"mileage":null,"unit":null}`;
   if (!result.ok) return { ok: false as const, error: result.error, mileage: 0 };
   const parsed = parseJsonBlock(result.content);
   const raw = parsed?.["mileage"];
-  const mileage = typeof raw === "number" ? Math.round(raw) : 0;
+  const mileage = plausibleMileage(raw) ?? 0;
   if (!mileage) return { ok: false as const, error: "Kilométrage non détecté.", mileage: 0 };
   return { ok: true as const, error: "", mileage };
 }

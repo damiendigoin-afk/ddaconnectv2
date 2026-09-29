@@ -65,7 +65,7 @@ describe("pipeline documentaire — OCR/règles avant IA", () => {
 
   it("réglage « repli IA » désactivé : aucun appel IA", async () => {
     const d = deps({ fallbackEnabled: vi.fn(async () => false) });
-    const r = await runDocPipeline({ kind: "or_or_plate", text: "rien", hasImage: true }, d);
+    const r = await runDocPipeline({ kind: "or_or_plate", text: "rien", hasImage: true, media: "pdf_text" }, d);
     expect(r.route).toBe("manual");
     expect(d.aiText).not.toHaveBeenCalled();
     expect(d.aiVision).not.toHaveBeenCalled();

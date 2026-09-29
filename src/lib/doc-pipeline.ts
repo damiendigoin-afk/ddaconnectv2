@@ -9,10 +9,20 @@ import { DOC_SPECS, fillMissing, missingFields, type DocKind, type Fields, type 
 
 export type DocRoute = "ocr_rules" | "ai_text_fallback" | "ai_vision_fallback" | "manual";
 
+/**
+ * Nature du média lu :
+ *  - photo : vraie photo (compteur, OR, BL…) — l'OCR local est souvent partiel ;
+ *  - pdf_text : PDF avec vraie couche texte — extraction + règles prioritaires ;
+ *  - pdf_scan : PDF scanné sans couche texte exploitable — traité comme une photo ;
+ *  - none : texte seul.
+ */
+export type DocMedia = "photo" | "pdf_text" | "pdf_scan" | "none";
+
 export type PipelineDeps = {
   fallbackEnabled: () => Promise<boolean>;
   aiText: (missing: string[]) => Promise<Fields | null>;
-  aiVision: (missing: string[]) => Promise<Fields | null>;
+  /** essential = vision indispensable (photo/scan dont la qualité métier OCR est insuffisante). */
+  aiVision: (missing: string[], essential: boolean) => Promise<Fields | null>;
   logLocal: (route: "ocr_rules" | "manual", missing: string[]) => Promise<void>;
 };
 
@@ -20,26 +30,46 @@ export type PipelineResult = { fields: Fields; route: DocRoute; missing: string[
 
 /** Texte OCR jugé exploitable pour un repli texte (sinon on passe directement à la vision). */
 export const MIN_TEXT_FOR_AI = 60;
+/** En dessous, la « couche texte » d'un PDF n'est pas exploitable : PDF scanné. */
+export const MIN_PDF_TEXT = 200;
 
+export function detectMedia(dataUrl: string | null | undefined, text: string | null | undefined): DocMedia {
+  if (!dataUrl) return "none";
+  if (dataUrl.startsWith("data:image/")) return "photo";
+  if (dataUrl.startsWith("data:application/pdf")) return (text ?? "").replace(/\s/g, "").length >= MIN_PDF_TEXT ? "pdf_text" : "pdf_scan";
+  return "photo";
+}
+
+/**
+ * Qualité métier : avoir extrait du texte ne suffit jamais. La lecture n'est réussie que si
+ * les champs essentiels du type (DOC_SPECS.required) sont trouvés et plausibles.
+ * Si ce n'est pas le cas sur une photo / un scan, la vision est déclenchée (même réglage
+ * « repli IA » désactivé : ce réglage ne gouverne que le repli sur texte / PDF texte),
+ * et elle complète les champs fiables déjà lus sans les écraser.
+ */
 export async function runDocPipeline(
-  input: { kind: DocKind; text?: string | null; hasImage: boolean; ctx?: RuleContext },
+  input: { kind: DocKind; text?: string | null; hasImage: boolean; media?: DocMedia; ctx?: RuleContext },
   deps: PipelineDeps,
 ): Promise<PipelineResult> {
   const spec = DOC_SPECS[input.kind];
   const text = input.text ?? "";
+  const media: DocMedia = input.media ?? (input.hasImage ? "photo" : "none");
   let fields = text.trim() ? spec.rules(text, input.ctx ?? {}) : {};
   let missing = missingFields(spec, fields);
   if (!missing.length) {
     await deps.logLocal("ocr_rules", missing);
     return { fields, route: "ocr_rules", missing, aiCalls: 0 };
   }
-  if (!(await deps.fallbackEnabled())) {
+  const fallback = await deps.fallbackEnabled();
+  const essentialVision = input.hasImage && (media === "photo" || media === "pdf_scan");
+  if (!fallback && !essentialVision) {
     await deps.logLocal("manual", missing);
     return { fields, route: "manual", missing, aiCalls: 0 };
   }
   let aiCalls = 0;
   let route: DocRoute = "manual";
-  if (text.trim().length >= MIN_TEXT_FOR_AI) {
+  // Repli texte : seulement si autorisé et si le texte vient d'une vraie couche texte ou d'un OCR consistant.
+  if (fallback && media !== "pdf_scan" && text.trim().length >= MIN_TEXT_FOR_AI) {
     aiCalls += 1;
     const r = await deps.aiText(missing);
     if (r) {
@@ -49,14 +79,15 @@ export async function runDocPipeline(
       if (!missing.length) return { fields, route, missing, aiCalls };
     }
   }
-  if (input.hasImage) {
+  if (input.hasImage && (fallback || essentialVision)) {
     aiCalls += 1;
-    const r = await deps.aiVision(missing);
+    const r = await deps.aiVision(missing, essentialVision && !fallback);
     if (r) {
       fields = fillMissing(fields, r);
       missing = missingFields(spec, fields);
       route = "ai_vision_fallback";
     }
   }
+  if (route === "manual") await deps.logLocal("manual", missing);
   return { fields, route, missing, aiCalls };
 }

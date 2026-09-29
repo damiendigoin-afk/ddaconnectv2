@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { askVision, parseJsonBlock } from "./ocr.server";
 import { learnSupplierProfile, readDocument } from "./doc-pipeline.server";
-import type { DocKind } from "./doc-rules";
+import { plausibleMileage, type DocKind } from "./doc-rules";
 import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
 
 const fileInput = z.object({
@@ -76,8 +76,7 @@ Si illisible : {"mileage":null,"unit":null}`;
     const result = await viaPipeline("odometer", prompt, data, "ocr_compteur");
     if (!result.ok) return { ok: false as const, error: result.error, mileage: 0 };
     const parsed = parseJsonBlock(result.content);
-    const raw = parsed?.["mileage"];
-    const mileage = typeof raw === "number" ? Math.round(raw) : 0;
+    const mileage = plausibleMileage(parsed?.["mileage"]) ?? 0;
     if (!mileage) return { ok: false as const, error: "Kilométrage non détecté.", mileage: 0 };
     return { ok: true as const, error: "", mileage };
   });
