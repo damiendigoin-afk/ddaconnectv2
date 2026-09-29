@@ -41,6 +41,8 @@ export type InvoiceExtract = {
   /** Frais de port / emballage HT lus (hors lignes pièces). */
   shipping_ht?: number | null;
   or_number?: string | null;
+  /** Plusieurs repères OR lus (commande fournisseur multi-OR) ; or_number = le premier. */
+  or_numbers?: string[];
   document_number?: string | null;
   document_date?: string | null;
   doc_kind?: string | null;
