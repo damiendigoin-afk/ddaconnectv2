@@ -1,27 +1,41 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { EnsureResult } from "./or-scan-decision";
+import type { DossierConflict, DossierData, EnsureResult } from "./or-scan-decision";
+
+export type EnsureFullResult = EnsureResult & { conflicts?: DossierConflict[] };
 
 /**
- * Ouvre ou crée la fiche dossier DDA locale d'un OR WinMotor (clé site + n° d'OR).
- * Atomique côté base : un second scan du même OR rouvre la même fiche.
+ * Ouvre ou constitue la fiche dossier DDA d'un OR WinMotor (clé site + n° d'OR) à partir
+ * de la lecture de l'OR papier : véhicule (plaque, VIN, historique WinMotor) et client
+ * (lié, e-mail, téléphone) réutilisés ; champs vides complétés ; conflits renvoyés, jamais écrasés.
  */
 export async function ensureWinmotorDossier(input: {
   siteId: string | null;
   orNumber: string;
   plate?: string | null;
+  data?: DossierData | null;
   userName?: string | null;
-}): Promise<EnsureResult> {
+}): Promise<EnsureFullResult> {
   if (!input.siteId) return { error: "site_required" };
-  const args: { _site: string; _or_number: string; _plate?: string; _user_name?: string } = {
+  const data: DossierData = input.data ?? { client: {}, vehicle: {}, order: {} };
+  if (input.plate && !data.vehicle["plate"]) data.vehicle = { ...data.vehicle, plate: input.plate };
+  const args: { _site: string; _or_number: string; _data: DossierData; _user_name?: string } = {
     _site: input.siteId,
     _or_number: input.orNumber.trim(),
+    _data: data,
   };
-  if (input.plate) args._plate = input.plate;
   if (input.userName) args._user_name = input.userName;
-  const { data, error } = await supabase.rpc("ensure_winmotor_dossier", args);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: res, error } = await supabase.rpc("ensure_winmotor_dossier_full", args as any);
   if (error) {
     console.error(error);
     return { error: error.message };
   }
-  return (data ?? {}) as EnsureResult;
+  return (res ?? {}) as EnsureFullResult;
+}
+
+/** Applique une valeur lue après confirmation explicite de l'utilisateur. */
+export async function applyDossierConflict(c: DossierConflict): Promise<boolean> {
+  const { error } = await supabase.rpc("apply_dossier_conflict", { _entity: c.entity, _id: c.id, _field: c.field, _value: c.read ?? "" });
+  if (error) console.error(error);
+  return !error;
 }

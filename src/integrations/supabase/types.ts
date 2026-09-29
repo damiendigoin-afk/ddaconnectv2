@@ -8391,6 +8391,10 @@ export type Database = {
         }
         Returns: string
       }
+      apply_dossier_conflict: {
+        Args: { _entity: string; _field: string; _id: string; _value: string }
+        Returns: undefined
+      }
       can_create_expense: {
         Args: { _site_id: string; _user_id: string }
         Returns: boolean
@@ -8411,6 +8415,15 @@ export type Database = {
         Args: {
           _or_number: string
           _plate?: string
+          _site: string
+          _user_name?: string
+        }
+        Returns: Json
+      }
+      ensure_winmotor_dossier_full: {
+        Args: {
+          _data: Json
+          _or_number: string
           _site: string
           _user_name?: string
         }

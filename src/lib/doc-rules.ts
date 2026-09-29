@@ -293,12 +293,90 @@ export function anyDocumentRules(raw: string): Fields {
   };
 }
 
+const CAR_BRANDS = ["ALFA ROMEO", "AUDI", "BMW", "CITROEN", "DACIA", "DS", "FIAT", "FORD", "HONDA", "HYUNDAI", "JEEP", "KIA", "LAND ROVER", "MAZDA", "MERCEDES", "MINI", "MITSUBISHI", "NISSAN", "OPEL", "PEUGEOT", "RENAULT", "SEAT", "SKODA", "SMART", "SUZUKI", "TESLA", "TOYOTA", "VOLKSWAGEN", "VW", "VOLVO", "IVECO", "LEXUS", "PORSCHE", "CUPRA", "MG"];
+
+/** Téléphone français normalisé « 06 12 34 56 78 » ; mobile = 06/07. */
+export function findFrenchPhones(text: string): { phone: string | null; mobile: string | null } {
+  let phone: string | null = null;
+  let mobile: string | null = null;
+  for (const m of text.matchAll(/(?<!\d)(?:\+33\s?|0033\s?|0)([1-9])(?:[\s.-]?\d{2}){4}(?!\d)/g)) {
+    const digits = m[0].replace(/\D/g, "").replace(/^(0033|33)/, "0");
+    const d = digits.length === 9 ? `0${digits}` : digits;
+    if (d.length !== 10) continue;
+    const f = d.replace(/(\d{2})(?=\d)/g, "$1 ");
+    if (/^0[67]/.test(d)) mobile ??= f;
+    else phone ??= f;
+  }
+  return { phone, mobile };
+}
+
+/** Lignes suivant un libellé (« Travaux demandés », « Demande client »…) jusqu'au prochain libellé. */
+function blockAfter(lines: string[], label: RegExp, max = 8): string | null {
+  const i = lines.findIndex((l) => label.test(l));
+  if (i < 0) return null;
+  const inline = lines[i]!.replace(label, "").replace(/^\s*[:\-]\s*/, "").trim();
+  const out: string[] = inline ? [inline] : [];
+  for (const l of lines.slice(i + 1, i + 1 + max)) {
+    if (/^(total|montant|signature|date|client|v[ée]hicule|kilom|immat|conseiller|r[ée]ception)/i.test(l) || /:\s*$/.test(l)) break;
+    out.push(l);
+  }
+  return out.length ? out.join("\n") : null;
+}
+
 export function repairOrderRules(raw: string): Fields {
   const text = cleanText(raw);
+  const lines = text.split("\n");
+  const upper = text.toUpperCase();
+  const email = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(text)?.[0]?.toLowerCase() ?? null;
+  const { phone, mobile } = findFrenchPhones(text);
+  // Adresse : ligne « code postal + ville » précédée de la ligne de rue.
+  let address: string | null = null, postal_code: string | null = null, city: string | null = null;
+  const cpIdx = lines.findIndex((l) => /^\d{5}\s+[A-ZÀ-Ü][A-ZÀ-Ü' -]{2,}$/i.test(l));
+  if (cpIdx >= 0) {
+    const m = /^(\d{5})\s+(.+)$/.exec(lines[cpIdx]!)!;
+    postal_code = m[1]!;
+    city = m[2]!.trim().toUpperCase();
+    const prev = lines[cpIdx - 1];
+    if (prev && /\d/.test(prev) && /\b(rue|av|avenue|bd|boulevard|chemin|route|place|all[ée]e|impasse|lieu[- ]dit|lotissement|quai|cours)\b/i.test(prev)) address = prev;
+  }
+  // Client : « M. / Mme / Monsieur / Madame / Société / Client : NOM Prénom ».
+  let last_name: string | null = null, first_name: string | null = null;
+  const cm = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text)
+    ?? /client\s*:\s*([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text);
+  if (cm && cm.length === 4 && !/SOCI|SARL|SAS|EURL|^SA$/i.test(cm[1]!) && !cm[3]) {
+    // « DUPONT Jean » capturé d'un bloc (drapeau i) : nom = mots en majuscules, prénom = le reste.
+    const toks = cm[2]!.trim().split(/\s+/);
+    const up = toks.filter((t) => t === t.toUpperCase());
+    const rest = toks.filter((t) => t !== t.toUpperCase());
+    if (up.length && rest.length) { cm[2] = up.join(" "); cm[3] = rest.join(" "); }
+  }
+  if (cm) {
+    const company = cm.length === 4 && /SOCI|SARL|SAS|EURL|^SA$/i.test(cm[1]!);
+    if (cm.length === 4) {
+      last_name = company ? `${cm[1]!.toUpperCase()} ${cm[2]!.trim()}`.trim() : cm[2]!.trim();
+      first_name = company ? null : (cm[3]?.trim() ?? null);
+    } else {
+      last_name = cm[1]!.trim();
+      first_name = cm[2]?.trim() ?? null;
+    }
+  }
+  const brand = CAR_BRANDS.find((b) => new RegExp(`\\b${b}\\b`).test(upper)) ?? null;
+  let model: string | null = null;
+  if (brand) {
+    const mm = new RegExp(`\\b${brand}\\b\\s+([A-Z0-9][A-Z0-9 .\\-]{1,24})`, "i").exec(text);
+    model = mm?.[1]?.split(/\s{2,}|\n/)[0]?.trim() ?? null;
+  }
+  const account_number = firstMatch(text, [/(?:n[°o]\s*client|code client|compte client|client n[°o])\s*[:.]?\s*([A-Z0-9]{3,12})\b/i]);
+  const orDate = firstMatch(text, [/(?:date(?: de l'?OR| OR| entr[ée]e)?)\s*[:.]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i]);
   return {
-    client: {},
-    vehicle: { plate: findFrenchPlate(text), vin: findVin(text), mileage: odometerRules(text)["mileage"] },
-    order: { or_number: firstMatch(text, [OR_LABEL]), or_date: isoDate(text) },
+    client: { account_number, last_name, first_name, address, postal_code, city, phone, mobile, email },
+    vehicle: { plate: findFrenchPlate(text), vin: findVin(text), brand: brand === "VW" ? "VOLKSWAGEN" : brand, model, mileage: odometerRules(text)["mileage"] },
+    order: {
+      or_number: firstMatch(text, [OR_LABEL]),
+      or_date: isoDate(orDate ?? text),
+      requested_work: blockAfter(lines, /travaux (?:demand[ée]s|[àa] effectuer)|demande(?:s)? (?:du )?client|intervention(?:s)? demand[ée]e?s?/i),
+      client_remarks: blockAfter(lines, /remarques?|observations?/i, 4),
+    },
   };
 }
 
