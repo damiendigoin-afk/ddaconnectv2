@@ -135,7 +135,9 @@ export function parseItemLines(text: string): Line[] {
   );
   const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
   let last: Line | null = null;
-  for (const line of text.split("\n")) {
+  for (const rawLine of text.split("\n")) {
+    // Intitulés de section collés à la 1re ligne article (« Recherche libre ECD-FR-016 … ») : ignorés.
+    const line = rawLine.replace(/^\s*(?:recherche libre|articles?|pi[eè]ces?)\s*[:\-]?\s+(?=[A-Z0-9])/i, "");
     const iso = /^\(?\s*(\d{5})\s*\)?$/.exec(line.trim());
     if (iso && last && !last.isolated_number) { last.isolated_number = iso[1]!; continue; }
     const m = refFirst.exec(line);
@@ -186,7 +188,7 @@ export function headerSupplierInfo(text: string): Record<string, string> | null 
   const out: Record<string, string> = {};
   const vat = /\b(FR\s?[0-9A-Z]{2}\s?\d{9}|(?:ES|DE|IT|BE|PT|NL|LU)\s?[A-Z0-9]{8,12})\b/.exec(head);
   if (vat) out["vat_number"] = vat[1]!.replace(/\s/g, "");
-  const siret = /\b(\d{3}\s?\d{3}\s?\d{3}(?:\s?\d{5})?)\b/.exec(head.replace(/t[ée]l[^\n]*/gi, ""));
+  const siret = /\b(\d{3}\s?\d{3}\s?\d{3}(?:\s?\d{5})?)\b/.exec(head.replace(/t[ée]l[^\n]*/gi, "").replace(/[^\n]*(?:commande|facture|livraison|colisage|r[ée]f[ée]rence|date)[^\n]*/gi, ""));
   if (siret && !out["vat_number"]) out["siret"] = siret[1]!.replace(/\s/g, "");
   const tel = /t[ée]l[a-z.]*\s*:?\s*([+0-9][0-9 .]{8,18}\d)/i.exec(head);
   if (tel && !isGaragePhone(tel[1]!)) out["phone"] = tel[1]!.trim();
