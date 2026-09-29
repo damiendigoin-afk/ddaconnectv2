@@ -38,6 +38,8 @@ export type InvoiceLine = {
 export type SupplierInfo = { address?: string | null; postal_code?: string | null; city?: string | null; phone?: string | null; email?: string | null; website?: string | null; siret?: string | null; vat_number?: string | null };
 
 export type InvoiceExtract = {
+  /** Frais de port / emballage HT lus (hors lignes pièces). */
+  shipping_ht?: number | null;
   or_number?: string | null;
   document_number?: string | null;
   document_date?: string | null;

@@ -5,7 +5,7 @@ import { fingerprint, journalLocal, readBudget, runPaidAi } from "./ai-usage.ser
 import { runDocPipeline, type PipelineResult } from "./doc-pipeline";
 import { headerTokens, type DocKind, type Fields, type SupplierHint } from "./doc-rules";
 import { askVision, parseJsonBlock, VISION_MODEL } from "./ocr.server";
-import { normSupplierName } from "./supplier-identify";
+import { normSupplierName, supplierAliases } from "./supplier-identify";
 
 export type ReadDocInput = {
   feature: string;
@@ -20,12 +20,15 @@ export type ReadDocInput = {
 
 async function supplierHints(): Promise<SupplierHint[]> {
   const [{ data: sup }, { data: prof }] = await Promise.all([
-    supabaseAdmin.from("suppliers").select("name").limit(2000),
+    supabaseAdmin.from("suppliers").select("name, notes").limit(2000),
     supabaseAdmin.from("supplier_doc_profiles").select("supplier_name, header_tokens").limit(2000),
   ]);
   const map = new Map<string, SupplierHint>();
-  for (const s of sup ?? []) if (s.name) map.set(normSupplierName(s.name), { name: s.name });
-  for (const p of prof ?? []) map.set(normSupplierName(p.supplier_name), { name: p.supplier_name, header_tokens: p.header_tokens });
+  for (const s of sup ?? []) if (s.name) map.set(normSupplierName(s.name), { name: s.name, aliases: supplierAliases(s.notes) });
+  for (const p of prof ?? []) {
+    const k = normSupplierName(p.supplier_name);
+    map.set(k, { ...(map.get(k) ?? { name: p.supplier_name }), header_tokens: p.header_tokens });
+  }
   return [...map.values()];
 }
 

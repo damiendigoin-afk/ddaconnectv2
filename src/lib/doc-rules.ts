@@ -21,7 +21,7 @@ export type DocKind =
   | "repair_order"
   | "none";
 
-export type SupplierHint = { name: string; header_tokens?: string[] | null };
+export type SupplierHint = { name: string; header_tokens?: string[] | null; aliases?: string[] | null };
 export type RuleContext = { suppliers?: SupplierHint[] };
 
 /* ------------------------------ Normalisation ------------------------------ */
@@ -96,10 +96,10 @@ export function headerTokens(text: string): string[] {
 
 export function detectSupplier(text: string, hints: SupplierHint[] = []): string | null {
   const norm = ` ${normSupplierName(text)} `;
-  const byName = hints.filter((h) => {
-    const n = normSupplierName(h.name);
+  const byName = hints.filter((h) => [h.name, ...(h.aliases ?? [])].some((a) => {
+    const n = normSupplierName(a);
     return n.length >= 4 && norm.includes(` ${n} `);
-  });
+  }));
   if (byName.length) return byName.sort((a, b) => b.name.length - a.name.length)[0]!.name;
   const toks = new Set(headerTokens(text));
   const scored = hints
@@ -112,28 +112,89 @@ export function detectSupplier(text: string, hints: SupplierHint[] = []): string
 
 /* ---------------------------- Achats (BL / facture) ------------------------ */
 
-type Line = { reference: string; label: string | null; quantity: number | null; unit_price: number | null; amount: number | null };
+type Line = { reference: string; label: string | null; quantity: number | null; unit_price: number | null; amount: number | null; isolated_number?: string | null };
 
+const REF = String.raw`([A-Z0-9][A-Z0-9.\-/]{3,})`;
+const NOT_REF = /^(total|sous|tva|port|frais|remise|net|montant|page|date|facture|commande)$/i;
+
+function qtyOf(s: string): number | null {
+  const q = money(s.includes(",") || s.includes(".") ? s : `${s},00`);
+  return q != null && q > 0 && q <= 999 ? q : null;
+}
+
+/**
+ * Lignes article, mises en page variées : « Réf Désignation Qté PU [remise] [Montant] »
+ * ou « Qté Réf Désignation PU [HT] [% TVA] [TVA] [Total] » (factures web, ex. Pièce Auto Discount).
+ * Un nombre seul (5 chiffres, éventuellement entre parenthèses) sous une ligne = repère isolé (dossier atelier possible).
+ */
 export function parseItemLines(text: string): Line[] {
   const out: Line[] = [];
-  const re = new RegExp(
-    String.raw`^([A-Z0-9][A-Z0-9.\-/]{3,})\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*€?$`,
+  const refFirst = new RegExp(
+    String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*€?$`,
     "i",
   );
+  const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
+  let last: Line | null = null;
   for (const line of text.split("\n")) {
-    const m = re.exec(line);
-    if (!m || !/\d/.test(m[1]!)) continue;
-    const qty = money(m[3]!.includes(",") || m[3]!.includes(".") ? m[3]! : `${m[3]},00`);
-    if (qty == null || qty <= 0 || qty > 999) continue;
-    out.push({
-      reference: m[1]!.toUpperCase(),
-      label: m[2]!.trim() || null,
-      quantity: qty,
-      unit_price: money(m[4]),
-      amount: money(m[5]) ?? null,
-    });
+    const iso = /^\(?\s*(\d{5})\s*\)?$/.exec(line.trim());
+    if (iso && last && !last.isolated_number) { last.isolated_number = iso[1]!; continue; }
+    const m = refFirst.exec(line);
+    if (m && /\d/.test(m[1]!) && !NOT_REF.test(m[1]!)) {
+      const qty = qtyOf(m[3]!);
+      if (qty != null) {
+        last = { reference: m[1]!.toUpperCase(), label: m[2]!.trim() || null, quantity: qty, unit_price: money(m[4]), amount: money(m[5]) ?? null };
+        out.push(last);
+        continue;
+      }
+    }
+    const q = qtyFirst.exec(line);
+    if (q && /\d/.test(q[2]!) && /[A-Za-zÀ-ÿ]{3}/.test(q[3]!)) {
+      const qty = qtyOf(q[1]!);
+      if (qty != null) {
+        const nums = [money(q[4]), ...[...(q[5] ?? "").matchAll(new RegExp(MONEY, "g"))].map((x) => money(x[1]))].filter((n): n is number => n != null);
+        const unit = nums[0] ?? null;
+        // Montant HT de ligne = PU × qté quand il figure parmi les colonnes ; sinon dernier montant.
+        const ht = nums.find((n, i) => i > 0 && unit != null && Math.abs(n - unit * qty) < 0.02) ?? (nums.length > 1 ? nums.at(-1)! : unit != null ? Math.round(unit * qty * 100) / 100 : null);
+        last = { reference: q[2]!.toUpperCase(), label: q[3]!.trim() || null, quantity: qty, unit_price: unit, amount: ht };
+        out.push(last);
+        continue;
+      }
+    }
+    if (line.trim()) last = iso ? last : null;
   }
   return out;
+}
+
+const LEGAL = /\b(S\.?L\.?U?|S\.?A\.?S?U?|S\.?A\.?R\.?L|EURL|SNC|GMBH|S\.?P\.?A|S\.?R\.?L|B\.?V|LTD|LIMITED|INC)\.?$/i;
+
+/** Émetteur lu dans l'en-tête quand aucune fiche connue ne correspond (raison sociale avec forme juridique). */
+export function headerSupplierName(text: string): string | null {
+  const head = cleanText(text).split("\n").slice(0, 8);
+  for (const l of head) {
+    const v = l.replace(/\s{2,}/g, " ").trim();
+    if (v.length < 4 || v.length > 60 || /\d{3,}|@|facture|commande|devis|livraison/i.test(v)) continue;
+    if (LEGAL.test(v) && !isGarageName(v)) return v.toUpperCase();
+  }
+  return null;
+}
+
+/** Coordonnées de l'émetteur (en-tête, avant les adresses client) : TVA, SIRET, téléphone, e-mail, site. */
+export function headerSupplierInfo(text: string): Record<string, string> | null {
+  const lines = cleanText(text).split("\n");
+  const stop = lines.findIndex((l) => /adresse|livr[ée]|factur[ée] [àa]|client|exp[ée]dition/i.test(l));
+  const head = lines.slice(0, stop > 0 ? stop : 10).join("\n");
+  const out: Record<string, string> = {};
+  const vat = /\b(FR\s?[0-9A-Z]{2}\s?\d{9}|(?:ES|DE|IT|BE|PT|NL|LU)\s?[A-Z0-9]{8,12})\b/.exec(head);
+  if (vat) out["vat_number"] = vat[1]!.replace(/\s/g, "");
+  const siret = /\b(\d{3}\s?\d{3}\s?\d{3}(?:\s?\d{5})?)\b/.exec(head.replace(/t[ée]l[^\n]*/gi, ""));
+  if (siret && !out["vat_number"]) out["siret"] = siret[1]!.replace(/\s/g, "");
+  const tel = /t[ée]l[a-z.]*\s*:?\s*([+0-9][0-9 .]{8,18}\d)/i.exec(head);
+  if (tel && !isGaragePhone(tel[1]!)) out["phone"] = tel[1]!.trim();
+  const mail = /[\w.+-]+@[\w-]+\.[\w.]+/.exec(head);
+  if (mail && !isGarageEmail(mail[0])) out["email"] = mail[0].toLowerCase();
+  const web = /\b(?:www\.)[\w-]+\.[a-z.]{2,}/i.exec(head);
+  if (web) out["website"] = web[0].toLowerCase();
+  return Object.keys(out).length ? out : null;
 }
 
 /**
@@ -142,7 +203,7 @@ export function parseItemLines(text: string): Line[] {
  */
 export function refCandidates(raw: string): string[] {
   const text = cleanText(raw);
-  const re = /(?:transaction|commande|cde|bon de livraison|\bb\.?l\.?|facture|r[ée]f(?:[ée]rence)?\.?\s*(?:commande|client)?|votre\s+r[ée]f[a-z.]*|n[°o]\s*(?:de\s*)?(?:pi[eè]ce|document))\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z]{0,3}\d[A-Z0-9\-/]{4,})/gi;
+  const re = /(?:transaction|commande(?:\s+(?:web|internet|en ligne|client|fournisseur))?|cde|bon de livraison|\bb\.?l\.?|facture|r[ée]f(?:[ée]rence)?\.?\s*(?:commande|client)?|votre\s+r[ée]f[a-z.]*|n[°o]\s*(?:de\s*)?(?:pi[eè]ce|document))\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z]{0,3}\d[A-Z0-9\-/]{4,})/gi;
   const out = new Set<string>();
   for (const m of text.matchAll(re)) {
     const v = m[1]!.toUpperCase().replace(/[-/]+$/, "");
@@ -164,14 +225,15 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const docNumber = firstMatch(text, [
     /(?:facture|bon de livraison|\bB\.?L\.?|n°\s*(?:de\s*)?(?:document|pi[eè]ce))\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*([A-Z]{0,3}\d[A-Z0-9\-/]{3,})/i,
   ]);
-  const order_reference = firstMatch(text, [/commande\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
+  const order_reference = firstMatch(text, [/commande\s*(?:web|internet|en ligne|client|fournisseur)?\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
   const plate = findFrenchPlate(text);
   const orRaw = firstMatch(text, [OR_LABEL]);
   const lines = parseItemLines(text);
   return {
     doc_kind,
     ref_candidates: refCandidates(text),
-    supplier: detectSupplier(text, ctx.suppliers),
+    supplier: detectSupplier(text, ctx.suppliers) ?? headerSupplierName(text),
+    supplier_info: headerSupplierInfo(text),
     document_number: docNumber,
     document_date: isoDate(text),
     delivery_note_number: doc_kind === "bl" ? docNumber : null,
@@ -184,7 +246,8 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     lines,
     total_ht: lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i),
     vat_amount: lastMoneyOnLines(text, /\bt\.?v\.?a\b/i),
-    total_ttc: lastMoneyOnLines(text, /t\.?t\.?c|net\s*[àa]\s*payer/i),
+    total_ttc: lastMoneyOnLines(text, /t\.?t\.?c|net\s*[àa]\s*payer|^total\s+(?!h\.?t)\d/i),
+    shipping_ht: lastMoneyOnLines(text, /frais de port|\bport\b|transport|emballage/i),
     currency: "EUR",
   };
 }
