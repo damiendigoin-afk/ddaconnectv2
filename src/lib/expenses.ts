@@ -128,6 +128,16 @@ export function paymentLabel(method: string | null | undefined): string {
   return PAYMENT_METHODS.find((p) => p.key === (method ?? "perso"))?.label ?? "—";
 }
 
+/** Carburant (essence/gazole) : 80 % de la TVA récupérable (véhicules de tourisme, régime FR). */
+export function isFuelCategory(key: string | null | undefined): boolean {
+  return /^(carburant|essence|gazole|diesel|fuel)$/i.test((key ?? "").trim());
+}
+
+export function recoverableFuelVat(category: string | null | undefined, vat: number | null | undefined): number | null {
+  if (!isFuelCategory(category) || vat == null || !Number.isFinite(vat)) return null;
+  return Math.round(vat * 0.8 * 100) / 100;
+}
+
 export function categoryLabel(key: string | null | undefined): string {
   return EXPENSE_CATEGORIES.find((c) => c.key === key)?.label ?? (key ?? "—");
 }

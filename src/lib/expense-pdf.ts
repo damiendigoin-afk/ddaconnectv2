@@ -14,10 +14,22 @@ import {
   frDateTime,
   isAccountPayment,
   isPersonalPayment,
+  recoverableFuelVat,
   paymentLabel,
   type ExpenseNote,
 } from "@/lib/expenses";
 
+
+/** Lignes montants du récapitulatif : TTC, TVA totale et, pour le carburant, TVA récupérable (80 %). */
+export function expenseAmountRows(note: Pick<ExpenseNote, "amount_ttc" | "vat_amount" | "category">): [string, string][] {
+  const rows: [string, string][] = [
+    ["Montant TTC", euros(note.amount_ttc)],
+    ["Dont TVA", note.vat_amount != null ? euros(note.vat_amount) : "—"],
+  ];
+  const rec = recoverableFuelVat(note.category, note.vat_amount);
+  if (rec != null) rows.push(["TVA récupérable (80 %)", euros(rec)]);
+  return rows;
+}
 
 const A4 = { w: 595.28, h: 841.89 };
 const M = 36;
@@ -114,11 +126,7 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
     ["Moyen de règlement", paymentLabel(note.payment_method)],
   ];
   if (onAccount) rows.push(["Carte / compte utilisé", accountLabel(note.account_ref, note.account_other)]);
-  rows.push(
-    ["Montant TTC", euros(note.amount_ttc)],
-    ["Dont TVA", note.vat_amount != null ? euros(note.vat_amount) : "—"],
-    ["Auteur", note.user_name || "—"],
-  );
+  rows.push(...expenseAmountRows(note), ["Auteur", note.user_name || "—"]);
   if (note.notes) rows.push(["Commentaire", note.notes]);
   if (note.validated_at) rows.push(["VALIDÉ", `${note.validated_by_name ?? "—"} le ${frDateTime(note.validated_at)}`]);
   if (note.settled_at) rows.push(["Remboursement réglé le", frDate(note.settled_at)]);
@@ -140,7 +148,7 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
   });
   let ry = boxTop - 18;
   for (const [k, v] of rows) {
-    const strong = k === "Montant TTC" || k === "VALIDÉ";
+    const strong = k === "Montant TTC" || k === "VALIDÉ" || k === "TVA récupérable (80 %)";
     text(k, M + 10, ry, 9, font, GREY);
     text(v, M + 165, ry, strong ? 11 : 9.5, strong ? bold : font, strong && k === "VALIDÉ" ? rgb(0.1, 0.5, 0.2) : BLACK);
     ry -= lineH;
