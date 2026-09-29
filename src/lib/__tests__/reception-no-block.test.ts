@@ -99,8 +99,8 @@ describe("rapprochement sans OR ni immat (ORLEANS SUD AUTO / 16533)", () => {
     expect((r.probable[0]!.order as { id: string }).id).toBe("orl");
   });
   it("recherche manuelle : la commande ORLEANS apparaît en tête sans saisie", () => {
-    expect((searchPendingOrders([noise, orleans], "", "lal", 20, facture)[0] as { id: string }).id).toBe("orl");
-    expect((searchPendingOrders([noise, orleans], "optique", "lal")[0] as { id: string }).id).toBe("orl");
+    expect((searchPendingOrders([noise, orleans], "", "lal", 20, facture)[0] as unknown as { id: string }).id).toBe("orl");
+    expect((searchPendingOrders([noise, orleans], "optique", "lal")[0] as unknown as { id: string }).id).toBe("orl");
   });
   it("non ambigu : fournisseur + référence + quantité => probable unique avec raisons", () => {
     const r = receptionSuggestions({ supplier_id: "sOrl", lines: [{ reference: "133378273", quantity: 1 }] }, [noise, orleans], "lal");
