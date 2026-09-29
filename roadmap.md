@@ -103,4 +103,5 @@ Reste à faire :
 - [x] Auditer le diff publié, les bundles servis et l'unique route Commander des pièces
 - [x] Corriger la priorité des valeurs non vides et accepter lines/items/documentLines
 - [x] Monter le composant réel et contrôler les valeurs DOM
-- [ ] Suite complète, typecheck, publication et contrôle du commit servi
+- [x] Reproduire avec le PDF utilisateur exact et corriger la première pièce extraite sur deux lignes
+- [ ] Suite complète, typecheck, publication et contrôle visuel du PDF exact
