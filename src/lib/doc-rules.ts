@@ -165,7 +165,7 @@ export function parseItemLines(text: string): Line[] {
   return out;
 }
 
-const LEGAL = /\b(S\.?L\.?U?|S\.?A\.?S?U?|S\.?A\.?R\.?L|EURL|SNC|GMBH|S\.?P\.?A|S\.?R\.?L|B\.?V|LTD|LIMITED|INC)\.?$/i;
+const LEGAL = /\b(S\.?L\.?U?|S\.?A\.?S?U?|S\.?A\.?R\.?L|EURL|SNC|GMBH|S\.?P\.?A|S\.?R\.?L|B\.?V|LTD|LIMITED|INC|SE|AG|KG)\.?$/i;
 
 /** Émetteur lu dans l'en-tête quand aucune fiche connue ne correspond (raison sociale avec forme juridique). */
 export function headerSupplierName(text: string): string | null {
@@ -212,6 +212,22 @@ export function refCandidates(raw: string): string[] {
   return [...out].slice(0, 12);
 }
 
+/**
+ * Repères OR multiples d'un champ « Référence / Repère / Mes références / Dossier / OR » :
+ * « Référence : 16952 17072 » => ["16952", "17072"]. Une commande fournisseur peut servir plusieurs OR.
+ * N'accepte que des nombres de 5-6 chiffres, jamais le n° de commande/document ni une plaque.
+ */
+export function orNumbersFromText(raw: string, exclude: (string | null | undefined)[] = []): string[] {
+  const text = cleanText(raw);
+  const ex = new Set(exclude.map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean));
+  const re = /(?:^|[^a-z])(?:r[ée]f[ée]rences?|r[ée]f\.?|rep[eè]res?(?:\s+commande)?|mes\s+r[ée]f[ée]rences|votre\s+r[ée]f[a-z.]*|dossiers?|\bO\.?R\.?s?\b)\s*(?:client)?\s*(?:n[°o]s?\.?)?\s*[:#.]?\s*((?:\d{5,6}(?:\s*(?:[,;/+&]|et|-)?\s*)){1,8})(?!\d)/gi;
+  const out: string[] = [];
+  for (const m of text.matchAll(re)) {
+    for (const n of m[1]!.match(/\d{5,6}/g) ?? []) if (!ex.has(n) && !out.includes(n)) out.push(n);
+  }
+  return out.slice(0, 8);
+}
+
 export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const text = cleanText(raw);
   const low = text.toLowerCase();
@@ -229,8 +245,12 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const plate = findFrenchPlate(text);
   const orRaw = firstMatch(text, [OR_LABEL]);
   const lines = parseItemLines(text);
+  const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
+  const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);
+  const orSingle = plate && orRaw && findFrenchPlate(orRaw) ? null : orRaw;
   return {
     doc_kind,
+    or_numbers: orSingle && !or_numbers.includes(orSingle) && /^\d{5,6}$/.test(orSingle) ? [orSingle, ...or_numbers] : or_numbers,
     ref_candidates: refCandidates(text),
     supplier: detectSupplier(text, ctx.suppliers) ?? headerSupplierName(text),
     supplier_info: headerSupplierInfo(text),
@@ -239,8 +259,8 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     delivery_note_number: doc_kind === "bl" ? docNumber : null,
     invoice_number: doc_kind === "facture" ? docNumber : null,
     invoice_date: doc_kind === "facture" ? isoDate(text) : null,
-    order_reference: order_reference && /\d/.test(order_reference) ? order_reference : null,
-    or_number: plate && orRaw && findFrenchPlate(orRaw) ? null : orRaw,
+    order_reference: orderRef,
+    or_number: orSingle ?? or_numbers[0] ?? null,
     plate,
     plate_printed: !!plate,
     lines,

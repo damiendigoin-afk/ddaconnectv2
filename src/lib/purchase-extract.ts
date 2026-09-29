@@ -149,6 +149,11 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     }
   }
   if (!orderRef && kind === "commande" && docNumber && !sameAsOr(docNumber)) orderRef = docNumber;
+  // Repères OR multiples (commande multi-OR) : 5-6 chiffres, jamais le n° de commande/document.
+  const notOr = new Set([orderRef, docNumber, str(o.delivery_note_number), str(o.invoice_number)].map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean));
+  const orNumbers = [...new Set([orNumber, ...(Array.isArray(o["or_numbers"]) ? (o["or_numbers"] as unknown[]).map((v) => digits(str(v))) : [])]
+    .filter((v): v is string => !!v && /^\d{5,6}$/.test(v) && !notOr.has(v)))].slice(0, 8);
+  if (!orNumber && orNumbers.length) orNumber = orNumbers[0]!;
   return {
     doc_kind: kind,
     supplier: pick(o, ["supplier", "distributor", "distributeur", "vendor", "seller"]),
@@ -161,6 +166,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     invoice_number: str(o.invoice_number),
     invoice_date: str(o.invoice_date),
     or_number: orNumber,
+    or_numbers: orNumbers,
     plate: (platePrinted && str(o.plate) ? findFrenchPlate(str(o.plate)) ?? str(o.plate) : null)
       ?? refPlate
       ?? findFrenchPlate([str(o.handwritten_notes), ...lines.map((l) => l.label)].filter(Boolean).join(" | ")),
