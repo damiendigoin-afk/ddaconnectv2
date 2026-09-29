@@ -52,6 +52,8 @@ export type InvoiceExtract = {
   delivery_note_number?: string | null;
   customer_or_site?: string | null;
   order_reference?: string | null;
+  /** Identifiants étiquetés lus (Transaction, Commande, BL…), comparés tous à la commande. */
+  ref_candidates?: string[] | null;
   plate?: string | null;
   lines?: InvoiceLine[];
   total_ht?: number | null;

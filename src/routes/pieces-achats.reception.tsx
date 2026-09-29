@@ -129,18 +129,20 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const x0 = doc.extracted;
   const x0p = x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")); const x = { ...x0, plate: x0p ? formatPlate(x0p) : null };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
-  const sugg = receptionSuggestions(x, orders.data ?? [], writeSite);
   const sup = matchSupplier(x.supplier, suppliers.data ?? []);
-  const [showSugg, setShowSugg] = useState(false);
+  const xm = { ...x, supplier_id: x.supplier_id ?? sup?.id ?? null };
+  const sugg = receptionSuggestions(xm, orders.data ?? [], writeSite);
   const [manual, setManual] = useState(false);
   const [q, setQ] = useState("");
-  const found = manual ? searchPendingOrders(orders.data ?? [], q, writeSite, 15) : [];
-  const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null) => {
-    const meta = o as unknown as { comment?: string | null; created_by_name?: string | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null };
+  const found = manual ? searchPendingOrders(orders.data ?? [], q, writeSite, 20, xm) : [];
+  const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null, reasons?: string[]) => {
+    const meta = o as unknown as { comment?: string | null; created_by_name?: string | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null; order_mode?: string | null };
     return (
       <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-xs" onClick={() => onOrder(o.id)}>
-        {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Suggestion"}</Badge>{" "}</> : null}
+        {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Correspondance probable"}</Badge>{" "}</> : null}
+        {meta.order_mode === "simplified" ? <><Badge tone="muted">Front office</Badge>{" "}</> : null}
         <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+        {reasons?.length ? <span className="block font-semibold">Pourquoi : {reasons.join(" + ")}</span> : null}
         <span className="block text-muted-foreground">
           {meta.created_by_name ? `Créée par ${meta.created_by_name} · ` : ""}
           OR/dossier demandé : {meta.requested_or_number ?? (o.repair_orders as { or_number: string | null } | null)?.or_number ?? "—"} · Immat : {meta.plate ?? "—"} · N° commande fournisseur : {meta.supplier_order_ref ?? "—"}
@@ -156,14 +158,19 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
       <SiteMismatchAlert docSite={guessDocumentSite(docSiteText(x), sites)} />
       <div className="text-xs space-y-1">
         {x.supplier ? <DocSupplierLink extracted={x} docId={doc.id} /> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
-        <p>Repères détectés — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° commande : <b>{x.order_reference ?? "—"}</b> · {(x.lines ?? []).length} ligne(s)</p>
+        <p>Repères détectés — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° lus : <b>{[x.order_reference, ...(x.ref_candidates ?? [])].filter((v, i, a) => v && a.indexOf(v) === i).join(", ") || "—"}</b> · {(x.lines ?? []).length} ligne(s)</p>
       </div>
       {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
 
       {sugg.hasExact ? (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase text-muted-foreground">Correspondance certaine</p>
-          {sugg.certain.map((m) => orderBtn(m.order, "ok"))}
+          {sugg.certain.map((m) => orderBtn(m.order, "ok", m.reasons))}
+        </div>
+      ) : sugg.probable.length ? (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase text-muted-foreground">{sugg.ambiguous ? "Plusieurs commandes possibles — choisissez la bonne" : "Correspondance probable — confirmez"}</p>
+          {sugg.probable.map((m) => orderBtn(m.order, "warn", m.reasons))}
         </div>
       ) : orders.data ? (
         <div className="rounded-lg border-2 border-status-warn p-3">
@@ -179,19 +186,10 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
 
       {manual ? (
         <div className="space-y-2 rounded-lg border-2 border-border p-2">
-          <p className="text-xs font-bold uppercase text-muted-foreground">Commandes manuelles / front office</p>
-          <input className={inputCls} autoFocus placeholder="N° commande, OR, immat, réf. pièce, fournisseur, commentaire / créateur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
-          <p className="text-xs text-muted-foreground">Seules les commandes simplifiées saisies au comptoir sont listées ici ; les commandes détaillées/importées restent proposées par le rapprochement automatique.</p>
+          <p className="text-xs font-bold uppercase text-muted-foreground">Commandes correspondantes / récentes</p>
+          <input className={inputCls} autoFocus placeholder="Fournisseur, n° commande, OR, immat, réf. pièce, désignation, commentaire / créateur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
+          <p className="text-xs text-muted-foreground">Toutes les commandes non soldées du site (détaillées, importées et front office), les plus proches du document en premier.</p>
           {found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">Aucune commande en attente ne correspond.</p>}
-        </div>
-      ) : null}
-
-      {sugg.probable.length ? (
-        <div>
-          <button className="text-xs font-bold underline" onClick={() => setShowSugg((v) => !v)}>
-            {showSugg ? "▾" : "▸"} Suggestions de rapprochement ({sugg.probable.length}) — facultatif
-          </button>
-          {showSugg ? <div className="mt-2 space-y-2">{sugg.probable.map((m) => orderBtn(m.order, "warn"))}</div> : null}
         </div>
       ) : null}
 

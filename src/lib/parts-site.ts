@@ -74,79 +74,119 @@ export function pendingReceptionOrders<T extends { status: string }>(orders: T[]
 
 export type DocExtractLite = {
   supplier?: string | null;
+  /** Fiche fournisseur déjà identifiée sur le document. */
+  supplier_id?: string | null;
   or_number?: string | null;
   plate?: string | null;
   order_reference?: string | null;
-  lines?: { reference: string | null }[] | null;
+  /** Tous les identifiants lus (Transaction, Commande, BL, facture…) : aucun n'est supposé être LE n° commande. */
+  ref_candidates?: string[] | null;
+  document_number?: string | null;
+  delivery_note_number?: string | null;
+  invoice_number?: string | null;
+  lines?: { reference: string | null; quantity?: number | null }[] | null;
 };
 
 const plateKey = (p: string | null | undefined) => (p ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
-/** Score de rapprochement document ↔ commande (0 = aucun indice). */
-export function scoreOrderMatch(doc: DocExtractLite, order: OrderLike): number {
-  let s = 0;
-  const sup = norm(doc.supplier);
-  const oname = norm(order.suppliers?.name);
-  if (sup && oname && (sup.includes(oname) || oname.includes(sup))) s += 2;
-  const orn = (doc.or_number ?? "").replace(/\D/g, "");
-  const oorn = (order.repair_orders?.or_number ?? "").replace(/\D/g, "");
-  if (orn && oorn && orn === oorn) s += 3;
-  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) s += 4;
-  if (doc.order_reference && order.supplier_order_ref && normalizeRef(doc.order_reference) === normalizeRef(order.supplier_order_ref)) s += 4;
-  const refs = new Set((order.part_order_lines ?? []).map((l) => normalizeRef(l.physical_reference ?? "")).filter(Boolean));
-  let common = 0;
-  for (const l of doc.lines ?? []) if (l.reference && refs.has(normalizeRef(l.reference))) common++;
-  s += Math.min(common, 3);
-  return s;
+/** Identifiants candidats d'un document (dédoublonnés, normalisés). */
+export function docIdentifiers(doc: DocExtractLite): string[] {
+  const all = [doc.order_reference, doc.document_number, doc.delivery_note_number, doc.invoice_number, ...(doc.ref_candidates ?? [])];
+  return [...new Set(all.map((v) => normalizeRef(v ?? "")).filter((v) => v.length >= 5))];
 }
 
-export type OrderMatch<T> = { order: T; score: number; level: "certain" | "probable" };
+type LineLite = { physical_reference: string | null; line_kind: string; status: string; qty_ordered?: number | null; qty_received?: number | null };
+
+/** Score explicable document ↔ commande : chaque indice ajoute des points et une raison lisible. */
+export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; reasons: string[] } {
+  let score = 0, strong = 0;
+  let idMatch = false;
+  const reasons: string[] = [];
+  const sup = norm(doc.supplier);
+  const oname = norm(order.suppliers?.name);
+  if ((doc.supplier_id && doc.supplier_id === order.supplier_id) || (sup && oname && (sup.includes(oname) || oname.includes(sup)))) { score += 2; reasons.push("même fournisseur"); }
+  const orn = (doc.or_number ?? "").replace(/\D/g, "");
+  const oorn = (order.repair_orders?.or_number ?? "").replace(/\D/g, "");
+  if (orn && oorn && orn === oorn) { score += 3; strong += 3; reasons.push(`OR ${oorn}`); }
+  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) { score += 4; strong += 4; idMatch = true; reasons.push(`immat ${doc.plate}`); }
+  const oref = normalizeRef(order.supplier_order_ref ?? "");
+  if (oref && docIdentifiers(doc).includes(oref)) { score += 4; strong += 4; idMatch = true; reasons.push(`n° ${order.supplier_order_ref}`); }
+  const lines = (order.part_order_lines ?? []) as LineLite[];
+  const byRef = new Map(lines.map((l) => [normalizeRef(l.physical_reference ?? ""), l] as const).filter(([k]) => k));
+  let common = 0;
+  for (const l of doc.lines ?? []) {
+    const ol = l.reference ? byRef.get(normalizeRef(l.reference)) : undefined;
+    if (!ol) continue;
+    common++;
+    if (common > 3) continue;
+    // Référence exacte : indice fort. Quantité compatible (≤ reste à recevoir) : bonus.
+    const rest = ol.qty_ordered != null ? Number(ol.qty_ordered) - Number(ol.qty_received ?? 0) : null;
+    const qtyOk = l.quantity != null && rest != null && Number(l.quantity) > 0 && Number(l.quantity) <= rest;
+    score += common === 1 ? 3 : 1;
+    strong += common === 1 ? 3 : 1;
+    if (qtyOk) score += 1;
+    reasons.push(`réf ${l.reference}${qtyOk ? ` + qté ${l.quantity}` : ""}`);
+  }
+  return { score, strong, idMatch, reasons };
+}
+
+/** Score de rapprochement document ↔ commande (0 = aucun indice). */
+export function scoreOrderMatch(doc: DocExtractLite, order: OrderLike): number {
+  return explainOrderMatch(doc, order).score;
+}
+
+export type OrderMatch<T> = { order: T; score: number; level: "certain" | "probable"; reasons: string[] };
 
 /** Commandes candidates, triées ; uniquement parmi les commandes en attente du site donné. */
 export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null): OrderMatch<T>[] {
+  const recent = (a: T, b: T) => (b.created_at ?? "").localeCompare(a.created_at ?? "");
   return pendingReceptionOrders(orders)
     .filter((o) => !siteId || o.site_id === siteId)
     // Plaques différentes = autre véhicule : jamais candidate.
     .filter((o) => !(plateKey(doc.plate) && plateKey(o.plate) && plateKey(doc.plate) !== plateKey(o.plate)))
-    .map((order) => ({ order, score: scoreOrderMatch(doc, order), strong: scoreOrderMatch({ ...doc, supplier: null }, order) }))
+    .map((order) => ({ order, ...explainOrderMatch(doc, order) }))
     // Le fournisseur seul ne suffit jamais : il faut plaque, OR, n° commande ou référence commune.
     .filter((m) => m.strong > 0 && m.score >= 2)
-    .sort((a, b) => b.score - a.score)
-    .map(({ order, score }) => ({ order, score, level: score >= 4 ? ("certain" as const) : ("probable" as const) }));
+    .sort((a, b) => b.score - a.score || recent(a.order, b.order))
+    .map(({ order, score, idMatch, reasons }) => ({ order, score, reasons, level: idMatch && score >= 4 ? ("certain" as const) : ("probable" as const) }));
 }
 
 /**
- * Présentation UX du rapprochement : certaines (plaque / n° commande / OR+réf) à part,
- * au plus 3 suggestions probables, jamais sur le fournisseur seul. Rien n'est jamais obligatoire.
+ * Présentation UX du rapprochement : certaines (plaque / n° commande unique) à part,
+ * au plus 3 correspondances probables classées avec raisons, jamais sur le fournisseur seul.
+ * Deux « certaines » à égalité => ambiguïté : rétrogradées en probables (confirmation obligatoire).
  */
 export function receptionSuggestions<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null, max = 3) {
   const all = matchOrders(doc, orders, siteId);
-  const certain = all.filter((m) => m.level === "certain" && scoreOrderMatch({ ...doc, supplier: null }, m.order) >= 4);
+  let certain = all.filter((m) => m.level === "certain");
+  if (certain.length > 1 && certain[0]!.score === certain[1]!.score) certain = [];
   const probable = all.filter((m) => !certain.includes(m)).slice(0, Math.max(0, max - Math.min(certain.length, max)));
-  return { certain: certain.slice(0, max), probable, hasExact: certain.length > 0 };
+  const ambiguous = !certain.length && probable.length > 1 && probable[0]!.score === probable[1]!.score;
+  return { certain: certain.slice(0, max), probable, hasExact: certain.length > 0, ambiguous };
 }
 
 /**
- * Recherche manuelle compacte : UNIQUEMENT les commandes manuelles simplifiées du front office
- * (`order_mode = "simplified"`) — les commandes détaillées/importées restent du ressort du
- * rapprochement automatique. Recherche par n° commande, OR/dossier, immat, réf. pièce,
- * fournisseur, commentaire, créateur.
+ * Recherche manuelle : TOUTES les commandes en attente du site (détaillées/importées et simplifiées),
+ * classées par pertinence vis-à-vis du document puis récence. Recherche texte : fournisseur, n° commande,
+ * OR/dossier, immat, réf. pièce, désignation, commentaire, créateur.
  */
-export function searchPendingOrders<T extends OrderLike & { requested_or_number?: string | null }>(orders: T[], query: string, siteId: string | null, max = 20): T[] {
+export function searchPendingOrders<T extends OrderLike & { requested_or_number?: string | null }>(orders: T[], query: string, siteId: string | null, max = 20, doc?: DocExtractLite): T[] {
   const q = norm(query);
   const qk = plateKey(query);
-  const recentFirst = (a: T, b: T) => (b.created_at ?? "").localeCompare(a.created_at ?? "");
+  const rel = (o: T) => (doc ? explainOrderMatch(doc, o) : null);
   const pending = pendingReceptionOrders(orders)
-    .filter((o) => o.order_mode === "simplified")
     .filter((o) => !siteId || o.site_id === siteId)
-    .sort(recentFirst);
+    .map((o) => ({ o, s: rel(o)?.strong ? rel(o)!.score : 0 }))
+    .sort((a, b) => b.s - a.s || (b.o.created_at ?? "").localeCompare(a.o.created_at ?? ""))
+    .map((x) => x.o);
   if (!q) return pending.slice(0, max);
   return pending.filter((o) => {
-    const hay = [o.supplier_order_ref, o.repair_orders?.or_number, o.requested_or_number, o.suppliers?.name, o.comment, o.created_by_name, ...(o.part_order_lines ?? []).map((l) => l.physical_reference)].map((v) => norm(v ?? ""));
+    const lines = (o.part_order_lines ?? []) as (LineLite & { designation?: string | null })[];
+    const hay = [o.supplier_order_ref, o.repair_orders?.or_number, o.requested_or_number, o.suppliers?.name, o.comment, o.created_by_name, ...lines.map((l) => l.physical_reference), ...lines.map((l) => l.designation)].map((v) => norm(v ?? ""));
     if (hay.some((h) => h && h.includes(q))) return true;
     if (qk.length >= 3 && plateKey(o.plate).includes(qk)) return true;
     const rq = normalizeRef(query);
-    return !!rq && (o.part_order_lines ?? []).some((l) => normalizeRef(l.physical_reference ?? "").includes(rq));
+    return !!rq && lines.some((l) => normalizeRef(l.physical_reference ?? "").includes(rq));
   }).slice(0, max);
 }
 
