@@ -85,6 +85,8 @@ Reste à faire :
 ## Correctif générique Commander des pièces — PDF achats (29/09)
 - [ ] Tracer et corriger la chaîne PDF texte → règles → normalisation → formulaire
 - [ ] Parser les blocs articles OSKARBI 2887082 et Renault Parts 45965672 sans règle fournisseur spécifique
+- [ ] Ajouter la fixture Renault exacte et un test d’intégration jusqu’aux lignes du formulaire
+- [ ] Publier directement après typecheck et suite complète verts
 - [ ] Renforcer fournisseur, date commande, multi-OR, frais et validation métier/score qualité
 - [ ] Vérifier les deux fixtures exactes, AUTODOC, RETRO, typecheck et suite complète
 - [ ] Vérifier le formulaire réel sans publier
