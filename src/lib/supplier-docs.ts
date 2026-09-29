@@ -45,6 +45,8 @@ export type InvoiceExtract = {
   or_numbers?: string[];
   document_number?: string | null;
   document_date?: string | null;
+  /** Date de commande lue (jamais « Payée le »). */
+  order_date?: string | null;
   doc_kind?: string | null;
   supplier?: string | null;
   /** Coordonnées de l'émetteur lues sur le document (préremplissage de la fiche). */

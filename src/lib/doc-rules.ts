@@ -133,11 +133,28 @@ export function parseItemLines(text: string): Line[] {
     String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}\s*(?:€|EUR)?(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*(?:€|EUR)?$`,
     "i",
   );
-  const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
+  const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s*(?:€|EUR)?\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
   let last: Line | null = null;
+  let pending: Line | null = null;
   for (const rawLine of text.split("\n")) {
     // Intitulés de section collés à la 1re ligne article (« Recherche libre ECD-FR-016 … ») : ignorés.
     const line = rawLine.replace(/^\s*(?:recherche libre|articles?|pi[eè]ces?)\s*[:\-]?\s+(?=[A-Z0-9])/i, "");
+    if (pending) {
+      const pr = new RegExp(String.raw`^(?:\(?(\d{5,6})\)?\s+)?${MONEY}\s*(?:€|EUR)?(?:\s+${MONEY}\s*(?:€|EUR)?)?$`, "i").exec(line.trim());
+      const p = pending;
+      pending = null;
+      if (pr) {
+        const unit = money(pr[2]);
+        last = { ...p, unit_price: unit, amount: money(pr[3]) ?? (unit != null && p.quantity != null ? Math.round(unit * p.quantity * 100) / 100 : null), isolated_number: pr[1] ?? null };
+        out.push(last);
+        continue;
+      }
+    }
+    const bare = /^(\d{1,3})\s+([A-Z0-9][A-Z0-9.\-/]{3,})\s+([^\d€]*[A-Za-zÀ-ÿ]{3}[^€]*?)$/i.exec(line.trim());
+    if (bare && /\d/.test(bare[2]!) && !new RegExp(MONEY).test(bare[3]!)) {
+      const qty = qtyOf(bare[1]!);
+      if (qty != null) { pending = { reference: bare[2]!.toUpperCase(), label: bare[3]!.trim(), quantity: qty, unit_price: null, amount: null }; continue; }
+    }
     const iso = /^\(?\s*(\d{5})\s*\)?$/.exec(line.trim());
     if (iso && last && !last.isolated_number) { last.isolated_number = iso[1]!; continue; }
     // Colonnes techniques en tête (position, n° de colis… « 55 1 ECD-FR-016 … ») : ignorées si le reste est une ligne article.
@@ -183,7 +200,42 @@ export function headerSupplierName(text: string): string | null {
     if (v.length < 4 || v.length > 60 || /\d{3,}|@|facture|commande|devis|livraison/i.test(v)) continue;
     if (LEGAL.test(v) && !isGarageName(v)) return v.toUpperCase();
   }
+  return footerSupplierName(text);
+}
+
+/**
+ * Raison sociale ailleurs dans le document (pied de page « OSKARBI AUTO SL · adresse · CP ville ») :
+ * segments séparés par « · • | – », forme juridique en fin de segment, jamais le garage.
+ */
+export function footerSupplierName(text: string): string | null {
+  const lines = cleanText(text).split("\n");
+  for (const l of [...lines].reverse()) {
+    for (const seg of l.split(/\s*[·•|–—]\s*/)) {
+      const v = seg.replace(/\s{2,}/g, " ").trim();
+      if (v.length < 4 || v.length > 60 || /\d{3,}|@|facture|commande|devis|livraison|adresse|total|t\.?v\.?a/i.test(v)) continue;
+      if (v.split(" ").length < 2 || !LEGAL.test(v) || isGarageName(v)) continue;
+      return v.toUpperCase();
+    }
+  }
   return null;
+}
+
+/**
+ * Date de commande : libellé explicite (« Date de commande », « Commandé le ») d'abord ; sinon la colonne
+ * « Date » d'un tableau d'en-tête (1re date de la ligne suivante) ; sinon 1re date hors « Payée le / échéance / livraison ».
+ */
+export function orderDate(raw: string): string | null {
+  const text = cleanText(raw);
+  const lab = /(?:date\s*(?:de\s*(?:la\s*)?)?commande|command[ée]e?\s+le)\s*[:.]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i.exec(text);
+  if (lab) return isoDate(lab[1]);
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (!/^date\b/i.test(lines[i]!)) continue;
+    const first = /^(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/.exec(lines[i + 1]!);
+    if (first) return isoDate(first[1]);
+  }
+  const masked = text.replace(/(?:pay[ée]e?\s+le|r[ée]gl[ée]e?\s+le|[ée]ch[ée]ance|livr[ée]e?\s+le|livraison(?:\s+pr[ée]vue)?)\s*[:.]?\s*\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}/gi, "");
+  return isoDate(masked);
 }
 
 /** Coordonnées de l'émetteur (en-tête, avant les adresses client) : TVA, SIRET, téléphone, e-mail, site. */
@@ -256,6 +308,9 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
   const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);
   const orSingle = plate && orRaw && findFrenchPlate(orRaw) ? null : orRaw;
+  const totalHt = lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i);
+  const vat = lastMoneyOnLines(text, /\bt\.?v\.?a\b/i);
+  const totalTtc = lastMoneyOnLines(text, /t\.?t\.?c|net\s*[àa]\s*payer|^total\s+(?!h\.?t)\d/i);
   return {
     doc_kind,
     or_numbers: orSingle && !or_numbers.includes(orSingle) && /^\d{5,6}$/.test(orSingle) ? [orSingle, ...or_numbers] : or_numbers,
@@ -264,6 +319,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     supplier_info: headerSupplierInfo(text),
     document_number: docNumber,
     document_date: isoDate(text),
+    order_date: doc_kind === "facture" ? (/date\s*(?:de\s*)?commande|command[ée]e?\s+le/i.test(text) ? orderDate(text) : null) : orderDate(text),
     delivery_note_number: doc_kind === "bl" ? docNumber : null,
     invoice_number: doc_kind === "facture" ? docNumber : null,
     invoice_date: doc_kind === "facture" ? isoDate(text) : null,
@@ -272,9 +328,9 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     plate,
     plate_printed: !!plate,
     lines,
-    total_ht: lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i),
-    vat_amount: lastMoneyOnLines(text, /\bt\.?v\.?a\b/i),
-    total_ttc: lastMoneyOnLines(text, /t\.?t\.?c|net\s*[àa]\s*payer|^total\s+(?!h\.?t)\d/i),
+    total_ht: totalHt ?? (vat === 0 ? totalTtc : null),
+    vat_amount: vat,
+    total_ttc: totalTtc,
     shipping_ht: lastMoneyOnLines(text, /frais de port|\bport\b|transport|emballage/i),
     currency: "EUR",
   };
@@ -523,7 +579,7 @@ export type DocSpec = {
 };
 
 export const DOC_SPECS: Record<DocKind, DocSpec> = {
-  purchase: { rules: purchaseRules, required: [["supplier", "document_number", "order_reference"], "lines"] },
+  purchase: { rules: purchaseRules, required: ["supplier", "lines", ["order_date", "document_date"]] },
   expense: { rules: expenseRules, required: ["merchant", "date", "amount_ttc"] },
   or_or_plate: { rules: orOrPlateRules, required: [["or_number", "plate"]] },
   plate: { rules: orOrPlateRules, required: ["plate"] },

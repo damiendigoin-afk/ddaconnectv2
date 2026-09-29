@@ -75,7 +75,7 @@ describe("documents d'achat", () => {
     expect(d.aiVision).not.toHaveBeenCalled();
   });
   it("PDF scanné sans couche texte : vision directe, pas de repli texte", async () => {
-    const d = deps({ fallbackEnabled: vi.fn(async () => true), aiVision: vi.fn(async () => ({ supplier: "X", lines: [{ reference: "A1" }] })) });
+    const d = deps({ fallbackEnabled: vi.fn(async () => true), aiVision: vi.fn(async () => ({ supplier: "X", document_date: "2026-09-28", lines: [{ reference: "A1" }] })) });
     const r = await runDocPipeline({ kind: "purchase", text: "", hasImage: true, media: "pdf_scan" }, d);
     expect(d.aiText).not.toHaveBeenCalled();
     expect(r.route).toBe("ai_vision_fallback");
