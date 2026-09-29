@@ -136,6 +136,21 @@ export function parseItemLines(text: string): Line[] {
   return out;
 }
 
+/**
+ * Tous les identifiants étiquetés du document (Transaction, Commande, Cde, BL, Facture, Réf. commande, Votre réf…).
+ * Aucun n'est présumé être LE n° de commande : le rapprochement les compare tous à la commande.
+ */
+export function refCandidates(raw: string): string[] {
+  const text = cleanText(raw);
+  const re = /(?:transaction|commande|cde|bon de livraison|\bb\.?l\.?|facture|r[ée]f(?:[ée]rence)?\.?\s*(?:commande|client)?|votre\s+r[ée]f[a-z.]*|n[°o]\s*(?:de\s*)?(?:pi[eè]ce|document))\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z]{0,3}\d[A-Z0-9\-/]{4,})/gi;
+  const out = new Set<string>();
+  for (const m of text.matchAll(re)) {
+    const v = m[1]!.toUpperCase().replace(/[-/]+$/, "");
+    if (/\d{4,}/.test(v) && !findFrenchPlate(v)) out.add(v);
+  }
+  return [...out].slice(0, 12);
+}
+
 export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const text = cleanText(raw);
   const low = text.toLowerCase();
@@ -155,6 +170,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const lines = parseItemLines(text);
   return {
     doc_kind,
+    ref_candidates: refCandidates(text),
     supplier: detectSupplier(text, ctx.suppliers),
     document_number: docNumber,
     document_date: isoDate(text),
