@@ -37,7 +37,7 @@ describe.each([["prix sur la ligne article", PAD_A], ["prix sur la ligne du rep�
   });
   it("une seule ligne article, OR 17072 jamais pris pour une référence", () => {
     expect(x.lines).toHaveLength(1);
-    expect(x.lines[0]).toMatchObject({ reference: "5571201", label: "Grille inférieure pare-chocs avant", quantity: 1, unit_price: 43.1 });
+    expect(x.lines?.[0]).toMatchObject({ reference: "5571201", label: "Grille inférieure pare-chocs avant", quantity: 1, unit_price: 43.1 });
     expect(x.or_number).toBe("17072");
     expect(x.or_numbers).toEqual(["17072"]);
   });
