@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { OrderRow } from "@/components/parts/OrderRow";
 import { DocDropZone } from "@/components/parts/DocDropZone";
-import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
+import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, PriceInput, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
 import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier, groupLinesByOr } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
@@ -30,6 +30,8 @@ export const Route = createFileRoute("/pieces-achats/commandes")({
   }),
   component: OrdersPage,
 });
+
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 const emptyLine = (): OrderLineInput => ({ line_kind: "part", physical_reference: "", designation: "", qty_ordered: 1, expected_unit_cost_ht: null });
 
@@ -107,7 +109,8 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   }, [suppliersQ.data, supplier, supplierTouched, x.supplier]);
   const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ?? "", vehicleId: null });
   const [comment, setComment] = useState("");
-  const [rdv, setRdv] = useState("");
+  // Date de commande : lue sur le document, sinon date du jour locale ; toujours modifiable.
+  const [orderDate, setOrderDate] = useState(() => x.order_date ?? localToday());
   const [supRef, setSupRef] = useState(x.order_reference ?? "");
   const [dossier, setDossier] = useState(x.or_number ?? "");
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
@@ -193,7 +196,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
             site_id: writeSite, supplier_id: supplier || null, source_document_id: docId,
             order_mode: gl.length ? "detailed" : "simplified", destination,
             repair_order_id: ro?.id ?? null, vehicle_id: ro?.vehicle_id ?? orv.vehicleId,
-            plate: ro?.plate ?? plate, appointment_date: rdv || null, supplier_order_ref: supRef.trim() || null,
+            plate: ro?.plate ?? plate, appointment_date: null, order_date: orderDate || null, supplier_order_ref: supRef.trim() || null,
             comment: [comment.trim(), `Commande fournisseur multi-OR : ${multiOrs.join(" + ")}`].filter(Boolean).join(" — "),
             requested_or_number: reqOr, lines: gl,
           }, actor);
@@ -217,7 +220,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
         repair_order_id: orv.or?.id ?? null,
         vehicle_id: orv.vehicleId,
         plate,
-        appointment_date: rdv || null,
+        appointment_date: null, order_date: orderDate || null,
         supplier_order_ref: supRef.trim() || null,
         comment: comment.trim() || null,
         requested_or_number: requestedOr,
@@ -274,7 +277,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       ) : null}
       <div className="grid grid-cols-2 gap-2">
         <input className={inputCls} placeholder="N° commande fournisseur" value={supRef} onChange={(e) => setSupRef(e.target.value)} />
-        <input className={inputCls} type="date" value={rdv} onChange={(e) => setRdv(e.target.value)} aria-label="Date RDV" title="Date RDV (facultative)" />
+        <input className={inputCls} type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} aria-label="Date de commande" title="Date de commande" />
       </div>
       <select className={inputCls} value={destination} onChange={(e) => setDestination(e.target.value as typeof destination)}>
         <option value="or">Destination : OR</option>
@@ -296,7 +299,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
             <input aria-label="Référence" className={`${inputCls} h-9 px-2 text-xs`} placeholder="Référence" value={l.physical_reference} onBlur={(e) => l.line_kind === "part" && checkStock(i, e.target.value)} onChange={(e) => setLine(i, { physical_reference: e.target.value })} />
             <input aria-label="Désignation" className={`${inputCls} order-first col-span-2 h-9 px-2 text-xs md:order-none md:col-span-1`} placeholder="Désignation" value={l.designation} onChange={(e) => setLine(i, { designation: e.target.value })} />
             <input aria-label="Quantité" className={`${inputCls} h-9 px-2 text-xs`} inputMode="decimal" placeholder="Qté" value={l.qty_ordered ?? ""} onChange={(e) => setLine(i, { qty_ordered: numOrNull(e.target.value) })} />
-            <input aria-label="PA HT" className={`${inputCls} h-9 px-2 text-xs`} inputMode="decimal" placeholder="PA HT" value={l.expected_unit_cost_ht ?? ""} onChange={(e) => setLine(i, { expected_unit_cost_ht: numOrNull(e.target.value) })} />
+            <PriceInput aria-label="PA HT" className={`${inputCls} h-9 px-2 text-xs`} placeholder="PA HT" value={l.expected_unit_cost_ht} onChange={(n) => setLine(i, { expected_unit_cost_ht: n })} />
             <button type="button" className="flex h-9 items-center justify-center rounded-md border-2 border-border px-2" aria-label="Supprimer la ligne" title="Supprimer la ligne" onClick={() => removeLine(i)}><Trash2 className="h-4 w-4" /></button>
           </div>
           {multiOrs.length ? (

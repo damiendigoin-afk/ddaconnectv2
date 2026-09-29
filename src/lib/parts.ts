@@ -275,7 +275,7 @@ export async function allocateToOr(a: { articleId: string; siteId: string; orId:
 export type OrderLineInput = { line_kind: "part" | "fee" | "deposit"; physical_reference: string; designation: string; qty_ordered: number | null; expected_unit_cost_ht: number | null };
 
 export async function createOrder(
-  o: { site_id: string; supplier_id: string | null; source_document_id?: string | null; order_mode: "simplified" | "detailed"; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; appointment_date: string | null; supplier_order_ref: string | null; comment: string | null; requested_or_number?: string | null; lines: OrderLineInput[] },
+  o: { site_id: string; supplier_id: string | null; source_document_id?: string | null; order_mode: "simplified" | "detailed"; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; appointment_date: string | null; order_date?: string | null; supplier_order_ref: string | null; comment: string | null; requested_or_number?: string | null; lines: OrderLineInput[] },
   actor: Actor,
 ) {
   const { lines, ...head } = o;

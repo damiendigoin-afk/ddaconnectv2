@@ -9,6 +9,7 @@ import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
 import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
 import { syncOrNumber } from "@/lib/receipt-lines";
+import { formatPriceInput, isPriceTyping, parsePriceInput } from "@/lib/price-input";
 import { formatPlate } from "@/lib/plate";
 
 export const inputCls = "h-11 w-full rounded-lg border-2 border-border bg-card px-3 text-sm";
@@ -198,6 +199,26 @@ export function OrLink({ id, num }: { id: string | null; num: string | null | un
     <Link to="/or/$orId" params={{ orId: id }} className="font-bold underline">
       OR {num ?? "—"}
     </Link>
+  );
+}
+
+/** Prix saisi librement (43,10 / 43.10), converti en nombre seulement au blur ; affiché à la française. */
+export function PriceInput({ value, onChange, className, ...rest }: { value: number | null | undefined; onChange: (n: number | null) => void; className?: string; "aria-label"?: string; placeholder?: string }) {
+  const [text, setText] = useState(() => formatPriceInput(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => { if (!focused) setText(formatPriceInput(value)); }, [value, focused]);
+  return (
+    <input
+      {...rest}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      className={className}
+      value={text}
+      onFocus={() => setFocused(true)}
+      onChange={(e) => { if (isPriceTyping(e.target.value)) setText(e.target.value); }}
+      onBlur={() => { const n = parsePriceInput(text); setFocused(false); setText(formatPriceInput(n)); onChange(n); }}
+    />
   );
 }
 
