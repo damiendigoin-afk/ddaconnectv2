@@ -292,7 +292,7 @@ export async function createOrder(
   return data.id;
 }
 
-const ORDER_SELECT = "*, suppliers(name), repair_orders(or_number), part_order_lines(*), inbox_documents(id, extracted)";
+const ORDER_SELECT = "*, suppliers(name), repair_orders(or_number), part_order_lines(*), inbox_documents(id, extracted, storage_path, file_name, mime_type, file_size, created_at)";
 
 /** Rattache / corrige le fournisseur d'une commande (et de son document source). Interdit sur commande annulée. */
 export async function setOrderSupplier(o: { id: string; site_id: string; status: string; source_document_id: string | null }, supplierId: string, actor: Actor) {
