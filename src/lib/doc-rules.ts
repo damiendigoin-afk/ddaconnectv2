@@ -366,7 +366,7 @@ export function repairOrderRules(raw: string): Fields {
     const mm = new RegExp(`\\b${brand}\\b\\s+([A-Z0-9][A-Z0-9 .\\-]{1,24})`, "i").exec(text);
     model = mm?.[1]?.split(/\s{2,}|\n/)[0]?.trim() ?? null;
   }
-  const account_number = firstMatch(text, [/(?:n[°o]\s*client|code client|compte client|client n[°o])\s*[:.]?\s*([A-Z0-9]{3,12})\b/i]);
+  const account_number = firstMatch(text, [/(?:n[°o]\s*client|code client|compte client|client n[°o])\s*[:.]?\s*((?=[A-Z0-9]*\d)[A-Z0-9]{3,12})\b/i]);
   const orDate = firstMatch(text, [/(?:date(?: de l'?OR| OR| entr[ée]e)?)\s*[:.]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i]);
   return {
     client: { account_number, last_name, first_name, address, postal_code, city, phone, mobile, email },
