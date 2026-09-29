@@ -158,7 +158,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
       <SiteMismatchAlert docSite={guessDocumentSite(docSiteText(x), sites)} />
       <div className="text-xs space-y-1">
         {x.supplier ? <DocSupplierLink extracted={x} docId={doc.id} /> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
-        <p>Repères détectés — OR / dossier : <b>{x.order_reference && false ? "" : x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° lus : <b>{[x.order_reference, ...(x.ref_candidates ?? [])].filter((v, i, a) => v && a.indexOf(v) === i).join(", ") || "—"}</b> · {(x.lines ?? []).length} ligne(s)</p>
+        <p>Repères détectés — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° lus : <b>{[x.order_reference, ...(x.ref_candidates ?? [])].filter((v, i, a) => v && a.indexOf(v) === i).join(", ") || "—"}</b> · {(x.lines ?? []).length} ligne(s)</p>
       </div>
       {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
 
