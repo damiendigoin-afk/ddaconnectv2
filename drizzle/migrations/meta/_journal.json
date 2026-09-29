@@ -225,6 +225,13 @@
       "when": 1790660992963,
       "tag": "0031_ensure_winmotor_dossier_full_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790664102744,
+      "tag": "0032_or_scan_exclude_garage_contacts",
+      "breakpoints": true
     }
   ]
 }
