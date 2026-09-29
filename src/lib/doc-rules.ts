@@ -133,7 +133,7 @@ export function parseItemLines(text: string): Line[] {
     String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}\s*(?:€|EUR)?(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*(?:€|EUR)?$`,
     "i",
   );
-  const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
+  const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s*(?:€|EUR)?\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
   let last: Line | null = null;
   let pending: Line | null = null;
   for (const rawLine of text.split("\n")) {
@@ -579,7 +579,7 @@ export type DocSpec = {
 };
 
 export const DOC_SPECS: Record<DocKind, DocSpec> = {
-  purchase: { rules: purchaseRules, required: ["supplier", ["document_number", "order_reference"], "lines", ["order_date", "document_date"]] },
+  purchase: { rules: purchaseRules, required: ["supplier", "lines", ["order_date", "document_date"]] },
   expense: { rules: expenseRules, required: ["merchant", "date", "amount_ttc"] },
   or_or_plate: { rules: orOrPlateRules, required: [["or_number", "plate"]] },
   plate: { rules: orOrPlateRules, required: ["plate"] },
