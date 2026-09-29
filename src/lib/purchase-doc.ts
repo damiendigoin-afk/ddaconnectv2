@@ -20,7 +20,7 @@ export async function readPurchaseDoc(file: File): Promise<ReadDoc> {
     const extracted = normalizePurchaseExtract(raw) as InvoiceExtract;
     const mapped = orderFormLinesFromDoc(extracted);
     const diagnostic = orderLineContractDiagnostic(raw, mapped);
-    if (diagnostic.parsedCount > 0 && diagnostic.blankMappedCount === diagnostic.mappedCount) {
+    if (diagnostic.parsedCount > 0 && (diagnostic.mappedCount === 0 || diagnostic.blankMappedCount === diagnostic.mappedCount)) {
       console.warn("[purchase-import] line contract rejected", diagnostic);
       return { file, extracted, warning: "Les lignes détectées n'ont pas pu être transmises au formulaire. Le document doit être relu ou complété manuellement." };
     }

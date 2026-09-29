@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { purchaseRules, DOC_SPECS, missingFields } from "@/lib/doc-rules";
 import { normalizePurchaseExtract } from "@/lib/purchase-extract";
 import { orderFormInitialState, orderFormLinesFromDoc, orderLineContractDiagnostic } from "@/lib/receipt-lines";
+import { initialOrderSupplier } from "@/lib/order-supplier";
 
 // Texte PDF natif réel « pad meg3 COMMANDE 2887178.pdf » : chaque pièce sur 3 lignes.
 const PAD = `Adresse de facturation
@@ -82,7 +83,7 @@ describe("contrat runtime réel vers le state du formulaire", () => {
         { line_kind: "fee", physical_reference: "", designation: "Frais de port et de emballage", qty_ordered: 1, expected_unit_cost_ht: 25 },
       ],
     });
-    expect(runtimePayload.supplier_id).toBe("supplier-pad");
+    expect(initialOrderSupplier(normalized, [{ id: "supplier-pad", name: "PIECE AUTO DISCOUNT", notes: "Alias : OSKARBI AUTO SL" }])).toBe("supplier-pad");
     expect(orderLineContractDiagnostic(runtimePayload, state.lines)).toMatchObject({ parsedCount: 3, mappedCount: 4, blankMappedCount: 0 });
   });
 

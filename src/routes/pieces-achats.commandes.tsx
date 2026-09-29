@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { autoSupplier } from "@/lib/order-supplier";
+import { autoSupplier, initialOrderSupplier } from "@/lib/order-supplier";
 import { findRefVehicleByPlate } from "@/lib/refbase";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -62,7 +62,7 @@ function OrdersPage() {
             key={doc?.file.name ?? "manual"}
             doc={doc}
             docSite={doc ? guessDocumentSite(docSiteText(doc.extracted), sites) : null}
-            initialSupplier={doc ? doc.extracted.supplier_id ?? matchSupplier(doc.extracted.supplier, suppliers.data ?? [])?.id ?? "" : ""}
+            initialSupplier={doc ? initialOrderSupplier(doc.extracted, suppliers.data ?? []) : ""}
             onDone={done}
           />
         ) : (

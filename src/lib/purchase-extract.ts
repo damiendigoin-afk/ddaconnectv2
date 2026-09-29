@@ -160,6 +160,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   return {
     doc_kind: kind,
     supplier: pick(o, ["supplier", "distributor", "distributeur", "vendor", "seller"]),
+    supplier_id: str(o["supplier_id"]),
     supplier_info: supplierInfo(o["supplier_info"]),
     document_number: docNumber,
     document_date: str(o.document_date),
