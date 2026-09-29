@@ -121,6 +121,10 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
 
   // Plaque : seulement si réellement imprimée sur le document.
   const platePrinted = o.plate_printed === true || o.plate_printed === "true";
+  // Le premier passage retire volontairement plate_printed du contrat public.
+  // Au second passage navigateur, son absence signifie donc « déjà normalisé » ;
+  // un false explicite venant de la reconnaissance continue d'interdire la plaque.
+  const plateAllowed = o.plate_printed == null || platePrinted;
   const kind = str(o.doc_kind);
   // « Repère / Mes références / Réf. client / Véhicule » peut être une immatriculation : jamais un OR.
   const refFields = ["or_number", "customer_reference", "order_mark", "repere_commande", "vehicle", "mes_references"];
@@ -172,7 +176,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     invoice_date: str(o.invoice_date),
     or_number: orNumber,
     or_numbers: orNumbers,
-    plate: (platePrinted && str(o.plate) ? findFrenchPlate(str(o.plate)) ?? str(o.plate) : null)
+    plate: (plateAllowed && str(o.plate) ? findFrenchPlate(str(o.plate)) ?? str(o.plate) : null)
       ?? refPlate
       ?? findFrenchPlate([str(o.handwritten_notes), ...lines.map((l) => l.label)].filter(Boolean).join(" | ")),
     customer_or_site: str(o.customer_or_site),
