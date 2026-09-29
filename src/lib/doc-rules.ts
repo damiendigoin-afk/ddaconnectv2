@@ -107,6 +107,13 @@ export function detectSupplier(text: string, hints: SupplierHint[] = []): string
     .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score);
   if (scored.length === 1 || (scored.length > 1 && scored[0]!.score > scored[1]!.score)) return scored[0]!.h.name;
+  const rows = cleanText(text).split("\n");
+  for (let i = 0; i < rows.length; i += 1) {
+    const same = /^(?:distributeur|fournisseur|vendeur)\s*:\s*(.+)$/i.exec(rows[i] ?? "")?.[1]?.trim();
+    const next = /^(?:distributeur|fournisseur|vendeur)\s*:?[ ]*$/i.test(rows[i] ?? "") ? rows[i + 1]?.trim() : null;
+    const named = same ?? next;
+    if (named && named.length >= 4 && named.length <= 100 && !isGarageName(named)) return named.toUpperCase();
+  }
   return null;
 }
 
@@ -122,12 +129,45 @@ function qtyOf(s: string): number | null {
   return q != null && q > 0 && q <= 999 ? q : null;
 }
 
+const BLOCK_META = /^(?:stock|entrep[oô]t|qt[ée]|quantit[ée]|prix|mode de livraison|livraison|en cours|disponib|informations?|command[ée] par|n[°o]\s*client|distributeur|compte de facturation|total)\b/i;
+
+/**
+ * Articles présentés en blocs verticaux par les PDF texte : chaque « Réf : » ouvre
+ * une pièce et les champs sémantiques sont cherchés jusqu'à la référence suivante.
+ * Un « Prix client … HT » explicite prime toujours sur les montants TTC ou de livraison.
+ */
+export function parseItemBlocks(text: string): Line[] {
+  const rows = cleanText(text).split("\n");
+  const starts: number[] = [];
+  for (let i = 0; i < rows.length; i += 1) if (/^r[ée]f\.?\s*:\s*[A-Z0-9]/i.test(rows[i] ?? "")) starts.push(i);
+  const out: Line[] = [];
+  for (let n = 0; n < starts.length; n += 1) {
+    const start = starts[n] ?? 0;
+    const end = starts[n + 1] ?? rows.length;
+    const first = rows[start] ?? "";
+    const reference = /^r[ée]f\.?\s*:\s*([A-Z0-9][A-Z0-9.\-/]{3,})/i.exec(first)?.[1]?.toUpperCase() ?? null;
+    if (!reference || !/\d/.test(reference)) continue;
+    const block = rows.slice(start + 1, end);
+    const qtyRaw = firstMatch(block.join("\n"), [/(?:qt[ée]|quantit[ée])\s*:\s*(\d{1,3}(?:[.,]\d{1,2})?)/i]);
+    const clientPrice = firstMatch(block.join("\n"), [/prix\s+client\s*:\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?T\.?/i]);
+    const purchasePrice = firstMatch(block.join("\n"), [/(?:P\.?A\.?|prix\s+(?:unitaire|d['’]achat)|P\.?U\.?)\s*(?:H\.?T\.?)?\s*:\s*(\d[\d .]*[.,]\d{2})/i]);
+    const label = block.find((row) => {
+      const v = row.trim();
+      return v.length >= 2 && /[A-Za-zÀ-ÿ]/.test(v) && !BLOCK_META.test(v) && !/^\d+[.,]\d{2}\s*€/.test(v);
+    })?.trim() ?? null;
+    out.push({ reference, label, quantity: qtyOf(qtyRaw ?? "1"), unit_price: money(clientPrice ?? purchasePrice), amount: null });
+  }
+  return out;
+}
+
 /**
  * Lignes article, mises en page variées : « Réf Désignation Qté PU [remise] [Montant] »
  * ou « Qté Réf Désignation PU [HT] [% TVA] [TVA] [Total] » (factures web, ex. Pièce Auto Discount).
  * Un nombre seul (5 chiffres, éventuellement entre parenthèses) sous une ligne = repère isolé (dossier atelier possible).
  */
 export function parseItemLines(text: string): Line[] {
+  const blocks = parseItemBlocks(text);
+  if (blocks.length) return blocks;
   const out: Line[] = [];
   const refFirst = new RegExp(
     String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}\s*(?:€|EUR)?(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*(?:€|EUR)?$`,
@@ -303,23 +343,27 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   ]);
   const order_reference = firstMatch(text, [/commande\s*(?:web|internet|en ligne|client|fournisseur)?\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
   const plate = findFrenchPlate(text);
-  const orRaw = firstMatch(text, [OR_LABEL]);
+  const orRaw = firstMatch(text, [OR_LABEL, /\bO\.?R\.?(?:\s*n[°o])?\s*[:#.]\s*(\d{4,7})\b/i]);
   const lines = parseItemLines(text);
+  const visibleBlocks = [...text.matchAll(/^r[ée]f\.?\s*:\s*[A-Z0-9][A-Z0-9.\-/]{3,}/gim)].length;
   const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
   const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);
   const orSingle = plate && orRaw && findFrenchPlate(orRaw) ? null : orRaw;
   const totalHt = lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i);
   const vat = lastMoneyOnLines(text, /\bt\.?v\.?a\b/i);
   const totalTtc = lastMoneyOnLines(text, /t\.?t\.?c|net\s*[àa]\s*payer|^total\s+(?!h\.?t)\d/i);
+  const supplier = detectSupplier(text, ctx.suppliers) ?? headerSupplierName(text);
+  const parsedOrderDate = doc_kind === "facture" ? (/date\s*(?:de\s*)?commande|command[ée]e?\s+le/i.test(text) ? orderDate(text) : null) : orderDate(text);
+  const qualityScore = (orderRef ? 1 : 0) + (parsedOrderDate ? 1 : 0) + (supplier ? 1 : 0) + (orSingle || or_numbers.length || plate ? 1 : 0) + (lines.length ? 2 : 0);
   return {
     doc_kind,
     or_numbers: orSingle && !or_numbers.includes(orSingle) && /^\d{5,6}$/.test(orSingle) ? [orSingle, ...or_numbers] : or_numbers,
     ref_candidates: refCandidates(text),
-    supplier: detectSupplier(text, ctx.suppliers) ?? headerSupplierName(text),
+    supplier,
     supplier_info: headerSupplierInfo(text),
     document_number: docNumber,
     document_date: isoDate(text),
-    order_date: doc_kind === "facture" ? (/date\s*(?:de\s*)?commande|command[ée]e?\s+le/i.test(text) ? orderDate(text) : null) : orderDate(text),
+    order_date: parsedOrderDate,
     delivery_note_number: doc_kind === "bl" ? docNumber : null,
     invoice_number: doc_kind === "facture" ? docNumber : null,
     invoice_date: doc_kind === "facture" ? isoDate(text) : null,
@@ -328,6 +372,8 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     plate,
     plate_printed: !!plate,
     lines,
+    line_quality: lines.length > 0 && (!visibleBlocks || lines.length === visibleBlocks) ? "complete" : null,
+    quality_score: qualityScore,
     total_ht: totalHt ?? (vat === 0 ? totalTtc : null),
     vat_amount: vat,
     total_ttc: totalTtc,

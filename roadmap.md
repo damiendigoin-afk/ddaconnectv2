@@ -83,8 +83,10 @@ Reste à faire :
 - [x] Autoriser le dépôt de BL fournisseur (stockage fournisseurs/) aux non-managers du site (erreur RLS Adrien)
 
 ## Correctif générique Commander des pièces — PDF achats (29/09)
-- [ ] Tracer et corriger la chaîne PDF texte → règles → normalisation → formulaire
-- [ ] Parser les blocs articles OSKARBI 2887082 et Renault Parts 45965672 sans règle fournisseur spécifique
-- [ ] Renforcer fournisseur, date commande, multi-OR, frais et validation métier/score qualité
-- [ ] Vérifier les deux fixtures exactes, AUTODOC, RETRO, typecheck et suite complète
-- [ ] Vérifier le formulaire réel sans publier
+- [x] Tracer et corriger la chaîne PDF texte → règles → normalisation → formulaire
+- [x] Parser les blocs articles OSKARBI 2887082 et Renault Parts 45965672 sans règle fournisseur spécifique
+- [x] Ajouter la fixture Renault exacte et un test d’intégration jusqu’aux lignes du formulaire
+- [x] Publier directement après typecheck et suite complète verts
+- [x] Renforcer fournisseur, date commande, multi-OR, frais et validation métier/score qualité
+- [x] Vérifier les deux fixtures exactes, AUTODOC, RETRO, typecheck et suite complète
+- [x] Vérifier le formulaire réel avant publication
