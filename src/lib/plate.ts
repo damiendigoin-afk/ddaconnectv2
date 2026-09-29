@@ -29,15 +29,22 @@ export function formatPlate(input: string): string {
 /** Immatriculation SIV française (AA-123-AA) trouvée dans un texte libre, format affiché « HG-732-GH ». null si absente ou ambiguë. */
 export function findFrenchPlate(text: string | null | undefined): string | null {
   const t = latinizePlate(text || "").toUpperCase();
-  const found = new Set<string>();
-  for (const m of t.matchAll(/(?<![A-Z0-9])([A-Z]{2})[\s.-]?(\d{3})[\s.-]?([A-Z]{2})(?![A-Z0-9])/g)) {
+  const count = new Map<string, number>();
+  const DIG: Record<string, string> = { O: "0", Q: "0", D: "0", I: "1", L: "1", Z: "2", S: "5", B: "8", G: "6" };
+  for (const m of t.matchAll(/(?<![A-Z0-9])([A-Z]{2})[\s.-]?([0-9OQDILZSBG]{3})[\s.-]?([A-Z]{2})(?![A-Z0-9])/g)) {
+    // Bloc chiffres : sosies OCR corrigés (O->0, I->1, S->5…) seulement s'il y a déjà 2 vrais chiffres.
+    if ((m[2]!.match(/\d/g) ?? []).length < 2) continue;
+    const digits = m[2]!.replace(/[^0-9]/g, (c) => DIG[c] ?? c);
     // SIV : pas de I, O, U ; blocs interdits SS / WW en tête.
-    const p = `${m[1]}${m[2]}${m[3]}`;
-    if (/[IOU]/.test(m[1]! + m[3]!) || m[2] === "000" || m[1] === "SS" || m[1] === "WW") continue;
-    found.add(p);
+    if (/[IOU]/.test(m[1]! + m[3]!) || digits === "000" || m[1] === "SS" || m[1] === "WW") continue;
+    const p = `${m[1]}${digits}${m[3]}`;
+    count.set(p, (count.get(p) ?? 0) + 1);
   }
-  if (found.size !== 1) return null;
-  return formatPlate([...found][0]!);
+  if (count.size === 0) return null;
+  // Plusieurs lectures (2 passes OCR) : la plus fréquente l'emporte ; égalité = ambiguë.
+  const ranked = [...count].sort((a, b) => b[1] - a[1]);
+  if (ranked.length > 1 && ranked[0]![1] === ranked[1]![1]) return null;
+  return formatPlate(ranked[0]![0]);
 }
 
 /** Historique WinMotor d'une plaque : un OR par numéro, le plus récent d'abord (information seule, jamais un rattachement). */
