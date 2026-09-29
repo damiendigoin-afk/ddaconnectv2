@@ -5,7 +5,7 @@
  */
 import { findFrenchPlate, formatPlate } from "./plate";
 import { normSupplierName } from "./supplier-identify";
-import { GARAGE_ALIASES, isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
+import { isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
 
 export type Fields = Record<string, unknown>;
 export type DocKind =
