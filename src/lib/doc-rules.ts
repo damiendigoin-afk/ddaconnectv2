@@ -145,7 +145,8 @@ export function parseItemLines(text: string): Line[] {
     const stripped = lead ? line.slice(lead[0].length) : null;
     const m0 = refFirst.exec(line);
     const ms = stripped ? refFirst.exec(stripped) : null;
-    const m = m0 && (!ms || /[A-Z]/i.test(m0[1]!) || m0[1]!.length >= 5) && !(ms && /^\d{1,3}$/.test(m0[1]!)) ? m0 : ms;
+    // Une ligne « Qté Réf … » reste lue par la présentation quantité d'abord (jamais dépouillée de sa quantité).
+    const m = m0 ?? (ms && !qtyFirst.test(line) ? ms : null);
     if (m && /\d/.test(m[1]!) && !NOT_REF.test(m[1]!)) {
       const qty = qtyOf(m[3]!);
       if (qty != null) {
