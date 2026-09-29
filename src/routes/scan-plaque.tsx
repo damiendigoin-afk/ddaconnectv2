@@ -51,6 +51,19 @@ function ScanPlate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial.plate]);
 
+  async function openWinmotor(orNumber: string, platePart: string | null): Promise<boolean> {
+    const typed = platePart ?? (normalizePlate(plate) ? plate : null);
+    const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber, plate: typed, userName: displayName || null });
+    const a = interpretEnsure(orNumber, r);
+    if (a.kind === "open") {
+      if (a.created) toast.success(`Fiche dossier OR WinMotor ${orNumber} créée`);
+      navigate({ to: "/or/$orId", params: { orId: a.orId } });
+      return true;
+    }
+    setNote(a.kind === "needs_plate" ? `${a.note} Saisissez-la ci-dessous puis relancez avec le n° d'OR depuis l'Atelier.` : a.note);
+    return false;
+  }
+
   async function analyse(file: File) {
     setBusy(true);
     setNote(null);
@@ -60,14 +73,9 @@ function ScanPlate() {
       const res = await ocrOrOrPlate({ data: { text: await localDocText(dataUrl), dataUrl } });
       if (res.ok) {
         if (res.plate) setPlate(formatPlate(res.plate));
-        if (res.or_number) {
-          const { data: ors } = await supabase.from("repair_orders").select("id").eq("or_number", res.or_number).limit(2);
-          if (ors?.length === 1) {
-            // Les réceptions en attente de la même immat sont proposées sur la fiche OR (confirmation obligatoire).
-            navigate({ to: "/or/$orId", params: { orId: ors[0]!.id } });
-            return;
-          }
-          setNote(`OR ${res.or_number} lu${res.plate ? ` · immat ${formatPlate(res.plate)}` : ""} — ${ors?.length ? "plusieurs dossiers portent ce numéro : utilisez la recherche de l'accueil." : "pas encore connu dans DDA : attendez/importez l'OR WinMotor (aucun OR créé)."}`);
+        if (res.or_number && isWinmotorOrNumber(res.or_number)) {
+          // Fiche dossier DDA locale ouverte ou créée (clé site + n° OR WinMotor), puis ouverte.
+          if (await openWinmotor(res.or_number, res.plate ? formatPlate(res.plate) : null)) return;
         }
         if (res.plate) await search(res.plate);
       } else {
@@ -84,13 +92,8 @@ function ScanPlate() {
   async function search(value: string) {
     // N° d'OR WinMotor (chiffres uniquement) : ouverture directe du dossier OR.
     const raw = value.trim();
-    if (/^\d{3,}$/.test(raw)) {
-      const { data: ors } = await supabase.from("repair_orders").select("id").eq("or_number", raw).limit(2);
-      if (ors?.length === 1) {
-        navigate({ to: "/or/$orId", params: { orId: ors[0]!.id } });
-        return;
-      }
-      setNote(ors?.length ? "Plusieurs dossiers portent ce numéro d'OR : utilisez la recherche de l'accueil." : "Aucun OR WinMotor connu avec ce numéro.");
+    if (isWinmotorOrNumber(raw)) {
+      await openWinmotor(raw, null);
       return;
     }
     const norm = normalizePlate(value);
