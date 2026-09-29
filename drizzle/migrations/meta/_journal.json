@@ -211,6 +211,13 @@
       "when": 1790660347731,
       "tag": "0029_ensure_winmotor_dossier",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790660792411,
+      "tag": "0030_ensure_winmotor_dossier_full",
+      "breakpoints": true
     }
   ]
 }
