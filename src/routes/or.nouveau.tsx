@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { localDocText } from "@/lib/doc-text.browser";
+import { orScanNeedsRetry } from "@/lib/doc-rules";
 import { useEffect, useRef, useState } from "react";
 import { Camera, CheckCircle2, FileText, Images, Loader2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
@@ -143,7 +144,7 @@ function NewOrder() {
       const blob = isPdf ? file : await compressImage(file, 1800, 0.9);
       const dataUrl = await blobToDataUrl(blob);
       setDocFile(isPdf ? null : new File([blob], "or.jpg", { type: "image/jpeg" }));
-      const res = await ocrRepairOrder({ data: { text: await localDocText(dataUrl), dataUrl, filename: file.name } });
+      const res = await ocrRepairOrder({ data: { text: await localDocText(dataUrl, "or.jpg", orScanNeedsRetry), dataUrl, filename: file.name } });
       if (!res.ok) {
         toast.error(`${res.error} Complétez manuellement.`);
         setMode("form");

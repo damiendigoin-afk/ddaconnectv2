@@ -380,6 +380,12 @@ export function repairOrderRules(raw: string): Fields {
   };
 }
 
+/** 2e passe OCR gratuite utile sur une photo d'OR papier : n° d'OR ou immatriculation non lus. */
+export function orScanNeedsRetry(text: string): boolean {
+  const t = cleanText(text);
+  return !findFrenchPlate(t) || !OR_LABEL.test(t);
+}
+
 /* ------------------------------- Registre ---------------------------------- */
 
 const empty = (v: unknown) => v == null || v === "" || (Array.isArray(v) && v.length === 0);

@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { localDocText } from "@/lib/doc-text.browser";
+import { orScanNeedsRetry } from "@/lib/doc-rules";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search, History, Loader2 } from "lucide-react";
