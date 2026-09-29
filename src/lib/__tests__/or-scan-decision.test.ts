@@ -1,22 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { decideOrScan } from "../or-scan-decision";
+import { decideOrScan, interpretEnsure } from "../or-scan-decision";
 
-describe("decideOrScan (bouton caméra Atelier)", () => {
-  it("ouvre l'OR connu unique", () => {
-    expect(decideOrScan({ or_number: "50890", plate: "HG-732-GH", orIds: ["a"] })).toEqual({ kind: "open_or", orId: "a" });
+describe("decideOrScan (Atelier)", () => {
+  it("OR lu => ouverture/création de la fiche locale, avec immat", () => {
+    expect(decideOrScan({ or_number: "16991", plate: "HG-732-GH" })).toEqual({ kind: "ensure", or_number: "16991", plate: "HG-732-GH" });
   });
-  it("OR inconnu + plaque => recherche plaque avec note, aucun OR créé", () => {
-    const d = decideOrScan({ or_number: "99999", plate: "HG-732-GH", orIds: [] });
-    expect(d.kind).toBe("plate");
-    if (d.kind === "plate") expect(d.note).toContain("aucun OR créé");
+  it("OR lu sans immat => ensure sans immat (jamais inventée)", () => {
+    expect(decideOrScan({ or_number: "16991", plate: null })).toEqual({ kind: "ensure", or_number: "16991", plate: null });
   });
   it("plaque seule => recherche plaque", () => {
-    expect(decideOrScan({ or_number: null, plate: "HG-732-GH", orIds: [] })).toEqual({ kind: "plate", plate: "HG-732-GH", note: null });
+    expect(decideOrScan({ or_number: null, plate: "HG-732-GH" })).toEqual({ kind: "plate", plate: "HG-732-GH", note: null });
   });
   it("rien lu => note manuelle", () => {
-    expect(decideOrScan({ or_number: null, plate: null, orIds: [] }).kind).toBe("note");
+    expect(decideOrScan({ or_number: null, plate: null }).kind).toBe("note");
   });
-  it("OR ambigu sans plaque => note", () => {
-    expect(decideOrScan({ or_number: "1", plate: null, orIds: ["a", "b"] }).kind).toBe("note");
+  it("numéro non WinMotor ignoré", () => {
+    expect(decideOrScan({ or_number: "12", plate: null }).kind).toBe("note");
+  });
+});
+
+describe("interpretEnsure", () => {
+  it("OR absent de repair_orders => fiche créée puis ouverte", () => {
+    expect(interpretEnsure("16991", { id: "x", created: true })).toEqual({ kind: "open", orId: "x", created: true });
+  });
+  it("second scan => même fiche rouverte, sans création", () => {
+    expect(interpretEnsure("16991", { id: "x", created: false })).toEqual({ kind: "open", orId: "x", created: false });
+  });
+  it("immat manquante => demande l'immat, ne crée rien", () => {
+    expect(interpretEnsure("16991", { needs_plate: true }).kind).toBe("needs_plate");
+  });
+  it("plus de message « attendez/importez »", () => {
+    const r = interpretEnsure("16991", { error: "site_required" });
+    expect(JSON.stringify(r)).not.toMatch(/attendez|importez/);
   });
 });
