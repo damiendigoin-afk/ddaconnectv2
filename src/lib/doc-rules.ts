@@ -139,13 +139,13 @@ const BLOCK_META = /^(?:stock|entrep[oô]t|qt[ée]|quantit[ée]|prix|mode de liv
 export function parseItemBlocks(text: string): Line[] {
   const rows = cleanText(text).split("\n");
   const starts: number[] = [];
-  for (let i = 0; i < rows.length; i += 1) if (/^r[ée]f(?:[ée]rence)?\s*:\s*[A-Z0-9]/i.test(rows[i] ?? "")) starts.push(i);
+  for (let i = 0; i < rows.length; i += 1) if (/^r[ée]f\.?\s*:\s*[A-Z0-9]/i.test(rows[i] ?? "")) starts.push(i);
   const out: Line[] = [];
   for (let n = 0; n < starts.length; n += 1) {
     const start = starts[n] ?? 0;
     const end = starts[n + 1] ?? rows.length;
     const first = rows[start] ?? "";
-    const reference = /^r[ée]f(?:[ée]rence)?\s*:\s*([A-Z0-9][A-Z0-9.\-/]{3,})/i.exec(first)?.[1]?.toUpperCase() ?? null;
+    const reference = /^r[ée]f\.?\s*:\s*([A-Z0-9][A-Z0-9.\-/]{3,})/i.exec(first)?.[1]?.toUpperCase() ?? null;
     if (!reference || !/\d/.test(reference)) continue;
     const block = rows.slice(start + 1, end);
     const qtyRaw = firstMatch(block.join("\n"), [/(?:qt[ée]|quantit[ée])\s*:\s*(\d{1,3}(?:[.,]\d{1,2})?)/i]);
@@ -345,7 +345,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const plate = findFrenchPlate(text);
   const orRaw = firstMatch(text, [OR_LABEL, /\bO\.?R\.?(?:\s*n[°o])?\s*[:#.]\s*(\d{4,7})\b/i]);
   const lines = parseItemLines(text);
-  const visibleBlocks = [...text.matchAll(/^r[ée]f(?:[ée]rence)?\s*:\s*[A-Z0-9][A-Z0-9.\-/]{3,}/gim)].length;
+  const visibleBlocks = [...text.matchAll(/^r[ée]f\.?\s*:\s*[A-Z0-9][A-Z0-9.\-/]{3,}/gim)].length;
   const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
   const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);
   const orSingle = plate && orRaw && findFrenchPlate(orRaw) ? null : orRaw;
