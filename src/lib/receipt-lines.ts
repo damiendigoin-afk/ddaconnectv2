@@ -22,16 +22,19 @@ type DocLine = {
   expected_unit_cost_ht?: number | null;
 };
 
+const textValue = (...values: (string | null | undefined)[]) => values.find((value) => typeof value === "string" && value.trim())?.trim() ?? "";
+const numberValue = (...values: (number | null | undefined)[]) => values.find((value) => typeof value === "number" && Number.isFinite(value)) ?? null;
+
 /** Lignes lues sur une commande → lignes de commande directement éditables. */
 export function orderLinesFromDoc(lines: (DocLine & { delay?: string | null })[] | null | undefined): OrderLineInput[] {
   return (lines ?? [])
     .filter((l) => l.reference || l.physical_reference || l.label || l.designation)
     .map((l) => ({
       line_kind: l.line_kind ?? "part",
-      physical_reference: l.reference ?? l.physical_reference ?? "",
-      designation: [l.label ?? l.designation, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "),
-      qty_ordered: l.quantity ?? l.qty_ordered ?? 1,
-      expected_unit_cost_ht: l.unit_price ?? l.expected_unit_cost_ht ?? null,
+      physical_reference: textValue(l.reference, l.physical_reference),
+      designation: [textValue(l.label, l.designation), l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "),
+      qty_ordered: numberValue(l.quantity, l.qty_ordered) ?? 1,
+      expected_unit_cost_ht: numberValue(l.unit_price, l.expected_unit_cost_ht),
     }));
 }
 
@@ -64,15 +67,21 @@ export function orderFormInitialState(doc: {
 
 /** Diagnostic structurel uniquement : aucun contenu du document n'est journalisé. */
 export function orderLineContractDiagnostic(raw: unknown, mapped: OrderLineInput[]) {
-  const rows = raw && typeof raw === "object" && Array.isArray((raw as { lines?: unknown }).lines)
-    ? ((raw as { lines: unknown[] }).lines).filter((line) => line && typeof line === "object")
-    : [];
+  const source = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const sourceKey = ["lines", "items", "documentLines", "document_lines"].find((key) => Array.isArray(source[key])) ?? "none";
+  const rows = sourceKey === "none" ? [] : (source[sourceKey] as unknown[]).filter((line) => line && typeof line === "object");
   return {
+    sourceKey,
     parsedCount: rows.length,
     mappedCount: mapped.length,
     availableKeys: [...new Set(rows.flatMap((line) => Object.keys(line as object)))].sort(),
     blankMappedCount: mapped.filter((line) => !line.physical_reference.trim() && !line.designation.trim() && line.expected_unit_cost_ht == null).length,
   };
+}
+
+export function logOrderLineContract(stage: string, raw: unknown, mapped: OrderLineInput[]) {
+  if (!import.meta.env.DEV) return;
+  console.debug("[purchase-import]", stage, orderLineContractDiagnostic(raw, mapped));
 }
 
 /** Modèle réellement injecté dans Commander des pièces, frais de port inclus sans créer de fausse pièce. */

@@ -29,6 +29,14 @@ const pick = (o: Raw, keys: string[]) => {
   return null;
 };
 
+const rows = (o: Raw): Raw[] => {
+  for (const key of ["lines", "items", "documentLines", "document_lines"]) {
+    const value = o[key];
+    if (Array.isArray(value) && value.length) return value.filter((line): line is Raw => !!line && typeof line === "object");
+  }
+  return [];
+};
+
 const digits = (v: string | null) => {
   const d = (v ?? "").replace(/\D/g, "");
   return d.length >= 3 ? d : null;
@@ -103,8 +111,8 @@ function supplierInfo(v: unknown): SupplierInfo | null {
 
 export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   const o = (input && typeof input === "object" ? input : {}) as Raw;
-  const rawLines = Array.isArray(o.lines) ? (o.lines as Raw[]) : [];
-  let lines = rawLines.filter((l) => l && typeof l === "object").map(normLine).filter((l) => l.reference || l.label);
+  const rawLines = rows(o);
+  let lines = rawLines.map(normLine).filter((l) => l.reference || l.label);
   const totalHt = num(o.total_ht);
 
   // Cohérence globale : si les montants nets somment au total HT, ils fixent le PA unitaire.
