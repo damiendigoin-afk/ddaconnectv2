@@ -40,6 +40,7 @@ export type SupplierInfo = { address?: string | null; postal_code?: string | nul
 export type InvoiceExtract = {
   /** Frais de port / emballage HT lus (hors lignes pièces). */
   shipping_ht?: number | null;
+  shipping_label?: string | null;
   or_number?: string | null;
   /** Plusieurs repères OR lus (commande fournisseur multi-OR) ; or_number = le premier. */
   or_numbers?: string[];
