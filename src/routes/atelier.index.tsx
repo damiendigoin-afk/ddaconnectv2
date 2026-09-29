@@ -53,6 +53,8 @@ function AtelierHub() {
   const [orNote, setOrNote] = useState<string | null>(null);
   const [needPlate, setNeedPlate] = useState(false);
   const [plateIn, setPlateIn] = useState("");
+  const [lastScan, setLastScan] = useState<ReturnType<typeof parseRepairOrderScan> | null>(null);
+  const [conflicts, setConflicts] = useState<{ orId: string; items: DossierConflict[] } | null>(null);
   const [scanning, setScanning] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
 
