@@ -96,7 +96,7 @@ describe("contrat runtime réel vers le state du formulaire", () => {
     const mixed = {
       lines: runtimePayload.lines.map((line) => ({ reference: "", label: null, quantity: null, unit_price: null, ...line })),
       shipping_ht: 25,
-    };
+    } as Parameters<typeof orderFormLinesFromDoc>[0];
     expect(orderFormLinesFromDoc(mixed).slice(0, 3)).toEqual(runtimePayload.lines);
   });
 });

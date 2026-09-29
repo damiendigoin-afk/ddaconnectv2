@@ -102,5 +102,5 @@ Reste à faire :
 ## Vérification production PAD 2887178 — contrat DOM
 - [x] Auditer le diff publié, les bundles servis et l'unique route Commander des pièces
 - [x] Corriger la priorité des valeurs non vides et accepter lines/items/documentLines
-- [ ] Monter le composant réel et contrôler les valeurs DOM
+- [x] Monter le composant réel et contrôler les valeurs DOM
 - [ ] Suite complète, typecheck, publication et contrôle du commit servi
