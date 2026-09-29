@@ -3,6 +3,7 @@ import { purchaseRules, orderDate, DOC_SPECS, missingFields } from "@/lib/doc-ru
 import { normalizePurchaseExtract } from "@/lib/purchase-extract";
 import { matchSupplier } from "@/lib/parts-site";
 import { parsePriceInput, formatPriceInput, isPriceTyping } from "@/lib/price-input";
+import { orderFormLinesFromDoc } from "@/lib/receipt-lines";
 
 // Structure texte réelle de la commande Pièce Auto Discount / OSKARBI AUTO SL n°2887082 (29/09/2026).
 // Le repère OR 17072 est imprimé sous la désignation ; le fournisseur n'apparaît qu'en pied de page.
@@ -40,6 +41,12 @@ describe.each([["prix sur la ligne article", PAD_A], ["prix sur la ligne du rep�
     expect(x.lines?.[0]).toMatchObject({ reference: "5571201", label: "Grille inférieure pare-chocs avant", quantity: 1, unit_price: 43.1 });
     expect(x.or_number).toBe("17072");
     expect(x.or_numbers).toEqual(["17072"]);
+  });
+  it("mapping formulaire : pièce + port en frais, sans faux article", () => {
+    expect(orderFormLinesFromDoc(x)).toEqual([
+      { line_kind: "part", physical_reference: "5571201", designation: "Grille inférieure pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 43.1 },
+      { line_kind: "fee", physical_reference: "", designation: "Frais de port", qty_ordered: 1, expected_unit_cost_ht: 12.9 },
+    ]);
   });
   it("lecture jugée complète (fournisseur, lignes, date)", () => expect(missingFields(DOC_SPECS.purchase, raw)).toEqual([]));
 });

@@ -27,9 +27,9 @@ async function viaPipeline(
   const r = await readDocument({ feature, kind, prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename, visionExtra });
   const any = Object.values(r.fields).some((v) => v != null && v !== "" && !(Array.isArray(v) && !v.length) && !(typeof v === "object" && !Array.isArray(v) && !Object.keys(v as object).length));
   if (!any) {
-    return { ok: false as const, error: "Lecture automatique sans résultat : complétez les informations manuellement.", route: r.route, content: "" };
+    return { ok: false as const, error: "Lecture automatique sans résultat : complétez les informations manuellement.", route: r.route, content: "", missing: r.missing };
   }
-  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "" };
+  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "", missing: r.missing };
 }
 
 export const ocrRepairOrder = createServerFn({ method: "POST" })

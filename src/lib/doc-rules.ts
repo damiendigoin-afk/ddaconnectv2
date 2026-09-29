@@ -352,15 +352,18 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const totalHt = lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i);
   const vat = lastMoneyOnLines(text, /\bt\.?v\.?a\b/i);
   const totalTtc = lastMoneyOnLines(text, /t\.?t\.?c|net\s*[àa]\s*payer|^total\s+(?!h\.?t)\d/i);
+  const supplier = detectSupplier(text, ctx.suppliers) ?? headerSupplierName(text);
+  const parsedOrderDate = doc_kind === "facture" ? (/date\s*(?:de\s*)?commande|command[ée]e?\s+le/i.test(text) ? orderDate(text) : null) : orderDate(text);
+  const qualityScore = (orderRef ? 1 : 0) + (parsedOrderDate ? 1 : 0) + (supplier ? 1 : 0) + (orSingle || or_numbers.length || plate ? 1 : 0) + (lines.length ? 2 : 0);
   return {
     doc_kind,
     or_numbers: orSingle && !or_numbers.includes(orSingle) && /^\d{5,6}$/.test(orSingle) ? [orSingle, ...or_numbers] : or_numbers,
     ref_candidates: refCandidates(text),
-    supplier: detectSupplier(text, ctx.suppliers) ?? headerSupplierName(text),
+    supplier,
     supplier_info: headerSupplierInfo(text),
     document_number: docNumber,
     document_date: isoDate(text),
-    order_date: doc_kind === "facture" ? (/date\s*(?:de\s*)?commande|command[ée]e?\s+le/i.test(text) ? orderDate(text) : null) : orderDate(text),
+    order_date: parsedOrderDate,
     delivery_note_number: doc_kind === "bl" ? docNumber : null,
     invoice_number: doc_kind === "facture" ? docNumber : null,
     invoice_date: doc_kind === "facture" ? isoDate(text) : null,
@@ -370,6 +373,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     plate_printed: !!plate,
     lines,
     line_quality: lines.length > 0 && (!visibleBlocks || lines.length === visibleBlocks) ? "complete" : null,
+    quality_score: qualityScore,
     total_ht: totalHt ?? (vat === 0 ? totalTtc : null),
     vat_amount: vat,
     total_ttc: totalTtc,

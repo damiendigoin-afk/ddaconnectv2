@@ -65,6 +65,7 @@ describe("PDF Renault Parts 45965672 — structure texte réelle", () => {
     expect(x.total_ht).toBe(150.47);
     expect(x.vat_amount).toBe(30.1);
     expect(x.total_ttc).toBe(180.57);
+    expect(raw["quality_score"]).toBe(6);
     expect(missingFields(DOC_SPECS.purchase, raw)).toEqual([]);
   });
 
