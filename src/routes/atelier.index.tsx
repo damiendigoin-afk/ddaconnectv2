@@ -10,9 +10,17 @@ import { useModuleAccess } from "@/lib/module-access";
 import { useSite } from "@/lib/site-context";
 import { formatPlate } from "@/lib/plate";
 import { compressImage, blobToDataUrl } from "@/lib/photo";
-import { ocrOrOrPlate } from "@/lib/ocr.functions";
-import { decideOrScan, interpretEnsure, isWinmotorOrNumber } from "@/lib/or-scan-decision";
-import { ensureWinmotorDossier } from "@/lib/or-dossier";
+import { ocrRepairOrder } from "@/lib/ocr.functions";
+import {
+  CONFLICT_LABELS,
+  decideOrScan,
+  interpretEnsure,
+  isWinmotorOrNumber,
+  parseRepairOrderScan,
+  type DossierConflict,
+  type DossierData,
+} from "@/lib/or-scan-decision";
+import { applyDossierConflict, ensureWinmotorDossier } from "@/lib/or-dossier";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -62,11 +70,17 @@ function AtelierHub() {
     },
   });
 
-  async function ensureAndOpen(orNumber: string, plate: string | null) {
-    const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber, plate, userName: displayName || null });
+  async function ensureAndOpen(orNumber: string, plate: string | null, data: DossierData | null) {
+    const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber, plate, data, userName: displayName || null });
     const a = interpretEnsure(orNumber, r);
     if (a.kind === "open") {
       if (a.created) toast.success(`Fiche dossier OR WinMotor ${orNumber} créée`);
+      setNeedPlate(false);
+      if (r.conflicts?.length) {
+        // Lecture différente d'une donnée existante : jamais d'écrasement silencieux.
+        setConflicts({ orId: a.orId, items: r.conflicts });
+        return;
+      }
       navigate({ to: "/or/$orId", params: { orId: a.orId } });
       return;
     }
@@ -84,7 +98,8 @@ function AtelierHub() {
     }
     setScanning(true);
     try {
-      await ensureAndOpen(n, needPlate && plateIn.trim() ? plateIn.trim() : null);
+      const data = lastScan && lastScan.or_number === n ? lastScan.data : null;
+      await ensureAndOpen(n, needPlate && plateIn.trim() ? plateIn.trim() : null, data);
     } finally {
       setScanning(false);
     }
@@ -93,19 +108,23 @@ function AtelierHub() {
   async function scanPhoto(file: File) {
     setScanning(true);
     setOrNote(null);
+    setConflicts(null);
     try {
-      const blob = await compressImage(file, 1400, 0.85);
+      const blob = await compressImage(file, 1800, 0.9);
       const dataUrl = await blobToDataUrl(blob);
-      const res = await ocrOrOrPlate({ data: { text: await localDocText(dataUrl), dataUrl } });
+      // Lecture complète de l'OR papier (comme la V2) : OCR/règles d'abord, IA seulement si autorisée.
+      const res = await ocrRepairOrder({ data: { text: await localDocText(dataUrl), dataUrl } });
       if (!res.ok) {
         setOrNote(`${res.error} Saisissez le numéro manuellement.`);
         return;
       }
-      const plate = res.plate ? formatPlate(res.plate) : null;
-      if (res.or_number) setOrNum(res.or_number);
+      const scan = parseRepairOrderScan(res.json);
+      const plate = scan.plate ? formatPlate(scan.plate) : null;
+      setLastScan(scan);
+      if (scan.or_number) setOrNum(scan.or_number);
       if (plate) setPlateIn(plate);
-      const d = decideOrScan({ or_number: res.or_number ?? null, plate });
-      if (d.kind === "ensure") await ensureAndOpen(d.or_number, d.plate);
+      const d = decideOrScan({ or_number: scan.or_number, plate });
+      if (d.kind === "ensure") await ensureAndOpen(d.or_number, d.plate, scan.data);
       else if (d.kind === "plate") navigate({ to: "/scan-plaque", search: { plate: d.plate, note: d.note ?? undefined } });
       else setOrNote(d.note);
     } catch (e) {
@@ -174,6 +193,41 @@ function AtelierHub() {
             ) : null}
             {orNote ? <p className="text-xs text-muted-foreground">{orNote}</p> : null}
           </form>
+        ) : null}
+
+        {conflicts ? (
+          <div className="card-surface space-y-2 p-4">
+            <p className="text-sm font-bold">Lecture différente de la fiche existante</p>
+            <p className="text-xs text-muted-foreground">Rien n'a été remplacé. Choisissez pour chaque donnée.</p>
+            {conflicts.items.map((c, i) => (
+              <div key={`${c.entity}-${c.field}`} className="rounded-lg border border-border p-2 text-xs">
+                <div className="font-bold">{CONFLICT_LABELS[c.field] ?? c.field}</div>
+                <div>Fiche : {c.current || "—"}</div>
+                <div>Lu sur l'OR : {c.read || "—"}</div>
+                {c.field !== "plate" ? (
+                  <button
+                    type="button"
+                    className="mt-1 rounded-md bg-secondary px-2 py-1 font-bold"
+                    onClick={async () => {
+                      if (await applyDossierConflict(c)) {
+                        toast.success("Donnée mise à jour");
+                        setConflicts((s) => (s ? { ...s, items: s.items.filter((_, j) => j !== i) } : s));
+                      } else toast.error("Mise à jour impossible");
+                    }}
+                  >
+                    Remplacer par la lecture
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            <button
+              type="button"
+              className="w-full rounded-lg bg-primary px-4 py-3 font-bold uppercase text-primary-foreground"
+              onClick={() => navigate({ to: "/or/$orId", params: { orId: conflicts.orId } })}
+            >
+              Garder le reste et ouvrir le dossier
+            </button>
+          </div>
         ) : null}
 
         {can("tour") ? (
