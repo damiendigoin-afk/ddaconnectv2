@@ -12,12 +12,13 @@ export async function ensureWinmotorDossier(input: {
   userName?: string | null;
 }): Promise<EnsureResult> {
   if (!input.siteId) return { error: "site_required" };
-  const { data, error } = await supabase.rpc("ensure_winmotor_dossier", {
+  const args: { _site: string; _or_number: string; _plate?: string; _user_name?: string } = {
     _site: input.siteId,
     _or_number: input.orNumber.trim(),
-    _plate: input.plate ?? undefined,
-    _user_name: input.userName ?? undefined,
-  });
+  };
+  if (input.plate) args._plate = input.plate;
+  if (input.userName) args._user_name = input.userName;
+  const { data, error } = await supabase.rpc("ensure_winmotor_dossier", args);
   if (error) {
     console.error(error);
     return { error: error.message };
