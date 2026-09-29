@@ -25,17 +25,32 @@ type DocLine = {
 const textValue = (...values: (string | null | undefined)[]) => values.find((value) => typeof value === "string" && value.trim())?.trim() ?? "";
 const numberValue = (...values: (number | null | undefined)[]) => values.find((value) => typeof value === "number" && Number.isFinite(value)) ?? null;
 
+/** Référence unique portée par toute ligne de frais de port, pour la retrouver et la regrouper. */
+export const SHIPPING_REFERENCE = "PORT";
+
+const SHIPPING_LABEL_RE = /\b(frais\s+de\s+port|port|transport|livraison|emballage|shipping)\b/i;
+
+/** Une ligne lue est-elle un frais de port ? (type frais, ou libellé de port sans référence propre) */
+export function isShippingLine(l: { line_kind?: OrderLineInput["line_kind"]; reference?: string | null; physical_reference?: string | null; label?: string | null; designation?: string | null }): boolean {
+  const label = textValue(l.label, l.designation);
+  if (!SHIPPING_LABEL_RE.test(label)) return false;
+  return l.line_kind === "fee" || !textValue(l.reference, l.physical_reference);
+}
+
 /** Lignes lues sur une commande → lignes de commande directement éditables. */
 export function orderLinesFromDoc(lines: (DocLine & { delay?: string | null })[] | null | undefined): OrderLineInput[] {
   return (lines ?? [])
     .filter((l) => l.reference || l.physical_reference || l.label || l.designation)
-    .map((l) => ({
-      line_kind: l.line_kind ?? "part",
-      physical_reference: textValue(l.reference, l.physical_reference),
-      designation: [textValue(l.label, l.designation), l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "),
-      qty_ordered: numberValue(l.quantity, l.qty_ordered) ?? 1,
-      expected_unit_cost_ht: numberValue(l.unit_price, l.expected_unit_cost_ht),
-    }));
+    .map((l) => {
+      const shipping = isShippingLine(l);
+      return {
+        line_kind: shipping ? ("fee" as const) : (l.line_kind ?? "part"),
+        physical_reference: textValue(l.reference, l.physical_reference) || (shipping ? SHIPPING_REFERENCE : ""),
+        designation: [textValue(l.label, l.designation), l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "),
+        qty_ordered: numberValue(l.quantity, l.qty_ordered) ?? 1,
+        expected_unit_cost_ht: numberValue(l.unit_price, l.expected_unit_cost_ht),
+      };
+    });
 }
 
 export type OrderFormInitialState = {
@@ -89,7 +104,7 @@ export function orderFormLinesFromDoc(doc: { lines?: (DocLine & { delay?: string
   const parts = orderLinesFromDoc(doc.lines);
   const shipping = doc.shipping_ht;
   if (shipping == null || !Number.isFinite(shipping) || shipping <= 0) return parts;
-  return [...parts, { line_kind: "fee", physical_reference: "", designation: doc.shipping_label?.trim() || "Frais de port", qty_ordered: 1, expected_unit_cost_ht: shipping }];
+  return [...parts, { line_kind: "fee", physical_reference: SHIPPING_REFERENCE, designation: doc.shipping_label?.trim() || "Frais de port", qty_ordered: 1, expected_unit_cost_ht: shipping }];
 }
 
 export type PendingOrderLine = {
