@@ -9,6 +9,9 @@ import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { CancelAction } from "@/components/parts/CancelAction";
+import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
+import { listReceiptDocs } from "@/lib/receipt-docs";
+import { receiptDocState } from "@/lib/receipt-docs-rules";
 import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
@@ -230,18 +233,25 @@ function RecentReceipts() {
   const { siteName, actor, readSite } = usePartsCtx();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["part-receipts", readSite], queryFn: () => listReceipts(readSite) });
+  const rows = q.data ?? [];
+  const dq = useQuery({ queryKey: ["receipt-docs", rows.map((r) => `${r.id}:${r.source_document_id ?? ""}`).join(",")], enabled: rows.length > 0, queryFn: () => listReceiptDocs(rows) });
   return (
     <section className="space-y-2 pt-2">
       <h2 className="text-xs font-bold uppercase text-muted-foreground">Réceptions récentes</h2>
-      {(q.data ?? []).map((r) => (
+      {rows.map((r) => {
+        const docs = dq.data?.get(r.id) ?? [];
+        const ds = receiptDocState(r, docs);
+        const orNum = (r.repair_orders as { or_number: string | null } | null)?.or_number ?? null;
+        const supName = (r.suppliers as { name: string } | null)?.name ?? null;
+        return (
         <div key={r.id} className={`rounded-xl border-2 border-border bg-card p-3 text-sm ${r.status === "cancelled" ? "opacity-60" : ""}`}>
           <div className="flex justify-between gap-2">
-            <b className={r.status === "cancelled" ? "line-through" : ""}>{(r.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b>
-            {r.status === "cancelled" ? <Badge tone="bad">Annulée</Badge> : r.status === "incident" ? <Badge tone="bad">Incident</Badge> : r.receipt_type === "physical_without_document" ? <Badge tone="warn">En attente de document</Badge> : <Badge tone="ok">Validée</Badge>}
+            <b className={r.status === "cancelled" ? "line-through" : ""}>{supName ?? "Fournisseur ?"}</b>
+            {r.status === "cancelled" ? <Badge tone="bad">Annulée</Badge> : r.status === "incident" ? <Badge tone="bad">Incident</Badge> : ds === "awaiting" ? <Badge tone="warn">En attente de document</Badge> : ds === "invoice_to_check" ? <Badge tone="brand">Facture à contrôler</Badge> : ds === "doc_received" ? <Badge tone="ok">Document reçu</Badge> : <Badge tone="ok">Validée</Badge>}
           </div>
           <div className="text-xs text-muted-foreground">
             {siteName(r.site_id)} · {new Date(r.received_at).toLocaleString("fr-FR")} · {r.received_by_name}
-            {(r.repair_orders as { or_number: string | null } | null)?.or_number ? ` · OR ${(r.repair_orders as { or_number: string }).or_number}` : ""}
+            {orNum ? ` · OR ${orNum}` : ""}
             {r.plate ? ` · ${r.plate}` : ""}
           </div>
           <div className="text-xs">{(r.part_receipt_lines ?? []).map((l) => `${l.qty_received}× ${l.physical_reference ?? l.designation ?? "?"}`).join(", ") || r.comment}</div>
@@ -249,6 +259,9 @@ function RecentReceipts() {
             <p className="text-xs font-bold">Annulée le {r.cancelled_at ? new Date(r.cancelled_at).toLocaleString("fr-FR") : "?"} par {r.cancelled_by_name ?? "?"} — {r.cancel_reason}</p>
           ) : null}
           {r.order_id ? <Link to="/pieces-achats/commande/$orderId" params={{ orderId: r.order_id }} className="text-xs underline">Voir la commande</Link> : null}
+          {r.status !== "cancelled" ? (
+            <ReceiptDocActions actor={actor} docs={docs} receipt={{ id: r.id, site_id: r.site_id, supplier_id: r.supplier_id, order_id: r.order_id, source_document_id: r.source_document_id, plate: r.plate, supplier_name: supName, or_number: orNum, lines: r.part_receipt_lines ?? [] }} />
+          ) : null}
           {r.status === "validated" ? (
             <button className="ml-3 text-xs underline" onClick={async () => { const why = window.prompt("Incident (ex. livré au mauvais site) — motif :"); if (!why) return; await cancelReceiptIncident(r.id, r.site_id, why, actor); qc.invalidateQueries({ queryKey: ["part-receipts"] }); toast.success("Incident enregistré — pensez à corriger le stock si nécessaire."); }}>Signaler incident</button>
           ) : null}
@@ -265,7 +278,8 @@ function RecentReceipts() {
             />
           ) : null}
         </div>
-      ))}
+        );
+      })}
     </section>
   );
 }
