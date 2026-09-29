@@ -290,10 +290,19 @@ export function orOrPlateRules(raw: string): Fields {
   return { or_number: or, plate };
 }
 
+/** Kilométrage plausible d'un compteur total (le trip/journalier < 100 km n'est pas un total fiable). */
+export function plausibleMileage(v: unknown): number | null {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v.replace(/[\s.]/g, "")) : NaN;
+  if (!Number.isFinite(n)) return null;
+  const r = Math.round(n);
+  return r >= 100 && r < 1_500_000 ? r : null;
+}
+
 export function odometerRules(raw: string): Fields {
   const text = cleanText(raw);
   const vals = [...text.matchAll(/(\d[\d .]{2,8}\d)\s*km\b/gi)].map((m) => Number(m[1]!.replace(/\D/g, ""))).filter((n) => n >= 10 && n < 2_000_000);
-  return { mileage: vals.length ? Math.max(...vals) : null, unit: vals.length ? "km" : null };
+  const best = plausibleMileage(vals.length ? Math.max(...vals) : null);
+  return { mileage: best, unit: best ? "km" : null };
 }
 
 export function batteryRules(raw: string): Fields {

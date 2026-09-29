@@ -23,9 +23,12 @@ export async function askVision(
   filename?: string,
   feature = "vision",
   extra: Record<string, unknown> = {},
+  essentialVision = false,
 ) {
   const res = await runPaidAi({
     feature,
+    essentialVision,
+    route: "ai_vision_fallback",
     fingerprintSeed: `${prompt}\u0000${dataUrl}`,
     model: VISION_MODEL,
     body: { ...extra, messages: [{ role: "user", content: [{ type: "text", text: prompt }, blockFor(dataUrl, filename)] }] },

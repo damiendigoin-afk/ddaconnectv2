@@ -31,6 +31,11 @@ export type PaidAiInput = {
   maxCredits?: number | null;
   /** Voie du pipeline documentaire (ai_text_fallback | ai_vision_fallback). */
   route?: "ai_text_fallback" | "ai_vision_fallback";
+  /**
+   * Vision indispensable sur une vraie photo / un PDF scanné dont la qualité métier OCR est
+   * insuffisante : autorisée même si le réglage « repli IA » est désactivé (budgets toujours appliqués).
+   */
+  essentialVision?: boolean;
 };
 
 export type PaidAiResult =
@@ -176,7 +181,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
 
   const budget = await readBudget();
   // Règle DDA : toute IA est un repli ultime ; réglage « repli IA » désactivé => aucun appel.
-  if (!budget.fallbackAiEnabled) {
+  if (!budget.fallbackAiEnabled && !input.essentialVision) {
     await journal({ feature: input.feature, fingerprint: fp, model: input.model, user_id: input.userId, site_id: input.siteId, entity: input.entity, success: false, blocked_reason: "repli_ia_desactive", calls: 0, estimated_credits: 0, route: input.route ?? "ai_vision_fallback" });
     return { ok: false, error: MANUAL_FALLBACK_MESSAGE, blocked: true };
   }

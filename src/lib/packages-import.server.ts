@@ -32,7 +32,7 @@ export async function analyzePackageMemento(
       ? `\n\nCe fichier est un EXTRAIT du mémento complet : il contient les pages ${pageFrom} à ${pageTo} du document d'origine.
 Numérote "page" avec le numéro ABSOLU du document d'origine (la 1re page fournie = ${pageFrom}).`
       : "";
-  const res = await askVision(BASE + range, dataUrl, filename);
+  const res = await askVision(BASE + range, dataUrl, filename, "memento_forfaits", {}, true);
   if (!res.ok) return { ok: false as const, error: res.error, json: "" };
   const parsed = parseJsonBlock(res.content);
   if (!parsed) {
