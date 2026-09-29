@@ -8,7 +8,7 @@ const BUCKET = "dda-media";
 export async function linkDocToOrder(docId: string, orderId: string): Promise<void> {
   const { data } = await supabase.from("inbox_documents").select("linked_kind, linked_id").eq("id", docId).maybeSingle();
   const patch = data ? orderLinkPatch(data, orderId) : null;
-  if (patch) await supabase.from("inbox_documents").update({ ...patch, status: "traite" }).eq("id", docId);
+  if (patch) await supabase.from("inbox_documents").update({ ...patch, status: "valide" }).eq("id", docId);
 }
 
 /**

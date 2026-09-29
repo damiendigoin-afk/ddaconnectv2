@@ -15,6 +15,7 @@ import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, re
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
+import { linkDocToOrder } from "@/lib/order-docs";
 import { orderLinesFromDoc } from "@/lib/receipt-lines";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
@@ -201,6 +202,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
             requested_or_number: reqOr, lines: gl,
           }, actor);
           ids.push(oid);
+          if (docId && ids.length === 1) await linkDocToOrder(docId, oid).catch(() => undefined);
           const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: gl.length, repair_order_id: ro?.id ?? null, plate: ro?.plate ?? plate, destination, requested_or_number: reqOr });
           gapCount += gaps.length;
           for (const kind of gaps) await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: oid, repair_order_id: ro?.id ?? null, supplier_id: supplier || null, plate: ro?.plate ?? plate, comment: "Commande validée avec informations manquantes" }, actor);
@@ -226,6 +228,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
         requested_or_number: requestedOr,
         lines: clean,
       }, actor);
+      if (docId) await linkDocToOrder(docId, id).catch(() => undefined);
       const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: clean.length, repair_order_id: orv.or?.id ?? null, plate, destination, requested_or_number: requestedOr });
       for (const kind of gaps) {
         await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: id, repair_order_id: orv.or?.id ?? null, supplier_id: supplier || null, plate, comment: "Commande validée avec informations manquantes" }, actor);
