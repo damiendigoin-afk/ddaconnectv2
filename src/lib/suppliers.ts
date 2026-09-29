@@ -1,7 +1,7 @@
 /** Référentiel global Fournisseurs (transverse à tous les modules DDA Connect). */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { draftToSupplierRow, resolveSupplier, type SupplierDraft } from "@/lib/supplier-identify";
+import { draftToSupplierRow, normSupplierName, resolveSupplier, withAlias, type SupplierDraft } from "@/lib/supplier-identify";
 
 export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
 export type SupplierContact = Database["public"]["Tables"]["supplier_contacts"]["Row"];
@@ -107,4 +107,13 @@ export async function createSupplierFromDraft(draft: SupplierDraft): Promise<{ i
   const { data: created, error } = await supabase.from("suppliers").insert(draftToSupplierRow(draft)).select("id").single();
   if (error) throw new Error(`Création du fournisseur « ${draft.name} » impossible : ${error.message}`);
   return { id: created.id, created: true };
+}
+
+/** Mémorise un nom lu (raison sociale / enseigne) comme alias d'une fiche existante : reconnu automatiquement ensuite. */
+export async function addSupplierAlias(id: string, alias: string | null | undefined): Promise<void> {
+  if (!alias) return;
+  const { data } = await supabase.from("suppliers").select("name, notes").eq("id", id).maybeSingle();
+  if (!data || normSupplierName(data.name) === normSupplierName(alias)) return;
+  const next = withAlias(data.notes, alias);
+  if (next !== (data.notes ?? "")) await supabase.from("suppliers").update({ notes: next }).eq("id", id);
 }

@@ -4,6 +4,7 @@
  * rapprochement document ↔ commande. Aucune écriture ici.
  */
 import { normalizeRef } from "@/lib/parts-rules";
+import { supplierNames } from "@/lib/supplier-identify";
 
 export type SiteLite = { id: string; code: string | null; name: string };
 
@@ -84,7 +85,7 @@ export type DocExtractLite = {
   document_number?: string | null;
   delivery_note_number?: string | null;
   invoice_number?: string | null;
-  lines?: { reference: string | null; quantity?: number | null }[] | null;
+  lines?: { reference: string | null; quantity?: number | null; label?: string | null; unit_price?: number | null }[] | null;
 };
 
 const plateKey = (p: string | null | undefined) => (p ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
@@ -95,7 +96,20 @@ export function docIdentifiers(doc: DocExtractLite): string[] {
   return [...new Set(all.map((v) => normalizeRef(v ?? "")).filter((v) => v.length >= 5))];
 }
 
-type LineLite = { physical_reference: string | null; line_kind: string; status: string; qty_ordered?: number | null; qty_received?: number | null };
+type LineLite = { physical_reference: string | null; line_kind: string; status: string; qty_ordered?: number | null; qty_received?: number | null; designation?: string | null; expected_unit_cost_ht?: number | null };
+
+const LABEL_STOP = new Set(["avec", "pour", "sans", "gauche", "droit", "droite", "avant", "arriere", "piece", "pieces", "auto"]);
+const labelWords = (s: string | null | undefined) => new Set(norm(s).split(" ").filter((w) => w.length >= 4 && !LABEL_STOP.has(w)));
+/** Désignations proches : au moins 2 mots significatifs communs, et côté (gauche/droit) non contradictoire. */
+export function similarDesignation(a: string | null | undefined, b: string | null | undefined): boolean {
+  const na = ` ${norm(a)} `, nb = ` ${norm(b)} `;
+  const side = (t: string) => (/ (gauche|g|gche) /.test(t) ? "g" : / (droit|droite|d|dte) /.test(t) ? "d" : null);
+  if (side(na) && side(nb) && side(na) !== side(nb)) return false;
+  const wa = labelWords(a), wb = labelWords(b);
+  let shared = 0;
+  for (const w of wa) if (wb.has(w)) shared++;
+  return shared >= 2 || (shared >= 1 && Math.min(wa.size, wb.size) === 1);
+}
 
 /** Score explicable document ↔ commande : chaque indice ajoute des points et une raison lisible. */
 export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; reasons: string[] } {
@@ -107,10 +121,10 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
   if ((doc.supplier_id && doc.supplier_id === order.supplier_id) || (sup && oname && (sup.includes(oname) || oname.includes(sup)))) { score += 2; reasons.push("même fournisseur"); }
   const orn = (doc.or_number ?? "").replace(/\D/g, "");
   const oorn = (order.repair_orders?.or_number ?? "").replace(/\D/g, "");
-  if (orn && oorn && orn === oorn) { score += 3; strong += 3; reasons.push(`OR ${oorn}`); }
+  if (orn && oorn && orn === oorn) { score += 5; strong += 5; reasons.push(`OR ${oorn}`); }
   if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) { score += 4; strong += 4; idMatch = true; reasons.push(`immat ${doc.plate}`); }
   const oref = normalizeRef(order.supplier_order_ref ?? "");
-  if (oref && docIdentifiers(doc).includes(oref)) { score += 4; strong += 4; idMatch = true; reasons.push(`n° ${order.supplier_order_ref}`); }
+  if (oref && docIdentifiers(doc).includes(oref)) { score += 6; strong += 6; idMatch = true; reasons.push(`n° commande ${order.supplier_order_ref}`); }
   const lines = (order.part_order_lines ?? []) as LineLite[];
   const byRef = new Map(lines.map((l) => [normalizeRef(l.physical_reference ?? ""), l] as const).filter(([k]) => k));
   let common = 0;
@@ -126,6 +140,21 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
     strong += common === 1 ? 3 : 1;
     if (qtyOk) score += 1;
     reasons.push(`réf ${l.reference}${qtyOk ? ` + qté ${l.quantity}` : ""}`);
+  }
+  // Sans référence commune : désignation proche (+ quantité / prix compatibles) = indice plus faible.
+  if (!common) {
+    for (const l of doc.lines ?? []) {
+      const ol = lines.find((x) => x.line_kind !== "service" && similarDesignation(l.label, x.designation));
+      if (!ol) continue;
+      const rest = ol.qty_ordered != null ? Number(ol.qty_ordered) - Number(ol.qty_received ?? 0) : null;
+      const qtyOk = l.quantity != null && rest != null && Number(l.quantity) > 0 && Number(l.quantity) <= rest;
+      const pu = l.unit_price, exp = ol.expected_unit_cost_ht;
+      const priceOk = pu != null && exp != null && Number(exp) > 0 && Math.abs(Number(pu) - Number(exp)) <= Math.max(0.5, Number(exp) * 0.05);
+      score += 2 + (qtyOk ? 1 : 0) + (priceOk ? 1 : 0);
+      strong += 1;
+      reasons.push(`désignation proche « ${ol.designation} »${qtyOk ? ` + qté ${l.quantity}` : ""}${priceOk ? " + prix" : ""}`);
+      break;
+    }
   }
   return { score, strong, idMatch, reasons };
 }
@@ -163,6 +192,20 @@ export function receptionSuggestions<T extends OrderLike>(doc: DocExtractLite, o
   const probable = all.filter((m) => !certain.includes(m)).slice(0, Math.max(0, max - Math.min(certain.length, max)));
   const ambiguous = !certain.length && probable.length > 1 && probable[0]!.score === probable[1]!.score;
   return { certain: certain.slice(0, max), probable, hasExact: certain.length > 0, ambiguous };
+}
+
+/**
+ * Dernier niveau (confirmation obligatoire, jamais automatique) : commandes encore ouvertes du même
+ * fournisseur, les plus récentes d'abord, quand aucun indice plus fort n'a été trouvé.
+ */
+export function supplierOpenOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null, exclude: string[] = [], max = 3) {
+  return pendingReceptionOrders(orders)
+    .filter((o) => (!siteId || o.site_id === siteId) && !exclude.includes(o.id))
+    .filter((o) => !(plateKey(doc.plate) && plateKey(o.plate) && plateKey(doc.plate) !== plateKey(o.plate)))
+    .filter((o) => explainOrderMatch(doc, o).reasons.includes("même fournisseur"))
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    .slice(0, max)
+    .map((order) => ({ order, reasons: ["commande ouverte de ce fournisseur (aucun autre indice)"] }));
 }
 
 /**
@@ -213,11 +256,13 @@ export function simplifiedOrderMeta(o: { order_mode?: string | null; comment?: s
 const GENERIC_WORDS = new Set(["groupe", "group", "auto", "autos", "automobile", "automobiles", "garage", "sas", "sarl", "distribution", "pieces", "piece", "france", "societe", "ets", "etablissements"]);
 const sigWords = (s: string) => norm(s).split(" ").filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));
 
-export function matchSupplier<T extends { id: string; name: string; active?: boolean | null }>(name: string | null | undefined, suppliers: T[]): T | null {
+export function matchSupplier<T extends { id: string; name: string; active?: boolean | null; notes?: string | null }>(name: string | null | undefined, suppliers: T[]): T | null {
   const n = norm(name);
   if (n.length < 3) return null;
   const pool = suppliers.filter((s) => s.active !== false && norm(s.name).length >= 3);
-  const hits = pool.filter((s) => n.includes(norm(s.name)) || norm(s.name).includes(n));
+  // Nom ou enseigne/alias déclaré sur la fiche.
+  const nc = n.replace(/ /g, "");
+  const hits = pool.filter((s) => supplierNames(s).map(norm).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n) || nc.includes(sn.replace(/ /g, "")))));
   if (hits.length === 1) return hits[0]!;
   if (hits.length > 1) return null;
   // Mots significatifs communs, ordre indifférent (« X SARLAT - GROUPE FAURIE » ↔ « FAURIE AUTO SARLAT »).

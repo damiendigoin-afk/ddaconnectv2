@@ -12,7 +12,7 @@ import { CancelAction } from "@/components/parts/CancelAction";
 import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
 import { listReceiptDocs } from "@/lib/receipt-docs";
 import { receiptDocState } from "@/lib/receipt-docs-rules";
-import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders, supplierOpenOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
@@ -129,16 +129,19 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const x0 = doc.extracted;
   const x0p = x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")); const x = { ...x0, plate: x0p ? formatPlate(x0p) : null };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
-  const sup = matchSupplier(x.supplier, suppliers.data ?? []);
+  const sup = matchSupplier(x.supplier, suppliers.data ?? []) ?? (suppliers.data ?? []).find((s) => s.id === docSupplierId(x, suppliers.data ?? [])) ?? null;
   const xm = { ...x, supplier_id: x.supplier_id ?? sup?.id ?? null };
   const sugg = receptionSuggestions(xm, orders.data ?? [], writeSite);
+  const supOpen = sugg.hasExact || sugg.probable.length ? [] : supplierOpenOrders(xm, orders.data ?? [], writeSite);
+  const docLines = x.lines ?? [];
+  const unread = [!x.supplier && !sup ? "fournisseur" : null, !(x.invoice_number || x.delivery_note_number || x.document_number) ? "n° document" : null, !x.document_date ? "date" : null, !docLines.length ? "lignes pièces" : null].filter(Boolean);
   const [manual, setManual] = useState(false);
   const [q, setQ] = useState("");
   const found = manual ? searchPendingOrders(orders.data ?? [], q, writeSite, 20, xm) : [];
   const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null, reasons?: string[]) => {
     const meta = o as unknown as { comment?: string | null; created_by_name?: string | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null; order_mode?: string | null };
     return (
-      <button key={o.id} className="block w-full rounded-lg border-2 border-border p-2 text-left text-xs" onClick={() => onOrder(o.id)}>
+      <div key={o.id} className="rounded-lg border-2 border-border p-2 text-left text-xs">
         {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Correspondance probable"}</Badge>{" "}</> : null}
         {meta.order_mode === "simplified" ? <><Badge tone="muted">Front office</Badge>{" "}</> : null}
         <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
@@ -149,7 +152,11 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
         </span>
         {meta.comment ? <span className="block font-semibold">Commentaire : {meta.comment}</span> : null}
         <OrderLinesCompact lines={o.part_order_lines ?? []} order={(o.part_order_lines ?? []).length ? (o as never) : null} />
-      </button>
+        <div className="mt-2 flex gap-2">
+          <button type="button" className={`${btnPrimary} flex-1`} onClick={() => onOrder(o.id)}>Rapprocher</button>
+          <Link to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} target="_blank" className={`${btnGhost} flex-1 text-center`}>Voir la commande</Link>
+        </div>
+      </div>
     );
   };
   return (
@@ -157,8 +164,15 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
       <p className="text-xs font-extrabold uppercase text-muted-foreground">Document lu : {doc.file_name}</p>
       <SiteMismatchAlert docSite={guessDocumentSite(docSiteText(x), sites)} />
       <div className="text-xs space-y-1">
-        {x.supplier ? <DocSupplierLink extracted={x} docId={doc.id} /> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
-        <p>Repères détectés — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° lus : <b>{[x.order_reference, ...(x.ref_candidates ?? [])].filter((v, i, a) => v && a.indexOf(v) === i).join(", ") || "—"}</b> · {(x.lines ?? []).length} ligne(s)</p>
+        {x.supplier ? <><p>Fournisseur lu : <b>{x.supplier}</b>{sup && sup.name !== x.supplier ? <> → fiche <b>{sup.name}</b></> : null}</p><DocSupplierLink extracted={x} docId={doc.id} /></> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
+        <p>{x.doc_kind === "facture" ? "Facture" : x.doc_kind === "bl" ? "BL" : "Document"} n° <b>{x.invoice_number ?? x.delivery_note_number ?? x.document_number ?? "—"}</b> · Date : <b>{x.document_date ? new Date(x.document_date).toLocaleDateString("fr-FR") : "—"}</b> · N° commande fournisseur : <b>{x.order_reference ?? "—"}</b>{x.total_ht != null ? <> · Total HT : <b>{x.total_ht.toFixed(2)} €</b></> : null}{x.shipping_ht ? <> (dont port {x.shipping_ht.toFixed(2)} €)</> : null}</p>
+        <p>Repères atelier (aides au rapprochement, facultatifs) — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° lus : <b>{[x.order_reference, ...(x.ref_candidates ?? [])].filter((v, i, a) => v && a.indexOf(v) === i).join(", ") || "—"}</b></p>
+        {docLines.length ? (
+          <ul className="rounded border border-border p-1">
+            {docLines.map((l, i) => <li key={i}><b>{l.quantity ?? "?"} ×</b> {l.reference ?? "réf ?"} — {l.label ?? "—"}{l.unit_price != null ? ` · PU ${l.unit_price.toFixed(2)} €` : ""}</li>)}
+          </ul>
+        ) : null}
+        {unread.length ? <p className="text-status-warn">Non lu (à compléter si besoin) : {unread.join(", ")}</p> : null}
       </div>
       {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
 
@@ -171,6 +185,11 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase text-muted-foreground">{sugg.ambiguous ? "Plusieurs commandes possibles — choisissez la bonne" : "Correspondance probable — confirmez"}</p>
           {sugg.probable.map((m) => orderBtn(m.order, "warn", m.reasons))}
+        </div>
+      ) : supOpen.length ? (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase text-muted-foreground">Commandes ouvertes de ce fournisseur — vérifiez avant de rapprocher</p>
+          {supOpen.map((m) => orderBtn(m.order, "warn", m.reasons))}
         </div>
       ) : orders.data ? (
         <div className="rounded-lg border-2 border-status-warn p-3">
@@ -189,7 +208,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
           <p className="text-xs font-bold uppercase text-muted-foreground">Commandes correspondantes / récentes</p>
           <input className={inputCls} autoFocus placeholder="Fournisseur, n° commande, OR, immat, réf. pièce, désignation, commentaire / créateur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
           <p className="text-xs text-muted-foreground">Toutes les commandes non soldées du site (détaillées, importées et front office), les plus proches du document en premier.</p>
-          {found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">Aucune commande en attente ne correspond.</p>}
+          {orders.isLoading ? <p className="text-xs text-muted-foreground">Chargement des commandes…</p> : found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">{(orders.data ?? []).length ? "Aucune commande en attente ne correspond." : "Aucune commande en attente sur ce site."}</p>}
         </div>
       ) : null}
 

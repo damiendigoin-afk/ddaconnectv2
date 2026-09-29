@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { btnPrimary, inputCls, useSuppliers } from "@/components/parts/PartsUi";
 import { linkDocSupplier, type InvoiceExtract } from "@/lib/supplier-docs";
 import { resolveSupplier, supplierDraftFromExtract, type SupplierDraft } from "@/lib/supplier-identify";
-import { createSupplierFromDraft } from "@/lib/suppliers";
+import { addSupplierAlias, createSupplierFromDraft } from "@/lib/suppliers";
 
 const FIELDS: { k: keyof SupplierDraft; label: string; wide?: boolean }[] = [
   { k: "name", label: "Nom *", wide: true },
@@ -41,7 +41,7 @@ export function DocSupplierLink({ extracted, docId, onLinked }: { extracted: Inv
   }
 
   const linked = linkedId ? list.find((s) => s.id === linkedId) : null;
-  const res = suppliers.data ? resolveSupplier(extracted.supplier, list) : null;
+  const res = suppliers.data ? resolveSupplier(extracted.supplier, list, [extracted.supplier_info?.vat_number, extracted.supplier_info?.siret]) : null;
 
   // Fiche existante sûre : rattachement automatique, une seule fois.
   useEffect(() => {
@@ -105,6 +105,24 @@ export function DocSupplierLink({ extracted, docId, onLinked }: { extracted: Inv
         ))}
       </div>
       <button type="button" className={btnPrimary} disabled={busy} onClick={create}>{busy ? "Création…" : "Créer la fiche et rattacher"}</button>
+      <div className="space-y-1 border-t border-border pt-2">
+        <p className="font-bold">Ou c'est une fiche existante (autre nom / enseigne) :</p>
+        <div className="flex gap-2">
+          <select className={inputCls} aria-label="Fiche fournisseur existante" value={pick} onChange={(e) => setPick(e.target.value)}>
+            <option value="">— Fiche fournisseur existante —</option>
+            {list.filter((c) => c.active !== false).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <button type="button" className={btnPrimary} disabled={!pick || busy} onClick={async () => {
+            setBusy(true);
+            try {
+              await addSupplierAlias(pick, extracted.supplier);
+              await qc.invalidateQueries({ queryKey: ["suppliers-list"] });
+              await link(pick);
+              toast.success(`« ${extracted.supplier} » sera reconnu automatiquement comme cette fiche`);
+            } catch (e) { toast.error(e instanceof Error ? e.message : "Rattachement impossible"); } finally { setBusy(false); }
+          }}>Rattacher</button>
+        </div>
+      </div>
     </div>
   );
 }

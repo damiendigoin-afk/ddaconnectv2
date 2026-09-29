@@ -168,6 +168,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     lines: lines.map(({ client_price: _c, isolated_number: _i, ...l }) => l),
     total_ht: totalHt,
     vat_amount: num(o.vat_amount),
+    shipping_ht: num(o["shipping_ht"]),
     total_ttc: num(o.total_ttc),
     handwritten_notes: str(o.handwritten_notes),
   };
