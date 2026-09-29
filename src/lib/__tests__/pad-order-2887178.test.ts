@@ -43,7 +43,7 @@ describe.each([["texte natif réel", PAD_REAL_NATIVE], ["sans €", PAD_REAL_NAT
       { line_kind: "part", physical_reference: "557119W", designation: "Support pare-chocs avant droit", qty_ordered: 1, expected_unit_cost_ht: 24.51 },
       { line_kind: "part", physical_reference: "5571208", designation: "Amortisseur de pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 19.7 },
       { line_kind: "part", physical_reference: "5571209", designation: "Support de grille", qty_ordered: 1, expected_unit_cost_ht: 50.01 },
-      { line_kind: "fee", physical_reference: "", designation: "Frais de port et de emballage", qty_ordered: 1, expected_unit_cost_ht: 25 },
+      { line_kind: "fee", physical_reference: "PORT", designation: "Frais de port et de emballage", qty_ordered: 1, expected_unit_cost_ht: 25 },
     ]);
   });
   it("lecture complète", () => expect(missingFields(DOC_SPECS.purchase, raw)).toEqual([]));
@@ -78,7 +78,7 @@ describe("contrat runtime réel vers le state du formulaire", () => {
         { line_kind: "part", physical_reference: "557119W", designation: "Support pare-chocs avant droit", qty_ordered: 1, expected_unit_cost_ht: 24.51 },
         { line_kind: "part", physical_reference: "5571208", designation: "Amortisseur de pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 19.7 },
         { line_kind: "part", physical_reference: "5571209", designation: "Support de grille", qty_ordered: 1, expected_unit_cost_ht: 50.01 },
-        { line_kind: "fee", physical_reference: "", designation: "Frais de port et de emballage", qty_ordered: 1, expected_unit_cost_ht: 25 },
+        { line_kind: "fee", physical_reference: "PORT", designation: "Frais de port et de emballage", qty_ordered: 1, expected_unit_cost_ht: 25 },
       ],
     });
     expect(initialOrderSupplier(normalized, [{ id: "supplier-pad", name: "PIECE AUTO DISCOUNT", notes: "Alias : OSKARBI AUTO SL" }])).toBe("supplier-pad");

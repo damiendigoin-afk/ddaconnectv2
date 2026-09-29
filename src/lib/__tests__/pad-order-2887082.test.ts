@@ -45,7 +45,7 @@ describe.each([["prix sur la ligne article", PAD_A], ["prix sur la ligne du rep�
   it("mapping formulaire : pièce + port en frais, sans faux article", () => {
     expect(orderFormLinesFromDoc(x)).toEqual([
       { line_kind: "part", physical_reference: "5571201", designation: "Grille inférieure pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 43.1 },
-      { line_kind: "fee", physical_reference: "", designation: "Frais de port", qty_ordered: 1, expected_unit_cost_ht: 12.9 },
+      { line_kind: "fee", physical_reference: "PORT", designation: "Frais de port", qty_ordered: 1, expected_unit_cost_ht: 12.9 },
     ]);
   });
   it("lecture jugée complète (fournisseur, lignes, date)", () => expect(missingFields(DOC_SPECS.purchase, raw)).toEqual([]));
