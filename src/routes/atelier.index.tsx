@@ -11,7 +11,10 @@ import { useSite } from "@/lib/site-context";
 import { formatPlate } from "@/lib/plate";
 import { compressImage, blobToDataUrl } from "@/lib/photo";
 import { ocrOrOrPlate } from "@/lib/ocr.functions";
-import { decideOrScan } from "@/lib/or-scan-decision";
+import { decideOrScan, interpretEnsure, isWinmotorOrNumber } from "@/lib/or-scan-decision";
+import { ensureWinmotorDossier } from "@/lib/or-dossier";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/atelier/")({
   head: () => ({
@@ -35,10 +38,13 @@ type RecentOr = { id: string; or_number: string | null; site_id: string | null; 
 function AtelierHub() {
   const navigate = useNavigate();
   const { can } = useModuleAccess();
-  const { sites } = useSite();
+  const { sites, site } = useSite();
+  const { displayName } = useAuth();
   const siteName = (id: string | null) => sites.find((s) => s.id === id)?.name ?? null;
   const [orNum, setOrNum] = useState("");
   const [orNote, setOrNote] = useState<string | null>(null);
+  const [needPlate, setNeedPlate] = useState(false);
+  const [plateIn, setPlateIn] = useState("");
   const [scanning, setScanning] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -56,14 +62,32 @@ function AtelierHub() {
     },
   });
 
+  async function ensureAndOpen(orNumber: string, plate: string | null) {
+    const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber, plate, userName: displayName || null });
+    const a = interpretEnsure(orNumber, r);
+    if (a.kind === "open") {
+      if (a.created) toast.success(`Fiche dossier OR WinMotor ${orNumber} créée`);
+      navigate({ to: "/or/$orId", params: { orId: a.orId } });
+      return;
+    }
+    if (a.kind === "needs_plate") setNeedPlate(true);
+    setOrNote(a.note);
+  }
+
   async function openOr() {
     const n = orNum.trim();
     if (!n) return;
     setOrNote(null);
-    const { data } = await supabase.from("repair_orders").select("id").eq("or_number", n).limit(2);
-    if (data?.length === 1) navigate({ to: "/or/$orId", params: { orId: data[0]!.id } });
-    else if (!data?.length) setOrNote("Aucun OR WinMotor connu avec ce numéro. Il doit d'abord être créé dans WinMotor puis importé.");
-    else setOrNote("Plusieurs dossiers portent ce numéro : utilisez la recherche de l'accueil pour choisir le bon site.");
+    if (!isWinmotorOrNumber(n)) {
+      setOrNote("Numéro d'OR WinMotor invalide (3 à 8 chiffres).");
+      return;
+    }
+    setScanning(true);
+    try {
+      await ensureAndOpen(n, needPlate && plateIn.trim() ? plateIn.trim() : null);
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function scanPhoto(file: File) {
@@ -77,14 +101,11 @@ function AtelierHub() {
         setOrNote(`${res.error} Saisissez le numéro manuellement.`);
         return;
       }
-      let orIds: string[] = [];
-      if (res.or_number) {
-        setOrNum(res.or_number);
-        const { data } = await supabase.from("repair_orders").select("id").eq("or_number", res.or_number).limit(2);
-        orIds = (data ?? []).map((d) => d.id);
-      }
-      const d = decideOrScan({ or_number: res.or_number ?? null, plate: res.plate ? formatPlate(res.plate) : null, orIds });
-      if (d.kind === "open_or") navigate({ to: "/or/$orId", params: { orId: d.orId } });
+      const plate = res.plate ? formatPlate(res.plate) : null;
+      if (res.or_number) setOrNum(res.or_number);
+      if (plate) setPlateIn(plate);
+      const d = decideOrScan({ or_number: res.or_number ?? null, plate });
+      if (d.kind === "ensure") await ensureAndOpen(d.or_number, d.plate);
       else if (d.kind === "plate") navigate({ to: "/scan-plaque", search: { plate: d.plate, note: d.note ?? undefined } });
       else setOrNote(d.note);
     } catch (e) {
@@ -142,6 +163,15 @@ function AtelierHub() {
                 }}
               />
             </div>
+            {needPlate ? (
+              <input
+                value={plateIn}
+                onChange={(e) => setPlateIn(e.target.value.toUpperCase())}
+                placeholder="Immatriculation (ex. AB-123-CD)"
+                aria-label="Immatriculation du véhicule"
+                className="w-full rounded-lg border-2 border-border bg-card px-3 py-3 text-base uppercase outline-none focus:border-brand"
+              />
+            ) : null}
             {orNote ? <p className="text-xs text-muted-foreground">{orNote}</p> : null}
           </form>
         ) : null}
