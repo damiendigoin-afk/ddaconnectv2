@@ -10,8 +10,10 @@ async function decodeImage(file: Blob, maxSide?: number): Promise<Decoded | null
   // (Pixel 7), allouer le bitmap plein format fait planter l'onglet.
   try {
     const opts: ImageBitmapOptions | undefined = maxSide
-      ? { resizeWidth: maxSide, resizeQuality: "low" }
-      : undefined;
+      ? // "high" : la réduction "low" (plus proche voisin) détruit les petits caractères
+        // (compteur, immat, lignes de BL) avant OCR/vision. Orientation EXIF toujours appliquée.
+        { resizeWidth: maxSide, resizeQuality: "high", imageOrientation: "from-image" }
+      : { imageOrientation: "from-image" };
     const bitmap = await createImageBitmap(file, opts as ImageBitmapOptions);
     return {
       source: bitmap,
