@@ -86,7 +86,7 @@ describe("recherche manuelle : toutes les commandes non soldées du site", () =>
 describe("rapprochement sans OR ni immat (ORLEANS SUD AUTO / 16533)", () => {
   const line = (ref: string) => [{ physical_reference: ref, designation: "Optique avant principal droit", line_kind: "part", status: "ordered", qty_ordered: 1, qty_received: 0 }];
   const orleans = o({ id: "orl", order_mode: "detailed", site_id: "lal", supplier_id: "sOrl", supplier_order_ref: "32207746", plate: "dc354zh", suppliers: { name: "SOCIETE ORLEANS SUD AUTO" }, repair_orders: { or_number: "16533" }, part_order_lines: line("133378273"), created_at: "2026-09-28T12:17:21Z" });
-  const noise = o({ id: "noise", order_mode: "detailed", site_id: "lal", part_order_lines: line("7701208174"), created_at: "2026-09-29T08:00:00Z" });
+  const noise = o({ id: "noise", order_mode: "detailed", site_id: "lal", part_order_lines: [{ ...line("7701208174")[0]!, designation: "Filtre à huile" }], created_at: "2026-09-29T08:00:00Z" });
   const facture = { supplier: null, order_reference: "226090324", invoice_number: "626090510", ref_candidates: ["32207746", "226090324", "626090510"], lines: [{ reference: "133378273", quantity: 1 }] };
   it("facture : fournisseur non lu, Transaction 32207746 => commande certaine en tête", () => {
     const r = receptionSuggestions(facture, [noise, orleans], "lal");
