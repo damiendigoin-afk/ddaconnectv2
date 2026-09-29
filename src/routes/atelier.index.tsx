@@ -116,7 +116,7 @@ function AtelierHub() {
       const blob = await compressImage(file, 1800, 0.9);
       const dataUrl = await blobToDataUrl(blob);
       // Lecture complète de l'OR papier (comme la V2) : OCR/règles d'abord, IA seulement si autorisée.
-      const res = await ocrRepairOrder({ data: { text: await localDocText(dataUrl), dataUrl } });
+      const res = await ocrRepairOrder({ data: { text: await localDocText(dataUrl, "or.jpg", orScanNeedsRetry), dataUrl } });
       if (!res.ok) {
         setOrNote(`${res.error} Saisissez le numéro manuellement.`);
         return;
