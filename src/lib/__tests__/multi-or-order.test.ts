@@ -32,6 +32,9 @@ Total TTC 87.07 €`;
 describe("PDF réel AUTODOC order-packing-list-180086499", () => {
   for (const [name, text] of [
     ["bloc Recherche libre sur sa ligne", REAL],
+    ["colonnes techniques « 55 1 » en tête des lignes (extraction PDF exacte)", REAL
+      .replace("ECD-FR-016 NTY Capteur de pression de turbo 1 11.66 €", "55 1 ECD-FR-016 NTY Capteur de pression de turbo 1 11.66 € 11.66 €")
+      .replace("818878 VALEO Intercooler 1 75.41 €", "55 1 818878 VALEO Intercooler 1 75.41 € 75.41 €")],
     ["Recherche libre collé à la 1re ligne", REAL.replace("Recherche libre\nECD", "Recherche libre ECD")],
   ] as const) {
     it(name, () => {
@@ -44,6 +47,7 @@ describe("PDF réel AUTODOC order-packing-list-180086499", () => {
       expect(x.total_ttc).toBe(87.07);
       expect(x.supplier_info?.["siret"]).toBeUndefined();
       expect(x.lines).toHaveLength(2);
+      expect(x.lines!.some((l) => l.reference === "55")).toBe(false);
       expect(x.lines![0]).toMatchObject({ reference: "ECD-FR-016", label: "NTY Capteur de pression de turbo", quantity: 1, unit_price: 11.66 });
       expect(x.lines![1]).toMatchObject({ reference: "818878", label: "VALEO Intercooler", quantity: 1, unit_price: 75.41 });
     });

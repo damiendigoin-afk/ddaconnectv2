@@ -140,7 +140,12 @@ export function parseItemLines(text: string): Line[] {
     const line = rawLine.replace(/^\s*(?:recherche libre|articles?|pi[eè]ces?)\s*[:\-]?\s+(?=[A-Z0-9])/i, "");
     const iso = /^\(?\s*(\d{5})\s*\)?$/.exec(line.trim());
     if (iso && last && !last.isolated_number) { last.isolated_number = iso[1]!; continue; }
-    const m = refFirst.exec(line);
+    // Colonnes techniques en tête (position, n° de colis… « 55 1 ECD-FR-016 … ») : ignorées si le reste est une ligne article.
+    const lead = /^\s*(?:\d{1,3}\s+){1,2}(?=\S)/.exec(line);
+    const stripped = lead ? line.slice(lead[0].length) : null;
+    const m0 = refFirst.exec(line);
+    const ms = stripped ? refFirst.exec(stripped) : null;
+    const m = m0 && (!ms || /[A-Z]/i.test(m0[1]!) || m0[1]!.length >= 5) && !(ms && /^\d{1,3}$/.test(m0[1]!)) ? m0 : ms;
     if (m && /\d/.test(m[1]!) && !NOT_REF.test(m[1]!)) {
       const qty = qtyOf(m[3]!);
       if (qty != null) {
