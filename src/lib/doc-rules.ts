@@ -107,6 +107,13 @@ export function detectSupplier(text: string, hints: SupplierHint[] = []): string
     .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score);
   if (scored.length === 1 || (scored.length > 1 && scored[0]!.score > scored[1]!.score)) return scored[0]!.h.name;
+  const rows = cleanText(text).split("\n");
+  for (let i = 0; i < rows.length; i += 1) {
+    const same = /^(?:distributeur|fournisseur|vendeur)\s*:\s*(.+)$/i.exec(rows[i] ?? "")?.[1]?.trim();
+    const next = /^(?:distributeur|fournisseur|vendeur)\s*:?[ ]*$/i.test(rows[i] ?? "") ? rows[i + 1]?.trim() : null;
+    const named = same ?? next;
+    if (named && named.length >= 4 && named.length <= 100 && !isGarageName(named)) return named.toUpperCase();
+  }
   return null;
 }
 
@@ -336,8 +343,9 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   ]);
   const order_reference = firstMatch(text, [/commande\s*(?:web|internet|en ligne|client|fournisseur)?\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
   const plate = findFrenchPlate(text);
-  const orRaw = firstMatch(text, [OR_LABEL]);
+  const orRaw = firstMatch(text, [OR_LABEL, /\bO\.?R\.?(?:\s*n[°o])?\s*[:#.]\s*(\d{4,7})\b/i]);
   const lines = parseItemLines(text);
+  const visibleBlocks = [...text.matchAll(/^r[ée]f(?:[ée]rence)?\s*:\s*[A-Z0-9][A-Z0-9.\-/]{3,}/gim)].length;
   const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
   const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);
   const orSingle = plate && orRaw && findFrenchPlate(orRaw) ? null : orRaw;
@@ -361,6 +369,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     plate,
     plate_printed: !!plate,
     lines,
+    line_quality: lines.length > 0 && (!visibleBlocks || lines.length === visibleBlocks) ? "complete" : null,
     total_ht: totalHt ?? (vat === 0 ? totalTtc : null),
     vat_amount: vat,
     total_ttc: totalTtc,
@@ -612,7 +621,7 @@ export type DocSpec = {
 };
 
 export const DOC_SPECS: Record<DocKind, DocSpec> = {
-  purchase: { rules: purchaseRules, required: ["supplier", "lines", ["order_date", "document_date"]] },
+  purchase: { rules: purchaseRules, required: ["supplier", "lines", "line_quality", ["order_date", "document_date"]] },
   expense: { rules: expenseRules, required: ["merchant", "date", "amount_ttc"] },
   or_or_plate: { rules: orOrPlateRules, required: [["or_number", "plate"]] },
   plate: { rules: orOrPlateRules, required: ["plate"] },

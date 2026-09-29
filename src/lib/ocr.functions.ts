@@ -257,6 +257,9 @@ Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
       const p2 = second.ok ? parseJsonBlock(second.content) : null;
       if (p2) norm = mergeIdentifierPass(norm, parseIdentifierPass(p2));
     }
+    if (result.missing.length) {
+      return { ok: false as const, error: `Lecture incomplète (${result.missing.join(", ")}).`, json: JSON.stringify(norm) };
+    }
     return { ok: true as const, error: "", json: JSON.stringify(norm) };
   });
 

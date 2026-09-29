@@ -16,7 +16,8 @@ export async function readPurchaseDoc(file: File): Promise<ReadDoc> {
     const dataUrl = await blobToDataUrl(usable);
     const res = await ocrPurchaseDocument({ data: { text: await localDocText(dataUrl), dataUrl, filename: usable.name } });
     if (res.ok) return { file, extracted: normalizePurchaseExtract(JSON.parse(res.json)) as InvoiceExtract, warning: null };
-    return { file, extracted: {}, warning: `${res.error} Complétez à la main.` };
+    const partial = res.json ? normalizePurchaseExtract(JSON.parse(res.json)) as InvoiceExtract : {};
+    return { file, extracted: partial, warning: `${res.error} Complétez ou contrôlez les informations signalées.` };
   } catch {
     return { file, extracted: {}, warning: "Lecture automatique indisponible : complétez à la main." };
   }

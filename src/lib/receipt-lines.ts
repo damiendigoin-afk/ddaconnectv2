@@ -25,6 +25,14 @@ export function orderLinesFromDoc(lines: (DocLine & { delay?: string | null })[]
     }));
 }
 
+/** Modèle réellement injecté dans Commander des pièces, frais de port inclus sans créer de fausse pièce. */
+export function orderFormLinesFromDoc(doc: { lines?: (DocLine & { delay?: string | null })[] | null; shipping_ht?: number | null }): OrderLineInput[] {
+  const parts = orderLinesFromDoc(doc.lines);
+  const shipping = doc.shipping_ht;
+  if (shipping == null || !Number.isFinite(shipping) || shipping <= 0) return parts;
+  return [...parts, { line_kind: "fee", physical_reference: "", designation: "Frais de port", qty_ordered: 1, expected_unit_cost_ht: shipping }];
+}
+
 export type PendingOrderLine = {
   id?: string;
   line_kind?: string;

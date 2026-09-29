@@ -16,7 +16,7 @@ import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 import { linkDocToOrder } from "@/lib/order-docs";
-import { orderLinesFromDoc } from "@/lib/receipt-lines";
+import { orderFormLinesFromDoc } from "@/lib/receipt-lines";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
   head: () => ({
@@ -115,12 +115,12 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const [supRef, setSupRef] = useState(x.order_reference ?? "");
   const [dossier, setDossier] = useState(x.or_number ?? "");
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
-    const ls = orderLinesFromDoc(x.lines);
+    const ls = orderFormLinesFromDoc(x);
     return ls.length ? ls : doc ? [emptyLine()] : [];
   });
   // Commande fournisseur multi-OR : un repère OR par ligne (une commande DDA par OR à la validation).
   const multiOrs = (x.or_numbers ?? []).length > 1 ? x.or_numbers! : [];
-  const [lineOrs, setLineOrs] = useState<string[]>(() => orderLinesFromDoc(x.lines).map(() => multiOrs[0] ?? ""));
+  const [lineOrs, setLineOrs] = useState<string[]>(() => orderFormLinesFromDoc(x).map(() => multiOrs[0] ?? ""));
   const [orFound, setOrFound] = useState<Record<string, OrLite | null>>({});
   useEffect(() => {
     if (!multiOrs.length) return;
