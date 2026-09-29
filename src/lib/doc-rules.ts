@@ -122,12 +122,45 @@ function qtyOf(s: string): number | null {
   return q != null && q > 0 && q <= 999 ? q : null;
 }
 
+const BLOCK_META = /^(?:stock|entrep[oô]t|qt[ée]|quantit[ée]|prix|mode de livraison|livraison|en cours|disponib|informations?|command[ée] par|n[°o]\s*client|distributeur|compte de facturation|total)\b/i;
+
+/**
+ * Articles présentés en blocs verticaux par les PDF texte : chaque « Réf : » ouvre
+ * une pièce et les champs sémantiques sont cherchés jusqu'à la référence suivante.
+ * Un « Prix client … HT » explicite prime toujours sur les montants TTC ou de livraison.
+ */
+export function parseItemBlocks(text: string): Line[] {
+  const rows = cleanText(text).split("\n");
+  const starts: number[] = [];
+  for (let i = 0; i < rows.length; i += 1) if (/^r[ée]f(?:[ée]rence)?\s*:\s*[A-Z0-9]/i.test(rows[i] ?? "")) starts.push(i);
+  const out: Line[] = [];
+  for (let n = 0; n < starts.length; n += 1) {
+    const start = starts[n] ?? 0;
+    const end = starts[n + 1] ?? rows.length;
+    const first = rows[start] ?? "";
+    const reference = /^r[ée]f(?:[ée]rence)?\s*:\s*([A-Z0-9][A-Z0-9.\-/]{3,})/i.exec(first)?.[1]?.toUpperCase() ?? null;
+    if (!reference || !/\d/.test(reference)) continue;
+    const block = rows.slice(start + 1, end);
+    const qtyRaw = firstMatch(block.join("\n"), [/(?:qt[ée]|quantit[ée])\s*:\s*(\d{1,3}(?:[.,]\d{1,2})?)/i]);
+    const clientPrice = firstMatch(block.join("\n"), [/prix\s+client\s*:\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?T\.?/i]);
+    const purchasePrice = firstMatch(block.join("\n"), [/(?:P\.?A\.?|prix\s+(?:unitaire|d['’]achat)|P\.?U\.?)\s*(?:H\.?T\.?)?\s*:\s*(\d[\d .]*[.,]\d{2})/i]);
+    const label = block.find((row) => {
+      const v = row.trim();
+      return v.length >= 2 && /[A-Za-zÀ-ÿ]/.test(v) && !BLOCK_META.test(v) && !/^\d+[.,]\d{2}\s*€/.test(v);
+    })?.trim() ?? null;
+    out.push({ reference, label, quantity: qtyOf(qtyRaw ?? "1"), unit_price: money(clientPrice ?? purchasePrice), amount: null });
+  }
+  return out;
+}
+
 /**
  * Lignes article, mises en page variées : « Réf Désignation Qté PU [remise] [Montant] »
  * ou « Qté Réf Désignation PU [HT] [% TVA] [TVA] [Total] » (factures web, ex. Pièce Auto Discount).
  * Un nombre seul (5 chiffres, éventuellement entre parenthèses) sous une ligne = repère isolé (dossier atelier possible).
  */
 export function parseItemLines(text: string): Line[] {
+  const blocks = parseItemBlocks(text);
+  if (blocks.length) return blocks;
   const out: Line[] = [];
   const refFirst = new RegExp(
     String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}\s*(?:€|EUR)?(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*(?:€|EUR)?$`,
