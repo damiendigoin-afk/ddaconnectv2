@@ -7,6 +7,7 @@ import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
 import { CancelAction } from "@/components/parts/CancelAction";
 import { cancelOrder } from "@/lib/parts";
 import { OrderSupplierFix } from "@/components/parts/OrderSupplierFix";
+import { SourceDocButton } from "@/components/parts/SourceDocButton";
 import type { PendingOrderLine } from "@/lib/receipt-lines";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,10 +28,12 @@ export function OrderRow({ o, siteName }: { o: any; siteName: (id: string) => st
         <div className="text-xs text-muted-foreground">
           {siteName(o.site_id)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
           {` · ${orderMarker(o)}`}
+          {o.order_date ? ` · commandée le ${new Date(o.order_date).toLocaleDateString("fr-FR")}` : ""}
           {o.appointment_date ? ` · RDV ${new Date(o.appointment_date).toLocaleDateString("fr-FR")}` : ""}
         </div>
         {lines.length ? <OrderLinesCompact lines={lines} /> : <div className="mt-2"><Badge tone="warn">Commande non détaillée</Badge></div>}
       </Link>
+      <SourceDocButton o={o} compact />
       <OrderSupplierFix o={o} compact />
       {o.status === "cancelled" && o.cancel_reason ? <p className="mt-1 text-xs font-bold">Annulée par {o.cancelled_by_name ?? "?"} — {o.cancel_reason}</p> : null}
       {cancellable ? (

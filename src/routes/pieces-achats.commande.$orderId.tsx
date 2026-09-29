@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { Badge, fmtEur, ORDER_STATUS, OrLink, usePartsCtx } from "@/components/parts/PartsUi";
 import { getOrder } from "@/lib/parts";
 import { OrderSupplierFix } from "@/components/parts/OrderSupplierFix";
+import { SourceDocButton } from "@/components/parts/SourceDocButton";
 
 export const Route = createFileRoute("/pieces-achats/commande/$orderId")({
   head: () => ({
@@ -39,9 +40,11 @@ function OrderDetail() {
               <OrLink id={o.repair_order_id} num={(o.repair_orders as { or_number: string | null } | null)?.or_number} />
               {o.plate ? <span>{o.plate}</span> : null}
               {o.appointment_date ? <Badge tone="warn">RDV {new Date(o.appointment_date).toLocaleDateString("fr-FR")}</Badge> : null}
+              {o.order_date ? <span>Commandée le {new Date(o.order_date).toLocaleDateString("fr-FR")}</span> : null}
               {o.supplier_order_ref ? <span>Réf. fournisseur {o.supplier_order_ref}</span> : null}
             </div>
             {o.comment ? <p className="text-muted-foreground">{o.comment}</p> : null}
+            <SourceDocButton o={o} />
             <OrderSupplierFix o={o as never} />
           </div>
           <Link to="/pieces-achats/reception" search={{ order: o.id }} className="block rounded-lg bg-brand py-3 text-center text-sm font-extrabold uppercase text-brand-foreground">
