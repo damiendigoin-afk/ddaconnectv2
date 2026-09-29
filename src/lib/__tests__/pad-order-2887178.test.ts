@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest";
+import { purchaseRules, DOC_SPECS, missingFields } from "@/lib/doc-rules";
+import { normalizePurchaseExtract } from "@/lib/purchase-extract";
+import { orderFormLinesFromDoc } from "@/lib/receipt-lines";
+
+// Texte PDF natif réel « pad meg3 COMMANDE 2887178.pdf » : chaque pièce sur 3 lignes.
+const PAD = `Adresse de facturation
+DAMIEN DIGOIN AUTOMOBILE
+Règlement En compte
+COMMANDE 2887178
+Date Montant Paiement Payée le Status
+29/09/2026 119,22 € SEPA 29/09/2026 12:10:03 A traiter
+Qté Cod. Article Designation Prix Unitaire Prix
+1 557119W Support pare-chocs avant droit
+immat: dc354zh - or: 16533
+24,51 € 24,51 €
+1 5571208 Amortisseur de pare-chocs avant
+immat: dc354zh - or: 16533
+19,70 € 19,70 €
+1 5571209 Support de grille
+immat: dc354zh - or: 16533
+50,01 € 50,01 €
+Sous-total 94,22 €
+Frais de port et de emballage 25,00 €
+Total 119,22 €
+TVA 0,00 €
+OSKARBI AUTO SL · ANTXOTXIPI 9, POL. IND. ZAISA III · 20305 - IRUN / ESPAGNE`;
+
+describe.each([["avec €", PAD], ["sans €", PAD.replace(/ €/g, "")]])("commande PAD 2887178 (%s)", (_n, text) => {
+  const raw = purchaseRules(text);
+  const x = normalizePurchaseExtract(JSON.parse(JSON.stringify(raw)));
+  it("en-tête", () => {
+    expect(x.supplier).toBe("OSKARBI AUTO SL");
+    expect(x.order_reference).toBe("2887178");
+    expect(x.order_date).toBe("2026-09-29");
+    expect(x.or_number).toBe("16533");
+    expect(x.plate).toBe("DC-354-ZH");
+    expect(x.total_ttc).toBe(119.22);
+    expect(x.vat_amount).toBe(0);
+    expect(x.shipping_ht).toBe(25);
+  });
+  it("mapping formulaire : 3 pièces + frais", () => {
+    expect(orderFormLinesFromDoc(x)).toEqual([
+      { line_kind: "part", physical_reference: "557119W", designation: "Support pare-chocs avant droit", qty_ordered: 1, expected_unit_cost_ht: 24.51 },
+      { line_kind: "part", physical_reference: "5571208", designation: "Amortisseur de pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 19.7 },
+      { line_kind: "part", physical_reference: "5571209", designation: "Support de grille", qty_ordered: 1, expected_unit_cost_ht: 50.01 },
+      { line_kind: "fee", physical_reference: "", designation: "Frais de port et de emballage", qty_ordered: 1, expected_unit_cost_ht: 25 },
+    ]);
+  });
+  it("lecture complète", () => expect(missingFields(DOC_SPECS.purchase, raw)).toEqual([]));
+});

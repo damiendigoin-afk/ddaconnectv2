@@ -176,13 +176,18 @@ export function parseItemLines(text: string): Line[] {
   const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s*(?:€|EUR)?\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
   let last: Line | null = null;
   let pending: Line | null = null;
+  let pendingNotes = 0;
   for (const rawLine of text.split("\n")) {
     // Intitulés de section collés à la 1re ligne article (« Recherche libre ECD-FR-016 … ») : ignorés.
     const line = rawLine.replace(/^\s*(?:recherche libre|articles?|pi[eè]ces?)\s*[:\-]?\s+(?=[A-Z0-9])/i, "");
     if (pending) {
       const pr = new RegExp(String.raw`^(?:\(?(\d{5,6})\)?\s+)?${MONEY}\s*(?:€|EUR)?(?:\s+${MONEY}\s*(?:€|EUR)?)?$`, "i").exec(line.trim());
       const p = pending;
+      // Ligne d'annotation sous la désignation (« immat: … - or: … », repère) : le bloc reste ouvert.
+      const isNote = !pr && pendingNotes < 2 && line.trim() && !/^\d{1,3}\s+[A-Z0-9][A-Z0-9.\-/]{3,}\s/i.test(line.trim()) && !/total|tva|frais|port\b/i.test(line);
+      if (isNote) { pendingNotes += 1; continue; }
       pending = null;
+      pendingNotes = 0;
       if (pr) {
         const unit = money(pr[2]);
         last = { ...p, unit_price: unit, amount: money(pr[3]) ?? (unit != null && p.quantity != null ? Math.round(unit * p.quantity * 100) / 100 : null), isolated_number: pr[1] ?? null };
@@ -193,7 +198,7 @@ export function parseItemLines(text: string): Line[] {
     const bare = /^(\d{1,3})\s+([A-Z0-9][A-Z0-9.\-/]{3,})\s+([^\d€]*[A-Za-zÀ-ÿ]{3}[^€]*?)$/i.exec(line.trim());
     if (bare && /\d/.test(bare[2]!) && !new RegExp(MONEY).test(bare[3]!)) {
       const qty = qtyOf(bare[1]!);
-      if (qty != null) { pending = { reference: bare[2]!.toUpperCase(), label: bare[3]!.trim(), quantity: qty, unit_price: null, amount: null }; continue; }
+      if (qty != null) { pendingNotes = 0; pending = { reference: bare[2]!.toUpperCase(), label: bare[3]!.trim(), quantity: qty, unit_price: null, amount: null }; continue; }
     }
     const iso = /^\(?\s*(\d{5})\s*\)?$/.exec(line.trim());
     if (iso && last && !last.isolated_number) { last.isolated_number = iso[1]!; continue; }
@@ -378,6 +383,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     vat_amount: vat,
     total_ttc: totalTtc,
     shipping_ht: lastMoneyOnLines(text, /frais de port|\bport\b|transport|emballage/i),
+    shipping_label: /^\s*((?:frais\s+de\s+)?(?:port|transport|livraison)[^\d€\n]*?)\s*:?\s*\d[\d .]*[.,]\d{2}/im.exec(text)?.[1]?.trim() ?? null,
     currency: "EUR",
   };
 }
