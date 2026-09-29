@@ -88,7 +88,7 @@ describe("contrat runtime réel vers le state du formulaire", () => {
   });
 
   it("détecte trois objets arrivés vides au formulaire", () => {
-    const malformed = { lines: [{ line_kind: "part" }, { line_kind: "part" }, { line_kind: "part" }] };
+    const malformed = { lines: [{ line_kind: "part" as const }, { line_kind: "part" as const }, { line_kind: "part" as const }] };
     expect(orderLineContractDiagnostic(malformed, orderFormLinesFromDoc(malformed))).toMatchObject({ parsedCount: 3, mappedCount: 0, blankMappedCount: 0, availableKeys: ["line_kind"] });
   });
 });
