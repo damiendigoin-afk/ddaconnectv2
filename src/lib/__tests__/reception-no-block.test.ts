@@ -66,24 +66,54 @@ describe("recherche manuelle : commentaire et créateur", () => {
   });
 });
 
-describe("recherche manuelle : commandes simplifiées uniquement", () => {
+describe("recherche manuelle : toutes les commandes non soldées du site", () => {
   const simp = o({ id: "simp", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T07:37:42Z" });
-  const detailed = o({ id: "det", order_mode: "detailed", comment: "PNEUS AV MICHELIN 4S", created_by_name: "Frederic TEIXEIRA", created_at: "2026-09-28T08:30:00Z" });
-  const legacy = o({ id: "legacy", order_mode: null, created_at: "2026-09-28T09:00:00Z" });
-  const list = [detailed, legacy, simp];
+  const detailed = o({ id: "det", order_mode: "detailed", created_at: "2026-09-28T08:30:00Z" });
+  const done = o({ id: "done", order_mode: "detailed", status: "received", created_at: "2026-09-28T09:00:00Z" });
+  const list = [detailed, done, simp];
   const ids = (q: string) => searchPendingOrders(list, q, "cas").map((x) => (x as { id: string }).id);
-  it("une commande detailed n'apparaît jamais, même à vide ou sur commentaire", () => {
-    expect(ids("")).toEqual(["simp"]);
-    expect(ids("PNEUS AV MICHELIN 4S")).toEqual(["simp"]);
+  it("détaillées et simplifiées listées, soldées exclues, récentes d'abord", () => {
+    expect(ids("")).toEqual(["det", "simp"]);
     expect(ids("Frederic")).toEqual(["simp"]);
-  });
-  it("order_mode inconnu/null est exclu de la recherche manuelle", () => {
-    expect(ids("").includes("legacy")).toBe(false);
   });
   it("la commande détaillée reste candidate au rapprochement automatique", () => {
     const detailedPlate = o({ id: "det2", order_mode: "detailed", plate: "HG-732-GH" });
     const r = receptionSuggestions({ supplier: "FAURIE", plate: "HG732GH" }, [detailedPlate], "cas");
     expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["det2"]);
+  });
+});
+
+describe("rapprochement sans OR ni immat (ORLEANS SUD AUTO / 16533)", () => {
+  const line = (ref: string) => [{ physical_reference: ref, designation: "Optique avant principal droit", line_kind: "part", status: "ordered", qty_ordered: 1, qty_received: 0 }];
+  const orleans = o({ id: "orl", order_mode: "detailed", site_id: "lal", supplier_id: "sOrl", supplier_order_ref: "32207746", plate: "dc354zh", suppliers: { name: "SOCIETE ORLEANS SUD AUTO" }, repair_orders: { or_number: "16533" }, part_order_lines: line("133378273"), created_at: "2026-09-28T12:17:21Z" });
+  const noise = o({ id: "noise", order_mode: "detailed", site_id: "lal", part_order_lines: line("7701208174"), created_at: "2026-09-29T08:00:00Z" });
+  const facture = { supplier: null, order_reference: "226090324", invoice_number: "626090510", ref_candidates: ["32207746", "226090324", "626090510"], lines: [{ reference: "133378273", quantity: 1 }] };
+  it("facture : fournisseur non lu, Transaction 32207746 => commande certaine en tête", () => {
+    const r = receptionSuggestions(facture, [noise, orleans], "lal");
+    expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["orl"]);
+    expect(r.certain[0]!.reasons.join(" ")).toContain("32207746");
+  });
+  it("sans aucun n° lisible : la réf 133378273 suffit pour une correspondance probable", () => {
+    const r = receptionSuggestions({ supplier: null, lines: [{ reference: "133378273", quantity: 1 }] }, [noise, orleans], "lal");
+    expect(r.hasExact).toBe(false);
+    expect((r.probable[0]!.order as { id: string }).id).toBe("orl");
+  });
+  it("recherche manuelle : la commande ORLEANS apparaît en tête sans saisie", () => {
+    expect((searchPendingOrders([noise, orleans], "", "lal", 20, facture)[0] as { id: string }).id).toBe("orl");
+    expect((searchPendingOrders([noise, orleans], "optique", "lal")[0] as { id: string }).id).toBe("orl");
+  });
+  it("non ambigu : fournisseur + référence + quantité => probable unique avec raisons", () => {
+    const r = receptionSuggestions({ supplier_id: "sOrl", lines: [{ reference: "133378273", quantity: 1 }] }, [noise, orleans], "lal");
+    expect(r.probable).toHaveLength(1);
+    expect(r.ambiguous).toBe(false);
+    expect(r.probable[0]!.reasons).toEqual(["même fournisseur", "réf 133378273 + qté 1"]);
+  });
+  it("ambigu : deux commandes même fournisseur + même réf => confirmation demandée, jamais certaine", () => {
+    const twin = { ...(orleans as object), id: "twin", supplier_order_ref: "99999999", created_at: "2026-09-27T10:00:00Z" } as never;
+    const r = receptionSuggestions({ supplier_id: "sOrl", lines: [{ reference: "133378273", quantity: 1 }] }, [orleans, twin], "lal");
+    expect(r.hasExact).toBe(false);
+    expect(r.ambiguous).toBe(true);
+    expect(r.probable).toHaveLength(2);
   });
 });
 
