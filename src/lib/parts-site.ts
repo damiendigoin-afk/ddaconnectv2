@@ -296,3 +296,14 @@ export function requestedDossier(realOr: { id: string } | null | undefined, type
   const v = (typed ?? "").trim();
   return v || null;
 }
+
+/**
+ * Commande fournisseur multi-OR : regroupe les lignes par repère OR affecté (une commande DDA par OR,
+ * même n° de commande fournisseur). Une ligne non affectée va au premier OR ; un OR sans ligne est omis.
+ */
+export function groupLinesByOr<L extends { or?: string | null }>(ors: string[], lines: L[]): { or: string; lines: L[] }[] {
+  if (!ors.length) return [];
+  return ors
+    .map((or, i) => ({ or, lines: lines.filter((l) => (l.or && ors.includes(l.or) ? l.or === or : i === 0)) }))
+    .filter((g) => g.lines.length);
+}
