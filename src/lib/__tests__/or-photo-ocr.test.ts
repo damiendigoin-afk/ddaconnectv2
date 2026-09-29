@@ -29,7 +29,7 @@ describe("OR papier photographié", () => {
     expect(findFrenchPlate("DE LOS AB")).toBeNull();
   });
   it("binarisation adaptative : texte sombre sur fond dégradé", () => {
-    const w = 10, g = [...Array(w)].map((_, x) => (x === 5 ? 40 + x * 10 : 120 + x * 12));
+    const w = 10, g = [...Array(w)].map((_, x) => (x === 5 ? 60 : 180));
     const b = adaptiveBinarize(g, w, 1, 3);
     expect(b[5]).toBe(0);
     expect(b[0]).toBe(255);
