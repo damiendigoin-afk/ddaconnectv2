@@ -130,7 +130,7 @@ function qtyOf(s: string): number | null {
 export function parseItemLines(text: string): Line[] {
   const out: Line[] = [];
   const refFirst = new RegExp(
-    String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*€?$`,
+    String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}\s*(?:€|EUR)?(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*(?:€|EUR)?$`,
     "i",
   );
   const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
@@ -140,7 +140,13 @@ export function parseItemLines(text: string): Line[] {
     const line = rawLine.replace(/^\s*(?:recherche libre|articles?|pi[eè]ces?)\s*[:\-]?\s+(?=[A-Z0-9])/i, "");
     const iso = /^\(?\s*(\d{5})\s*\)?$/.exec(line.trim());
     if (iso && last && !last.isolated_number) { last.isolated_number = iso[1]!; continue; }
-    const m = refFirst.exec(line);
+    // Colonnes techniques en tête (position, n° de colis… « 55 1 ECD-FR-016 … ») : ignorées si le reste est une ligne article.
+    const lead = /^\s*(?:\d{1,3}\s+){1,2}(?=\S)/.exec(line);
+    const stripped = lead ? line.slice(lead[0].length) : null;
+    const m0 = refFirst.exec(line);
+    const ms = stripped ? refFirst.exec(stripped) : null;
+    // Une ligne « Qté Réf … » reste lue par la présentation quantité d'abord (jamais dépouillée de sa quantité).
+    const m = m0 ?? (ms && !qtyFirst.test(line) ? ms : null);
     if (m && /\d/.test(m[1]!) && !NOT_REF.test(m[1]!)) {
       const qty = qtyOf(m[3]!);
       if (qty != null) {
