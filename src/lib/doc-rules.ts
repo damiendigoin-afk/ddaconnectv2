@@ -495,7 +495,7 @@ export type DocSpec = {
 };
 
 export const DOC_SPECS: Record<DocKind, DocSpec> = {
-  purchase: { rules: purchaseRules, required: ["supplier", "lines"] },
+  purchase: { rules: purchaseRules, required: [["supplier", "document_number", "order_reference"], "lines"] },
   expense: { rules: expenseRules, required: ["merchant", "date", "amount_ttc"] },
   or_or_plate: { rules: orOrPlateRules, required: [["or_number", "plate"]] },
   plate: { rules: orOrPlateRules, required: ["plate"] },

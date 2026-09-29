@@ -2,7 +2,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 import { fingerprint, journalLocal, readBudget, runPaidAi } from "./ai-usage.server";
-import { runDocPipeline, type PipelineResult } from "./doc-pipeline";
+import { detectMedia, runDocPipeline, type PipelineResult } from "./doc-pipeline";
 import { headerTokens, type DocKind, type Fields, type SupplierHint } from "./doc-rules";
 import { askVision, parseJsonBlock, VISION_MODEL } from "./ocr.server";
 import { normSupplierName, supplierAliases } from "./supplier-identify";
@@ -61,7 +61,7 @@ export async function readDocument(input: ReadDocInput): Promise<PipelineResult>
   const ctx = input.kind === "purchase" ? { suppliers: await supplierHints() } : {};
   const fp = await fingerprint(input.feature, text || input.dataUrl?.slice(0, 5000) || "");
   return runDocPipeline(
-    { kind: input.kind, text, hasImage: !!input.dataUrl, ctx },
+    { kind: input.kind, text, hasImage: !!input.dataUrl, media: detectMedia(input.dataUrl, text), ctx },
     {
       fallbackEnabled: async () => (await readBudget()).fallbackAiEnabled,
       logLocal: (route, missing) =>
@@ -84,9 +84,9 @@ Champs manquants à trouver en priorité : ${missing.join(", ")}. N'invente rien
         });
         return res.ok ? parseJsonBlock(res.content) : null;
       },
-      aiVision: async () => {
+      aiVision: async (_missing, essential) => {
         if (!input.dataUrl) return null;
-        const res = await askVision(input.prompt, input.dataUrl, input.filename, input.feature, input.visionExtra ?? {});
+        const res = await askVision(input.prompt, input.dataUrl, input.filename, input.feature, input.visionExtra ?? {}, essential);
         return res.ok ? parseJsonBlock(res.content) : null;
       },
     },
