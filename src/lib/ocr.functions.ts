@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { askVision, parseJsonBlock } from "./ocr.server";
 import { learnSupplierProfile, readDocument } from "./doc-pipeline.server";
-import type { DocKind } from "./doc-rules";
+import { plausibleMileage, type DocKind } from "./doc-rules";
 import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
 
 const fileInput = z.object({
