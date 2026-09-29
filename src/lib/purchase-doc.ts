@@ -5,6 +5,7 @@ import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { ocrPurchaseDocument } from "@/lib/ocr.functions";
 import type { InvoiceExtract } from "@/lib/supplier-docs";
 import { normalizePurchaseExtract } from "@/lib/purchase-extract";
+import { orderFormLinesFromDoc, orderLineContractDiagnostic } from "@/lib/receipt-lines";
 
 /** `file` = ORIGINAL déposé (seul conservé) ; l'image compressée ne sert qu'à la lecture. */
 export type ReadDoc = { file: File; extracted: InvoiceExtract; warning: string | null };
@@ -15,8 +16,16 @@ export async function readPurchaseDoc(file: File): Promise<ReadDoc> {
   try {
     const dataUrl = await blobToDataUrl(usable);
     const res = await ocrPurchaseDocument({ data: { text: await localDocText(dataUrl), dataUrl, filename: usable.name } });
-    if (res.ok) return { file, extracted: normalizePurchaseExtract(JSON.parse(res.json)) as InvoiceExtract, warning: null };
-    const partial = res.json ? normalizePurchaseExtract(JSON.parse(res.json)) as InvoiceExtract : {};
+    const raw = res.json ? JSON.parse(res.json) as unknown : {};
+    const extracted = normalizePurchaseExtract(raw) as InvoiceExtract;
+    const mapped = orderFormLinesFromDoc(extracted);
+    const diagnostic = orderLineContractDiagnostic(raw, mapped);
+    if (diagnostic.parsedCount > 0 && diagnostic.blankMappedCount === diagnostic.mappedCount) {
+      console.warn("[purchase-import] line contract rejected", diagnostic);
+      return { file, extracted, warning: "Les lignes détectées n'ont pas pu être transmises au formulaire. Le document doit être relu ou complété manuellement." };
+    }
+    if (res.ok) return { file, extracted, warning: null };
+    const partial = extracted;
     return { file, extracted: partial, warning: `${res.error} Complétez ou contrôlez les informations signalées.` };
   } catch {
     return { file, extracted: {}, warning: "Lecture automatique indisponible : complétez à la main." };

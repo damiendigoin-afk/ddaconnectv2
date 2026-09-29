@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { purchaseRules, DOC_SPECS, missingFields } from "@/lib/doc-rules";
 import { normalizePurchaseExtract } from "@/lib/purchase-extract";
-import { orderFormLinesFromDoc } from "@/lib/receipt-lines";
+import { orderFormInitialState, orderFormLinesFromDoc, orderLineContractDiagnostic } from "@/lib/receipt-lines";
 
 // Texte PDF natif réel « pad meg3 COMMANDE 2887178.pdf » : chaque pièce sur 3 lignes.
 const PAD = `Adresse de facturation
@@ -48,4 +48,46 @@ describe.each([["avec €", PAD], ["sans €", PAD.replace(/ €/g, "")]])("comm
     ]);
   });
   it("lecture complète", () => expect(missingFields(DOC_SPECS.purchase, raw)).toEqual([]));
+});
+
+describe("contrat runtime réel vers le state du formulaire", () => {
+  const runtimePayload = {
+    supplier: "OSKARBI AUTO SL",
+    supplier_id: "supplier-pad",
+    order_reference: "2887178",
+    order_date: "2026-09-29",
+    or_number: "16533",
+    plate: "DC-354-ZH",
+    shipping_ht: 25,
+    shipping_label: "Frais de port et de emballage",
+    lines: [
+      { line_kind: "part", physical_reference: "557119W", designation: "Support pare-chocs avant droit", qty_ordered: 1, expected_unit_cost_ht: 24.51 },
+      { line_kind: "part", physical_reference: "5571208", designation: "Amortisseur de pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 19.7 },
+      { line_kind: "part", physical_reference: "5571209", designation: "Support de grille", qty_ordered: 1, expected_unit_cost_ht: 50.01 },
+    ],
+  };
+
+  it("préserve un résultat déjà au format formulaire lors de la normalisation navigateur", () => {
+    const normalized = normalizePurchaseExtract(runtimePayload);
+    const state = orderFormInitialState(normalized, "2026-10-01");
+    expect(state).toEqual({
+      supplierOrderRef: "2887178",
+      orderDate: "2026-09-29",
+      dossier: "16533",
+      plate: "DC-354-ZH",
+      lines: [
+        { line_kind: "part", physical_reference: "557119W", designation: "Support pare-chocs avant droit", qty_ordered: 1, expected_unit_cost_ht: 24.51 },
+        { line_kind: "part", physical_reference: "5571208", designation: "Amortisseur de pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 19.7 },
+        { line_kind: "part", physical_reference: "5571209", designation: "Support de grille", qty_ordered: 1, expected_unit_cost_ht: 50.01 },
+        { line_kind: "fee", physical_reference: "", designation: "Frais de port et de emballage", qty_ordered: 1, expected_unit_cost_ht: 25 },
+      ],
+    });
+    expect(runtimePayload.supplier_id).toBe("supplier-pad");
+    expect(orderLineContractDiagnostic(runtimePayload, state.lines)).toMatchObject({ parsedCount: 3, mappedCount: 4, blankMappedCount: 0 });
+  });
+
+  it("détecte trois objets arrivés vides au formulaire", () => {
+    const malformed = { lines: [{ line_kind: "part" }, { line_kind: "part" }, { line_kind: "part" }] };
+    expect(orderLineContractDiagnostic(malformed, orderFormLinesFromDoc(malformed))).toMatchObject({ parsedCount: 3, mappedCount: 0, blankMappedCount: 0, availableKeys: ["line_kind"] });
+  });
 });

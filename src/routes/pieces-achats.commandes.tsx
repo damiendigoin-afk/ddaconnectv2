@@ -16,7 +16,7 @@ import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 import { linkDocToOrder } from "@/lib/order-docs";
-import { orderFormLinesFromDoc } from "@/lib/receipt-lines";
+import { orderFormInitialState } from "@/lib/receipt-lines";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
   head: () => ({
@@ -62,7 +62,7 @@ function OrdersPage() {
             key={doc?.file.name ?? "manual"}
             doc={doc}
             docSite={doc ? guessDocumentSite(docSiteText(doc.extracted), sites) : null}
-            initialSupplier={doc ? matchSupplier(doc.extracted.supplier, suppliers.data ?? [])?.id ?? "" : ""}
+            initialSupplier={doc ? doc.extracted.supplier_id ?? matchSupplier(doc.extracted.supplier, suppliers.data ?? [])?.id ?? "" : ""}
             onDone={done}
           />
         ) : (
@@ -99,6 +99,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const qc = useQueryClient();
   const navigate = useNavigate();
   const x = doc?.extracted ?? {};
+  const initial = orderFormInitialState(x, localToday());
   const [destination, setDestination] = useState<"or" | "store_sale" | "stock">("or");
   const [supplier, setSupplierRaw] = useState(initialSupplier);
   const [supplierTouched, setSupplierTouched] = useState(false);
@@ -108,19 +109,19 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
     const next = autoSupplier(supplier, supplierTouched, x.supplier, suppliersQ.data);
     if (next !== supplier) setSupplierRaw(next);
   }, [suppliersQ.data, supplier, supplierTouched, x.supplier]);
-  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ?? "", vehicleId: null });
+  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: initial.plate, vehicleId: null });
   const [comment, setComment] = useState("");
   // Date de commande : lue sur le document, sinon date du jour locale ; toujours modifiable.
-  const [orderDate, setOrderDate] = useState(() => x.order_date ?? localToday());
-  const [supRef, setSupRef] = useState(x.order_reference ?? "");
-  const [dossier, setDossier] = useState(x.or_number ?? "");
+  const [orderDate, setOrderDate] = useState(initial.orderDate);
+  const [supRef, setSupRef] = useState(initial.supplierOrderRef);
+  const [dossier, setDossier] = useState(initial.dossier);
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
-    const ls = orderFormLinesFromDoc(x);
+    const ls = initial.lines;
     return ls.length ? ls : doc ? [emptyLine()] : [];
   });
   // Commande fournisseur multi-OR : un repère OR par ligne (une commande DDA par OR à la validation).
   const multiOrs = (x.or_numbers ?? []).length > 1 ? x.or_numbers! : [];
-  const [lineOrs, setLineOrs] = useState<string[]>(() => orderFormLinesFromDoc(x).map(() => multiOrs[0] ?? ""));
+  const [lineOrs, setLineOrs] = useState<string[]>(() => initial.lines.map(() => multiOrs[0] ?? ""));
   const [orFound, setOrFound] = useState<Record<string, OrLite | null>>({});
   useEffect(() => {
     if (!multiOrs.length) return;
