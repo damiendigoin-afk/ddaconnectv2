@@ -4151,6 +4151,7 @@ export type Database = {
           created_by_name: string | null
           destination: string
           id: string
+          order_date: string | null
           order_mode: string
           plate: string | null
           repair_order_id: string | null
@@ -4175,6 +4176,7 @@ export type Database = {
           created_by_name?: string | null
           destination?: string
           id?: string
+          order_date?: string | null
           order_mode?: string
           plate?: string | null
           repair_order_id?: string | null
@@ -4199,6 +4201,7 @@ export type Database = {
           created_by_name?: string | null
           destination?: string
           id?: string
+          order_date?: string | null
           order_mode?: string
           plate?: string | null
           repair_order_id?: string | null
