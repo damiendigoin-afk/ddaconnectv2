@@ -176,6 +176,7 @@ export function parseItemLines(text: string): Line[] {
   const qtyFirst = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+${REF}\s+(.+?)\s+${MONEY}((?:\s*(?:€|EUR)?\s+\d[\d .]*[.,]\d{2}\s*%?)*)\s*(?:€|EUR)?$`, "i");
   let last: Line | null = null;
   let pending: Line | null = null;
+  let pendingLabel: Line | null = null;
   let pendingNotes = 0;
   for (const rawLine of text.split("\n")) {
     // Intitulés de section collés à la 1re ligne article (« Recherche libre ECD-FR-016 … ») : ignorés.
@@ -192,6 +193,33 @@ export function parseItemLines(text: string): Line[] {
         const unit = money(pr[2]);
         last = { ...p, unit_price: unit, amount: money(pr[3]) ?? (unit != null && p.quantity != null ? Math.round(unit * p.quantity * 100) / 100 : null), isolated_number: pr[1] ?? null };
         out.push(last);
+        continue;
+      }
+    }
+    if (pendingLabel) {
+      const label = line.trim();
+      const isLabel = label.length >= 3 && /[A-Za-zÀ-ÿ]{3}/.test(label) && !/^(?:immat|o\.?r\.?|total|tva|frais|port|sous-total)\b/i.test(label);
+      if (isLabel) {
+        last = { ...pendingLabel, label };
+        out.push(last);
+        pendingLabel = null;
+        continue;
+      }
+      pendingLabel = null;
+    }
+    // Certains PDF natifs extraient la première désignation sur la ligne suivante :
+    // « 1 557119W 24,51 24,51 » puis « Support pare-chocs avant droit ».
+    const qtyRefPrices = new RegExp(String.raw`^(\d{1,3}(?:[.,]\d{1,2})?)\s+(${REF})\s+(${MONEY})\s*(?:€|EUR)?(?:\s+(${MONEY})\s*(?:€|EUR)?)?$`, "i").exec(line.trim());
+    if (qtyRefPrices && /\d/.test(qtyRefPrices[2]!)) {
+      const qty = qtyOf(qtyRefPrices[1]!);
+      if (qty != null) {
+        pendingLabel = {
+          reference: qtyRefPrices[2]!.toUpperCase(),
+          label: null,
+          quantity: qty,
+          unit_price: money(qtyRefPrices[3]),
+          amount: money(qtyRefPrices[4]) ?? null,
+        };
         continue;
       }
     }

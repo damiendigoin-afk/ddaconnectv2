@@ -48,30 +48,20 @@ vi.mock("@/lib/supplier-docs", () => ({ ORDER_DOC_TYPE: "supplier_order", upload
 vi.mock("@/lib/order-docs", () => ({ linkDocToOrder: vi.fn() }));
 
 import { OrderForm } from "@/routes/pieces-achats.commandes";
+import { purchaseRules } from "@/lib/doc-rules";
+import { normalizePurchaseExtract } from "@/lib/purchase-extract";
+import { PAD_REAL_NATIVE } from "@/lib/__tests__/pad-order-2887178.test";
 
 afterEach(cleanup);
 
 describe("Commander des pièces — contrat DOM réel", () => {
   it("affiche les valeurs PAD 2887178 dans les inputs réellement rendus", async () => {
     const file = new File(["PAD"], "pad meg3 COMMANDE 2887178.pdf", { type: "application/pdf" });
+    const extracted = normalizePurchaseExtract(purchaseRules(PAD_REAL_NATIVE));
     const doc = {
       file,
       warning: null,
-      extracted: {
-        supplier: "OSKARBI AUTO SL",
-        supplier_id: "supplier-pad",
-        order_reference: "2887178",
-        order_date: "2026-09-29",
-        or_number: "16533",
-        plate: "DC-354-ZH",
-        shipping_ht: 25,
-        shipping_label: "Frais de port et de emballage",
-        lines: [
-          { reference: "", label: "", quantity: null, unit_price: null, physical_reference: "557119W", designation: "Support pare-chocs avant droit", qty_ordered: 1, expected_unit_cost_ht: 24.51 },
-          { reference: null, label: null, quantity: null, unit_price: null, physical_reference: "5571208", designation: "Amortisseur de pare-chocs avant", qty_ordered: 1, expected_unit_cost_ht: 19.7 },
-          { reference: "", label: "", quantity: null, unit_price: null, physical_reference: "5571209", designation: "Support de grille", qty_ordered: 1, expected_unit_cost_ht: 50.01 },
-        ],
-      },
+      extracted,
     };
 
     render(<OrderForm doc={doc as never} docSite={null} initialSupplier="supplier-pad" onDone={vi.fn()} />);

@@ -5,29 +5,27 @@ import { orderFormInitialState, orderFormLinesFromDoc, orderLineContractDiagnost
 import { initialOrderSupplier } from "@/lib/order-supplier";
 
 // Texte PDF natif réel « pad meg3 COMMANDE 2887178.pdf » : chaque pièce sur 3 lignes.
-const PAD = `Adresse de facturation
-DAMIEN DIGOIN AUTOMOBILE
-Règlement En compte
+export const PAD_REAL_NATIVE = `Règlement: En compte
 COMMANDE 2887178
 Date Montant Paiement Payée le Status
-29/09/2026 119,22 € SEPA 29/09/2026 12:10:03 A traiter
+29/09/2026 119,22 € SEPA 29/09/2026 13:48:50 A traiter
+Adresse d'expédition Adresse de facturation
+DAMIEN DIGOIN AUTOMOBILE
 Qté Cod. Article Designation Prix Unitaire Prix
-1 557119W Support pare-chocs avant droit
+1 557119W 24,51 24,51
+Support pare-chocs avant droit
 immat: dc354zh - or: 16533
-24,51 € 24,51 €
-1 5571208 Amortisseur de pare-chocs avant
+1 5571208 Amortisseur de pare-chocs avant 19,70 19,70
 immat: dc354zh - or: 16533
-19,70 € 19,70 €
-1 5571209 Support de grille
+1 5571209 Support de grille 50,01 50,01
 immat: dc354zh - or: 16533
-50,01 € 50,01 €
 Sous-total 94,22 €
 Frais de port et de emballage 25,00 €
 Total 119,22 €
-TVA 0,00 €
+Dont T.V.A 0,00 €
 OSKARBI AUTO SL · ANTXOTXIPI 9, POL. IND. ZAISA III · 20305 - IRUN / ESPAGNE`;
 
-describe.each([["avec €", PAD], ["sans €", PAD.replace(/ €/g, "")]])("commande PAD 2887178 (%s)", (_n, text) => {
+describe.each([["texte natif réel", PAD_REAL_NATIVE], ["sans €", PAD_REAL_NATIVE.replace(/ €/g, "")]])("commande PAD 2887178 (%s)", (_n, text) => {
   const raw = purchaseRules(text);
   const x = normalizePurchaseExtract(JSON.parse(JSON.stringify(raw)));
   it("en-tête", () => {
