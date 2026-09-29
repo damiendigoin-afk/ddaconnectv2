@@ -10,6 +10,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 import { compressImage, blobToDataUrl } from "@/lib/photo";
 import { ocrOrOrPlate } from "@/lib/ocr.functions";
+import { interpretEnsure, isWinmotorOrNumber } from "@/lib/or-scan-decision";
+import { ensureWinmotorDossier } from "@/lib/or-dossier";
+import { useSite } from "@/lib/site-context";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import { OR_SELECT } from "@/lib/queries";
 import { customerName, findRefVehicleByPlate, vehicleLabel, type RefCustomer, type RefVehicle } from "@/lib/refbase";
 
@@ -39,6 +44,8 @@ function ScanPlate() {
   const initial = Route.useSearch();
   const [plate, setPlate] = useState(initial.plate ? formatPlate(initial.plate) : "");
   const [busy, setBusy] = useState(false);
+  const { site } = useSite();
+  const { displayName } = useAuth();
   const [note, setNote] = useState<string | null>(initial.note ?? null);
   const [results, setResults] = useState<OrRow[] | null>(null);
   const [refVehicle, setRefVehicle] = useState<(RefVehicle & { customer: RefCustomer | null }) | null>(null);
