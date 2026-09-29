@@ -96,4 +96,5 @@ Reste à faire :
 - [x] Rendre la normalisation idempotente pour les lignes déjà au format formulaire
 - [x] Initialiser en un seul passage lignes, commande, date, OR et immatriculation
 - [x] Ajouter un diagnostic structurel sans contenu personnel et les tests des trois fixtures
-- [ ] Suite complète, typecheck, contrôle navigateur et publication
+- [x] Suite complète, typecheck et contrôle navigateur
+- [ ] Publication

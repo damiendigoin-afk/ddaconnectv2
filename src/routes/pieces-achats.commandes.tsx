@@ -17,6 +17,7 @@ import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 import { linkDocToOrder } from "@/lib/order-docs";
 import { orderFormInitialState } from "@/lib/receipt-lines";
+import { formatPlate } from "@/lib/plate";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
   head: () => ({
@@ -142,11 +143,11 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
     setOrLooked(true);
     void (async () => {
       const o = x.or_number ? await findOrByNumber(x.or_number) : null;
-      if (o) return setOrv({ or: o, plate: o.plate ?? orv.plate, vehicleId: o.vehicle_id });
+      if (o) return setOrv({ or: o, plate: formatPlate(o.plate ?? orv.plate), vehicleId: o.vehicle_id });
       if (!x.plate) return;
       const v = await findRefVehicleByPlate(x.plate);
       if (v) {
-        const disp = (v as { registration_display?: string | null }).registration_display ?? x.plate;
+        const disp = formatPlate((v as { registration_display?: string | null }).registration_display ?? x.plate ?? "");
         setOrv((cur) => (cur.or ? cur : { or: null, plate: disp, vehicleId: v.id }));
         setVehFound(disp);
       }
