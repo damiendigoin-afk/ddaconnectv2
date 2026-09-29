@@ -16,7 +16,7 @@ import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 import { linkDocToOrder } from "@/lib/order-docs";
-import { orderFormInitialState } from "@/lib/receipt-lines";
+import { logOrderLineContract, orderFormInitialState } from "@/lib/receipt-lines";
 import { formatPlate } from "@/lib/plate";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
@@ -95,7 +95,7 @@ function PendingOrders() {
   );
 }
 
-function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | null; docSite: string | null; initialSupplier: string; onDone: () => void }) {
+export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | null; docSite: string | null; initialSupplier: string; onDone: () => void }) {
   const { actor, writeSite, siteName } = usePartsCtx();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -120,6 +120,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
     const ls = initial.lines;
     return ls.length ? ls : doc ? [emptyLine()] : [];
   });
+  useEffect(() => { logOrderLineContract("form-state", x, lines); }, []);
   // Commande fournisseur multi-OR : un repère OR par ligne (une commande DDA par OR à la validation).
   const multiOrs = (x.or_numbers ?? []).length > 1 ? x.or_numbers! : [];
   const [lineOrs, setLineOrs] = useState<string[]>(() => initial.lines.map(() => multiOrs[0] ?? ""));
@@ -247,7 +248,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   }
 
   return (
-    <div className="card-surface space-y-3 p-4">
+      <div className="card-surface space-y-3 p-4" data-import-contract-version="2026-09-29.2">
       <p className="text-xs font-extrabold uppercase text-muted-foreground">
         {doc ? `Contrôle du document : ${doc.file.name}` : "Saisie manuelle rapide"} · site {writeSite ? siteName(writeSite) : "?"}
       </p>

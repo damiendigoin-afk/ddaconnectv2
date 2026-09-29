@@ -5,7 +5,7 @@ export function initialOrderSupplier(
   extracted: { supplier_id?: string | null; supplier?: string | null },
   suppliers: { id: string; name: string; notes?: string | null }[],
 ): string {
-  return extracted.supplier_id ?? matchSupplier(extracted.supplier, suppliers)?.id ?? "";
+  return extracted.supplier_id?.trim() || matchSupplier(extracted.supplier, suppliers)?.id || "";
 }
 
 /** Fournisseur à auto-appliquer quand la liste arrive ; jamais d'écrasement d'un choix manuel. */
