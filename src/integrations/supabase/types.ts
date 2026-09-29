@@ -8407,6 +8407,15 @@ export type Database = {
         Args: { _reason: string; _receipt: string; _user_name: string }
         Returns: Json
       }
+      ensure_winmotor_dossier: {
+        Args: {
+          _or_number: string
+          _plate?: string
+          _site: string
+          _user_name?: string
+        }
+        Returns: Json
+      }
       finish_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }
         Returns: {
