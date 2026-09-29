@@ -90,3 +90,11 @@ Reste à faire :
 - [x] Renforcer fournisseur, date commande, multi-OR, frais et validation métier/score qualité
 - [x] Vérifier les deux fixtures exactes, AUTODOC, RETRO, typecheck et suite complète
 - [x] Vérifier le formulaire réel avant publication
+
+## Contrat lignes Commander des pièces — PAD 2887178
+- [x] Tracer le contrat extraction → normalisation → mapping → état React → champs
+- [x] Rendre la normalisation idempotente pour les lignes déjà au format formulaire
+- [x] Initialiser en un seul passage lignes, commande, date, OR et immatriculation
+- [x] Ajouter un diagnostic structurel sans contenu personnel et les tests des trois fixtures
+- [x] Suite complète, typecheck et contrôle navigateur
+- [ ] Publication

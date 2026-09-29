@@ -5,7 +5,7 @@
 import { findFrenchPlate } from "@/lib/plate";
 import type { InvoiceExtract, InvoiceLine, SupplierInfo } from "@/lib/supplier-docs";
 
-type Raw = Record<string, unknown> & Partial<Record<"doc_kind"|"document_number"|"document_date"|"delivery_note_number"|"invoice_number"|"invoice_date"|"plate"|"plate_printed"|"customer_or_site"|"total_ht"|"vat_amount"|"total_ttc"|"handwritten_notes"|"lines"|"quantity"|"qty"|"qte"|"amount"|"net_amount"|"line_total_ht"|"montant_net"|"net_unit_price"|"unit_net_price"|"client_price"|"public_price"|"list_price"|"unit_price"|"price"|"discount_pct", unknown>>;
+type Raw = Record<string, unknown> & Partial<Record<"doc_kind"|"document_number"|"document_date"|"delivery_note_number"|"invoice_number"|"invoice_date"|"plate"|"plate_printed"|"customer_or_site"|"total_ht"|"vat_amount"|"total_ttc"|"handwritten_notes"|"lines"|"quantity"|"qty"|"qte"|"qty_ordered"|"amount"|"net_amount"|"line_total_ht"|"montant_net"|"net_unit_price"|"unit_net_price"|"client_price"|"public_price"|"list_price"|"unit_price"|"price"|"expected_unit_cost_ht"|"discount_pct", unknown>>;
 
 const str = (v: unknown): string | null => {
   if (v == null) return null;
@@ -63,11 +63,14 @@ export function isolatedOrNumber(lines: NormLine[], exclude: (string | null | un
 }
 
 function normLine(l: Raw): NormLine {
-  const quantity = num(l.quantity ?? l.qty ?? l.qte ?? l["quantite"]) ?? null;
+  // Le pipeline peut déjà avoir converti une ligne au contrat du formulaire.
+  // Accepter les deux contrats rend la normalisation idempotente et empêche une
+  // seconde normalisation navigateur de remplacer trois lignes par trois lignes vides.
+  const quantity = num(l.quantity ?? l.qty ?? l.qte ?? l["quantite"] ?? l.qty_ordered) ?? null;
   const amount = num(l.amount ?? l.net_amount ?? l.line_total_ht ?? l.montant_net ?? l.total_ht);
   const unitNet = num(l.net_unit_price ?? l.unit_net_price);
   const clientPrice = num(l.client_price ?? l.public_price ?? l.list_price);
-  let unit = num(l.unit_price ?? l.price ?? l["prix_unitaire"] ?? l["pu"]);
+  let unit = num(l.unit_price ?? l.price ?? l["prix_unitaire"] ?? l["pu"] ?? l.expected_unit_cost_ht);
   const q = quantity && quantity > 0 ? quantity : 1;
   if (unitNet != null) unit = unitNet;
   else if (amount != null && (unit == null || !close(unit * q, amount))) unit = Math.round((amount / q) * 100) / 100;
@@ -75,7 +78,7 @@ function normLine(l: Raw): NormLine {
     unit = Math.round((amount / q) * 100) / 100;
   }
   return {
-    reference: pick(l, ["reference", "ref", "part_number", "reference_article", "code_article", "cod_article", "article_code", "code", "sku"]),
+    reference: pick(l, ["reference", "physical_reference", "ref", "part_number", "reference_article", "code_article", "cod_article", "article_code", "code", "sku"]),
     label: pick(l, ["label", "designation", "description", "libelle", "name"]),
     quantity,
     unit_price: unit,
@@ -118,6 +121,10 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
 
   // Plaque : seulement si réellement imprimée sur le document.
   const platePrinted = o.plate_printed === true || o.plate_printed === "true";
+  // Le premier passage retire volontairement plate_printed du contrat public.
+  // Au second passage navigateur, son absence signifie donc « déjà normalisé » ;
+  // un false explicite venant de la reconnaissance continue d'interdire la plaque.
+  const plateAllowed = o.plate_printed == null || platePrinted;
   const kind = str(o.doc_kind);
   // « Repère / Mes références / Réf. client / Véhicule » peut être une immatriculation : jamais un OR.
   const refFields = ["or_number", "customer_reference", "order_mark", "repere_commande", "vehicle", "mes_references"];
@@ -157,6 +164,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   return {
     doc_kind: kind,
     supplier: pick(o, ["supplier", "distributor", "distributeur", "vendor", "seller"]),
+    supplier_id: str(o["supplier_id"]),
     supplier_info: supplierInfo(o["supplier_info"]),
     document_number: docNumber,
     document_date: str(o.document_date),
@@ -168,7 +176,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     invoice_date: str(o.invoice_date),
     or_number: orNumber,
     or_numbers: orNumbers,
-    plate: (platePrinted && str(o.plate) ? findFrenchPlate(str(o.plate)) ?? str(o.plate) : null)
+    plate: (plateAllowed && str(o.plate) ? findFrenchPlate(str(o.plate)) ?? str(o.plate) : null)
       ?? refPlate
       ?? findFrenchPlate([str(o.handwritten_notes), ...lines.map((l) => l.label)].filter(Boolean).join(" | ")),
     customer_or_site: str(o.customer_or_site),

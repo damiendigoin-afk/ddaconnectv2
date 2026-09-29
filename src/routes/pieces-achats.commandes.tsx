@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { autoSupplier } from "@/lib/order-supplier";
+import { autoSupplier, initialOrderSupplier } from "@/lib/order-supplier";
 import { findRefVehicleByPlate } from "@/lib/refbase";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,7 +16,8 @@ import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 import { linkDocToOrder } from "@/lib/order-docs";
-import { orderFormLinesFromDoc } from "@/lib/receipt-lines";
+import { orderFormInitialState } from "@/lib/receipt-lines";
+import { formatPlate } from "@/lib/plate";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
   head: () => ({
@@ -62,7 +63,7 @@ function OrdersPage() {
             key={doc?.file.name ?? "manual"}
             doc={doc}
             docSite={doc ? guessDocumentSite(docSiteText(doc.extracted), sites) : null}
-            initialSupplier={doc ? matchSupplier(doc.extracted.supplier, suppliers.data ?? [])?.id ?? "" : ""}
+            initialSupplier={doc ? initialOrderSupplier(doc.extracted, suppliers.data ?? []) : ""}
             onDone={done}
           />
         ) : (
@@ -99,6 +100,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
   const qc = useQueryClient();
   const navigate = useNavigate();
   const x = doc?.extracted ?? {};
+  const initial = orderFormInitialState(x, localToday());
   const [destination, setDestination] = useState<"or" | "store_sale" | "stock">("or");
   const [supplier, setSupplierRaw] = useState(initialSupplier);
   const [supplierTouched, setSupplierTouched] = useState(false);
@@ -108,19 +110,19 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
     const next = autoSupplier(supplier, supplierTouched, x.supplier, suppliersQ.data);
     if (next !== supplier) setSupplierRaw(next);
   }, [suppliersQ.data, supplier, supplierTouched, x.supplier]);
-  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: x.plate ?? "", vehicleId: null });
+  const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: initial.plate, vehicleId: null });
   const [comment, setComment] = useState("");
   // Date de commande : lue sur le document, sinon date du jour locale ; toujours modifiable.
-  const [orderDate, setOrderDate] = useState(() => x.order_date ?? localToday());
-  const [supRef, setSupRef] = useState(x.order_reference ?? "");
-  const [dossier, setDossier] = useState(x.or_number ?? "");
+  const [orderDate, setOrderDate] = useState(initial.orderDate);
+  const [supRef, setSupRef] = useState(initial.supplierOrderRef);
+  const [dossier, setDossier] = useState(initial.dossier);
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
-    const ls = orderFormLinesFromDoc(x);
+    const ls = initial.lines;
     return ls.length ? ls : doc ? [emptyLine()] : [];
   });
   // Commande fournisseur multi-OR : un repère OR par ligne (une commande DDA par OR à la validation).
   const multiOrs = (x.or_numbers ?? []).length > 1 ? x.or_numbers! : [];
-  const [lineOrs, setLineOrs] = useState<string[]>(() => orderFormLinesFromDoc(x).map(() => multiOrs[0] ?? ""));
+  const [lineOrs, setLineOrs] = useState<string[]>(() => initial.lines.map(() => multiOrs[0] ?? ""));
   const [orFound, setOrFound] = useState<Record<string, OrLite | null>>({});
   useEffect(() => {
     if (!multiOrs.length) return;
@@ -141,11 +143,11 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
     setOrLooked(true);
     void (async () => {
       const o = x.or_number ? await findOrByNumber(x.or_number) : null;
-      if (o) return setOrv({ or: o, plate: o.plate ?? orv.plate, vehicleId: o.vehicle_id });
+      if (o) return setOrv({ or: o, plate: formatPlate(o.plate ?? orv.plate), vehicleId: o.vehicle_id });
       if (!x.plate) return;
       const v = await findRefVehicleByPlate(x.plate);
       if (v) {
-        const disp = (v as { registration_display?: string | null }).registration_display ?? x.plate;
+        const disp = formatPlate((v as { registration_display?: string | null }).registration_display ?? x.plate ?? "");
         setOrv((cur) => (cur.or ? cur : { or: null, plate: disp, vehicleId: v.id }));
         setVehFound(disp);
       }

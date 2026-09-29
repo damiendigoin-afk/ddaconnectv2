@@ -10,19 +10,69 @@ export function syncOrNumber(current: string, touched: boolean, incoming: string
 
 export const blankReceiptLine = (): ReceiptLineInput => ({ order_line_id: null, physical_reference: "", designation: "", qty_expected: null, qty_received: 1, condition: "usable", destination: "or", allocate_qty: 1, unit_cost: null, expected_cost: null, ordered_reference: null, comment: "" });
 
-type DocLine = { reference?: string | null; label?: string | null; quantity?: number | null; unit_price?: number | null };
+type DocLine = {
+  reference?: string | null;
+  label?: string | null;
+  quantity?: number | null;
+  unit_price?: number | null;
+  line_kind?: OrderLineInput["line_kind"];
+  physical_reference?: string | null;
+  designation?: string | null;
+  qty_ordered?: number | null;
+  expected_unit_cost_ht?: number | null;
+};
 
 /** Lignes lues sur une commande → lignes de commande directement éditables. */
 export function orderLinesFromDoc(lines: (DocLine & { delay?: string | null })[] | null | undefined): OrderLineInput[] {
   return (lines ?? [])
-    .filter((l) => l.reference || l.label)
+    .filter((l) => l.reference || l.physical_reference || l.label || l.designation)
     .map((l) => ({
-      line_kind: "part",
-      physical_reference: l.reference ?? "",
-      designation: [l.label, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "),
-      qty_ordered: l.quantity ?? 1,
-      expected_unit_cost_ht: l.unit_price ?? null,
+      line_kind: l.line_kind ?? "part",
+      physical_reference: l.reference ?? l.physical_reference ?? "",
+      designation: [l.label ?? l.designation, l.delay ? `(délai : ${l.delay})` : ""].filter(Boolean).join(" "),
+      qty_ordered: l.quantity ?? l.qty_ordered ?? 1,
+      expected_unit_cost_ht: l.unit_price ?? l.expected_unit_cost_ht ?? null,
     }));
+}
+
+export type OrderFormInitialState = {
+  lines: OrderLineInput[];
+  supplierOrderRef: string;
+  orderDate: string;
+  dossier: string;
+  plate: string;
+};
+
+/** Contrat unique réellement utilisé par l'initialisation React du formulaire. */
+export function orderFormInitialState(doc: {
+  lines?: (DocLine & { delay?: string | null })[] | null;
+  shipping_ht?: number | null;
+  shipping_label?: string | null;
+  order_reference?: string | null;
+  order_date?: string | null;
+  or_number?: string | null;
+  plate?: string | null;
+}, today: string): OrderFormInitialState {
+  return {
+    lines: orderFormLinesFromDoc(doc),
+    supplierOrderRef: doc.order_reference ?? "",
+    orderDate: doc.order_date ?? today,
+    dossier: doc.or_number ?? "",
+    plate: doc.plate ?? "",
+  };
+}
+
+/** Diagnostic structurel uniquement : aucun contenu du document n'est journalisé. */
+export function orderLineContractDiagnostic(raw: unknown, mapped: OrderLineInput[]) {
+  const rows = raw && typeof raw === "object" && Array.isArray((raw as { lines?: unknown }).lines)
+    ? ((raw as { lines: unknown[] }).lines).filter((line) => line && typeof line === "object")
+    : [];
+  return {
+    parsedCount: rows.length,
+    mappedCount: mapped.length,
+    availableKeys: [...new Set(rows.flatMap((line) => Object.keys(line as object)))].sort(),
+    blankMappedCount: mapped.filter((line) => !line.physical_reference.trim() && !line.designation.trim() && line.expected_unit_cost_ht == null).length,
+  };
 }
 
 /** Modèle réellement injecté dans Commander des pièces, frais de port inclus sans créer de fausse pièce. */
