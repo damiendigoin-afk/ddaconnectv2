@@ -22,28 +22,28 @@ Plaquettes AV`;
 describe("repairOrderRules (OR papier, sans IA)", () => {
   const f = repairOrderRules(OR_TXT) as Record<string, Record<string, unknown>>;
   it("lit OR, immat, VIN, km, marque", () => {
-    expect(f.order!["or_number"]).toBe("16991");
-    expect(f.order!["or_date"]).toBe("2026-09-29");
-    expect(f.vehicle!["plate"]).toBe("HG-732-GH");
-    expect(f.vehicle!["vin"]).toBe("VF3ABCDEFGH123456");
-    expect(f.vehicle!["mileage"]).toBe(84512);
-    expect(f.vehicle!["brand"]).toBe("PEUGEOT");
+    expect(f["order"]!["or_number"]).toBe("16991");
+    expect(f["order"]!["or_date"]).toBe("2026-09-29");
+    expect(f["vehicle"]!["plate"]).toBe("HG-732-GH");
+    expect(f["vehicle"]!["vin"]).toBe("VF3ABCDEFGH123456");
+    expect(f["vehicle"]!["mileage"]).toBe(84512);
+    expect(f["vehicle"]!["brand"]).toBe("PEUGEOT");
   });
   it("lit le client complet", () => {
-    expect(f.client!["last_name"]).toBe("DUPONT");
-    expect(f.client!["first_name"]).toBe("Jean");
-    expect(f.client!["postal_code"]).toBe("33350");
-    expect(f.client!["address"]).toBe("12 rue des Vignes");
-    expect(f.client!["phone"]).toBe("05 57 40 12 34");
-    expect(f.client!["mobile"]).toBe("06 12 34 56 78");
-    expect(f.client!["email"]).toBe("jean.dupont@example.fr");
-    expect(String(f.order!["requested_work"])).toContain("Vidange");
+    expect(f["client"]!["last_name"]).toBe("DUPONT");
+    expect(f["client"]!["first_name"]).toBe("Jean");
+    expect(f["client"]!["postal_code"]).toBe("33350");
+    expect(f["client"]!["address"]).toBe("12 rue des Vignes");
+    expect(f["client"]!["phone"]).toBe("05 57 40 12 34");
+    expect(f["client"]!["mobile"]).toBe("06 12 34 56 78");
+    expect(f["client"]!["email"]).toBe("jean.dupont@example.fr");
+    expect(String(f["order"]!["requested_work"])).toContain("Vidange");
   });
   it("n'invente rien sur un OR très incomplet", () => {
     const g = repairOrderRules("OR N° 16991") as Record<string, Record<string, unknown>>;
-    expect(g.vehicle!["plate"]).toBeNull();
-    expect(g.client!["last_name"]).toBeNull();
-    expect(g.client!["email"]).toBeNull();
+    expect(g["vehicle"]!["plate"]).toBeNull();
+    expect(g["client"]!["last_name"]).toBeNull();
+    expect(g["client"]!["email"]).toBeNull();
   });
 });
 

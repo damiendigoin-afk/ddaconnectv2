@@ -343,6 +343,13 @@ export function repairOrderRules(raw: string): Fields {
   let last_name: string | null = null, first_name: string | null = null;
   const cm = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text)
     ?? /client\s*:\s*([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text);
+  if (cm && cm.length === 4 && !/SOCI|SARL|SAS|EURL|^SA$/i.test(cm[1]!) && !cm[3]) {
+    // « DUPONT Jean » capturé d'un bloc (drapeau i) : nom = mots en majuscules, prénom = le reste.
+    const toks = cm[2]!.trim().split(/\s+/);
+    const up = toks.filter((t) => t === t.toUpperCase());
+    const rest = toks.filter((t) => t !== t.toUpperCase());
+    if (up.length && rest.length) { cm[2] = up.join(" "); cm[3] = rest.join(" "); }
+  }
   if (cm) {
     const company = cm.length === 4 && /SOCI|SARL|SAS|EURL|^SA$/i.test(cm[1]!);
     if (cm.length === 4) {
