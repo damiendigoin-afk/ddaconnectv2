@@ -11,7 +11,7 @@ import { OrderRow } from "@/components/parts/OrderRow";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
-import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier, groupLinesByOr } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
 import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
@@ -114,6 +114,18 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
     const ls = orderLinesFromDoc(x.lines);
     return ls.length ? ls : doc ? [emptyLine()] : [];
   });
+  // Commande fournisseur multi-OR : un repère OR par ligne (une commande DDA par OR à la validation).
+  const multiOrs = (x.or_numbers ?? []).length > 1 ? x.or_numbers! : [];
+  const [lineOrs, setLineOrs] = useState<string[]>(() => orderLinesFromDoc(x.lines).map(() => multiOrs[0] ?? ""));
+  const [orFound, setOrFound] = useState<Record<string, OrLite | null>>({});
+  useEffect(() => {
+    if (!multiOrs.length) return;
+    let live = true;
+    void Promise.all(multiOrs.map(async (n) => [n, await findOrByNumber(n)] as const)).then((r) => { if (live) setOrFound(Object.fromEntries(r)); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiOrs.join("|")]);
+  const removeLine = (i: number) => { setLines((ls) => ls.filter((_, j) => j !== i)); setLineOrs((a) => a.filter((_, j) => j !== i)); };
   const [stockHits, setStockHits] = useState<Record<number, StockRow[]>>({});
   const [busy, setBusy] = useState(false);
   const [orLooked, setOrLooked] = useState(false);
@@ -150,7 +162,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
     const qty = lines[i]?.qty_ordered ?? 1;
     await allocateToOr({ articleId: h.id, siteId: h.site_id, orId: orv.or.id, qty, ref: h.physical_reference, designation: h.designation }, actor);
     toast.success(`${qty} × ${h.physical_reference} affecté(s) à l'OR ${orv.or.or_number}`);
-    setLines((ls) => ls.filter((_, j) => j !== i));
+    removeLine(i);
     setStockHits({});
   }
 
@@ -168,6 +180,34 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
       }
       const clean = lines.filter((l) => l.physical_reference.trim() || l.designation.trim());
       const plate = orv.plate.trim() || orv.or?.plate || null;
+      if (multiOrs.length) {
+        const tagged = lines.map((l, i) => ({ l, or: lineOrs[i] || null })).filter(({ l }) => l.physical_reference.trim() || l.designation.trim());
+        const groups = groupLinesByOr(multiOrs, tagged);
+        const ids: string[] = [];
+        let gapCount = 0;
+        for (const g of groups.length ? groups : [{ or: multiOrs[0]!, lines: [] as typeof tagged }]) {
+          const ro = orFound[g.or] ?? (await findOrByNumber(g.or));
+          const reqOr = requestedDossier(ro, g.or);
+          const gl = g.lines.map((t) => t.l);
+          const oid = await createOrder({
+            site_id: writeSite, supplier_id: supplier || null, source_document_id: docId,
+            order_mode: gl.length ? "detailed" : "simplified", destination,
+            repair_order_id: ro?.id ?? null, vehicle_id: ro?.vehicle_id ?? orv.vehicleId,
+            plate: ro?.plate ?? plate, appointment_date: rdv || null, supplier_order_ref: supRef.trim() || null,
+            comment: [comment.trim(), `Commande fournisseur multi-OR : ${multiOrs.join(" + ")}`].filter(Boolean).join(" — "),
+            requested_or_number: reqOr, lines: gl,
+          }, actor);
+          ids.push(oid);
+          const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: gl.length, repair_order_id: ro?.id ?? null, plate: ro?.plate ?? plate, destination, requested_or_number: reqOr });
+          gapCount += gaps.length;
+          for (const kind of gaps) await openRegularization({ site_id: writeSite, kind, source_table: "part_orders", source_id: oid, repair_order_id: ro?.id ?? null, supplier_id: supplier || null, plate: ro?.plate ?? plate, comment: "Commande validée avec informations manquantes" }, actor);
+        }
+        toast.success(`${ids.length} commande(s) enregistrée(s), une par OR${gapCount ? ` — ${gapCount} point(s) dans « À régulariser »` : ""}`);
+        qc.invalidateQueries({ queryKey: ["part-orders"] });
+        onDone();
+        void navigate({ to: "/pieces-achats/commande/$orderId", params: { orderId: ids[0]! } });
+        return;
+      }
       const id = await createOrder({
         site_id: writeSite,
         supplier_id: supplier || null,
@@ -212,8 +252,22 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
         </p>
       ) : null}
       {!supplier ? <p className="text-xs text-muted-foreground">Fournisseur facultatif : s'il manque, la commande part dans « À régulariser ».</p> : null}
-      <OrPicker value={orv} onChange={setOrv} initialNumber={x.or_number ?? null} onNumberChange={setDossier} />
-      {requestedOr ? (
+      {x.document_date ? <p className="text-xs font-bold text-muted-foreground">Document du {x.document_date.split("-").reverse().join("/")}</p> : null}
+      {multiOrs.length ? (
+        <div className="space-y-2 rounded-lg border-2 border-border bg-muted p-2 text-xs">
+          <p className="font-extrabold uppercase">Repères OR : {multiOrs.join(" + ")}</p>
+          <ul className="space-y-0.5">
+            {multiOrs.map((n) => (
+              <li key={n}>OR {n} — {n in orFound ? (orFound[n] ? `dossier trouvé${orFound[n]!.plate ? ` · ${orFound[n]!.plate}` : ""}` : "sera rapproché à la facture WinMotor") : "recherche…"}</li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground">Choisissez l'OR de chaque ligne : une commande sera créée par OR, avec le même n° de commande fournisseur.</p>
+          <input className={inputCls} placeholder="Immatriculation" value={orv.plate} onChange={(e) => setOrv({ ...orv, plate: e.target.value })} />
+        </div>
+      ) : (
+        <OrPicker value={orv} onChange={setOrv} initialNumber={x.or_number ?? null} onNumberChange={setDossier} />
+      )}
+      {!multiOrs.length && requestedOr ? (
         <p className="rounded-lg border-2 border-border bg-muted p-2 text-xs font-bold">
           Dossier {requestedOr}{vehFound ? ` · véhicule ${vehFound}` : ""} — sera rapproché à la facture WinMotor.
         </p>
@@ -243,8 +297,13 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
             <input aria-label="Désignation" className={`${inputCls} order-first col-span-2 h-9 px-2 text-xs md:order-none md:col-span-1`} placeholder="Désignation" value={l.designation} onChange={(e) => setLine(i, { designation: e.target.value })} />
             <input aria-label="Quantité" className={`${inputCls} h-9 px-2 text-xs`} inputMode="decimal" placeholder="Qté" value={l.qty_ordered ?? ""} onChange={(e) => setLine(i, { qty_ordered: numOrNull(e.target.value) })} />
             <input aria-label="PA HT" className={`${inputCls} h-9 px-2 text-xs`} inputMode="decimal" placeholder="PA HT" value={l.expected_unit_cost_ht ?? ""} onChange={(e) => setLine(i, { expected_unit_cost_ht: numOrNull(e.target.value) })} />
-            <button type="button" className="flex h-9 items-center justify-center rounded-md border-2 border-border px-2" aria-label="Supprimer la ligne" title="Supprimer la ligne" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></button>
+            <button type="button" className="flex h-9 items-center justify-center rounded-md border-2 border-border px-2" aria-label="Supprimer la ligne" title="Supprimer la ligne" onClick={() => removeLine(i)}><Trash2 className="h-4 w-4" /></button>
           </div>
+          {multiOrs.length ? (
+            <select aria-label="OR de la ligne" className={`${inputCls} mt-1 h-9 px-2 text-xs`} value={lineOrs[i] || multiOrs[0]} onChange={(e) => setLineOrs((a) => { const b = [...a]; b[i] = e.target.value; return b; })}>
+              {multiOrs.map((n) => <option key={n} value={n}>Pour l'OR {n}</option>)}
+            </select>
+          ) : null}
           {stockHits[i]?.length ? (
             <div className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-xs">
               <p className="font-extrabold uppercase">Pièce déjà en stock</p>
@@ -259,7 +318,7 @@ function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: ReadDoc | n
           ) : null}
         </div>
       ))}
-      <button type="button" className={btnGhost} onClick={() => setLines((ls) => [...ls, emptyLine()])}>+ Ligne</button>
+      <button type="button" className={btnGhost} onClick={() => { setLines((ls) => [...ls, emptyLine()]); setLineOrs((a) => [...a, multiOrs[0] ?? ""]); }}>+ Ligne</button>
       <div className="grid grid-cols-2 gap-2">
         <button type="button" className={btnGhost} onClick={onDone}>Annuler</button>
         <button type="button" className={btnPrimary} onClick={submit} disabled={busy}>Valider la commande</button>
