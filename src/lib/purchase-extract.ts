@@ -63,11 +63,11 @@ export function isolatedOrNumber(lines: NormLine[], exclude: (string | null | un
 }
 
 function normLine(l: Raw): NormLine {
-  const quantity = num(l.quantity ?? l.qty ?? l.qte) ?? null;
+  const quantity = num(l.quantity ?? l.qty ?? l.qte ?? l["quantite"]) ?? null;
   const amount = num(l.amount ?? l.net_amount ?? l.line_total_ht ?? l.montant_net ?? l.total_ht);
   const unitNet = num(l.net_unit_price ?? l.unit_net_price);
   const clientPrice = num(l.client_price ?? l.public_price ?? l.list_price);
-  let unit = num(l.unit_price ?? l.price);
+  let unit = num(l.unit_price ?? l.price ?? l["prix_unitaire"] ?? l["pu"]);
   const q = quantity && quantity > 0 ? quantity : 1;
   if (unitNet != null) unit = unitNet;
   else if (amount != null && (unit == null || !close(unit * q, amount))) unit = Math.round((amount / q) * 100) / 100;
@@ -75,8 +75,8 @@ function normLine(l: Raw): NormLine {
     unit = Math.round((amount / q) * 100) / 100;
   }
   return {
-    reference: pick(l, ["reference", "ref", "part_number", "reference_article"]),
-    label: pick(l, ["label", "designation", "description"]),
+    reference: pick(l, ["reference", "ref", "part_number", "reference_article", "code_article", "cod_article", "article_code", "code", "sku"]),
+    label: pick(l, ["label", "designation", "description", "libelle", "name"]),
     quantity,
     unit_price: unit,
     discount_pct: num(l.discount_pct),
@@ -176,6 +176,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     total_ht: totalHt,
     vat_amount: num(o.vat_amount),
     shipping_ht: num(o["shipping_ht"]),
+    shipping_label: str(o["shipping_label"]),
     total_ttc: num(o.total_ttc),
     handwritten_notes: str(o.handwritten_notes),
   };
