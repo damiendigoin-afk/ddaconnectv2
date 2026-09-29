@@ -1,32 +1,20 @@
-# Erreur « new row violates row-level security policy » — dépôt de BL (Adrien Benoist, Castillon)
+# Correction générique du flux « Commander des pièces »
 
-## Diagnostic (lecture seule)
+## Objectif
+Fiabiliser la lecture des PDF achats structurés sans ajouter de règle propre à OSKARBI ou Renault, et garantir que les données lues arrivent réellement dans le formulaire.
 
-1. **Ce qui échoue** : ce n'est pas une table de Pièces & achats. C'est l'**envoi du fichier** (photo ou PDF du BL) dans le stockage `dda-media`. L'application le range sous `fournisseurs/<uuid>.<ext>` (src/lib/supplier-docs.ts, `uploadSupplierDoc`). L'envoi se fait avant l'insertion `inbox_documents`, et l'erreur arrive à ce moment-là.
-2. **Règle qui bloque** : `dda_media_insert` sur le stockage appelle `storage_object_owned(name, uid)`. Cette fonction n'autorise que les dossiers `inspections`, `tours`, `expertises`, `orders` et `notes-frais`. Tous les autres dossiers passent par `ELSE has_role(uid,'manager')`. Le dossier `fournisseurs/` n'est donc accessible qu'aux managers.
-3. **Profil d'Adrien : il est cohérent.** Statut active, site Castillon, `site_scope=site`, entrée `user_sites` Castillon, rôle `salarie`, module `magasin` accordé. Les règles des tables sont vérifiées (`inbox_documents` : utilisateur actif ; `part_receipts`, `stock_movements`, `supplier_cost_lines` : utilisateur actif et site accessible) et elles l'autorisent toutes sur Castillon. Rien n'est à corriger sur son compte.
-4. **Autres utilisateurs** : les **19 utilisateurs actifs non-manager** sont tous touchés. Le même blocage touche aussi, pour les non-managers, d'autres dossiers du même stockage : `magasin/`, `returns/`, `winmotor-imports/`, `emails/`, `carrosserie/`, `cases/`, `ads/`, `productivite/`. Les envois faits par le serveur avec les droits complets (`returns-workflow`, `emails/`) ne sont pas bloqués.
+## Mise en œuvre
+1. **Chaîne réelle** — tracer le texte natif du PDF, les règles déterministes, la normalisation serveur et l’initialisation du formulaire ; supprimer tout mapping qui perd fournisseur, lignes ou prix.
+2. **Parseur générique** — lire les articles par blocs délimités par référence, puis rattacher désignation, quantité et prix selon leurs libellés (« Prix client », « PU », « PA »), même si les colonnes PDF sont désalignées.
+3. **Informations du document** — rechercher fournisseur et alias sur tout le document, prioriser la date de commande explicite, conserver commande, plaque, repères OR multiples, port et totaux.
+4. **Validation métier** — calculer une qualité d’achat couvrant commande, date, fournisseur, repères et lignes ; un OR/date seuls ou des références visibles avec zéro ligne déclencheront le repli prévu ou une erreur claire, jamais un faux succès.
+5. **Formulaire** — conserver les pièces et ajouter le port comme ligne « Frais », maintenir la saisie PA HT virgule/point et le lien privé vers le PDF source.
+6. **Vérification** — ajouter les deux fixtures exactes demandées, conserver AUTODOC/RETRO/multi-OR, lancer les tests ciblés puis complets et vérifier à l’écran les champs réellement préremplis.
 
-## Correction minimale recommandée
+## Résultats attendus
+- OSKARBI/Pièce Auto Discount 2887082 : date 2026-09-29, OR 17072, pièce 5571201 à 43,10 €, port 12,90 €, total 56,00 €.
+- Renault Parts 45965672 : DC-354-ZH, OR 16533, deux pièces à 56,33 € et 125,69 € ; 41,12 € et 109,35 € exclus des PA.
+- Aucun changement de données et aucune publication.
 
-Une migration ajoute la branche suivante à `storage_object_owned`, sans rien retirer :
-
-```text
-WHEN 'fournisseurs' THEN (
-  has_role(uid,'manager')
-  OR EXISTS (SELECT 1 FROM inbox_documents d
-             WHERE d.storage_path = _name
-               AND (d.site_id IS NULL OR user_can_access_site(uid, d.site_id)))
-  OR NOT EXISTS (SELECT 1 FROM inbox_documents d WHERE d.storage_path = _name)  -- envoi initial
-)
-```
-
-Avec cette branche, un utilisateur actif peut envoyer un nouveau fichier fournisseur. Il ne peut relire que les fichiers liés à un document d'un site auquel il a accès. Le contrôle « utilisateur actif » existant reste en tête de la fonction.
-
-En option, dans une seconde étape à valider : ajouter des branches équivalentes pour `magasin/`, `returns/`, `carrosserie/`, `cases/` et `winmotor-imports/` si ces écrans doivent fonctionner pour les non-managers.
-
-## Vérification après correction
-
-- Se connecter comme un non-manager sur Castillon, déposer un BL : le document est créé, sans erreur.
-- Vérifier que ce non-manager ne peut pas ouvrir un BL d'un site non autorisé.
-- Aucun changement du code de l'application, ni de Notes de frais.
+## Détails techniques
+Les règles resteront déterministes et communes. Le PDF natif restera prioritaire ; les sorties IA seront normalisées par la même validation métier avant d’être appliquées au formulaire.
