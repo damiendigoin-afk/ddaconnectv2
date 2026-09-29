@@ -22,7 +22,7 @@ vi.mock("@/components/parts/DocSupplierLink", () => ({ DocSupplierLink: () => nu
 vi.mock("@/components/parts/PartsUi", () => ({
   ActiveSiteNote: () => null,
   SiteMismatchAlert: () => null,
-  OrPicker: ({ initialNumber }: { initialNumber?: string | null }) => <input aria-label="OR" value={initialNumber ?? ""} readOnly />,
+  OrPicker: ({ initialNumber, value }: { initialNumber?: string | null; value?: { plate?: string } }) => <><input aria-label="OR" value={initialNumber ?? ""} readOnly /><input aria-label="Immatriculation" value={value?.plate ?? ""} readOnly /></>,
   SupplierSelect: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
     <select aria-label="Fournisseur" value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">— Fournisseur —</option>
@@ -85,6 +85,6 @@ describe("Commander des pièces — contrat DOM réel", () => {
     expect(screen.getAllByLabelText("Quantité").map((node) => (node as HTMLInputElement).value)).toEqual(["1", "1", "1", "1"]);
     expect(screen.getAllByLabelText("PA HT").map((node) => (node as HTMLInputElement).value)).toEqual(["24.51", "19.7", "50.01", "25"]);
     expect(screen.getAllByLabelText("Type de ligne").map((node) => (node as HTMLSelectElement).value)).toEqual(["part", "part", "part", "fee"]);
-    await waitFor(() => expect(screen.getByDisplayValue("DC-354-ZH")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Immatriculation")).toHaveProperty("value", "DC-354-ZH"));
   });
 });
