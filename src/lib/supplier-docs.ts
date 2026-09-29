@@ -133,12 +133,17 @@ export async function uploadSupplierDoc(opts: {
     const r = resolveSupplier(opts.extracted.supplier, sups ?? []);
     if (r.kind === "found") opts = { ...opts, extracted: { ...opts.extracted, supplier_id: r.supplier.id } };
   }
-  const path = `fournisseurs/${crypto.randomUUID()}.${extensionOf(opts.file.name)}`;
-  const up = await supabase.storage.from(BUCKET).upload(path, opts.file, {
-    contentType: opts.file.type || "application/octet-stream",
-    upsert: false,
-  });
-  if (up.error) throw up.error;
+  // Même contenu déjà stocké (autre type/site visible) : un seul original en stockage, nouveau rattachement seulement.
+  const { data: twin } = await supabase.from("inbox_documents").select("storage_path").eq("content_hash", contentHash).like("storage_path", "fournisseurs/%").limit(1);
+  const reused = twin?.[0]?.storage_path ?? null;
+  const path = reused ?? `fournisseurs/${crypto.randomUUID()}.${extensionOf(opts.file.name)}`;
+  if (!reused) {
+    const up = await supabase.storage.from(BUCKET).upload(path, opts.file, {
+      contentType: opts.file.type || "application/octet-stream",
+      upsert: false,
+    });
+    if (up.error) throw up.error;
+  }
 
   const { data, error } = await supabase
     .from("inbox_documents")
@@ -164,7 +169,11 @@ export async function uploadSupplierDoc(opts: {
       "id,file_name,storage_path,mime_type,status,note,plate,customer_name,linked_kind,linked_id,site_id,created_at,extracted",
     )
     .single();
-  if (error) throw error;
+  if (error) {
+    // Fichier fraîchement envoyé sans fiche : orphelin supprimé (jamais un fichier partagé/réutilisé).
+    if (!reused) await supabase.storage.from(BUCKET).remove([path]).catch(() => undefined);
+    throw error;
+  }
   return { ...data, extracted: toExtract(data.extracted) };
 }
 
