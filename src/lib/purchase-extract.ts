@@ -156,6 +156,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     document_number: docNumber,
     document_date: str(o.document_date),
     order_reference: orderRef,
+    ref_candidates: Array.isArray(o["ref_candidates"]) ? [...new Set((o["ref_candidates"] as unknown[]).map((v) => str(v)).filter((v): v is string => !!v))].slice(0, 12) : [],
     delivery_note_number: str(o.delivery_note_number),
     invoice_number: str(o.invoice_number),
     invoice_date: str(o.invoice_date),
