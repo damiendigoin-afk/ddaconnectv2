@@ -69,8 +69,10 @@ function firstMatch(text: string, res: RegExp[]): string | null {
 
 function lastMoneyOnLines(text: string, label: RegExp): number | null {
   let found: number | null = null;
-  for (const line of text.split("\n")) {
-    if (!label.test(line)) continue;
+  for (const raw of text.split("\n")) {
+    if (!label.test(raw)) continue;
+    // Un nombre collé à « % » est un taux, jamais un montant.
+    const line = raw.replace(/\d+(?:[.,]\d+)?\s*%/g, " ");
     const all = [...line.matchAll(new RegExp(MONEY, "g"))];
     const last = all.at(-1)?.[1];
     if (last) found = money(last);
@@ -434,7 +436,7 @@ export function expenseRules(raw: string): Fields {
             ? "restaurant"
             : null;
   const vatRate = /(?:tva|t\.v\.a)\s*[:]?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i.exec(text)?.[1];
-  return {
+  const out: Fields = {
     merchant: merchant ? merchant.slice(0, 80) : null,
     date: isoDate(text),
     amount_ttc: lastMoneyOnLines(text, /total|t\.?t\.?c|[àa] payer|montant|carte|\bcb\b/i),
@@ -443,6 +445,31 @@ export function expenseRules(raw: string): Fields {
     category,
     raw_text: text.split("\n").slice(0, 4).join("\n") || null,
   };
+  return reconcileExpenseVat(out, text);
+}
+
+/**
+ * Cohérence TVA d'un justificatif : taux ≠ montant.
+ * - « TVA 20,00% = 4,79 » : 20 = taux, 4,79 = montant.
+ * - montant égal au taux, ou supérieur/égal au TTC => rejeté.
+ * - montant absent/rejeté mais TTC + taux fiables => TTC × taux / (100 + taux), arrondi centime.
+ */
+export function reconcileExpenseVat<T extends Record<string, unknown>>(f: T, text?: string | null): T {
+  const n = (v: unknown) => (typeof v === "number" ? (Number.isFinite(v) ? v : null) : typeof v === "string" && v.trim() ? money(v) : null);
+  const ttc = n(f["amount_ttc"]);
+  let rate = n(f["vat_rate"]);
+  let vat = n(f["vat_amount"]);
+  const m = text ? /t\.?v\.?a[^\n%]{0,12}?(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s*(?:=|:)?\s*(\d+[.,]\d{2})/i.exec(text) : null;
+  if (m) {
+    rate ??= money(m[1]!);
+    const explicit = money(m[2]!);
+    if (explicit != null && (vat == null || (rate != null && Math.abs(vat - rate) < 0.005))) vat = explicit;
+  }
+  if (rate != null && (rate <= 0 || rate > 30)) rate = null;
+  if (vat != null && rate != null && Math.abs(vat - rate) < 0.005) vat = null;
+  if (vat != null && ttc != null && vat >= ttc) vat = null;
+  if (vat == null && ttc != null && rate != null) vat = Math.round(((ttc * rate) / (100 + rate)) * 100) / 100;
+  return { ...f, vat_amount: vat, vat_rate: rate };
 }
 
 /* --------------------------- Atelier / véhicule ---------------------------- */
