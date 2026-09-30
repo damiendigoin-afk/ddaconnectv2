@@ -34,7 +34,13 @@ export async function ensureWinmotorDossier(input: {
     console.error(error);
     return { error: error.message };
   }
-  return (res ?? {}) as EnsureFullResult;
+  const out = (res ?? {}) as EnsureFullResult;
+  // Date de livraison, entrée, restitution : champs vides seulement complétés (jamais d'écrasement).
+  if (out.id) {
+    const { error: e2 } = await supabase.rpc("complete_winmotor_dossier_extras", { _or: out.id, _data: data as never });
+    if (e2) console.error(e2);
+  }
+  return out;
 }
 
 /** Applique une valeur lue après confirmation explicite de l'utilisateur. */
