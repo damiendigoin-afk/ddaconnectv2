@@ -14,7 +14,7 @@ export const PRICE_GAP_LABEL = "Écart de prix à contrôler — une remise de f
 export type MoLine = { id: string; line_kind: string; status: string; physical_reference: string | null; designation?: string | null; qty_ordered: number | null; qty_received: number | null; expected_unit_cost_ht?: number | null; requested_or_number?: string | null; repair_order_id?: string | null };
 export type MoOrder = {
   id: string; status: string; site_id: string; supplier_id: string | null; plate: string | null; supplier_order_ref: string | null;
-  requested_or_number?: string | null; repair_order_id?: string | null; created_at?: string;
+  requested_or_number?: string | null; repair_order_id?: string | null; created_at?: string; destination?: string | null;
   suppliers?: { name: string } | null; repair_orders?: { or_number: string | null } | null; part_order_lines?: MoLine[] | null;
 };
 export type MoDocLine = { reference: string | null; quantity?: number | null; label?: string | null; unit_price?: number | null; amount?: number | null };
@@ -133,8 +133,15 @@ export type MultiDispatch = ReturnType<typeof dispatchDocLines>;
 /** Payload de réception d'une commande (même document source, même n° de BL). */
 export type MultiReceiptPayload = {
   order_id: string | null; repair_order_id: string | null; plate: string | null; requested_or_number: string | null; supplier_order_ref: string | null;
-  lines: { order_line_id: string | null; physical_reference: string; designation: string; qty_expected: number | null; qty_received: number; unit_cost: number | null; expected_cost: number | null; ordered_reference: string | null }[];
+  lines: { order_line_id: string | null; physical_reference: string; designation: string; qty_expected: number | null; qty_received: number; unit_cost: number | null; expected_cost: number | null; ordered_reference: string | null; destination: "or" | "store_sale" | "stock" | "unknown" }[];
 };
+
+/** Même règle que la réception depuis une commande : OR sans dossier DDA réel => destination à préciser. */
+function lineDestination(o: MoOrder, l: MoLine): "or" | "store_sale" | "stock" | "unknown" {
+  const d = o.destination ?? "or";
+  if (d === "stock" || d === "store_sale") return d;
+  return l.repair_order_id || o.repair_order_id ? "or" : "unknown";
+}
 
 /** Une réception par commande retrouvée + (option) une réception sans commande pour les lignes acceptées explicitement. */
 export function multiReceiptPayloads(plan: MultiDispatch, choices: Record<number, string | "none">): MultiReceiptPayload[] {
@@ -150,6 +157,7 @@ export function multiReceiptPayloads(plan: MultiDispatch, choices: Record<number
       return {
         order_line_id: ol.id, physical_reference: (a.line.reference ?? ol.physical_reference ?? "").trim(), designation: (a.line.label ?? ol.designation ?? "").trim(),
         qty_expected: remainingOf(ol), qty_received: Number(a.line.quantity ?? 1) || 1, unit_cost: unit(a.line), expected_cost: ol.expected_unit_cost_ht ?? null, ordered_reference: ol.physical_reference,
+        destination: lineDestination(order, ol),
       };
     }),
   }));
@@ -157,7 +165,7 @@ export function multiReceiptPayloads(plan: MultiDispatch, choices: Record<number
   if (accepted.length) {
     out.push({
       order_id: null, repair_order_id: null, plate: null, requested_or_number: null, supplier_order_ref: null,
-      lines: accepted.map((a) => ({ order_line_id: null, physical_reference: (a.line.reference ?? "").trim(), designation: (a.line.label ?? "").trim(), qty_expected: null, qty_received: Number(a.line.quantity ?? 1) || 1, unit_cost: unit(a.line), expected_cost: null, ordered_reference: null })),
+      lines: accepted.map((a) => ({ order_line_id: null, physical_reference: (a.line.reference ?? "").trim(), designation: (a.line.label ?? "").trim(), qty_expected: null, qty_received: Number(a.line.quantity ?? 1) || 1, unit_cost: unit(a.line), expected_cost: null, ordered_reference: null, destination: "unknown" as const })),
     });
   }
   return out;
