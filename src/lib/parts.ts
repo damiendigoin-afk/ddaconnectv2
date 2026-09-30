@@ -306,6 +306,30 @@ export async function setOrderSupplier(o: { id: string; site_id: string; status:
   await logEvent({ site_id: o.site_id, entity: "part_order", entity_id: o.id, action: "supplier_set", detail: { supplier_id: supplierId } }, actor);
 }
 
+export type OrderEditHead = { supplier_id: string | null; supplier_order_ref: string | null; order_date: string | null; comment: string | null; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; requested_or_number: string | null };
+
+/** Modification manuelle d'une commande existante (même ID, mêmes lignes) — transaction serveur + historique avant/après. */
+export async function updateOrder(o: { id: string; supplier_id: string | null; source_document_id: string | null }, head: OrderEditHead, lines: ReturnType<typeof import("@/lib/order-edit-rules").editPayloadLines>, actor: Actor) {
+  const { data, error } = await supabase.rpc("update_part_order", { _order: o.id, _head: head as never, _lines: lines as never, _user_name: actor.name ?? "" });
+  if (error) throw new Error(error.message);
+  if (head.supplier_id && head.supplier_id !== o.supplier_id && o.source_document_id) {
+    const { linkDocSupplier } = await import("@/lib/supplier-docs");
+    await linkDocSupplier(o.source_document_id, head.supplier_id);
+  }
+  return data as { updated: number; inserted: number; deleted: number; warnings: string[] };
+}
+
+/** Lignes de commande liées à une facture (coût réel ou rapprochement fournisseur). */
+export async function invoicedOrderLineIds(lineIds: string[]): Promise<Set<string>> {
+  if (!lineIds.length) return new Set();
+  const { data } = await supabase.from("part_receipt_lines").select("id, order_line_id, unit_cost_real, supplier_cost_lines(status)").in("order_line_id", lineIds);
+  const out = new Set<string>();
+  for (const r of (data ?? []) as { order_line_id: string | null; unit_cost_real: number | null; supplier_cost_lines: { status: string }[] | null }[]) {
+    if (r.order_line_id && (r.unit_cost_real != null || (r.supplier_cost_lines ?? []).some((c) => c.status !== "ignored"))) out.add(r.order_line_id);
+  }
+  return out;
+}
+
 export async function listOrders(f: { siteId: string | null; status?: string; supplierId?: string; orId?: string }) {
   let q = supabase.from("part_orders").select(ORDER_SELECT).order("created_at", { ascending: false }).limit(200);
   if (f.siteId) q = q.eq("site_id", f.siteId);
@@ -349,6 +373,12 @@ export async function validateReceipt(
 ) {
   const { lines: inLines, ...head } = r;
   let lines = inLines;
+  // OR propre à une ligne de commande (modification manuelle multi-OR), sinon OR de la réception.
+  const lineOrMap = new Map<string, string>();
+  if (r.order_id) {
+    const { data: ol } = await supabase.from("part_order_lines").select("id, repair_order_id").eq("order_id", r.order_id);
+    for (const x of ol ?? []) if (x.repair_order_id) lineOrMap.set(x.id, x.repair_order_id);
+  }
   // Commande simplifiée sans lignes choisie explicitement : on l'enrichit des lignes reçues (traçabilité commande → BL → réception).
   if (r.order_id) {
     const { data: ord } = await supabase.from("part_orders").select("order_mode, part_order_lines(id)").eq("id", r.order_id).single();
@@ -373,7 +403,7 @@ export async function validateReceipt(
     if (!(l.qty_received > 0) && !l.order_line_id) continue;
     const ref = l.physical_reference.trim();
     const wrongRef = !!(l.ordered_reference && ref && normalizeRef(l.ordered_reference) !== normalizeRef(ref));
-    const lineOr = l.destination === "or" ? r.repair_order_id : null;
+    const lineOr = l.destination === "or" ? ((l.order_line_id && lineOrMap.get(l.order_line_id)) || r.repair_order_id) : null;
     let articleId: string | null = null;
     if (ref && l.qty_received > 0) articleId = await ensureArticle(r.site_id, ref, l.designation.trim() || null);
     const { data: rl, error: e2 } = await supabase

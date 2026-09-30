@@ -34,6 +34,7 @@ export function OrderRow({ o, siteName }: { o: any; siteName: (id: string) => st
         {lines.length ? <OrderLinesCompact lines={lines} /> : <div className="mt-2"><Badge tone="warn">Commande non détaillée</Badge></div>}
       </Link>
       <SourceDocButton o={o} compact />
+      {o.status !== "cancelled" ? <Link to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} search={{ edit: 1 }} className="mr-3 text-xs font-bold underline">Modifier</Link> : null}
       <OrderSupplierFix o={o} compact />
       {o.status === "cancelled" && o.cancel_reason ? <p className="mt-1 text-xs font-bold">Annulée par {o.cancelled_by_name ?? "?"} — {o.cancel_reason}</p> : null}
       {cancellable ? (

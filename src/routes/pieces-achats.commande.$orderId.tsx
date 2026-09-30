@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 
 import { AppShell } from "@/components/AppShell";
 import { Badge, fmtEur, ORDER_STATUS, OrLink, usePartsCtx } from "@/components/parts/PartsUi";
 import { getOrder } from "@/lib/parts";
 import { OrderSupplierFix } from "@/components/parts/OrderSupplierFix";
 import { SourceDocButton } from "@/components/parts/SourceDocButton";
+import { OrderEditForm } from "@/components/parts/OrderEditForm";
 
 export const Route = createFileRoute("/pieces-achats/commande/$orderId")({
   head: () => ({
@@ -18,6 +21,7 @@ export const Route = createFileRoute("/pieces-achats/commande/$orderId")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  validateSearch: (s) => z.object({ edit: z.coerce.number().optional() }).parse(s),
   component: OrderDetail,
 });
 
@@ -26,9 +30,13 @@ function OrderDetail() {
   const { siteName } = usePartsCtx();
   const q = useQuery({ queryKey: ["part-order", orderId], queryFn: () => getOrder(orderId) });
   const o = q.data;
+  const search = Route.useSearch();
+  const [editing, setEditing] = useState(!!search.edit);
   return (
     <AppShell title="Commande" subtitle="Pièces & achats" back={{ to: "/pieces-achats/commandes" }}>
-      {!o ? <p className="text-sm text-muted-foreground">Chargement…</p> : (
+      {!o ? <p className="text-sm text-muted-foreground">Chargement…</p> : editing && o.status !== "cancelled" ? (
+        <OrderEditForm o={o} onDone={() => setEditing(false)} />
+      ) : (
         <div className="space-y-3">
           <div className="card-surface space-y-1 p-4 text-sm">
             <div className="flex items-center justify-between">
@@ -46,6 +54,7 @@ function OrderDetail() {
             {o.comment ? <p className="text-muted-foreground">{o.comment}</p> : null}
             <SourceDocButton o={o} />
             <OrderSupplierFix o={o as never} />
+            {o.status !== "cancelled" ? <button type="button" className="mt-2 h-10 w-full rounded-lg border-2 border-border text-sm font-bold uppercase" onClick={() => setEditing(true)}>Modifier la commande</button> : null}
           </div>
           <Link to="/pieces-achats/reception" search={{ order: o.id }} className="block rounded-lg bg-brand py-3 text-center text-sm font-extrabold uppercase text-brand-foreground">
             Réceptionner cette commande
