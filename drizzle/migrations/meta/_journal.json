@@ -253,6 +253,13 @@
       "when": 1790776267300,
       "tag": "0035_complete_winmotor_dossier_extras",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790777005433,
+      "tag": "0036_vehicle_delivery_tapv_vo",
+      "breakpoints": true
     }
   ]
 }

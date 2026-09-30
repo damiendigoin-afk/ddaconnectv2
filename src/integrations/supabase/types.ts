@@ -7622,14 +7622,17 @@ export type Database = {
           ct_photo_media_id: string | null
           ct_read_at: string | null
           ct_source: string | null
+          delivery_date: string | null
           first_registration: string | null
           id: string
           last_mileage: number | null
           last_mileage_at: string | null
+          last_vo_sale_date: string | null
           model: string | null
           plate: string
           plate_normalized: string
           pollution_due_date: string | null
+          tapv: string | null
           tire_size_confirmed_at: string | null
           tire_size_front: string | null
           tire_size_rear: string | null
@@ -7644,14 +7647,17 @@ export type Database = {
           ct_photo_media_id?: string | null
           ct_read_at?: string | null
           ct_source?: string | null
+          delivery_date?: string | null
           first_registration?: string | null
           id?: string
           last_mileage?: number | null
           last_mileage_at?: string | null
+          last_vo_sale_date?: string | null
           model?: string | null
           plate: string
           plate_normalized: string
           pollution_due_date?: string | null
+          tapv?: string | null
           tire_size_confirmed_at?: string | null
           tire_size_front?: string | null
           tire_size_rear?: string | null
@@ -7666,14 +7672,17 @@ export type Database = {
           ct_photo_media_id?: string | null
           ct_read_at?: string | null
           ct_source?: string | null
+          delivery_date?: string | null
           first_registration?: string | null
           id?: string
           last_mileage?: number | null
           last_mileage_at?: string | null
+          last_vo_sale_date?: string | null
           model?: string | null
           plate?: string
           plate_normalized?: string
           pollution_due_date?: string | null
+          tapv?: string | null
           tire_size_confirmed_at?: string | null
           tire_size_front?: string | null
           tire_size_rear?: string | null
