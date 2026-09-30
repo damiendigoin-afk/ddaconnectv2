@@ -96,7 +96,27 @@ export function headerTokens(text: string): string[] {
   return [...new Set(words)].slice(0, 20);
 }
 
+/** Fournisseur explicitement imprimé (« Distributeur / Fournisseur / Vendeur » sur la ligne ou la suivante). */
+export function explicitSupplier(text: string): string | null {
+  const rows = cleanText(text).split("\n");
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = (rows[i] ?? "").trim();
+    const same = /^(?:distributeur|fournisseur|vendeur)\s*:\s*(.+)$/i.exec(row)?.[1]?.trim()
+      ?? /^(?:distributeur|vendeur)\s+([A-Z][A-Z0-9 '&.\-]{3,})$/.exec(row.replace(/^(\S+)/, (w) => w.toLowerCase()))?.[1]?.trim();
+    const next = /^(?:distributeur|fournisseur|vendeur)\s*:?[ ]*$/i.test(row) ? rows[i + 1]?.trim() : null;
+    const named = same ?? next;
+    if (named && named.length >= 4 && named.length <= 100 && /[A-Za-z]{3}/.test(named) && !isGarageName(named)) return named.toUpperCase();
+  }
+  return null;
+}
+
+/**
+ * Le fournisseur explicitement imprimé prime toujours sur les profils appris (hints) :
+ * deux agences d'un même groupe (ex. Faurie Sarlat / Bergerac) ne sont jamais confondues.
+ */
 export function detectSupplier(text: string, hints: SupplierHint[] = []): string | null {
+  const explicit = explicitSupplier(text);
+  if (explicit) return explicit;
   const norm = ` ${normSupplierName(text)} `;
   const byName = hints.filter((h) => [h.name, ...(h.aliases ?? [])].some((a) => {
     const n = normSupplierName(a);
@@ -109,19 +129,12 @@ export function detectSupplier(text: string, hints: SupplierHint[] = []): string
     .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score);
   if (scored.length === 1 || (scored.length > 1 && scored[0]!.score > scored[1]!.score)) return scored[0]!.h.name;
-  const rows = cleanText(text).split("\n");
-  for (let i = 0; i < rows.length; i += 1) {
-    const same = /^(?:distributeur|fournisseur|vendeur)\s*:\s*(.+)$/i.exec(rows[i] ?? "")?.[1]?.trim();
-    const next = /^(?:distributeur|fournisseur|vendeur)\s*:?[ ]*$/i.test(rows[i] ?? "") ? rows[i + 1]?.trim() : null;
-    const named = same ?? next;
-    if (named && named.length >= 4 && named.length <= 100 && !isGarageName(named)) return named.toUpperCase();
-  }
   return null;
 }
 
 /* ---------------------------- Achats (BL / facture) ------------------------ */
 
-type Line = { reference: string; label: string | null; quantity: number | null; unit_price: number | null; amount: number | null; isolated_number?: string | null };
+type Line = { reference: string; label: string | null; quantity: number | null; unit_price: number | null; amount: number | null; isolated_number?: string | null; net_price?: number | null };
 
 const REF = String.raw`([A-Z0-9][A-Z0-9.\-/]{3,})`;
 const NOT_REF = /^(total|sous|tva|port|frais|remise|net|montant|page|date|facture|commande)$/i;
@@ -151,13 +164,26 @@ export function parseItemBlocks(text: string): Line[] {
     if (!reference || !/\d/.test(reference)) continue;
     const block = rows.slice(start + 1, end);
     const qtyRaw = firstMatch(block.join("\n"), [/(?:qt[ée]|quantit[ée])\s*:\s*(\d{1,3}(?:[.,]\d{1,2})?)/i]);
-    const clientPrice = firstMatch(block.join("\n"), [/prix\s+client\s*:\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?T\.?/i]);
-    const purchasePrice = firstMatch(block.join("\n"), [/(?:P\.?A\.?|prix\s+(?:unitaire|d['’]achat)|P\.?U\.?)\s*(?:H\.?T\.?)?\s*:\s*(\d[\d .]*[.,]\d{2})/i]);
+    const joined = block.join("\n");
+    const CLIENT_RE = /prix\s+(?:client|public)\s*:?\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?T\.?/i;
+    const clientPrice = firstMatch(joined, [CLIENT_RE]);
+    const purchasePrice = firstMatch(joined, [/(?:prix\s+net|net\s+H\.?T\.?|P\.?A\.?(?:\s+net)?|prix\s+(?:unitaire|d['’]achat)|P\.?U\.?)\s*(?:H\.?T\.?)?\s*:?\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?/i]);
+    // Montant HT non libellé (colonne « net » à droite) : candidat PA net, validé plus tard par le total HT.
+    // Jamais un montant TTC, ni le montant rattaché au mode de livraison.
+    let netCandidate: number | null = null;
+    for (let k = 0; k < block.length; k += 1) {
+      const row = block[k] ?? "";
+      if (/livraison/i.test(row) || /livraison/i.test(block[k - 1] ?? "")) continue;
+      const rest = row.replace(CLIENT_RE, " ").replace(new RegExp(`${MONEY}\\s*(?:€|EUR)?\\s*T\\.?T\\.?C\\.?`, "gi"), " ");
+      const m = new RegExp(`${MONEY}\\s*(?:€|EUR)?\\s*H\\.?T\\.?`, "i").exec(rest);
+      if (m?.[1] && !/prix\s+(?:client|public)/i.test(rest)) netCandidate = money(m[1]);
+    }
     const label = block.find((row) => {
       const v = row.trim();
-      return v.length >= 2 && /[A-Za-zÀ-ÿ]/.test(v) && !BLOCK_META.test(v) && !/^\d+[.,]\d{2}\s*€/.test(v);
+      return v.length >= 2 && /[A-Za-zÀ-ÿ]/.test(v) && !BLOCK_META.test(v) && !/^\d+[.,]\d{2}\s*€/.test(v) && !/\d[.,]\d{2}\s*(?:€|EUR)?\s*(?:H\.?T|T\.?T\.?C)/i.test(v);
     })?.trim() ?? null;
-    out.push({ reference, label, quantity: qtyOf(qtyRaw ?? "1"), unit_price: money(clientPrice ?? purchasePrice), amount: null });
+    const explicitNet = purchasePrice ? money(purchasePrice) : null;
+    out.push({ reference, label, quantity: qtyOf(qtyRaw ?? "1"), unit_price: explicitNet ?? money(clientPrice), amount: null, net_price: explicitNet ? null : netCandidate });
   }
   return out;
 }
@@ -355,12 +381,23 @@ export function refCandidates(raw: string): string[] {
 export function orNumbersFromText(raw: string, exclude: (string | null | undefined)[] = []): string[] {
   const text = cleanText(raw);
   const ex = new Set(exclude.map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean));
-  const re = /(?:^|[^a-z])(?:r[ée]f[ée]rences?|r[ée]f\.?|rep[eè]res?(?:\s+commande)?|mes\s+r[ée]f[ée]rences|votre\s+r[ée]f[a-z.]*|dossiers?|\bO\.?R\.?s?\b)\s*(?:client)?\s*(?:n[°o]s?\.?)?\s*[:#.]?\s*((?:\d{5,6}(?:\s*(?:[,;/+&]|et|-)?\s*)){1,8})(?!\d)/gi;
+  // Chaque repère est borné (jamais le préfixe d'une référence longue) ; plusieurs repères exigent un séparateur réel.
+  const re = /(?:^|[^a-z])(?:r[ée]f[ée]rences?|r[ée]f\.?|rep[eè]res?(?:\s+commande)?|mes\s+r[ée]f[ée]rences|votre\s+r[ée]f[a-z.]*|dossiers?|\bO\.?R\.?s?\b)\s*(?:client)?\s*(?:n[°o]s?\.?)?\s*[:#.]?\s*(?<![\d])(\d{5,6}(?:(?:\s*(?:[,;/+&]|et|-)\s*|\s+)\d{5,6})*)(?![\d.,])/gi;
   const out: string[] = [];
   for (const m of text.matchAll(re)) {
     for (const n of m[1]!.match(/\d{5,6}/g) ?? []) if (!ex.has(n) && !out.includes(n)) out.push(n);
   }
   return out.slice(0, 8);
+}
+
+/**
+ * PA net vs prix client : les montants HT non libellés (colonne net) deviennent le PA
+ * seulement si, pour toutes les lignes, leur somme retombe sur le total HT du document.
+ */
+export function resolveNetPrices(lines: Line[], totalHt: number | null): Line[] {
+  const useNet = totalHt != null && lines.length > 0 && lines.every((l) => l.net_price != null)
+    && Math.abs(lines.reduce((s, l) => s + (l.net_price ?? 0) * (l.quantity ?? 1), 0) - totalHt) <= 0.02;
+  return lines.map(({ net_price, ...l }) => (useNet ? { ...l, unit_price: net_price ?? l.unit_price } : l));
 }
 
 export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
@@ -379,7 +416,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const order_reference = firstMatch(text, [/commande\s*(?:web|internet|en ligne|client|fournisseur)?\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
   const plate = findFrenchPlate(text);
   const orRaw = firstMatch(text, [OR_LABEL, /\bO\.?R\.?(?:\s*n[°o])?\s*[:#.]\s*(\d{4,7})\b/i]);
-  const lines = parseItemLines(text);
+  const lines = resolveNetPrices(parseItemLines(text), lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i));
   const visibleBlocks = [...text.matchAll(/^r[ée]f\.?\s*:\s*[A-Z0-9][A-Z0-9.\-/]{3,}/gim)].length;
   const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
   const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);

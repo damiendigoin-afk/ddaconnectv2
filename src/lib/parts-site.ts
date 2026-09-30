@@ -271,7 +271,9 @@ export function matchSupplier<T extends { id: string; name: string; active?: boo
     .map((s) => {
       const sw = sigWords(s.name);
       const shared = sw.filter((w) => words.has(w)).length;
-      return { s, shared, ok: sw.length > 0 && (shared >= 2 || (shared === sw.length && shared >= 1)) };
+      // Mots distinctifs de part et d'autre (ex. SARLAT ≠ BERGERAC sur un groupe commun) : jamais la même fiche.
+      const conflict = sw.some((w) => !words.has(w)) && [...words].some((w) => !sw.includes(w));
+      return { s, shared, ok: sw.length > 0 && !conflict && (shared >= 2 || (shared === sw.length && shared >= 1)) };
     })
     .filter((x) => x.ok)
     .sort((a, b) => b.shared - a.shared);
