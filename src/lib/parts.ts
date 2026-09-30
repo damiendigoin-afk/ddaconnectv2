@@ -306,6 +306,30 @@ export async function setOrderSupplier(o: { id: string; site_id: string; status:
   await logEvent({ site_id: o.site_id, entity: "part_order", entity_id: o.id, action: "supplier_set", detail: { supplier_id: supplierId } }, actor);
 }
 
+export type OrderEditHead = { supplier_id: string | null; supplier_order_ref: string | null; order_date: string | null; comment: string | null; destination: "or" | "store_sale" | "stock"; repair_order_id: string | null; vehicle_id: string | null; plate: string | null; requested_or_number: string | null };
+
+/** Modification manuelle d'une commande existante (même ID, mêmes lignes) — transaction serveur + historique avant/après. */
+export async function updateOrder(o: { id: string; supplier_id: string | null; source_document_id: string | null }, head: OrderEditHead, lines: ReturnType<typeof import("@/lib/order-edit-rules").editPayloadLines>, actor: Actor) {
+  const { data, error } = await supabase.rpc("update_part_order", { _order: o.id, _head: head as never, _lines: lines as never, _user_name: actor.name ?? "" });
+  if (error) throw new Error(error.message);
+  if (head.supplier_id && head.supplier_id !== o.supplier_id && o.source_document_id) {
+    const { linkDocSupplier } = await import("@/lib/supplier-docs");
+    await linkDocSupplier(o.source_document_id, head.supplier_id);
+  }
+  return data as { updated: number; inserted: number; deleted: number; warnings: string[] };
+}
+
+/** Lignes de commande liées à une facture (coût réel ou rapprochement fournisseur). */
+export async function invoicedOrderLineIds(lineIds: string[]): Promise<Set<string>> {
+  if (!lineIds.length) return new Set();
+  const { data } = await supabase.from("part_receipt_lines").select("id, order_line_id, unit_cost_real, supplier_cost_lines(status)").in("order_line_id", lineIds);
+  const out = new Set<string>();
+  for (const r of (data ?? []) as { order_line_id: string | null; unit_cost_real: number | null; supplier_cost_lines: { status: string }[] | null }[]) {
+    if (r.order_line_id && (r.unit_cost_real != null || (r.supplier_cost_lines ?? []).some((c) => c.status !== "ignored"))) out.add(r.order_line_id);
+  }
+  return out;
+}
+
 export async function listOrders(f: { siteId: string | null; status?: string; supplierId?: string; orId?: string }) {
   let q = supabase.from("part_orders").select(ORDER_SELECT).order("created_at", { ascending: false }).limit(200);
   if (f.siteId) q = q.eq("site_id", f.siteId);
