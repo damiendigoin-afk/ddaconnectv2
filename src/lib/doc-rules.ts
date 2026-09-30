@@ -659,7 +659,8 @@ const OR_LABELS: [string, RegExp][] = [
   ["brand", /\bmarque\b/i],
   ["plate", /\bimmat(?:riculation)?\b\.?/i],
   ["vin", /\bvin\b|n[°o]\s*(?:de\s*)?s[ée]rie/i],
-  ["delivery", /date\s+(?:de\s+)?(?:livraison|1[eè]?re\s+mise en circulation|1[eè]?re\s+mec)/i],
+  ["firstreg", /(?:date\s+(?:de\s+)?)?(?:1[eè]?re\s+mise en circulation|1[eè]?re\s+mec)/i],
+  ["delivery", /date\s+(?:de\s+)?livraison/i],
   ["mileage", /kilom[ée]trage/i],
   ["tapv", /\btapv\b/i],
   ["account", /n[°o]\s*(?:de\s+)?compte(?:\s+client)?/i],
@@ -833,8 +834,11 @@ export function repairOrderRules(raw: string): Fields {
       brand: brand === "VW" ? "VOLKSWAGEN" : brand,
       model,
       mileage: lmil ?? odometerRules(text)["mileage"],
-      first_registration: L["delivery"] ? isoDate(L["delivery"]) : null,
+      // « Date livraison » n'est pas la 1re mise en circulation.
+      first_registration: L["firstreg"] ? isoDate(L["firstreg"]) : null,
+      delivery_date: L["delivery"] ? isoDate(L["delivery"]) : null,
       tapv,
+      last_vo_sale_date: isoDate(L["vo"] ?? null) ?? null,
     },
     order: {
       or_number: firstMatch(text, [OR_LABEL]),
