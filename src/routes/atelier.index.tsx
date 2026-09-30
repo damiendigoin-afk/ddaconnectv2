@@ -228,7 +228,7 @@ function AtelierHub() {
               className="w-full rounded-lg bg-primary px-4 py-3 font-bold uppercase text-primary-foreground"
               onClick={() => navigate({ to: "/or/$orId", params: { orId: conflicts.orId } })}
             >
-              Garder le reste et ouvrir le dossier
+              Garder les données existantes et continuer
             </button>
           </div>
         ) : null}

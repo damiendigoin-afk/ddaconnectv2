@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronDown, ClipboardList, ListChecks, Loader2, Pencil, Route as RouteIcon } from "lucide-react";
+import { ChevronDown, ClipboardList, ListChecks, Loader2, Pencil, Route as RouteIcon, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -133,6 +133,46 @@ function OrderPage() {
             ) : null}
           </section>
 
+          {/* Deux actions principales du dossier OR (même OR, aucun dossier parallèle). */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {existingTour ? (
+              <Link
+                to={existingTour.status === "completed" ? "/tour/$tourId/rapport" : "/tour/$tourId"}
+                params={{ tourId: existingTour.id }}
+                className="flex min-h-20 items-center gap-3 rounded-2xl bg-brand px-4 py-5 text-left text-brand-foreground"
+              >
+                <RouteIcon className="h-8 w-8 shrink-0" />
+                <span>
+                  <span className="block text-lg font-extrabold uppercase">Tour du véhicule</span>
+                  <span className="block text-xs opacity-80">{existingTour.status === "completed" ? "Tour clôturé — consulter" : "Reprendre le tour en cours"}</span>
+                </span>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => document.getElementById("or-tour")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="flex min-h-20 items-center gap-3 rounded-2xl bg-brand px-4 py-5 text-left text-brand-foreground"
+              >
+                <RouteIcon className="h-8 w-8 shrink-0" />
+                <span>
+                  <span className="block text-lg font-extrabold uppercase">Tour du véhicule</span>
+                  <span className="block text-xs opacity-80">Démarrer un tour guidé ou libre</span>
+                </span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => document.getElementById("or-actions")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="flex min-h-20 items-center gap-3 rounded-2xl border-2 border-primary bg-card px-4 py-5 text-left"
+            >
+              <Wrench className="h-8 w-8 shrink-0" />
+              <span>
+                <span className="block text-lg font-extrabold uppercase">Travaux atelier — pièces et temps</span>
+                <span className="block text-xs text-muted-foreground">Pointer les pièces, démarrer / arrêter le temps</span>
+              </span>
+            </button>
+          </div>
+
           {isOrPending(order.data as { or_number?: string | null } | undefined) ? (
             <OrNumberCompletion
               orderId={orId}
@@ -144,7 +184,9 @@ function OrderPage() {
             />
           ) : null}
 
-          <OrActionBoard hasOfficialOr={!isOrPending(order.data as { or_number?: string | null } | undefined)} orId={orId} orSiteId={(order.data as { site_id?: string | null } | undefined)?.site_id ?? null} orNumber={order.data?.or_number ?? null} vehicleId={v?.id ?? null} plate={v?.plate ?? null} />
+          <div id="or-actions" className="scroll-mt-20">
+            <OrActionBoard hasOfficialOr={!isOrPending(order.data as { or_number?: string | null } | undefined)} orId={orId} orSiteId={(order.data as { site_id?: string | null } | undefined)?.site_id ?? null} orNumber={order.data?.or_number ?? null} vehicleId={v?.id ?? null} plate={v?.plate ?? null} />
+          </div>
           {order.data?.or_number ? (
             <Link to="/pieces-achats/controle-winmotor" search={(order.data as unknown as { site_id?: string | null }).site_id ? { site: (order.data as unknown as { site_id: string }).site_id, or: order.data.or_number } : {}} className="block rounded-xl border-2 border-border bg-card px-4 py-3 text-center text-sm font-extrabold uppercase">
               Contrôle WinMotor (factures de cet OR)
@@ -219,7 +261,7 @@ function OrderPage() {
           </section>
 
           {existingTour ? (
-            <section className="space-y-2">
+            <section id="or-tour" className="scroll-mt-20 space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Tour véhicule du dossier
               </h2>
@@ -244,7 +286,7 @@ function OrderPage() {
               </Link>
             </section>
           ) : (
-            <section className="space-y-2">
+            <section id="or-tour" className="scroll-mt-20 space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Démarrer un tour véhicule
               </h2>

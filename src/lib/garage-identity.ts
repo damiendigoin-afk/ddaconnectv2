@@ -9,9 +9,9 @@ export type GarageIdentity = { emails: string[]; domains: string[]; phones: stri
 export const GARAGE_ALIASES: GarageIdentity = {
   emails: ["contact@dda-lalinde.fr", "contact@garagecastillon.fr"],
   domains: ["dda-lalinde.fr", "garagecastillon.fr"],
-  phones: ["0553247718"],
-  addresses: ["27 avenue eugene leroy"],
-  names: ["damien digoin automobile", "sas damien digoin automobile", "garage castillon veyssiere", "dda"],
+  phones: ["0553247718", "0553292023"],
+  addresses: ["27 avenue eugene leroy", "1340 route de beynac"],
+  names: ["damien digoin automobile", "sas damien digoin automobile", "garage castillon veyssiere", "sas castillon veyssiere", "castillon veyssiere", "sas sastillon", "sastillon veyssiere", "dda"],
 };
 
 export type SiteLike = { name?: string | null; legal_name?: string | null; email_from_address?: string | null; phone?: string | null; address?: string | null } | null | undefined;

@@ -45,7 +45,8 @@ Dates au format ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm). mileage = entier sans espa
 IMPORTANT pour "client_remarks" et "requested_work" : ces zones contiennent souvent PLUSIEURS lignes
 ou plusieurs demandes distinctes (listes, tirets, numérotation, phrases successives, texte manuscrit).
 Restitue l'INTÉGRALITÉ du texte lu, sans résumer ni fusionner, une demande par ligne, séparées par des
-retours à la ligne "\\n". Conserve l'ordre du document. N'invente rien.`;
+retours à la ligne "\\n". Conserve l'ordre du document. N'invente rien.
+L'en-tête du garage émetteur (raison sociale, « Agent Renault », adresse, téléphone, logo) et le bloc « votre conseiller / accueilli par » ne sont JAMAIS le client ni le véhicule. Modèle = valeur du libellé « modèle véhicule » uniquement. « Mr NOM PRENOM » : last_name = NOM, first_name = PRENOM.`;
     const result = await viaPipeline("repair_order", prompt, data, "ocr_or");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);

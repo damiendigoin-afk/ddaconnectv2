@@ -8427,6 +8427,10 @@ export type Database = {
         Args: { _reason: string; _receipt: string; _user_name: string }
         Returns: Json
       }
+      complete_winmotor_dossier_extras: {
+        Args: { _data: Json; _or: string }
+        Returns: undefined
+      }
       ensure_winmotor_dossier: {
         Args: {
           _or_number: string
