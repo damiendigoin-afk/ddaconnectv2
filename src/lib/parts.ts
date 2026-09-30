@@ -472,6 +472,40 @@ export async function validateReceipt(
   return rec.id;
 }
 
+/**
+ * BL couvrant plusieurs commandes : une réception par commande, toutes avec le même source_document_id
+ * et le même n° de BL. Idempotent : les réceptions déjà créées depuis ce document (non annulées) sont sautées.
+ * Le document n'est marqué traité que si toutes ses lignes sont affectées ou acceptées sans commande.
+ */
+export async function validateMultiReceipt(
+  r: { site_id: string; supplier_id: string; source_document_id: string; bl_number: string | null; payloads: import("@/lib/multi-order-reception").MultiReceiptPayload[]; complete: boolean },
+  actor: Actor,
+): Promise<{ created: string[]; skipped: number }> {
+  const { payloadsToCreate } = await import("@/lib/multi-order-reception");
+  const { data: existing, error } = await supabase.from("part_receipts").select("order_id, status").eq("source_document_id", r.source_document_id);
+  if (error) throw error;
+  const todo = payloadsToCreate(r.payloads, existing ?? []);
+  const created: string[] = [];
+  const bl = r.bl_number ? `BL n° ${r.bl_number}` : "BL";
+  for (const p of todo) {
+    const id = await validateReceipt({
+      site_id: r.site_id, supplier_id: r.supplier_id, order_id: p.order_id, repair_order_id: p.repair_order_id, vehicle_id: null, plate: p.plate,
+      source_document_id: r.source_document_id, receipt_type: "document", packages: null,
+      comment: `${bl} multi-commandes${p.order_id ? "" : " — lignes acceptées sans commande"}`,
+      requested_or_number: p.requested_or_number, supplier_order_ref: p.supplier_order_ref,
+      lines: p.lines.map((l) => ({ ...l, condition: "usable" as const, allocate_qty: l.destination === "or" ? l.qty_received : 0, comment: "" })),
+    }, actor);
+    created.push(id);
+    if (!p.order_id) await openRegularization({ site_id: r.site_id, kind: "reception_sans_commande", source_table: "part_receipts", source_id: id, supplier_id: r.supplier_id, comment: `${bl} : lignes non rapprochées acceptées sans commande` }, actor);
+  }
+  if (r.complete) {
+    const first = created[0];
+    await supabase.from("inbox_documents").update({ status: "valide", ...(first ? { linked_kind: "part_receipt", linked_id: first } : {}) }).eq("id", r.source_document_id).is("linked_id", null);
+    await supabase.from("inbox_documents").update({ status: "valide" }).eq("id", r.source_document_id);
+  }
+  return { created, skipped: r.payloads.length - todo.length };
+}
+
 export async function listReceipts(siteId: string | null) {
   let q = supabase.from("part_receipts").select("*, suppliers(name), repair_orders(or_number), part_receipt_lines(id, physical_reference, designation, qty_received, condition)").order("received_at", { ascending: false }).limit(50);
   if (siteId) q = q.eq("site_id", siteId);
