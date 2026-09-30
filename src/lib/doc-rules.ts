@@ -651,16 +651,124 @@ function blockAfter(lines: string[], label: RegExp, max = 8): string | null {
   return out.length ? out.join("\n") : null;
 }
 
+/* ---------- OR Renault / WinMotor : libellés sémantiques d'abord ---------- */
+
+const OR_LABELS: [string, RegExp][] = [
+  ["model", /mod[eè]le(?:\s+(?:du\s+)?v[ée]hicule)?/i],
+  ["vehicle", /v[ée]hicule(?=\s*:)/i],
+  ["brand", /\bmarque\b/i],
+  ["plate", /\bimmat(?:riculation)?\b\.?/i],
+  ["vin", /\bvin\b|n[°o]\s*(?:de\s*)?s[ée]rie/i],
+  ["delivery", /date\s+(?:de\s+)?(?:livraison|1[eè]?re\s+mise en circulation|1[eè]?re\s+mec)/i],
+  ["mileage", /kilom[ée]trage/i],
+  ["tapv", /\btapv\b/i],
+  ["account", /n[°o]\s*(?:de\s+)?compte(?:\s+client)?/i],
+  ["mobile", /t[ée]l\.?\s*portable|\bportable\b|\bmobile\b/i],
+  ["email", /\be-?mail\b/i],
+  ["phone", /t[ée]l[ée]phone|\bt[ée]l\b\.?/i],
+  ["vo", /derni[eè]re\s+vente\s+vo/i],
+  ["entry", /\bentr[ée]e\b/i],
+  ["restitution", /\brestitution\b/i],
+  ["remark", /remarques?\s+client/i],
+];
+
+type Hit = { k: string; start: number; end: number };
+function labelHits(line: string): Hit[] {
+  const hits: Hit[] = [];
+  for (const [k, re] of OR_LABELS) for (const m of line.matchAll(new RegExp(re.source, "gi"))) hits.push({ k, start: m.index!, end: m.index! + m[0].length });
+  hits.sort((a, b) => a.start - b.start || b.end - a.end);
+  const out: Hit[] = [];
+  for (const h of hits) if (!out.length || h.start >= out[out.length - 1]!.end) out.push(h);
+  return out;
+}
+
+/** Valeurs lues après chaque libellé (même ligne, sinon ligne suivante si elle n'est pas un libellé). */
+export function orLabeledValues(text: string): Record<string, string> {
+  const lines = cleanText(text).split("\n");
+  const out: Record<string, string> = {};
+  lines.forEach((line, i) => {
+    const hits = labelHits(line);
+    hits.forEach((h, j) => {
+      if (out[h.k] != null) return;
+      let v = line.slice(h.end, hits[j + 1]?.start ?? line.length).replace(/^[\s:.\-–=]+/, "").trim();
+      if (!v && j === hits.length - 1) {
+        const nx = lines[i + 1]?.trim();
+        if (nx && !labelHits(nx).length) v = nx;
+      }
+      if (v) out[h.k] = v;
+    });
+  });
+  return out;
+}
+
+const PARASITE_RE = /accueilli|accueil par|conseiller|\bvotre\b|agent renault|signature|sastillon|veyssi|beynac|bezenac/;
+const LABEL_ONLY_RE = /^(marque|modele|modele vehicule|vehicule|immat|immatriculation|vin|kilometrage|client|telephone|tel|email|mobile|portable|adresse|entree|restitution|tapv|travaux)$/;
+
+/** Valeur parasite : en-tête garage, conseiller / « accueilli par », libellé seul (variantes OCR incluses). */
+export function isOrParasiteValue(v: unknown): boolean {
+  const n = String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if (!n) return false;
+  return PARASITE_RE.test(n) || LABEL_ONLY_RE.test(n) || isGarageName(n);
+}
+
+/**
+ * Validation sémantique avant fusion (règles locales ou lecture IA) : toute valeur parasite est
+ * retirée (null) et signalée, pour permettre le repli texte / vision sans jamais proposer de conflit.
+ */
+export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: string[] } {
+  const rejected: string[] = [];
+  const obj = (v: unknown): Fields => (v && typeof v === "object" && !Array.isArray(v) ? { ...(v as Fields) } : {});
+  const client = obj(f["client"]), vehicle = obj(f["vehicle"]), order = obj(f["order"]);
+  if (isOrParasiteValue(client["last_name"]) || isOrParasiteValue(client["first_name"])) {
+    if (client["last_name"] != null) rejected.push("client.last_name");
+    client["last_name"] = null;
+    client["first_name"] = null;
+  }
+  if (client["address"] != null && (isOrParasiteValue(client["address"]) || isGarageAddress(client["address"]))) {
+    rejected.push("client.address");
+    client["address"] = null; client["postal_code"] = null; client["city"] = null;
+  }
+  if (client["email"] != null && isGarageEmail(client["email"])) client["email"] = null;
+  for (const k of ["phone", "mobile"]) if (client[k] != null && isGaragePhone(client[k])) client[k] = null;
+  if (vehicle["model"] != null && (isOrParasiteValue(vehicle["model"]) || !/[A-Z0-9]{2}/i.test(String(vehicle["model"])))) {
+    rejected.push("vehicle.model");
+    vehicle["model"] = null;
+  }
+  if (vehicle["brand"] != null) {
+    const b = String(vehicle["brand"]).toUpperCase().trim();
+    if (isOrParasiteValue(b) || !CAR_BRANDS.some((x) => b === x || b.startsWith(`${x} `))) { rejected.push("vehicle.brand"); vehicle["brand"] = null; }
+  }
+  const out: Fields = { ...f };
+  if (f["client"] !== undefined) out["client"] = client;
+  if (f["vehicle"] !== undefined) out["vehicle"] = vehicle;
+  if (f["order"] !== undefined) out["order"] = order;
+  return { fields: out, rejected };
+}
+
+function dateTime(v: string | undefined): string | null {
+  if (!v) return null;
+  const m = /(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})(?:\s*(?:[àa]\s*)?(\d{1,2})\s*[:h]\s*(\d{2}))?/.exec(v);
+  const d = m ? isoDate(m[1]) : null;
+  if (!d) return null;
+  return m![2] ? `${d}T${m![2].padStart(2, "0")}:${m![3]}` : d;
+}
+
 export function repairOrderRules(raw: string): Fields {
   const text = cleanText(raw);
   const lines = text.split("\n");
-  const upper = text.toUpperCase();
+  const L = orLabeledValues(text);
   // E-mail client = premier e-mail qui n'est pas celui du garage (en-tête de l'OR).
-  const email = [...text.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map((m) => m[0].toLowerCase()).find((e) => !isGarageEmail(e)) ?? null;
-  const { phone, mobile } = findFrenchPhones(text);
+  const labeledEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(L["email"] ?? "")?.[0]?.toLowerCase();
+  const email = (labeledEmail && !isGarageEmail(labeledEmail) ? labeledEmail : null)
+    ?? [...text.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map((m) => m[0].toLowerCase()).find((e) => !isGarageEmail(e)) ?? null;
+  const any = findFrenchPhones(text);
+  const lp = findFrenchPhones(L["phone"] ?? "");
+  const lm = findFrenchPhones(L["mobile"] ?? "");
+  const mobile = lm.mobile ?? lm.phone ?? lp.mobile ?? any.mobile;
+  const phone = lp.phone ?? (L["phone"] ? null : any.phone) ?? any.phone;
   // Adresse : ligne « code postal + ville » précédée de la ligne de rue.
   let address: string | null = null, postal_code: string | null = null, city: string | null = null;
-  const cpIdx = lines.findIndex((l, i) => /^\d{5}\s+[A-ZÀ-Ü][A-ZÀ-Ü' -]{2,}$/i.test(l) && !isGarageAddress(lines[i - 1]) && !isGarageName(lines[i - 1]));
+  const cpIdx = lines.findIndex((l, i) => /^\d{5}\s+[A-ZÀ-Ü][A-ZÀ-Ü' -]{2,}$/i.test(l) && !isGarageAddress(lines[i - 1]) && !isGarageName(lines[i - 1]) && !isOrParasiteValue(lines[i - 1]) && !isOrParasiteValue(l));
   if (cpIdx >= 0) {
     const m = /^(\d{5})\s+(.+)$/.exec(lines[cpIdx]!)!;
     postal_code = m[1]!;
@@ -668,22 +776,23 @@ export function repairOrderRules(raw: string): Fields {
     const prev = lines[cpIdx - 1];
     if (prev && /\d/.test(prev) && /\b(rue|av|avenue|bd|boulevard|chemin|route|place|all[ée]e|impasse|lieu[- ]dit|lotissement|quai|cours)\b/i.test(prev)) address = prev;
   }
-  // Client : « M. / Mme / Monsieur / Madame / Société / Client : NOM Prénom ».
+  // Client : « M. / Mr / Mme / Monsieur / Madame / Société / Client : NOM Prénom ».
   let last_name: string | null = null, first_name: string | null = null;
-  const cm0 = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text)
-    ?? /client\s*:\s*([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text);
-  // Raison sociale du garage (en-tête) : jamais retenue comme client.
-  const cm = cm0 && !isGarageName(cm0.slice(1).filter(Boolean).join(" ")) ? cm0 : (() => {
-    const re = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/gim;
-    for (const m of text.matchAll(re)) if (!isGarageName(m.slice(1).filter(Boolean).join(" "))) return m as unknown as RegExpExecArray;
-    return /client\s*:\s*([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text);
-  })();
+  const civRe = /(?:^|\n)\s*(?:client\s*:?\s*)?(M\.|MR|MME|MLLE|MONSIEUR|MADAME|SOCI[ÉE]T[ÉE]|SARL|SAS|EURL|SA)\s+([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/gim;
+  const okName = (m: RegExpMatchArray) => { const s = m.slice(1).filter(Boolean).join(" "); return !isGarageName(s) && !isOrParasiteValue(s); };
+  let cm: RegExpMatchArray | null = null;
+  for (const m of text.matchAll(civRe)) if (okName(m)) { cm = m; break; }
+  if (!cm) {
+    const m = /client\s*:\s*([A-ZÀ-Ü][A-ZÀ-Ü' -]{1,40})(?:\s+([A-ZÀ-Üa-zà-ü][a-zà-ü'-]{1,30}))?\s*$/im.exec(text);
+    if (m && okName(m)) cm = m;
+  }
   if (cm && cm.length === 4 && !/SOCI|SARL|SAS|EURL|^SA$/i.test(cm[1]!) && !cm[3]) {
-    // « DUPONT Jean » capturé d'un bloc (drapeau i) : nom = mots en majuscules, prénom = le reste.
     const toks = cm[2]!.trim().split(/\s+/);
     const up = toks.filter((t) => t === t.toUpperCase());
     const rest = toks.filter((t) => t !== t.toUpperCase());
     if (up.length && rest.length) { cm[2] = up.join(" "); cm[3] = rest.join(" "); }
+    // « Mr GUERE JEAN MARIE » (tout en capitales) : 1er mot = nom, suite = prénom.
+    else if (!rest.length && toks.length >= 2) { cm[2] = toks[0]!; cm[3] = toks.slice(1).join(" "); }
   }
   if (cm) {
     const company = cm.length === 4 && /SOCI|SARL|SAS|EURL|^SA$/i.test(cm[1]!);
@@ -695,24 +804,46 @@ export function repairOrderRules(raw: string): Fields {
       first_name = cm[2]?.trim() ?? null;
     }
   }
-  const brand = CAR_BRANDS.find((b) => new RegExp(`\\b${b}\\b`).test(upper)) ?? null;
-  let model: string | null = null;
-  if (brand) {
-    const mm = new RegExp(`\\b${brand}\\b\\s+([A-Z0-9][A-Z0-9 .\\-]{1,24})`, "i").exec(text);
-    model = mm?.[1]?.split(/\s{2,}|\n/)[0]?.trim() ?? null;
+  // Marque : libellé « marque », sinon ligne « Véhicule : », sinon marque hors en-tête garage (« Agent Renault »).
+  const brandIn = (s: string | undefined) => (s ? CAR_BRANDS.find((b) => new RegExp(`\\b${b}\\b`, "i").test(s)) ?? null : null);
+  const brand = brandIn(L["brand"]) ?? brandIn(L["vehicle"])
+    ?? CAR_BRANDS.find((b) => lines.some((l) => new RegExp(`\\b${b}\\b`, "i").test(l) && !/agent|concession|distribut|garage|r[ée]paration/i.test(l))) ?? null;
+  // Modèle : uniquement libellé « modèle (véhicule) » ou « Véhicule : MARQUE modèle ».
+  let model: string | null = L["model"]?.split(/\s{2,}/)[0]?.trim() ?? null;
+  if (!model && L["vehicle"]) {
+    const vb = brandIn(L["vehicle"]);
+    model = (vb ? L["vehicle"].replace(new RegExp(`^.*?\\b${vb}\\b`, "i"), "") : L["vehicle"]).trim() || null;
   }
-  const account_number = firstMatch(text, [/(?:n[°o]\s*client|code client|compte client|client n[°o])\s*[:.]?\s*((?=[A-Z0-9]*\d)[A-Z0-9]{3,12})\b/i]);
+  const lvin = L["vin"] ? VIN_RE.exec(L["vin"].toUpperCase().replace(/\s+/g, ""))?.[1] ?? null : null;
+  const account_number = (L["account"] ? /\b(\d{3,12})\b/.exec(L["account"])?.[1] ?? null : null)
+    ?? firstMatch(text, [/(?:n[°o]\s*client|code client|compte client|client n[°o])\s*[:.]?\s*((?=[A-Z0-9]*\d)[A-Z0-9]{3,12})\b/i]);
+  const entry_at = dateTime(L["entry"]);
+  const delivery_at = dateTime(L["restitution"]);
   const orDate = firstMatch(text, [/(?:date(?: de l'?OR| OR| entr[ée]e)?)\s*[:.]?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})/i]);
-  return {
+  const lmil = L["mileage"] ? plausibleMileage(L["mileage"].replace(/km.*/i, "")) : null;
+  const tapv = L["tapv"] ? /^([A-Z0-9]{2,8})\b/i.exec(L["tapv"])?.[1]?.toUpperCase() ?? null : null;
+  const draft: Fields = {
     client: { account_number, last_name, first_name, address, postal_code, city, phone, mobile, email },
-    vehicle: { plate: findFrenchPlate(text), vin: findVin(text), brand: brand === "VW" ? "VOLKSWAGEN" : brand, model, mileage: odometerRules(text)["mileage"] },
+    vehicle: {
+      plate: (L["plate"] ? findFrenchPlate(L["plate"]) : null) ?? findFrenchPlate(text),
+      vin: lvin ?? findVin(text),
+      brand: brand === "VW" ? "VOLKSWAGEN" : brand,
+      model,
+      mileage: lmil ?? odometerRules(text)["mileage"],
+      first_registration: isoDate(L["delivery"] ?? null) ?? null,
+      tapv,
+    },
     order: {
       or_number: firstMatch(text, [OR_LABEL]),
-      or_date: isoDate(orDate ?? text),
+      or_date: entry_at?.slice(0, 10) ?? isoDate(orDate ?? text),
+      entry_at,
+      delivery_at,
+      last_vo_sale: isoDate(L["vo"] ?? null) ?? null,
       requested_work: blockAfter(lines, /travaux (?:demand[ée]s|[àa] effectuer)|demande(?:s)? (?:du )?client|intervention(?:s)? demand[ée]e?s?/i),
-      client_remarks: blockAfter(lines, /remarques?|observations?/i, 4),
+      client_remarks: L["remark"] ?? blockAfter(lines, /remarques?|observations?/i, 4),
     },
   };
+  return sanitizeRepairOrder(draft).fields;
 }
 
 /** 2e passe OCR gratuite utile sur une photo d'OR papier : n° d'OR ou immatriculation non lus. */
