@@ -58,6 +58,9 @@ function OrderPage() {
     vin?: string;
     last_mileage?: number | null;
     first_registration?: string | null;
+    delivery_date?: string | null;
+    tapv?: string | null;
+    last_vo_sale_date?: string | null;
   } | null;
   const c = order.data?.client as Record<string, string | null> | null;
 
@@ -122,6 +125,9 @@ function OrderPage() {
               <div className="mt-3 space-y-1 text-sm">
                 <Info label="VIN" value={v?.vin ?? "—"} />
                 <Info label="1re mise en circulation" value={v?.first_registration ?? "—"} />
+                {v?.delivery_date ? <Info label="Date de livraison" value={new Date(v.delivery_date).toLocaleDateString("fr-FR")} /> : null}
+                {v?.tapv ? <Info label="TAPV" value={v.tapv} /> : null}
+                {v?.last_vo_sale_date ? <Info label="Dernière vente VO" value={new Date(v.last_vo_sale_date).toLocaleDateString("fr-FR")} /> : null}
                 <Info label="Compte client" value={c?.["account_number"] ?? "—"} />
                 <Info label="Adresse" value={[c?.["address"], c?.["address_extra"], c?.["postal_code"], c?.["city"]].filter(Boolean).join(" ") || "—"} />
                 <Info label="Téléphone" value={c?.["phone"] ?? "—"} />

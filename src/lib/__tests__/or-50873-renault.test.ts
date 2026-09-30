@@ -43,7 +43,8 @@ describe("OR 50873 Renault / WinMotor", () => {
   it("véhicule : modèle depuis « modèle véhicule », pas depuis « Agent Renault »", () => {
     expect(f["vehicle"]).toMatchObject({
       brand: "RENAULT", model: "CAPTUR BDCI 115", plate: "FV-123-EY", vin: "VF1RJB00X66459265",
-      first_registration: "2020-11-19", mileage: 31115, tapv: "HFAD",
+      delivery_date: "2020-11-19", mileage: 31115, tapv: "HFAD", last_vo_sale_date: "2024-10-24",
+      first_registration: null,
     });
   });
   it("OR : n°, entrée, restitution, remarque", () => {
