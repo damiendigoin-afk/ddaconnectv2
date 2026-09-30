@@ -96,7 +96,27 @@ export function headerTokens(text: string): string[] {
   return [...new Set(words)].slice(0, 20);
 }
 
+/** Fournisseur explicitement imprimé (« Distributeur / Fournisseur / Vendeur » sur la ligne ou la suivante). */
+export function explicitSupplier(text: string): string | null {
+  const rows = cleanText(text).split("\n");
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = (rows[i] ?? "").trim();
+    const same = /^(?:distributeur|fournisseur|vendeur)\s*:\s*(.+)$/i.exec(row)?.[1]?.trim()
+      ?? /^(?:distributeur|vendeur)\s+([A-Z][A-Z0-9 '&.\-]{3,})$/.exec(row.replace(/^(\S+)/, (w) => w.toLowerCase()))?.[1]?.trim();
+    const next = /^(?:distributeur|fournisseur|vendeur)\s*:?[ ]*$/i.test(row) ? rows[i + 1]?.trim() : null;
+    const named = same ?? next;
+    if (named && named.length >= 4 && named.length <= 100 && /[A-Za-z]{3}/.test(named) && !isGarageName(named)) return named.toUpperCase();
+  }
+  return null;
+}
+
+/**
+ * Le fournisseur explicitement imprimé prime toujours sur les profils appris (hints) :
+ * deux agences d'un même groupe (ex. Faurie Sarlat / Bergerac) ne sont jamais confondues.
+ */
 export function detectSupplier(text: string, hints: SupplierHint[] = []): string | null {
+  const explicit = explicitSupplier(text);
+  if (explicit) return explicit;
   const norm = ` ${normSupplierName(text)} `;
   const byName = hints.filter((h) => [h.name, ...(h.aliases ?? [])].some((a) => {
     const n = normSupplierName(a);
@@ -109,13 +129,6 @@ export function detectSupplier(text: string, hints: SupplierHint[] = []): string
     .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score);
   if (scored.length === 1 || (scored.length > 1 && scored[0]!.score > scored[1]!.score)) return scored[0]!.h.name;
-  const rows = cleanText(text).split("\n");
-  for (let i = 0; i < rows.length; i += 1) {
-    const same = /^(?:distributeur|fournisseur|vendeur)\s*:\s*(.+)$/i.exec(rows[i] ?? "")?.[1]?.trim();
-    const next = /^(?:distributeur|fournisseur|vendeur)\s*:?[ ]*$/i.test(rows[i] ?? "") ? rows[i + 1]?.trim() : null;
-    const named = same ?? next;
-    if (named && named.length >= 4 && named.length <= 100 && !isGarageName(named)) return named.toUpperCase();
-  }
   return null;
 }
 
