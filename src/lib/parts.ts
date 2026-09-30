@@ -344,7 +344,7 @@ export async function listOrders(f: { siteId: string | null; status?: string; su
 export async function getOrder(id: string) {
   const { data, error } = await supabase.from("part_orders").select(ORDER_SELECT).eq("id", id).single();
   if (error) throw error;
-  const { data: receipts } = await supabase.from("part_receipts").select("id, received_at, received_by_name, receipt_type, comment, status, cancel_reason").eq("order_id", id).order("received_at", { ascending: false });
+  const { data: receipts } = await supabase.from("part_receipts").select("id, received_at, received_by_name, receipt_type, comment, status, cancel_reason, source_document_id, inbox_documents(id, storage_path, file_name, mime_type, file_size, created_at)").eq("order_id", id).order("received_at", { ascending: false });
   return { ...data, receipts: receipts ?? [] };
 }
 

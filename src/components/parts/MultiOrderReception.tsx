@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Badge, btnGhost, btnPrimary, inputCls, usePartsCtx } from "@/components/parts/PartsUi";
+import { Badge, btnPrimary, inputCls, usePartsCtx } from "@/components/parts/PartsUi";
 import { validateMultiReceipt } from "@/lib/parts";
 import { dispatchDocLines, multiReceiptPayloads, PRICE_GAP_LABEL, type MoDoc, type MoOrder } from "@/lib/multi-order-reception";
 
@@ -99,7 +99,6 @@ export function MultiOrderReception({ doc, docId, blNumber, orders, onDone }: { 
         {busy ? "Réception…" : `Réceptionner ${toReceive > 1 ? `les ${toReceive} réceptions` : "la réception"} en une fois`}
       </button>
       <p className="text-[11px] text-muted-foreground">Une réception par commande, toutes rattachées au même BL. Un second clic ne crée pas de doublon.</p>
-      <button type="button" className={`${btnGhost} hidden`} aria-hidden />
     </div>
   );
 }

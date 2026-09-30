@@ -25,6 +25,8 @@ import { Check } from "lucide-react";
 import { findFrenchPlate, formatPlate, normalizePlate, plateAfterOrderPick, winmotorOrHistory } from "@/lib/plate";
 import { supabase } from "@/integrations/supabase/client";
 import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
+import { MultiOrderReception } from "@/components/parts/MultiOrderReception";
+import { dispatchDocLines, type MoOrder } from "@/lib/multi-order-reception";
 import { defaultFreeReference, linesAfterOrderPick } from "@/lib/receipt-lines";
 
 export const Route = createFileRoute("/pieces-achats/reception")({
@@ -135,6 +137,9 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const needSupplier = !xm.supplier_id;
   const sugg = receptionSuggestions(xm, needSupplier ? [] : orders.data ?? [], writeSite);
   const docLines = x.lines ?? [];
+  // BL regroupant plusieurs commandes : répartition ligne par ligne (fournisseur identique d'abord).
+  const multi = needSupplier ? null : dispatchDocLines(xm, (orders.data ?? []) as unknown as MoOrder[], writeSite);
+  const showMulti = !!multi && (multi.groups.length >= 2 || (multi.groups.length >= 1 && multi.ambiguous.length > 0));
   const unread = [!x.supplier && !sup ? "fournisseur" : null, !(x.invoice_number || x.delivery_note_number || x.document_number) ? "n° document" : null, !x.document_date ? "date" : null, !docLines.length ? "lignes pièces" : null].filter(Boolean);
   const [manual, setManual] = useState(false);
   const [q, setQ] = useState("");
@@ -182,6 +187,8 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
           <p className="text-sm font-extrabold">Fournisseur à confirmer</p>
           <p className="text-xs text-muted-foreground">Sélectionnez ou créez la fiche fournisseur exacte (établissement) ci-dessus : aucun rapprochement n'est proposé tant que le fournisseur n'est pas certain.</p>
         </div>
+      ) : showMulti && xm.supplier_id ? (
+        <MultiOrderReception doc={{ ...xm, supplier_id: xm.supplier_id }} docId={doc.id} blNumber={x.delivery_note_number ?? x.document_number ?? null} orders={(orders.data ?? []) as unknown as MoOrder[]} onDone={onCancel} />
       ) : sugg.hasExact ? (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase text-muted-foreground">Correspondance certaine</p>
