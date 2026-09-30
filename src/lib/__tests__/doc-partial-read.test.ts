@@ -84,9 +84,9 @@ describe("rapprochement par priorités", () => {
     const s = receptionSuggestions({ ...doc, order_reference: null, ref_candidates: [] }, [order("a", { part_order_lines: [line("562044E", "Rétro")] })], site);
     expect(s.probable[0]!.reasons.join(" ")).toContain("réf 562044E");
   });
-  it("désignation proche + qté + prix sans référence => probable", () => {
+  it("désignation proche seule (sans référence) => jamais de correspondance probable", () => {
     const s = receptionSuggestions({ ...doc, order_reference: null, ref_candidates: [] }, [order("a", { part_order_lines: [line(null, "Rétroviseur électrique gauche")] })], site);
-    expect(s.probable[0]!.reasons.join(" ")).toContain("désignation proche");
+    expect(s.probable).toEqual([]);
     expect(similarDesignation("Rétroviseur gauche électrique", "Rétroviseur droit électrique")).toBe(false);
   });
   it("deux commandes identiques fournisseur+référence => ambiguïté, confirmation", () => {

@@ -88,25 +88,28 @@ describe("rapprochement sans OR ni immat (ORLEANS SUD AUTO / 16533)", () => {
   const orleans = o({ id: "orl", order_mode: "detailed", site_id: "lal", supplier_id: "sOrl", supplier_order_ref: "32207746", plate: "dc354zh", suppliers: { name: "SOCIETE ORLEANS SUD AUTO" }, repair_orders: { or_number: "16533" }, part_order_lines: line("133378273"), created_at: "2026-09-28T12:17:21Z" });
   const noise = o({ id: "noise", order_mode: "detailed", site_id: "lal", part_order_lines: [{ ...line("7701208174")[0]!, designation: "Filtre à huile" }], created_at: "2026-09-29T08:00:00Z" });
   const facture = { supplier: null, order_reference: "226090324", invoice_number: "626090510", ref_candidates: ["32207746", "226090324", "626090510"], lines: [{ reference: "133378273", quantity: 1 }] };
-  it("facture : fournisseur non lu, Transaction 32207746 => commande certaine en tête", () => {
-    const r = receptionSuggestions(facture, [noise, orleans], "lal");
+  it("facture : fournisseur non lu => aucun rapprochement (confirmation du fournisseur d'abord)", () => {
+    expect(receptionSuggestions(facture, [noise, orleans], "lal").certain).toEqual([]);
+  });
+  it("facture : fournisseur confirmé, Transaction 32207746 => commande certaine en tête", () => {
+    const r = receptionSuggestions({ ...facture, supplier_id: "sOrl" }, [noise, orleans], "lal");
     expect(r.certain.map((m) => (m.order as { id: string }).id)).toEqual(["orl"]);
     expect(r.certain[0]!.reasons.join(" ")).toContain("32207746");
   });
   it("sans aucun n° lisible : la réf 133378273 suffit pour une correspondance probable", () => {
-    const r = receptionSuggestions({ supplier: null, lines: [{ reference: "133378273", quantity: 1 }] }, [noise, orleans], "lal");
+    const r = receptionSuggestions({ supplier: "ORLEANS SUD AUTO", lines: [{ reference: "133378273", quantity: 1 }] }, [noise, orleans], "lal");
     expect(r.hasExact).toBe(false);
     expect((r.probable[0]!.order as { id: string }).id).toBe("orl");
   });
   it("recherche manuelle : la commande ORLEANS apparaît en tête sans saisie", () => {
-    expect((searchPendingOrders([noise, orleans], "", "lal", 20, facture)[0] as unknown as { id: string }).id).toBe("orl");
+    expect((searchPendingOrders([noise, orleans], "", "lal", 20, { ...facture, supplier_id: "sOrl" })[0] as unknown as { id: string }).id).toBe("orl");
     expect((searchPendingOrders([noise, orleans], "optique", "lal")[0] as unknown as { id: string }).id).toBe("orl");
   });
   it("non ambigu : fournisseur + référence + quantité => probable unique avec raisons", () => {
     const r = receptionSuggestions({ supplier_id: "sOrl", lines: [{ reference: "133378273", quantity: 1 }] }, [noise, orleans], "lal");
     expect(r.probable).toHaveLength(1);
     expect(r.ambiguous).toBe(false);
-    expect(r.probable[0]!.reasons).toEqual(["même fournisseur", "réf 133378273 + qté 1"]);
+    expect(r.probable[0]!.reasons).toEqual(["même fournisseur", "réf 133378273 exacte + qté 1"]);
   });
   it("ambigu : deux commandes même fournisseur + même réf => confirmation demandée, jamais certaine", () => {
     const twin = { ...(orleans as object), id: "twin", supplier_order_ref: "99999999", created_at: "2026-09-27T10:00:00Z" } as never;
