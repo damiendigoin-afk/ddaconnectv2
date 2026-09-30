@@ -381,12 +381,23 @@ export function refCandidates(raw: string): string[] {
 export function orNumbersFromText(raw: string, exclude: (string | null | undefined)[] = []): string[] {
   const text = cleanText(raw);
   const ex = new Set(exclude.map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean));
-  const re = /(?:^|[^a-z])(?:r[ée]f[ée]rences?|r[ée]f\.?|rep[eè]res?(?:\s+commande)?|mes\s+r[ée]f[ée]rences|votre\s+r[ée]f[a-z.]*|dossiers?|\bO\.?R\.?s?\b)\s*(?:client)?\s*(?:n[°o]s?\.?)?\s*[:#.]?\s*((?:\d{5,6}(?:\s*(?:[,;/+&]|et|-)?\s*)){1,8})(?!\d)/gi;
+  // Chaque repère est borné (jamais le préfixe d'une référence longue) ; plusieurs repères exigent un séparateur réel.
+  const re = /(?:^|[^a-z])(?:r[ée]f[ée]rences?|r[ée]f\.?|rep[eè]res?(?:\s+commande)?|mes\s+r[ée]f[ée]rences|votre\s+r[ée]f[a-z.]*|dossiers?|\bO\.?R\.?s?\b)\s*(?:client)?\s*(?:n[°o]s?\.?)?\s*[:#.]?\s*(?<![\d])(\d{5,6}(?:(?:\s*(?:[,;/+&]|et|-)\s*|\s+)\d{5,6})*)(?![\d.,])/gi;
   const out: string[] = [];
   for (const m of text.matchAll(re)) {
     for (const n of m[1]!.match(/\d{5,6}/g) ?? []) if (!ex.has(n) && !out.includes(n)) out.push(n);
   }
   return out.slice(0, 8);
+}
+
+/**
+ * PA net vs prix client : les montants HT non libellés (colonne net) deviennent le PA
+ * seulement si, pour toutes les lignes, leur somme retombe sur le total HT du document.
+ */
+export function resolveNetPrices(lines: Line[], totalHt: number | null): Line[] {
+  const useNet = totalHt != null && lines.length > 0 && lines.every((l) => l.net_price != null)
+    && Math.abs(lines.reduce((s, l) => s + (l.net_price ?? 0) * (l.quantity ?? 1), 0) - totalHt) <= 0.02;
+  return lines.map(({ net_price, ...l }) => (useNet ? { ...l, unit_price: net_price ?? l.unit_price } : l));
 }
 
 export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
@@ -405,7 +416,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const order_reference = firstMatch(text, [/commande\s*(?:web|internet|en ligne|client|fournisseur)?\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
   const plate = findFrenchPlate(text);
   const orRaw = firstMatch(text, [OR_LABEL, /\bO\.?R\.?(?:\s*n[°o])?\s*[:#.]\s*(\d{4,7})\b/i]);
-  const lines = parseItemLines(text);
+  const lines = resolveNetPrices(parseItemLines(text), lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i));
   const visibleBlocks = [...text.matchAll(/^r[ée]f\.?\s*:\s*[A-Z0-9][A-Z0-9.\-/]{3,}/gim)].length;
   const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
   const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);
