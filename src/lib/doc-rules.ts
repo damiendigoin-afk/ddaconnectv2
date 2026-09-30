@@ -134,7 +134,7 @@ export function detectSupplier(text: string, hints: SupplierHint[] = []): string
 
 /* ---------------------------- Achats (BL / facture) ------------------------ */
 
-type Line = { reference: string; label: string | null; quantity: number | null; unit_price: number | null; amount: number | null; isolated_number?: string | null };
+type Line = { reference: string; label: string | null; quantity: number | null; unit_price: number | null; amount: number | null; isolated_number?: string | null; net_price?: number | null };
 
 const REF = String.raw`([A-Z0-9][A-Z0-9.\-/]{3,})`;
 const NOT_REF = /^(total|sous|tva|port|frais|remise|net|montant|page|date|facture|commande)$/i;
@@ -164,13 +164,26 @@ export function parseItemBlocks(text: string): Line[] {
     if (!reference || !/\d/.test(reference)) continue;
     const block = rows.slice(start + 1, end);
     const qtyRaw = firstMatch(block.join("\n"), [/(?:qt[ée]|quantit[ée])\s*:\s*(\d{1,3}(?:[.,]\d{1,2})?)/i]);
-    const clientPrice = firstMatch(block.join("\n"), [/prix\s+client\s*:\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?T\.?/i]);
-    const purchasePrice = firstMatch(block.join("\n"), [/(?:P\.?A\.?|prix\s+(?:unitaire|d['’]achat)|P\.?U\.?)\s*(?:H\.?T\.?)?\s*:\s*(\d[\d .]*[.,]\d{2})/i]);
+    const joined = block.join("\n");
+    const CLIENT_RE = /prix\s+(?:client|public)\s*:?\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?T\.?/i;
+    const clientPrice = firstMatch(joined, [CLIENT_RE]);
+    const purchasePrice = firstMatch(joined, [/(?:prix\s+net|net\s+H\.?T\.?|P\.?A\.?(?:\s+net)?|prix\s+(?:unitaire|d['’]achat)|P\.?U\.?)\s*(?:H\.?T\.?)?\s*:?\s*(\d[\d .]*[.,]\d{2})\s*(?:€|EUR)?/i]);
+    // Montant HT non libellé (colonne « net » à droite) : candidat PA net, validé plus tard par le total HT.
+    // Jamais un montant TTC, ni le montant rattaché au mode de livraison.
+    let netCandidate: number | null = null;
+    for (let k = 0; k < block.length; k += 1) {
+      const row = block[k] ?? "";
+      if (/livraison/i.test(row) || /livraison/i.test(block[k - 1] ?? "")) continue;
+      const rest = row.replace(CLIENT_RE, " ").replace(new RegExp(`${MONEY}\\s*(?:€|EUR)?\\s*T\\.?T\\.?C\\.?`, "gi"), " ");
+      const m = new RegExp(`${MONEY}\\s*(?:€|EUR)?\\s*H\\.?T\\.?`, "i").exec(rest);
+      if (m?.[1] && !/prix\s+(?:client|public)/i.test(rest)) netCandidate = money(m[1]);
+    }
     const label = block.find((row) => {
       const v = row.trim();
-      return v.length >= 2 && /[A-Za-zÀ-ÿ]/.test(v) && !BLOCK_META.test(v) && !/^\d+[.,]\d{2}\s*€/.test(v);
+      return v.length >= 2 && /[A-Za-zÀ-ÿ]/.test(v) && !BLOCK_META.test(v) && !/^\d+[.,]\d{2}\s*€/.test(v) && !/\d[.,]\d{2}\s*(?:€|EUR)?\s*(?:H\.?T|T\.?T\.?C)/i.test(v);
     })?.trim() ?? null;
-    out.push({ reference, label, quantity: qtyOf(qtyRaw ?? "1"), unit_price: money(clientPrice ?? purchasePrice), amount: null });
+    const explicitNet = purchasePrice ? money(purchasePrice) : null;
+    out.push({ reference, label, quantity: qtyOf(qtyRaw ?? "1"), unit_price: explicitNet ?? money(clientPrice), amount: null, net_price: explicitNet ? null : netCandidate });
   }
   return out;
 }
