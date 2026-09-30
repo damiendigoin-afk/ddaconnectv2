@@ -7,6 +7,9 @@
  */
 import { DOC_SPECS, fillMissing, missingFields, type DocKind, type Fields, type RuleContext } from "./doc-rules";
 
+const empty = (v: unknown) => v == null || v === "";
+const at = (o: Fields, path: string): unknown => path.split(".").reduce<unknown>((a, k) => (a && typeof a === "object" ? (a as Fields)[k] : undefined), o);
+
 export type DocRoute = "ocr_rules" | "ai_text_fallback" | "ai_vision_fallback" | "manual";
 
 /**
@@ -54,8 +57,11 @@ export async function runDocPipeline(
   const spec = DOC_SPECS[input.kind];
   const text = input.text ?? "";
   const media: DocMedia = input.media ?? (input.hasImage ? "photo" : "none");
-  let fields = text.trim() ? spec.rules(text, input.ctx ?? {}) : {};
-  let missing = missingFields(spec, fields);
+  const clean = (f: Fields) => (spec.sanitize ? spec.sanitize(f) : { fields: f, rejected: [] as string[] });
+  const first = clean(text.trim() ? spec.rules(text, input.ctx ?? {}) : {});
+  let fields = first.fields;
+  // Lecture suspecte (valeur parasite rejetée) = champ manquant : le repli texte / vision peut le compléter.
+  let missing = [...new Set([...missingFields(spec, fields), ...first.rejected.filter((k) => empty(at(fields, k)))])];
   if (!missing.length) {
     await deps.logLocal("ocr_rules", missing);
     return { fields, route: "ocr_rules", missing, aiCalls: 0 };
@@ -73,7 +79,7 @@ export async function runDocPipeline(
     aiCalls += 1;
     const r = await deps.aiText(missing);
     if (r) {
-      fields = fillMissing(fields, r);
+      fields = fillMissing(fields, clean(r).fields);
       missing = missingFields(spec, fields);
       route = "ai_text_fallback";
       if (!missing.length) return { fields, route, missing, aiCalls };
@@ -83,7 +89,7 @@ export async function runDocPipeline(
     aiCalls += 1;
     const r = await deps.aiVision(missing, essentialVision && !fallback);
     if (r) {
-      fields = fillMissing(fields, r);
+      fields = fillMissing(fields, clean(r).fields);
       missing = missingFields(spec, fields);
       route = "ai_vision_fallback";
     }

@@ -1,3 +1,5 @@
+import { sanitizeRepairOrder } from "./doc-rules";
+
 /**
  * Décision après OCR/saisie d'un OR WinMotor depuis l'Atelier (pure, testable).
  * Le numéro d'OR vient toujours de WinMotor : DDA n'en génère jamais. Si aucune
@@ -49,6 +51,8 @@ const clean = (o: Record<string, unknown>) =>
 export function parseRepairOrderScan(json: string | null | undefined): { or_number: string | null; plate: string | null; data: DossierData } {
   let p: Record<string, unknown> = {};
   try { p = obj(JSON.parse(json || "{}")); } catch { /* lecture vide */ }
+  // Dernier filet : aucune valeur parasite (en-tête garage, conseiller…) ne part vers la fiche.
+  p = obj(sanitizeRepairOrder(p).fields);
   const data = { client: clean(obj(p["client"])), vehicle: clean(obj(p["vehicle"])), order: clean(obj(p["order"])) };
   const num = String(data.order["or_number"] ?? "").replace(/\D/g, "");
   return { or_number: isWinmotorOrNumber(num) ? num : null, plate: (data.vehicle["plate"] as string | undefined) ?? null, data };
