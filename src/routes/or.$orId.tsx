@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronDown, ClipboardList, ListChecks, Loader2, Pencil, Route as RouteIcon } from "lucide-react";
+import { ChevronDown, ClipboardList, ListChecks, Loader2, Pencil, Route as RouteIcon, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -261,7 +261,7 @@ function OrderPage() {
           </section>
 
           {existingTour ? (
-            <section className="space-y-2">
+            <section id="or-tour" className="scroll-mt-20 space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Tour véhicule du dossier
               </h2>
@@ -286,7 +286,7 @@ function OrderPage() {
               </Link>
             </section>
           ) : (
-            <section className="space-y-2">
+            <section id="or-tour" className="scroll-mt-20 space-y-2">
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Démarrer un tour véhicule
               </h2>
