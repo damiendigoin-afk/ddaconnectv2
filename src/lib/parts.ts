@@ -373,6 +373,12 @@ export async function validateReceipt(
 ) {
   const { lines: inLines, ...head } = r;
   let lines = inLines;
+  // OR propre à une ligne de commande (modification manuelle multi-OR), sinon OR de la réception.
+  const lineOrMap = new Map<string, string>();
+  if (r.order_id) {
+    const { data: ol } = await supabase.from("part_order_lines").select("id, repair_order_id").eq("order_id", r.order_id);
+    for (const x of ol ?? []) if (x.repair_order_id) lineOrMap.set(x.id, x.repair_order_id);
+  }
   // Commande simplifiée sans lignes choisie explicitement : on l'enrichit des lignes reçues (traçabilité commande → BL → réception).
   if (r.order_id) {
     const { data: ord } = await supabase.from("part_orders").select("order_mode, part_order_lines(id)").eq("id", r.order_id).single();
@@ -397,7 +403,7 @@ export async function validateReceipt(
     if (!(l.qty_received > 0) && !l.order_line_id) continue;
     const ref = l.physical_reference.trim();
     const wrongRef = !!(l.ordered_reference && ref && normalizeRef(l.ordered_reference) !== normalizeRef(ref));
-    const lineOr = l.destination === "or" ? r.repair_order_id : null;
+    const lineOr = l.destination === "or" ? ((l.order_line_id && lineOrMap.get(l.order_line_id)) || r.repair_order_id) : null;
     let articleId: string | null = null;
     if (ref && l.qty_received > 0) articleId = await ensureArticle(r.site_id, ref, l.designation.trim() || null);
     const { data: rl, error: e2 } = await supabase
