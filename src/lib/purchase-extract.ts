@@ -166,8 +166,13 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   if (!orderRef && kind === "commande" && docNumber && !sameAsOr(docNumber)) orderRef = docNumber;
   // Repères OR multiples (commande multi-OR) : 5-6 chiffres, jamais le n° de commande/document.
   const notOr = new Set([orderRef, docNumber, str(o.delivery_note_number), str(o.invoice_number)].map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean));
+  // Suites de chiffres plus longues (références pièces, n° commande/document/client) : un repère extrait de
+  // leur préfixe ou de leur milieu n'est jamais un OR (idempotent au second passage).
+  const longNums = [orderRef, docNumber, str(o.delivery_note_number), str(o.invoice_number), ...lines.map((l) => l.reference), ...(Array.isArray(o["ref_candidates"]) ? (o["ref_candidates"] as unknown[]).map((v) => str(v)) : [])]
+    .flatMap((v) => (v ?? "").match(/\d{7,}/g) ?? []);
+  const embedded = (v: string) => longNums.some((n) => n !== v && n.includes(v));
   const orNumbers = [...new Set([orNumber, ...(Array.isArray(o["or_numbers"]) ? (o["or_numbers"] as unknown[]).map((v) => digits(str(v))) : [])]
-    .filter((v): v is string => !!v && /^\d{5,6}$/.test(v) && !notOr.has(v)))].slice(0, 8);
+    .filter((v): v is string => !!v && /^\d{5,6}$/.test(v) && !notOr.has(v) && (v === orNumber || !embedded(v))))].slice(0, 8);
   if (!orNumber && orNumbers.length) orNumber = orNumbers[0]!;
   return {
     doc_kind: kind,
