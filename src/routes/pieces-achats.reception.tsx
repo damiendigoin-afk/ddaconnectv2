@@ -131,8 +131,9 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
   const sup = matchSupplier(x.supplier, suppliers.data ?? []) ?? (suppliers.data ?? []).find((s) => s.id === docSupplierId(x, suppliers.data ?? [])) ?? null;
   const xm = { ...x, supplier_id: x.supplier_id ?? sup?.id ?? null };
-  const sugg = receptionSuggestions(xm, orders.data ?? [], writeSite);
-  const supOpen = sugg.hasExact || sugg.probable.length ? [] : supplierOpenOrders(xm, orders.data ?? [], writeSite);
+  // Fournisseur non identifié avec certitude : confirmation d'abord, aucun rapprochement proposé.
+  const needSupplier = !xm.supplier_id;
+  const sugg = needSupplier ? { certain: [], probable: [], hasExact: false, ambiguous: false } as ReturnType<typeof receptionSuggestions<NonNullable<typeof orders.data>[number]>> : receptionSuggestions(xm, orders.data ?? [], writeSite);
   const docLines = x.lines ?? [];
   const unread = [!x.supplier && !sup ? "fournisseur" : null, !(x.invoice_number || x.delivery_note_number || x.document_number) ? "n° document" : null, !x.document_date ? "date" : null, !docLines.length ? "lignes pièces" : null].filter(Boolean);
   const [manual, setManual] = useState(false);
@@ -166,7 +167,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
       <div className="text-xs space-y-1">
         {x.supplier ? <><p>Fournisseur lu : <b>{x.supplier}</b>{sup && sup.name !== x.supplier ? <> → fiche <b>{sup.name}</b></> : null}</p><DocSupplierLink extracted={x} docId={doc.id} /></> : <p>Fournisseur : <b>{sup?.name ?? "non lu"}</b></p>}
         <p>{x.doc_kind === "facture" ? "Facture" : x.doc_kind === "bl" ? "BL" : "Document"} n° <b>{x.invoice_number ?? x.delivery_note_number ?? x.document_number ?? "—"}</b> · Date : <b>{x.document_date ? new Date(x.document_date).toLocaleDateString("fr-FR") : "—"}</b> · N° commande fournisseur : <b>{x.order_reference ?? "—"}</b>{x.total_ht != null ? <> · Total HT : <b>{x.total_ht.toFixed(2)} €</b></> : null}{x.shipping_ht ? <> (dont port {x.shipping_ht.toFixed(2)} €)</> : null}</p>
-        <p>Repères atelier (aides au rapprochement, facultatifs) — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b> · N° lus : <b>{[x.order_reference, ...(x.ref_candidates ?? [])].filter((v, i, a) => v && a.indexOf(v) === i).join(", ") || "—"}</b></p>
+        <p>Repères atelier (aides au rapprochement, facultatifs) — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b></p>
         {docLines.length ? (
           <ul className="rounded border border-border p-1">
             {docLines.map((l, i) => <li key={i}><b>{l.quantity ?? "?"} ×</b> {l.reference ?? "réf ?"} — {l.label ?? "—"}{l.unit_price != null ? ` · PU ${l.unit_price.toFixed(2)} €` : ""}</li>)}
@@ -176,7 +177,12 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
       </div>
       {orders.isLoading ? <p className="text-sm text-muted-foreground">Recherche des commandes…</p> : null}
 
-      {sugg.hasExact ? (
+      {needSupplier && orders.data ? (
+        <div className="rounded-lg border-2 border-status-warn p-3">
+          <p className="text-sm font-extrabold">Fournisseur à confirmer</p>
+          <p className="text-xs text-muted-foreground">Sélectionnez ou créez la fiche fournisseur exacte (établissement) ci-dessus : aucun rapprochement n'est proposé tant que le fournisseur n'est pas certain.</p>
+        </div>
+      ) : sugg.hasExact ? (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase text-muted-foreground">Correspondance certaine</p>
           {sugg.certain.map((m) => orderBtn(m.order, "ok", m.reasons))}
@@ -185,11 +191,6 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase text-muted-foreground">{sugg.ambiguous ? "Plusieurs commandes possibles — choisissez la bonne" : "Correspondance probable — confirmez"}</p>
           {sugg.probable.map((m) => orderBtn(m.order, "warn", m.reasons))}
-        </div>
-      ) : supOpen.length ? (
-        <div className="space-y-2">
-          <p className="text-xs font-bold uppercase text-muted-foreground">Commandes ouvertes de ce fournisseur — vérifiez avant de rapprocher</p>
-          {supOpen.map((m) => orderBtn(m.order, "warn", m.reasons))}
         </div>
       ) : orders.data ? (
         <div className="rounded-lg border-2 border-status-warn p-3">
