@@ -695,7 +695,8 @@ export function orLabeledValues(text: string): Record<string, string> {
         const nx = lines[i + 1]?.trim();
         if (nx && !labelHits(nx).length) v = nx;
       }
-      if (v) out[h.k] = v;
+      // Valeur parasite (en-tête garage, conseiller, « accueilli par ») : ignorée, une occurrence suivante peut servir.
+      if (v && !isOrParasiteValue(v) && !isGaragePhone(v) && !isGarageEmail(v)) out[h.k] = v;
     });
   });
   return out;
@@ -861,6 +862,8 @@ export type DocSpec = {
   rules: (text: string, ctx: RuleContext) => Fields;
   /** Champs indispensables ; un tableau imbriqué = « au moins un de ». */
   required: (string | string[])[];
+  /** Validation sémantique avant fusion : valeurs parasites retirées et signalées (=> repli). */
+  sanitize?: (f: Fields) => { fields: Fields; rejected: string[] };
 };
 
 export const DOC_SPECS: Record<DocKind, DocSpec> = {
@@ -873,7 +876,7 @@ export const DOC_SPECS: Record<DocKind, DocSpec> = {
   technical_control: { rules: technicalControlRules, required: ["ct_due_date"] },
   registration: { rules: registrationRules, required: ["plate", "vin"] },
   any_document: { rules: anyDocumentRules, required: [["plate", "vin", "or_number"]] },
-  repair_order: { rules: repairOrderRules, required: ["order.or_number", "vehicle.plate", "order.requested_work"] },
+  repair_order: { rules: repairOrderRules, sanitize: sanitizeRepairOrder, required: ["order.or_number", "vehicle.plate", "order.requested_work", "client.last_name", "vehicle.model"] },
   none: { rules: () => ({}), required: ["__ai_only__"] },
 };
 
