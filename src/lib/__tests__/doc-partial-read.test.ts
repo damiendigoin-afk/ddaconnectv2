@@ -75,10 +75,15 @@ describe("enseigne / alias fournisseur", () => {
 describe("rapprochement par priorités", () => {
   const doc = { supplier: "OSKARBI AUTO SL", supplier_id: "pad", order_reference: "2883444", ref_candidates: ["500732612", "2883444"], invoice_number: "500732612", lines: [{ reference: "562044E", quantity: 1, label: "Rétroviseur électrique gauche, asphérique, chauffant", unit_price: 33.04 }] };
   const line = (ref: string | null, designation: string) => ({ physical_reference: ref, designation, line_kind: "part", status: "ordered", qty_ordered: 1, qty_received: 0, expected_unit_cost_ht: 33 });
-  it("n° commande exact => certaine", () => {
+  it("n° commande exact + réf pièce lisible non commune => zéro candidat (réf exacte obligatoire)", () => {
     const s = receptionSuggestions(doc, [order("a", { supplier_order_ref: "2883444" }), order("b")], site);
-    expect(s.hasExact).toBe(true);
-    expect(s.certain[0]!.order).toMatchObject({ id: "a" });
+    expect(s.hasExact).toBe(false);
+    expect(s.certain).toEqual([]);
+    expect(s.probable).toEqual([]);
+  });
+  it("n° commande exact + aucune référence lisible => candidat à confirmer", () => {
+    const s = receptionSuggestions({ ...doc, lines: [{ reference: null, label: "illisible", quantity: 1, unit_price: null }] }, [order("a", { supplier_order_ref: "2883444" })], site);
+    expect(s.probable.length + s.certain.length).toBeGreaterThan(0);
   });
   it("fournisseur + référence => probable avec raison", () => {
     const s = receptionSuggestions({ ...doc, order_reference: null, ref_candidates: [] }, [order("a", { part_order_lines: [line("562044E", "Rétro")] })], site);
