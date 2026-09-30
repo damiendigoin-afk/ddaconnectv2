@@ -57,6 +57,17 @@ describe("rapprochement réception — fournisseur bloquant", () => {
     const o = order("g3", SARLAT, "", "8100014522", "Filtre à huile MOTRIO", 8.17, { repair_orders: null });
     expect(matchOrders(noOr, [o], "s1")).toHaveLength(0);
   });
+  it("même fournisseur + OR exact + références lisibles toutes différentes = zéro candidat", () => {
+    const o = order("g4", SARLAT, "50927", "8100014522", "Autre pièce", 12.3);
+    expect(matchOrders(BL, [o], "s1")).toHaveLength(0);
+  });
+  it("même fournisseur + OR exact + aucune référence lisible = candidat à confirmer", () => {
+    const noRefs = { ...BL, lines: [{ reference: null, label: "illisible", quantity: 1, unit_price: null }] };
+    const o = order("g5", SARLAT, "50927", "8100014522", "Autre pièce", 12.3);
+    const r = matchOrders(noRefs, [o], "s1");
+    expect(r.map((m) => m.order.id)).toEqual(["g5"]);
+    expect(r[0]!.level).toBe("probable");
+  });
   it("fournisseur inconnu = aucun rapprochement", () => {
     expect(matchOrders({ ...BL, supplier: null, supplier_id: null }, [good], "s1")).toHaveLength(0);
   });
