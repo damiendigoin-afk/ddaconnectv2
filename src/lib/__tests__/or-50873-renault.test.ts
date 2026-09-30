@@ -30,9 +30,7 @@ TAPV : HFAD
 Entrée : 24/09/2026 14:24
 Restitution : 24/09/2026
 Dernière vente VO : 24/10/2024
-Remarque client : REVISION 33000 KM + OT 30/09/2026
-Travaux demandés :
-REVISION 33000 KM`;
+Remarque client : REVISION 33000 KM + OT 30/09/2026`;
 
 describe("OR 50873 Renault / WinMotor", () => {
   const f = repairOrderRules(OR_50873) as F;

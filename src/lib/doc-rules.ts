@@ -878,7 +878,7 @@ export const DOC_SPECS: Record<DocKind, DocSpec> = {
   technical_control: { rules: technicalControlRules, required: ["ct_due_date"] },
   registration: { rules: registrationRules, required: ["plate", "vin"] },
   any_document: { rules: anyDocumentRules, required: [["plate", "vin", "or_number"]] },
-  repair_order: { rules: repairOrderRules, sanitize: sanitizeRepairOrder, required: ["order.or_number", "vehicle.plate", "order.requested_work", "client.last_name", "vehicle.model"] },
+  repair_order: { rules: repairOrderRules, sanitize: sanitizeRepairOrder, required: ["order.or_number", "vehicle.plate", ["order.requested_work", "order.client_remarks"], "client.last_name", "vehicle.model"] },
   none: { rules: () => ({}), required: ["__ai_only__"] },
 };
 
