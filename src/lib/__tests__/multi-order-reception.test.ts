@@ -128,7 +128,7 @@ describe("ambiguïtés, reliquats, lignes non rapprochées", () => {
 
 describe("règles publiées préservées", () => {
   it("sans référence lisible : suggestion fournisseur + OR toujours possible (matchOrders)", () => {
-    const r = matchOrders({ supplier_id: SARLAT.id, or_number: "50921", lines: [] }, [O2 as never], SITE);
+    const r = matchOrders({ supplier_id: SARLAT.id, or_number: "50921", lines: [] }, [{ ...O2, repair_orders: { or_number: "50921" } } as never], SITE) as { order: { id: string } }[];
     expect(r.map((m) => m.order.id)).toEqual(["o2"]);
   });
   it("référence lisible différente : aucune commande même avec OR exact", () => {
