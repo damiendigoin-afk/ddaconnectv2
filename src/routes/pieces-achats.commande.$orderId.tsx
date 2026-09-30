@@ -79,7 +79,7 @@ function OrderDetail() {
             <h2 className="mb-2 text-xs font-bold uppercase text-muted-foreground">Réceptions</h2>
             {!o.receipts.length ? <p className="text-sm text-muted-foreground">Aucune réception.</p> : null}
             {o.receipts.map((r) => (
-              <div key={r.id} className="text-sm">{new Date(r.received_at).toLocaleString("fr-FR")} · {r.received_by_name} {r.receipt_type === "physical_without_document" ? <Badge tone="warn">Sans document</Badge> : null}</div>
+              <div key={r.id} className="text-sm">{new Date(r.received_at).toLocaleString("fr-FR")} · {r.received_by_name} {r.receipt_type === "physical_without_document" ? <Badge tone="warn">Sans document</Badge> : null}{r.comment ? <span className="text-xs text-muted-foreground"> · {r.comment}</span> : null}<SourceDocButton o={r} compact /></div>
             ))}
           </section>
         </div>
