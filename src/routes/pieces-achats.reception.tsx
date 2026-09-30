@@ -12,7 +12,7 @@ import { CancelAction } from "@/components/parts/CancelAction";
 import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
 import { listReceiptDocs } from "@/lib/receipt-docs";
 import { receiptDocState } from "@/lib/receipt-docs-rules";
-import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders, supplierOpenOrders } from "@/lib/parts-site";
+import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
@@ -133,7 +133,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const xm = { ...x, supplier_id: x.supplier_id ?? sup?.id ?? null };
   // Fournisseur non identifié avec certitude : confirmation d'abord, aucun rapprochement proposé.
   const needSupplier = !xm.supplier_id;
-  const sugg = needSupplier ? { certain: [], probable: [], hasExact: false, ambiguous: false } as ReturnType<typeof receptionSuggestions<NonNullable<typeof orders.data>[number]>> : receptionSuggestions(xm, orders.data ?? [], writeSite);
+  const sugg = receptionSuggestions(xm, needSupplier ? [] : orders.data ?? [], writeSite);
   const docLines = x.lines ?? [];
   const unread = [!x.supplier && !sup ? "fournisseur" : null, !(x.invoice_number || x.delivery_note_number || x.document_number) ? "n° document" : null, !x.document_date ? "date" : null, !docLines.length ? "lignes pièces" : null].filter(Boolean);
   const [manual, setManual] = useState(false);

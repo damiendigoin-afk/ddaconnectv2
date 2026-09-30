@@ -124,7 +124,17 @@ export function detectSupplier(text: string, hints: SupplierHint[] = []): string
   }));
   if (byName.length) return byName.sort((a, b) => b.name.length - a.name.length)[0]!.name;
   const toks = new Set(headerTokens(text));
+  // Ville de l'en-tête (« 24200 Sarlat… ») absente du nom du profil, dont un mot distinctif manque au texte :
+  // autre établissement du groupe (ex. profil Bergerac sur un BL Sarlat) => profil écarté.
+  const head = normSupplierName(cleanText(text).split("\n").slice(0, 15).join("\n").replace(/(\d{5})\s+/g, " $1 "));
+  const cities = [...head.matchAll(/\b\d{5} ([a-z]{3,})/g)].map((m) => m[1]!);
+  const GEN = new Set(["groupe", "group", "auto", "autos", "automobile", "automobiles", "garage", "sas", "sarl", "distribution", "pieces", "piece", "france", "renault"]);
+  const otherSite = (h: SupplierHint) => {
+    const nw = normSupplierName(h.name).split(" ").filter((w) => w.length >= 3 && !GEN.has(w));
+    return cities.some((c) => !nw.includes(c)) && nw.some((w) => !norm.includes(` ${w} `));
+  };
   const scored = hints
+    .filter((h) => !otherSite(h))
     .map((h) => ({ h, score: (h.header_tokens ?? []).filter((t) => toks.has(t)).length }))
     .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score);
