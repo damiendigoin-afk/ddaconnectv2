@@ -816,7 +816,8 @@ export function repairOrderRules(raw: string): Fields {
     model = (vb ? L["vehicle"].replace(new RegExp(`^.*?\\b${vb}\\b`, "i"), "") : L["vehicle"]).trim() || null;
   }
   const lvin = L["vin"] ? VIN_RE.exec(L["vin"].toUpperCase().replace(/\s+/g, ""))?.[1] ?? null : null;
-  const account_number = (L["account"] ? /\b(\d{3,12})\b/.exec(L["account"])?.[1] ?? null : null)
+  const labeledAccount: string | null = L["account"] ? (/\b(\d{3,12})\b/.exec(L["account"])?.[1] ?? null) : null;
+  const account_number = labeledAccount
     ?? firstMatch(text, [/(?:n[°o]\s*client|code client|compte client|client n[°o])\s*[:.]?\s*((?=[A-Z0-9]*\d)[A-Z0-9]{3,12})\b/i]);
   const entry_at = dateTime(L["entry"]);
   const delivery_at = dateTime(L["restitution"]);
