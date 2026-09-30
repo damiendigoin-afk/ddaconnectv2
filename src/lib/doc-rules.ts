@@ -831,7 +831,7 @@ export function repairOrderRules(raw: string): Fields {
       brand: brand === "VW" ? "VOLKSWAGEN" : brand,
       model,
       mileage: lmil ?? odometerRules(text)["mileage"],
-      first_registration: isoDate(L["delivery"] ?? null) ?? null,
+      first_registration: L["delivery"] ? isoDate(L["delivery"]) : null,
       tapv,
     },
     order: {
