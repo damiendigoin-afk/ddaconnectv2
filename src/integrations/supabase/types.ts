@@ -4099,6 +4099,8 @@ export type Database = {
           physical_reference: string | null
           qty_ordered: number | null
           qty_received: number
+          repair_order_id: string | null
+          requested_or_number: string | null
           status: string
           updated_at: string
         }
@@ -4112,6 +4114,8 @@ export type Database = {
           physical_reference?: string | null
           qty_ordered?: number | null
           qty_received?: number
+          repair_order_id?: string | null
+          requested_or_number?: string | null
           status?: string
           updated_at?: string
         }
@@ -4125,6 +4129,8 @@ export type Database = {
           physical_reference?: string | null
           qty_ordered?: number | null
           qty_received?: number
+          repair_order_id?: string | null
+          requested_or_number?: string | null
           status?: string
           updated_at?: string
         }
@@ -4134,6 +4140,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "part_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_order_lines_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -8571,6 +8584,10 @@ export type Database = {
         Returns: boolean
       }
       unaccent: { Args: { "": string }; Returns: string }
+      update_part_order: {
+        Args: { _head: Json; _lines: Json; _order: string; _user_name: string }
+        Returns: Json
+      }
       user_can_access_site: {
         Args: { _site_id: string; _user_id: string }
         Returns: boolean
