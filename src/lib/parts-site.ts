@@ -111,20 +111,32 @@ export function similarDesignation(a: string | null | undefined, b: string | nul
   return shared >= 2 || (shared >= 1 && Math.min(wa.size, wb.size) === 1);
 }
 
+/**
+ * Filtre fournisseur obligatoire : même fiche (id) ou même établissement par le nom.
+ * Deux agences d'un même groupe (mots distinctifs différents) ne sont jamais le même fournisseur.
+ * Fournisseur du document inconnu => false (confirmation du fournisseur d'abord).
+ */
+export function sameSupplier(doc: Pick<DocExtractLite, "supplier" | "supplier_id">, order: Pick<OrderLike, "supplier_id" | "suppliers">): boolean {
+  if (doc.supplier_id && order.supplier_id) return doc.supplier_id === order.supplier_id;
+  const oname = order.suppliers?.name;
+  if (!doc.supplier || !oname) return false;
+  return !!matchSupplier(doc.supplier, [{ id: "x", name: oname }]);
+}
+
 /** Score explicable document ↔ commande : chaque indice ajoute des points et une raison lisible. */
-export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; reasons: string[] } {
-  let score = 0, strong = 0;
+export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; refMatch: boolean; reasons: string[] } {
+  // Filtre 1 bloquant : fournisseur identique, sinon aucun indice n'est compté.
+  if (!sameSupplier(doc, order)) return { score: 0, strong: 0, idMatch: false, refMatch: false, reasons: [] };
+  let score = 2, strong = 0;
   let idMatch = false;
-  const reasons: string[] = [];
-  const sup = norm(doc.supplier);
-  const oname = norm(order.suppliers?.name);
-  if ((doc.supplier_id && doc.supplier_id === order.supplier_id) || (sup && oname && (sup.includes(oname) || oname.includes(sup)))) { score += 2; reasons.push("même fournisseur"); }
+  const reasons: string[] = ["même fournisseur"];
   const orn = (doc.or_number ?? "").replace(/\D/g, "");
   const oorn = (order.repair_orders?.or_number ?? "").replace(/\D/g, "");
-  if (orn && oorn && orn === oorn) { score += 5; strong += 5; reasons.push(`OR ${oorn}`); }
-  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) { score += 4; strong += 4; idMatch = true; reasons.push(`immat ${doc.plate}`); }
+  if (orn && oorn && orn === oorn) { score += 5; strong += 5; reasons.push(`OR/repère ${oorn} exact`); }
+  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) { score += 4; strong += 4; idMatch = true; reasons.push(`immat ${doc.plate} exacte`); }
   const oref = normalizeRef(order.supplier_order_ref ?? "");
   if (oref && docIdentifiers(doc).includes(oref)) { score += 6; strong += 6; idMatch = true; reasons.push(`n° commande ${order.supplier_order_ref}`); }
+  else if (oref && doc.order_reference && normalizeRef(doc.order_reference) !== oref) reasons.push(`écart n° commande : BL ${doc.order_reference} / enregistrée ${order.supplier_order_ref}`);
   const lines = (order.part_order_lines ?? []) as LineLite[];
   const byRef = new Map(lines.map((l) => [normalizeRef(l.physical_reference ?? ""), l] as const).filter(([k]) => k));
   let common = 0;
@@ -133,30 +145,19 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
     if (!ol) continue;
     common++;
     if (common > 3) continue;
-    // Référence exacte : indice fort. Quantité compatible (≤ reste à recevoir) : bonus.
     const rest = ol.qty_ordered != null ? Number(ol.qty_ordered) - Number(ol.qty_received ?? 0) : null;
     const qtyOk = l.quantity != null && rest != null && Number(l.quantity) > 0 && Number(l.quantity) <= rest;
     score += common === 1 ? 3 : 1;
     strong += common === 1 ? 3 : 1;
     if (qtyOk) score += 1;
-    reasons.push(`réf ${l.reference}${qtyOk ? ` + qté ${l.quantity}` : ""}`);
+    // Prix : contrôle d'écart seulement, jamais critère.
+    const pu = l.unit_price, exp = ol.expected_unit_cost_ht;
+    const diff = pu != null && exp != null ? Math.round(Math.abs(Number(pu) - Number(exp)) * 100) / 100 : null;
+    const price = diff == null || diff === 0 ? "" : diff <= 0.01 ? " (écart prix arrondi 0,01 €)" : ` (écart prix ${diff.toFixed(2).replace(".", ",")} €)`;
+    reasons.push(`réf ${l.reference} exacte${qtyOk ? ` + qté ${l.quantity}` : ""}${price}`);
   }
-  // Sans référence commune : désignation proche (+ quantité / prix compatibles) = indice plus faible.
-  if (!common) {
-    for (const l of doc.lines ?? []) {
-      const ol = lines.find((x) => x.line_kind !== "service" && similarDesignation(l.label, x.designation));
-      if (!ol) continue;
-      const rest = ol.qty_ordered != null ? Number(ol.qty_ordered) - Number(ol.qty_received ?? 0) : null;
-      const qtyOk = l.quantity != null && rest != null && Number(l.quantity) > 0 && Number(l.quantity) <= rest;
-      const pu = l.unit_price, exp = ol.expected_unit_cost_ht;
-      const priceOk = pu != null && exp != null && Number(exp) > 0 && Math.abs(Number(pu) - Number(exp)) <= Math.max(0.5, Number(exp) * 0.05);
-      score += 2 + (qtyOk ? 1 : 0) + (priceOk ? 1 : 0);
-      strong += 1;
-      reasons.push(`désignation proche « ${ol.designation} »${qtyOk ? ` + qté ${l.quantity}` : ""}${priceOk ? " + prix" : ""}`);
-      break;
-    }
-  }
-  return { score, strong, idMatch, reasons };
+  // Une désignation proche seule ne compte jamais comme indice de rapprochement.
+  return { score, strong, idMatch, refMatch: common > 0, reasons };
 }
 
 /** Score de rapprochement document ↔ commande (0 = aucun indice). */
@@ -166,19 +167,31 @@ export function scoreOrderMatch(doc: DocExtractLite, order: OrderLike): number {
 
 export type OrderMatch<T> = { order: T; score: number; level: "certain" | "probable"; reasons: string[] };
 
-/** Commandes candidates, triées ; uniquement parmi les commandes en attente du site donné. */
+/** Commandes candidates, triées ; uniquement parmi les commandes en attente du site donné et du même fournisseur. */
 export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null): OrderMatch<T>[] {
   const recent = (a: T, b: T) => (b.created_at ?? "").localeCompare(a.created_at ?? "");
+  const hasMark = !!((doc.or_number ?? "").replace(/\D/g, "") || plateKey(doc.plate));
   return pendingReceptionOrders(orders)
     .filter((o) => !siteId || o.site_id === siteId)
     // Plaques différentes = autre véhicule : jamais candidate.
     .filter((o) => !(plateKey(doc.plate) && plateKey(o.plate) && plateKey(doc.plate) !== plateKey(o.plate)))
     .map((order) => ({ order, ...explainOrderMatch(doc, order) }))
-    // Le fournisseur seul ne suffit jamais : il faut plaque, OR, n° commande ou référence commune.
-    .filter((m) => m.strong > 0 && m.score >= 2)
+    // Fournisseur identique obligatoire (score > 0) + indice fort ; sans OR/immat, référence exacte exigée.
+    .filter((m) => m.score > 0 && m.strong > 0 && (hasMark || m.refMatch || m.idMatch))
     .sort((a, b) => b.score - a.score || recent(a.order, b.order))
     .map(({ order, score, idMatch, reasons }) => ({ order, score, reasons, level: idMatch && score >= 4 ? ("certain" as const) : ("probable" as const) }));
 }
+
+/** « N° lus » affichables : jamais n° BL/commande/facture/document, OR, référence pièce ni fragment de ceux-ci. */
+export function otherReadNumbers(doc: DocExtractLite & { or_numbers?: string[] | null }): string[] {
+  const known = [doc.order_reference, doc.document_number, doc.delivery_note_number, doc.invoice_number, doc.or_number, ...(doc.or_numbers ?? []), ...(doc.lines ?? []).map((l) => l.reference)]
+    .map((v) => normalizeRef(v ?? "")).filter(Boolean);
+  return (doc.ref_candidates ?? []).filter((v) => {
+    const k = normalizeRef(v);
+    return k && !known.some((n) => n === k || n.includes(k) || k.includes(n));
+  });
+}
+
 
 /**
  * Présentation UX du rapprochement : certaines (plaque / n° commande unique) à part,
