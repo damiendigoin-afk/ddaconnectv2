@@ -61,6 +61,16 @@ describe("rapprochement réception — fournisseur bloquant", () => {
     const o = order("g4", SARLAT, "50927", "8100014522", "Autre pièce", 12.3);
     expect(matchOrders(BL, [o], "s1")).toHaveLength(0);
   });
+  it("même fournisseur + n° commande exact + référence lisible différente = zéro candidat", () => {
+    const o = order("g6", SARLAT, "", "8100014522", "Autre pièce", 12.3, { repair_orders: null, supplier_order_ref: "45978608" });
+    expect(matchOrders(BL, [o], "s1")).toHaveLength(0);
+  });
+  it("même fournisseur + n° commande exact + aucune référence lisible = candidat à confirmer", () => {
+    const noRefs = { ...BL, lines: [{ reference: null, label: "illisible", quantity: 1, unit_price: null }] };
+    const o = order("g7", SARLAT, "", "8100014522", "Autre pièce", 12.3, { repair_orders: null, supplier_order_ref: "45978608" });
+    const r = matchOrders(noRefs, [o], "s1");
+    expect(r.map((m) => m.order.id)).toEqual(["g7"]);
+  });
   it("même fournisseur + OR exact + aucune référence lisible = candidat à confirmer", () => {
     const noRefs = { ...BL, lines: [{ reference: null, label: "illisible", quantity: 1, unit_price: null }] };
     const o = order("g5", SARLAT, "50927", "8100014522", "Autre pièce", 12.3);
