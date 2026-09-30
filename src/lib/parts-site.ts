@@ -181,8 +181,9 @@ export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[
     .map((order) => ({ order, ...explainOrderMatch(doc, order) }))
     // Fournisseur identique obligatoire (score > 0) + indice fort ; sans OR/immat, référence exacte exigée.
     .filter((m) => m.score > 0 && m.strong > 0 && (hasMark || m.refMatch || m.idMatch))
-    // Références lisibles mais aucune commune avec la commande : jamais candidate.
-    .filter((m) => !hasReadableRefs || m.refMatch)
+    // Références lisibles mais aucune commune avec la commande : jamais candidate,
+    // sauf si un identifiant fort (n° commande fournisseur ou immat exacte) l'identifie déjà.
+    .filter((m) => !hasReadableRefs || m.refMatch || m.idMatch)
     .sort((a, b) => b.score - a.score || recent(a.order, b.order))
     .map(({ order, score, idMatch, reasons }) => ({ order, score, reasons, level: idMatch && score >= 4 ? ("certain" as const) : ("probable" as const) }));
 }
