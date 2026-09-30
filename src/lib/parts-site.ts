@@ -171,6 +171,9 @@ export type OrderMatch<T> = { order: T; score: number; level: "certain" | "proba
 export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null): OrderMatch<T>[] {
   const recent = (a: T, b: T) => (b.created_at ?? "").localeCompare(a.created_at ?? "");
   const hasMark = !!((doc.or_number ?? "").replace(/\D/g, "") || plateKey(doc.plate));
+  // Références pièces lisibles sur le BL : au moins une réf exacte commune est alors exigée,
+  // même si fournisseur + OR/immat correspondent. Sans réf lisible, fournisseur + OR/immat suffit.
+  const hasReadableRefs = (doc.lines ?? []).some((l) => normalizeRef(l.reference ?? ""));
   return pendingReceptionOrders(orders)
     .filter((o) => !siteId || o.site_id === siteId)
     // Plaques différentes = autre véhicule : jamais candidate.
@@ -178,6 +181,8 @@ export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[
     .map((order) => ({ order, ...explainOrderMatch(doc, order) }))
     // Fournisseur identique obligatoire (score > 0) + indice fort ; sans OR/immat, référence exacte exigée.
     .filter((m) => m.score > 0 && m.strong > 0 && (hasMark || m.refMatch || m.idMatch))
+    // Références lisibles mais aucune commune avec la commande : jamais candidate.
+    .filter((m) => !hasReadableRefs || m.refMatch)
     .sort((a, b) => b.score - a.score || recent(a.order, b.order))
     .map(({ order, score, idMatch, reasons }) => ({ order, score, reasons, level: idMatch && score >= 4 ? ("certain" as const) : ("probable" as const) }));
 }
