@@ -221,7 +221,7 @@ const TOLERANT_SKIP = /total|t\.?v\.?a|sous-total|frais|\bport\b|transport|livra
 export function parseItemLinesTolerant(text: string): Line[] {
   const out: Line[] = [];
   for (const raw of cleanText(text).split("\n")) {
-    const line = raw.replace(/\s{2,}/g, " ").trim();
+    const line = raw.replace(/[|;\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
     if (line.length < 8 || TOLERANT_SKIP.test(line)) continue;
     const moneys = [...line.matchAll(/(?<![\w.,])(\d{1,6}(?:[ .]\d{3})*[.,]\d{2})(?![\d])/g)].map((m) => ({ v: money(m[1]), i: m.index ?? 0 }));
     const labeledQty = /(?:qt[ée]|quantit[ée])\s*:?\s*(\d{1,3})\b|\bx\s?(\d{1,3})\b/i.exec(line);
