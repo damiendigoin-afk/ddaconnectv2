@@ -10,7 +10,7 @@ describe("order_*.pdf : seconde passe tolérante", () => {
   });
   it("ignore totaux, TVA, dates et n'invente rien sans article", () => {
     expect(parseItemLinesTolerant("Total HT 28,95\nTVA 5,79\nDate 01/10/2026")).toEqual([]);
-    expect((purchaseRules("Commande 66106533\nMerci").lines as unknown[]).length).toBe(0);
+    expect((purchaseRules("Commande 66106533\nMerci")["lines"] as unknown[]).length).toBe(0);
   });
   it("quantité par défaut 1", () => {
     expect(parseItemLinesTolerant("ABC1234 Plaquettes de frein AV 45,90")[0]).toMatchObject({ reference: "ABC1234", quantity: 1, unit_price: 45.9 });
