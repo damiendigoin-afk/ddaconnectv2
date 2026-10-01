@@ -206,6 +206,55 @@ export function parseItemBlocks(text: string): Line[] {
 export function parseItemLines(text: string): Line[] {
   const blocks = parseItemBlocks(text);
   if (blocks.length) return blocks;
+  const strict = parseItemLinesStrict(text);
+  return strict.length ? strict : parseItemLinesTolerant(text);
+}
+
+const TOLERANT_SKIP = /total|t\.?v\.?a|sous-total|frais|\bport\b|transport|livraison|remise|acompte|net\s*[àa]\s*payer|siret|iban|bic|t[ée]l|fax|@|www\.|capital|rcs|page\s*\d|date|adresse|client\s*:|n[°o]\s*client/i;
+
+/**
+ * Seconde passe tolérante (colonnes PDF désalignées, séparateurs exotiques) :
+ * une ligne = un jeton référence (lettres/chiffres, ≥ 4 car., au moins un chiffre, jamais un montant,
+ * une date ou une plaque) + une désignation alphabétique + au moins un montant ou une quantité libellée.
+ * Quantité : « Qté 2 », « x2 » ou entier isolé 1-999 juste avant le 1er montant ; défaut 1.
+ */
+export function parseItemLinesTolerant(text: string): Line[] {
+  const out: Line[] = [];
+  for (const raw of cleanText(text).split("\n")) {
+    const line = raw.replace(/\s{2,}/g, " ").trim();
+    if (line.length < 8 || TOLERANT_SKIP.test(line)) continue;
+    const moneys = [...line.matchAll(/(?<![\w.,])(\d{1,6}(?:[ .]\d{3})*[.,]\d{2})(?![\d])/g)].map((m) => ({ v: money(m[1]), i: m.index ?? 0 }));
+    const labeledQty = /(?:qt[ée]|quantit[ée])\s*:?\s*(\d{1,3})\b|\bx\s?(\d{1,3})\b/i.exec(line);
+    if (!moneys.length && !labeledQty) continue;
+    const tokens = line.split(/[\s;|\t]+/);
+    const refTok = tokens.find((t) => {
+      const v = t.replace(/[:,;]+$/, "");
+      return v.length >= 4 && v.length <= 24 && /\d/.test(v) && /^[A-Z0-9][A-Z0-9.\-/]+$/i.test(v)
+        && !/^\d{1,6}(?:[ .]\d{3})*[.,]\d{2}$/.test(v) && !/^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}$/.test(v)
+        && !findFrenchPlate(v) && !/^\d{1,3}$/.test(v) && !/%$/.test(v);
+    });
+    if (!refTok) continue;
+    const reference = refTok.replace(/[:,;]+$/, "").toUpperCase();
+    const refAt = line.indexOf(refTok);
+    const firstMoneyAt = moneys[0]?.i ?? line.length;
+    const labelZone = (refAt < firstMoneyAt ? line.slice(refAt + refTok.length, firstMoneyAt) : line.slice(0, firstMoneyAt))
+      .replace(/(?:qt[ée]|quantit[ée])\s*:?\s*\d{1,3}|\bx\s?\d{1,3}\b/gi, " ")
+      .replace(/(?:^|\s)\d{1,3}(?=\s*$)/, " ")
+      .replace(/\s{2,}/g, " ").trim();
+    if (!/[A-Za-zÀ-ÿ]{3}/.test(labelZone)) continue;
+    const before = line.slice(0, firstMoneyAt).trim().split(" ");
+    const tailInt = /^\d{1,3}$/.test(before.at(-1) ?? "") ? before.at(-1)! : null;
+    const leadInt = /^\d{1,3}$/.test(tokens[0] ?? "") && tokens[0] !== refTok ? tokens[0]! : null;
+    const quantity = qtyOf(labeledQty?.[1] ?? labeledQty?.[2] ?? tailInt ?? leadInt ?? "1") ?? 1;
+    const unit = moneys[0]?.v ?? null;
+    const amount = moneys.length > 1 ? moneys.at(-1)!.v : unit != null ? Math.round(unit * quantity * 100) / 100 : null;
+    out.push({ reference, label: labelZone.replace(/^[-:–\s]+/, "") || null, quantity, unit_price: unit, amount });
+  }
+  return out;
+}
+
+function parseItemLinesStrict(text: string): Line[] {
+
   const out: Line[] = [];
   const refFirst = new RegExp(
     String.raw`^${REF}\s+(.+?)\s+(\d{1,3}(?:[.,]\d{1,2})?)\s+${MONEY}\s*(?:€|EUR)?(?:\s+[\d.,%\s]*?)?(?:\s+${MONEY})?\s*(?:€|EUR)?$`,
