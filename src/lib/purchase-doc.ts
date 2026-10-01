@@ -26,9 +26,13 @@ export async function readPurchaseDoc(file: File): Promise<ReadDoc> {
       console.warn("[purchase-import] line contract rejected", diagnostic);
       return { file, extracted, warning: "Les lignes détectées n'ont pas pu être transmises au formulaire. Le document doit être relu ou complété manuellement." };
     }
+    const noLines = mapped.length === 0 || mapped.every((l) => !String((l as { reference?: unknown }).reference ?? "").trim() && !String((l as { label?: unknown }).label ?? "").trim());
+    if (noLines) {
+      console.warn("[purchase-import] zero lines extracted", diagnostic);
+      return { file, extracted, warning: "Aucune ligne détectée dans le document – vérifiez le document ou ajoutez les lignes manuellement." };
+    }
     if (res.ok) return { file, extracted, warning: null };
-    const partial = extracted;
-    return { file, extracted: partial, warning: `${res.error} Complétez ou contrôlez les informations signalées.` };
+    return { file, extracted, warning: `${res.error} Complétez ou contrôlez les informations signalées.` };
   } catch {
     return { file, extracted: {}, warning: "Lecture automatique indisponible : complétez à la main." };
   }
