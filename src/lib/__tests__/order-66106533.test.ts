@@ -25,7 +25,7 @@ describe("order_66106533.pdf (Castillon)", () => {
   it("contrat formulaire : ligne préremplie", () => {
     const ex = normalizePurchaseExtract(purchaseRules(TXT)) as InvoiceExtract;
     const form = orderFormLinesFromDoc(ex) as unknown as Record<string, unknown>[];
-    const part = form.filter((l) => l["reference"] === "AH340");
+    const part = form.filter((l) => l["physical_reference"] === "AH340");
     expect(part).toHaveLength(1);
     expect(JSON.stringify(part[0])).toContain("FILTRE D'HABITACLE A POLLEN");
     expect(JSON.stringify(part[0])).toMatch(/13[.,]72/);
