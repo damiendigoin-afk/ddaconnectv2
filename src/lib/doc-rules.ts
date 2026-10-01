@@ -220,6 +220,8 @@ const TOLERANT_SKIP = /total|t\.?v\.?a|sous-total|frais|\bport\b|transport|livra
  */
 export function parseItemLinesTolerant(text: string): Line[] {
   const out: Line[] = [];
+  // Colonne « Équipementier » avant la désignation (catalogues type Renault/ePièces) : marque retirée de la désignation.
+  const brandColumn = /[ée]quipementier[^\n]*d[ée]signation/i.test(cleanText(text));
   for (const raw of cleanText(text).split("\n")) {
     const line = raw.replace(/[|;\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
     if (line.length < 8 || TOLERANT_SKIP.test(line)) continue;
@@ -237,15 +239,24 @@ export function parseItemLinesTolerant(text: string): Line[] {
     const reference = refTok.replace(/[:,;]+$/, "").toUpperCase();
     const refAt = line.indexOf(refTok);
     const firstMoneyAt = moneys[0]?.i ?? line.length;
-    const labelZone = (refAt < firstMoneyAt ? line.slice(refAt + refTok.length, firstMoneyAt) : line.slice(0, firstMoneyAt))
+    const clean = (s: string) => s
       .replace(/(?:qt[ée]|quantit[ée])\s*:?\s*\d{1,3}|\bx\s?\d{1,3}\b/gi, " ")
       .replace(/(?:^|\s)\d{1,3}(?=\s*$)/, " ")
       .replace(/\s{2,}/g, " ").trim();
+    // Désignation après la référence (« Réf Désignation PU ») sinon avant (« [Marque] Désignation Réf PU »).
+    const after = refAt < firstMoneyAt ? clean(line.slice(refAt + refTok.length, firstMoneyAt)) : "";
+    let labelZone = /[A-Za-zÀ-ÿ]{3}/.test(after) ? after : clean(line.slice(0, Math.min(refAt, firstMoneyAt)));
     if (!/[A-Za-zÀ-ÿ]{3}/.test(labelZone)) continue;
+    if (brandColumn && labelZone === clean(line.slice(0, refAt))) {
+      const words = labelZone.split(" ");
+      if (words.length > 1 && /^[A-Z0-9&\-.]+$/.test(words[0]!)) labelZone = words.slice(1).join(" ");
+    }
     const before = line.slice(0, firstMoneyAt).trim().split(" ");
     const tailInt = /^\d{1,3}$/.test(before.at(-1) ?? "") ? before.at(-1)! : null;
     const leadInt = /^\d{1,3}$/.test(tokens[0] ?? "") && tokens[0] !== refTok ? tokens[0]! : null;
-    const quantity = qtyOf(labeledQty?.[1] ?? labeledQty?.[2] ?? tailInt ?? leadInt ?? "1") ?? 1;
+    // Quantité après le prix (« 13,72 € HT 1 »).
+    const afterPrice = /(?:€|EUR)?\s*(?:H\.?T\.?)?\s+(\d{1,3})\s*$/i.exec(line.slice(moneys.at(-1)?.i ?? line.length).replace(/^\d[\d .]*[.,]\d{2}/, ""));
+    const quantity = qtyOf(labeledQty?.[1] ?? labeledQty?.[2] ?? tailInt ?? leadInt ?? afterPrice?.[1] ?? "1") ?? 1;
     const unit = moneys[0]?.v ?? null;
     const amount = moneys.length > 1 ? moneys.at(-1)!.v : unit != null ? Math.round(unit * quantity * 100) / 100 : null;
     out.push({ reference, label: labelZone.replace(/^[-:–\s]+/, "") || null, quantity, unit_price: unit, amount });
