@@ -593,9 +593,106 @@ export function renaultOrderDetailRules(raw: string): Fields | null {
   };
 }
 
+/* ------------- Template commande Logiweb (DISTRI CASH…) : en-tête Numéro/Date/Client/Référence/Immat ------------- */
+
+export function isLogiwebOrder(raw: string): boolean {
+  const t = cleanText(raw);
+  return /num[ée]ro\s+date\s+client\s+r[ée]f[ée]rence\s+immatriculation/i.test(t) && /\bquantit[ée]\s+d[ée]signation\b/i.test(t) && /prix\s+net/i.test(t);
+}
+
+const MONEY_TOKEN = /\d{1,6}(?:[ .]\d{3})*,\d{2}/g;
+/** Ligne article Logiweb : « 2 16764 - DÉSIGNATION 80,50 35.2 % 52,16 104,32 1 ». PA = Prix Net unitaire, jamais le Montant HT. */
+const LOGIWEB_LINE = /^(\d{1,4}(?:[.,]\d{1,2})?)\s+([A-Z0-9][A-Z0-9.\/]*)\s+-\s+(.+?)\s+(\d{1,6},\d{2})\s+(?:(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s+)?(\d{1,6},\d{2})\s+(\d{1,6},\d{2})(?:\s+\d)?\s*$/;
+
+export function logiwebOrderRules(raw: string): Fields | null {
+  if (!isLogiwebOrder(raw)) return null;
+  const rows = cleanText(raw).split("\n").map((r) => r.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const head = rows.findIndex((r) => /num[ée]ro\s+date\s+client/i.test(r));
+  const body = rows.findIndex((r, i) => i > head && /quantit[ée]\s+d[ée]signation/i.test(r));
+  // Bloc d'en-tête : valeurs entre la ligne de libellés et « Quantité Désignation ».
+  const zone = rows.slice(head + 1, body).filter((r) => !/^(etabli|edit[ée]|kms)/i.test(r));
+  let document_date: string | null = null; let orderNo: string | null = null; let client: string | null = null;
+  let plate: string | null = null; const others: string[] = [];
+  for (const r of zone) {
+    const dm = /(\d{2}\/\d{2}\/\d{4})/.exec(r);
+    if (dm && !document_date) {
+      document_date = isoDate(dm[1]!);
+      orderNo = /(\d{6,10})\s+\d{2}\/\d{2}\/\d{4}/.exec(r)?.[1] ?? null;
+      client = /\d{2}\/\d{2}\/\d{4}\s+(\d{3,7})\b/.exec(r)?.[1] ?? null;
+      const tail = r.replace(/^.*?\d{2}\/\d{2}\/\d{4}\s*(?:\d{3,7}\b)?/, "");
+      others.push(...tail.split(" ").filter(Boolean));
+      others.push(...r.replace(/\d{2}\/\d{2}\/\d{4}.*$/, "").split(" ").filter((t) => t !== orderNo && !/^commande$/i.test(t)));
+      continue;
+    }
+    for (const t of r.split(" ")) {
+      if (/^commande$/i.test(t)) continue;
+      const p = findFrenchPlate(t);
+      if (p && !plate) { plate = p; continue; }
+      others.push(t);
+    }
+  }
+  const reference = others.find((t) => /^\d{3,8}$/.test(t) && t !== orderNo && t !== client) ?? null;
+  const origin = /origine\s+cde\s*:\s*([A-Z0-9][\w-]*)/i.exec(rows.join("\n"))?.[1]?.toUpperCase() ?? null;
+  const lines: Line[] = [];
+  const anomalies: string[] = [];
+  const end = rows.findIndex((r, i) => i > body && /^(tva\s+base|informations\s+d|total\b)/i.test(r));
+  for (const r of rows.slice(body + 1, end > body ? end : rows.length)) {
+    const m = LOGIWEB_LINE.exec(r);
+    if (!m) continue;
+    const quantity = qtyOf(m[1]!);
+    const net = money(m[6]!); const amount = money(m[7]!);
+    lines.push({ reference: m[2]!.toUpperCase(), label: m[3]!.trim(), quantity, unit_price: net, amount, gross_price: money(m[4]!), discount_pct: m[5] ? Number(m[5].replace(",", ".")) : null });
+    if (quantity != null && net != null && amount != null && Math.abs(quantity * net - amount) > 0.02) anomalies.push(`Ligne ${m[2]} : ${quantity} × ${m[6]} ≠ ${m[7]} à vérifier`);
+  }
+  if (!lines.length) return null;
+  // Pied : ligne où Total HT + Total TVA = Total TTC (les autres lignes TVA sont base/taux/montant).
+  let total_ht: number | null = null, vat_amount: number | null = null, total_ttc: number | null = null;
+  const foot = rows.findIndex((r) => /total\s+ht.*total\s+ttc/i.test(r));
+  for (const r of foot >= 0 ? rows.slice(foot + 1) : []) {
+    const v = (r.match(MONEY_TOKEN) ?? []).map((x) => money(x)!).filter((x) => x != null);
+    for (let i = 0; i + 2 < v.length; i += 1) {
+      if (Math.abs(v[i]! + v[i + 1]! - v[i + 2]!) <= 0.02) { total_ht = v[i]!; vat_amount = v[i + 1]!; total_ttc = v[v.length - 1]!; break; }
+    }
+    if (total_ht != null) break;
+  }
+  const sum = Math.round(lines.reduce((t, l) => t + (l.amount ?? 0), 0) * 100) / 100;
+  const control_alerts = [...anomalies];
+  if (total_ht != null && Math.abs(sum - total_ht) > 0.02) control_alerts.push(`Écart de contrôle : somme des lignes ${sum.toFixed(2).replace(".", ",")} € ≠ Total HT ${total_ht.toFixed(2).replace(".", ",")} €`);
+  const supplierRaw = rows[0] && /[A-Za-z]{3}/.test(rows[0]) && !isGarageName(rows[0]) ? rows[0].toUpperCase() : null;
+  return {
+    template: "logiweb_commande",
+    doc_kind: "commande",
+    supplier: supplierRaw,
+    supplier_info: supplierRaw ? { name: supplierRaw } : null,
+    supplier_client_number: client,
+    order_origin: origin,
+    order_reference: orderNo,
+    document_number: orderNo,
+    document_date,
+    order_date: document_date,
+    // Repère document : proposé comme n° de dossier (rapprochement OR), jamais créé comme OR officiel.
+    customer_reference: reference,
+    document_reference: reference,
+    or_number: reference,
+    or_numbers: reference ? [reference] : [],
+    plate,
+    plate_printed: !!plate,
+    lines,
+    line_quality: control_alerts.length ? null : "complete",
+    control_alerts,
+    total_ht: total_ht ?? sum,
+    vat_amount,
+    total_ttc,
+    currency: "EUR",
+    quality_score: 6,
+  };
+}
+
 export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const renault = renaultOrderDetailRules(raw);
   if (renault) return renault;
+  const logiweb = logiwebOrderRules(raw);
+  if (logiweb) return logiweb;
   const text = cleanText(raw);
   const low = text.toLowerCase();
   const doc_kind = /facture/.test(low) && !/bon de livraison/.test(low)

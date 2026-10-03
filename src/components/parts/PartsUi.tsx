@@ -7,6 +7,7 @@ import { useSite } from "@/lib/site-context";
 import { listSuppliers } from "@/lib/suppliers";
 import { supabase } from "@/integrations/supabase/client";
 import { orderLogisticsAlert, rankSuppliers } from "@/lib/order-logistics";
+import { supplierMenu } from "@/lib/supplier-aliases";
 import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
 import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
