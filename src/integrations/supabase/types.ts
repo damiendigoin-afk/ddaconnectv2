@@ -4392,6 +4392,7 @@ export type Database = {
           created_by: string | null
           created_by_name: string | null
           destination: string
+          expected_delivery_date: string | null
           id: string
           order_date: string | null
           order_mode: string
@@ -4417,6 +4418,7 @@ export type Database = {
           created_by?: string | null
           created_by_name?: string | null
           destination?: string
+          expected_delivery_date?: string | null
           id?: string
           order_date?: string | null
           order_mode?: string
@@ -4442,6 +4444,7 @@ export type Database = {
           created_by?: string | null
           created_by_name?: string | null
           destination?: string
+          expected_delivery_date?: string | null
           id?: string
           order_date?: string | null
           order_mode?: string
