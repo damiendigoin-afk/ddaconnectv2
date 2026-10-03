@@ -1,3 +1,4 @@
+import { DuplicateOrderError, duplicateIdFromDbError, findDuplicateIn, type ExistingOrder, type OrderKey } from "@/lib/order-duplicate";
 import { simplifiedEnrichment } from "@/lib/receipt-lines";
 /**
  * Pièces & achats V3 (Phase B) : commandes, réceptions physiques, stock, pointage OR, temps, travaux terminés.
@@ -280,7 +281,11 @@ export async function createOrder(
 ) {
   const { lines, ...head } = o;
   const { data, error } = await supabase.from("part_orders").insert({ ...head, created_by_name: actor.name }).select("id").single();
-  if (error) throw error;
+  if (error) {
+    const dup = duplicateIdFromDbError(error.message);
+    if (dup !== undefined) throw new DuplicateOrderError(dup);
+    throw error;
+  }
   const clean = lines.filter((l) => l.physical_reference.trim() || l.designation.trim());
   if (clean.length) {
     const { error: e2 } = await supabase.from("part_order_lines").insert(
@@ -291,6 +296,24 @@ export async function createOrder(
   await logEvent({ site_id: o.site_id, entity: "part_order", entity_id: data.id, repair_order_id: o.repair_order_id, action: "create", detail: { mode: o.order_mode, lines: clean.length } }, actor);
   return data.id;
 }
+
+/** Commande active identique déjà enregistrée (règles src/lib/order-duplicate.ts), sinon null. */
+export async function findDuplicateOrder(c: OrderKey) {
+  const cols = "id, status, created_at, site_id, destination, supplier_id, supplier_order_ref, source_document_id, repair_order_id, requested_or_number, plate, suppliers(name), repair_orders(or_number)";
+  const base = () => supabase.from("part_orders").select(cols).eq("site_id", c.site_id).neq("status", "cancelled").order("created_at").limit(50);
+  const rows: DuplicateHit[] = [];
+  if (c.source_document_id) {
+    const { data } = await base().eq("source_document_id", c.source_document_id);
+    rows.push(...((data ?? []) as unknown as DuplicateHit[]));
+  }
+  const r = (c.supplier_order_ref ?? "").trim();
+  if (r && c.supplier_id) {
+    const { data } = await base().eq("supplier_id", c.supplier_id).eq("supplier_order_ref", r);
+    rows.push(...((data ?? []) as unknown as DuplicateHit[]));
+  }
+  return findDuplicateIn(c, rows);
+}
+export type DuplicateHit = ExistingOrder & { suppliers: { name: string } | null; repair_orders: { or_number: string | null } | null };
 
 /** RDV facultatif d'une commande (donnée logistique, saisie libre). */
 export async function setOrderDates(orderId: string, d: { appointment_date: string | null }) {

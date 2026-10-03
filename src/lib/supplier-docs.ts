@@ -115,6 +115,16 @@ export async function fetchSupplierDocs(siteId?: string | null): Promise<Supplie
 }
 
 /** Dépôt du fichier + création de la fiche en « Non traité ». */
+/** Document déjà archivé pour ce fichier (même SHA-256, même site, même type), sans rien créer. */
+export async function findExistingSupplierDocId(file: File, siteId: string | null, docType?: string): Promise<string | null> {
+  const hashBuf = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  const contentHash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  let q = supabase.from("inbox_documents").select("id").eq("content_hash", contentHash).eq("doc_type", docType ?? SUPPLIER_DOC_TYPE).neq("status", "doublon").order("created_at", { ascending: false }).limit(1);
+  q = siteId ? q.eq("site_id", siteId) : q.is("site_id", null);
+  const { data } = await q;
+  return (data?.[0] as { id?: string } | undefined)?.id ?? null;
+}
+
 export async function uploadSupplierDoc(opts: {
   file: File;
   extracted: InvoiceExtract;
