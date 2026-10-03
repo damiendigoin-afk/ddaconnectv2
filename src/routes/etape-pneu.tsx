@@ -152,6 +152,9 @@ function TireStepPage() {
     setEdit({ ...edit, depth });
   };
   const quote = edit ? quoteSearchFromResult(edit) : {};
+  const labels = zoneLabels(resolveInnerSide(orient, d?.inner_side ?? null));
+  const treads = images.filter((i) => i.role === "tread");
+  const treadSrc = treads[Math.floor(treads.length / 2)]?.dataUrl ?? null;
 
   return (
     <AppShell title="État pneus" subtitle="Flanc, usure et profil de la bande de roulement" back={{ to: "/atelier" }}>
@@ -230,13 +233,21 @@ function TireStepPage() {
         {edit && sw && d && w ? (
           <>
             <section className="card-surface space-y-3 p-4">
-              <h2 className="text-sm font-extrabold uppercase">Profil d'usure</h2>
+              <h2 className="text-sm font-extrabold uppercase">Profondeurs sur la photo</h2>
               <div className="flex items-start gap-2 rounded-lg border-2 border-warning bg-warning/10 px-3 py-2 text-xs font-bold">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-warning" /> {EXPERIMENTAL_DEPTH_NOTICE}
               </div>
-              <TireWearProfile points={d.points_mm} />
+              {treadSrc ? <TireTreadOverlay src={treadSrc} values={[d.inner_mm, d.center_mm, d.outer_mm]} labels={labels} /> : <p className="text-sm text-muted-foreground">Aucune photo de bande de roulement.</p>}
+              <label className="block text-[10px] font-bold uppercase text-muted-foreground">Orientation (côté intérieur du véhicule sur la photo)
+                <select value={orient} onChange={(e) => setOrient(e.target.value as Orientation)} className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-2 text-sm font-normal normal-case text-foreground">
+                  <option value="auto">Automatique ({d.inner_side ? `IA : intérieur à ${d.inner_side}` : "IA : non déterminée"})</option>
+                  <option value="gauche">Intérieur à gauche de la photo</option>
+                  <option value="droite">Intérieur à droite de la photo</option>
+                  <option value="inconnue">Inconnue (Gauche / Milieu / Droite)</option>
+                </select>
+              </label>
               <div className="grid grid-cols-3 gap-2">
-                {([["inner_mm", "Intérieur"], ["center_mm", "Centre"], ["outer_mm", "Extérieur"]] as const).map(([k, l]) => {
+                {([["inner_mm", labels[0]], ["center_mm", labels[1]], ["outer_mm", labels[2]]] as const).map(([k, l]) => {
                   const lvl = wearLevel(d[k]);
                   return (
                     <label key={k} className={`rounded-lg border-2 p-2 text-center ${lvl === "critique" ? "border-destructive" : lvl === "surveiller" ? "border-warning" : "border-border"}`}>
@@ -251,7 +262,7 @@ function TireStepPage() {
                 Confiance : {d.confidence ? CONF[d.confidence] : "non indiquée"} · Réglette/jauge visible : {d.gauge_visible ? "oui (référence utilisée)" : "non"}
                 {d.note ? ` · ${d.note}` : ""}
               </p>
-              {isAsymmetric(d) ? <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm font-bold">Usure dissymétrique : écart intérieur / extérieur important.</p> : null}
+              {isAsymmetric(d) ? <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm font-bold">Usure dissymétrique : écart important entre les deux bords.</p> : null}
             </section>
 
             <section className="card-surface space-y-2 p-4">
