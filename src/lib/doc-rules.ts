@@ -711,6 +711,30 @@ function blockAfter(lines: string[], label: RegExp, max = 8): string | null {
   return out.length ? out.join("\n") : null;
 }
 
+/** Zone stricte « Remarques du client » : jamais les blocs voisins ou le dessin carrosserie. */
+function clientRemarksBlock(lines: string[]): string | null {
+  const label = /remarques?\s+(?:du\s+)?client/i;
+  const i = lines.findIndex((l) => label.test(l));
+  if (i < 0) return null;
+  const inline = lines[i]!.replace(label, "").replace(/^[\s:.\-–=]+/, "").trim();
+  const out = inline ? [inline] : [];
+  for (const line of lines.slice(i + 1, i + 6)) {
+    if (/^(travaux|interventions?|montants?|signature|mentions?|conditions?|dessin|carrosserie|date|entr[ée]e|restitution|kilom|v[ée]hicule|client|conseiller)\b/i.test(line) || labelHits(line).length) break;
+    out.push(line.trim());
+  }
+  const value = out.filter(Boolean).join("\n").trim();
+  if (!value || value.length > 500 || !/[A-Za-zÀ-ÿ]{3}/.test(value) || /[{}<>]|(?:\b(?:page|total|tva|signature)\b.*){2}/i.test(value)) return null;
+  return value;
+}
+
+/** Petites confusions OCR certaines dans une appellation véhicule. */
+export function normalizeVehicleModel(v: string | null | undefined): string | null {
+  let s = (v ?? "").trim().replace(/\s+/g, " ");
+  if (!s) return null;
+  s = s.replace(/\b([A-Z]{2,})1O(\d{2})\b/g, "$1 1.0 $2");
+  return s;
+}
+
 /* ---------- OR Renault / WinMotor : libellés sémantiques d'abord ---------- */
 
 const OR_LABELS: [string, RegExp][] = [
@@ -927,7 +951,7 @@ export function repairOrderRules(raw: string): Fields {
   const brand = brandIn(L["brand"]) ?? brandIn(L["vehicle"])
     ?? CAR_BRANDS.find((b) => lines.some((l) => new RegExp(`\\b${b}\\b`, "i").test(l) && !/agent|concession|distribut|garage|r[ée]paration/i.test(l))) ?? null;
   // Modèle : uniquement libellé « modèle (véhicule) » ou « Véhicule : MARQUE modèle ».
-  let model: string | null = L["model"]?.split(/\s{2,}/)[0]?.trim() ?? null;
+  let model: string | null = normalizeVehicleModel(L["model"]?.split(/\s{2,}/)[0]) ?? null;
   if (!model && L["vehicle"]) {
     const vb = brandIn(L["vehicle"]);
     model = (vb ? L["vehicle"].replace(new RegExp(`^.*?\\b${vb}\\b`, "i"), "") : L["vehicle"]).trim() || null;
@@ -964,7 +988,7 @@ export function repairOrderRules(raw: string): Fields {
       delivery_at,
       last_vo_sale: isoDate(L["vo"] ?? null) ?? null,
       requested_work: blockAfter(lines, /travaux (?:demand[ée]s|[àa] effectuer)|demande(?:s)? (?:du )?client|intervention(?:s)? demand[ée]e?s?/i),
-      client_remarks: L["remark"] ?? blockAfter(lines, /remarques?|observations?/i, 4),
+      client_remarks: clientRemarksBlock(lines),
     },
   };
   return sanitizeRepairOrder(draft).fields;
