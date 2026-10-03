@@ -296,11 +296,13 @@ export async function createOrder(
 /** Commande similaire déjà passée (avertissement seulement, règles src/lib/order-duplicate.ts), sinon null. */
 export async function findSimilarOrder(c: OrderKey & { lines: OrderLineLike[] }) {
   if (!c.supplier_id || !c.lines.length) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("part_orders")
     .select("id, status, created_at, site_id, destination, supplier_id, supplier_order_ref, source_document_id, repair_order_id, requested_or_number, plate, suppliers(name), repair_orders(or_number), part_order_lines(physical_reference, designation, qty_ordered, expected_unit_cost_ht)")
     .eq("site_id", c.site_id).eq("supplier_id", c.supplier_id).neq("status", "cancelled")
-    .order("created_at", { ascending: false }).limit(100);
+    .order("created_at", { ascending: false }).limit(500);
+  // Jamais de « pas de doublon » silencieux sur une erreur de lecture.
+  if (error) throw new Error(`Contrôle commande similaire impossible : ${error.message}`);
   return findSimilarIn(c, (data ?? []) as unknown as PastOrder[]);
 }
 

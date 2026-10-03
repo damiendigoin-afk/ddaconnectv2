@@ -178,10 +178,10 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
       const tagged = lines.map((l, i) => ({ l, or: lineOrs[i] || null })).filter(({ l }) => l.physical_reference.trim() || l.designation.trim());
       return groupLinesByOr(multiOrs, tagged).map((g) => {
         const ro = orFound[g.or] ?? null;
-        return { ...head, repair_order_id: ro?.id ?? null, requested_or_number: requestedDossier(ro, g.or), plate: ro?.plate ?? plate, lines: g.lines.map((t) => t.l) };
+        return { ...head, repair_order_id: ro?.id ?? null, requested_or_number: requestedDossier(ro, g.or), or_number: ro?.or_number ?? g.or, plate: ro?.plate ?? plate, lines: g.lines.map((t) => t.l) };
       });
     }
-    return [{ ...head, repair_order_id: orv.or?.id ?? null, requested_or_number: requestedOr, plate, lines: filled(lines) }];
+    return [{ ...head, repair_order_id: orv.or?.id ?? null, requested_or_number: requestedOr, or_number: orv.or?.or_number ?? (dossier.trim() || null), plate, lines: filled(lines) }];
   };
   const firstSimilar = async (docId: string | null) => {
     for (const k of similarKeys(docId)) {
@@ -228,7 +228,9 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
       // Commande similaire : confirmation explicite avant toute création (jamais de blocage).
       if (!confirmed) {
         const preDoc = doc ? await findExistingSupplierDocId(doc.file, writeSite, ORDER_DOC_TYPE).catch(() => knownDocId) : null;
-        const hit = await firstSimilar(preDoc).catch(() => null);
+        let hit: SimilarOrder | null;
+        try { hit = await firstSimilar(preDoc); }
+        catch (e) { toast.error(`${e instanceof Error ? e.message : "Contrôle impossible"} — réessayez.`); return; }
         if (hit) { setSimilar(hit); setConfirming(hit); return; }
       }
       setConfirming(null);

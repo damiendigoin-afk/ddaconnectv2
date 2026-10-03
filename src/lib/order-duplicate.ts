@@ -24,6 +24,8 @@ export type OrderKey = {
   repair_order_id: string | null;
   requested_or_number: string | null;
   plate: string | null;
+  /** N° de l'OR WinMotor rattaché (candidat), si connu. */
+  or_number?: string | null;
 };
 
 export type PastOrder = OrderKey & {
@@ -51,6 +53,26 @@ export function orderTarget(o: Pick<OrderKey, "repair_order_id" | "requested_or_
   return "none";
 }
 
+const normOr = (v: string | null | undefined) => (v ?? "").trim().toUpperCase();
+const normPlate = (v: string | null | undefined) => (v ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+
+/**
+ * Même cible dossier/OR, tolérante : un OR DDA peut être rattaché d'un côté et seulement
+ * le n° de dossier saisi de l'autre (même n°), ou seule la plaque connue d'un côté.
+ * Deux OR / dossiers différents ne sont jamais la même cible, même plaque.
+ */
+export function sameTarget(a: OrderKey & { repair_orders?: { or_number: string | null } | null }, b: OrderKey & { repair_orders?: { or_number: string | null } | null }): boolean {
+  if (a.repair_order_id && b.repair_order_id && a.repair_order_id === b.repair_order_id) return true;
+  const ors = (o: typeof a) => new Set([normOr(o.requested_or_number), normOr(o.or_number), normOr(o.repair_orders?.or_number)].filter(Boolean));
+  const oa = ors(a), ob = ors(b);
+  const hasA = oa.size > 0 || Boolean(a.repair_order_id), hasB = ob.size > 0 || Boolean(b.repair_order_id);
+  if ([...oa].some((x) => ob.has(x))) return true;
+  if (hasA && hasB) return false;
+  const pa = normPlate(a.plate), pb = normPlate(b.plate);
+  if (pa && pb) return pa === pb;
+  return !hasA && !hasB && !pa && !pb;
+}
+
 const norm = (v: string | null | undefined) => (v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
 /** Clé article : référence normalisée, sinon désignation normalisée ; null si vide. */
@@ -71,11 +93,10 @@ export function sameOrderLine(a: OrderLineLike, b: OrderLineLike): boolean {
 /** Commande précédente la plus récente ayant au moins une ligne identique, sinon null. */
 export function findSimilarIn(candidate: OrderKey & { lines: OrderLineLike[] }, past: PastOrder[]): SimilarOrder | null {
   if (!candidate.supplier_id) return null;
-  const target = orderTarget(candidate);
   const hits: SimilarOrder[] = [];
   for (const o of past) {
     if (o.status === "cancelled" || o.site_id !== candidate.site_id || o.supplier_id !== candidate.supplier_id) continue;
-    if ((o.destination ?? null) !== (candidate.destination ?? null) || orderTarget(o) !== target) continue;
+    if ((o.destination ?? null) !== (candidate.destination ?? null) || !sameTarget(candidate, o)) continue;
     const lines = (o.part_order_lines ?? []).filter((pl) => candidate.lines.some((cl) => sameOrderLine(cl, pl)));
     if (!lines.length) continue;
     const ref = (candidate.supplier_order_ref ?? "").trim();
