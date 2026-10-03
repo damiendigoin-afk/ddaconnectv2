@@ -31,6 +31,7 @@ vi.mock("@/components/parts/PartsUi", () => ({
   ),
   PriceInput: ({ value, ...props }: { value?: number | null; [key: string]: unknown }) => <input {...props} value={value ?? ""} readOnly />,
   OrLink: () => null,
+  LogisticsBadge: () => null,
   usePartsCtx: () => ({ actor: { userId: "user", name: "Test" }, writeSite: "site", siteName: () => "DDA", sites: [] }),
   useSuppliers: () => ({ data: [{ id: "supplier-pad", name: "OSKARBI AUTO SL" }] }),
   btnGhost: "",

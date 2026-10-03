@@ -563,8 +563,8 @@ export function renaultOrderDetailRules(raw: string): Fields | null {
     line_quality: control_alerts.length ? null : "complete",
     control_alerts,
     total_ht: totalHt ?? sum,
-    vat_amount: null,
-    total_ttc: null,
+    vat_amount: lastMoneyOnLines(text, /^t\.?v\.?a\b/i),
+    total_ttc: lastMoneyOnLines(text, /total\s*t\.?t\.?c/i),
     currency: "EUR",
     quality_score: 6,
   };

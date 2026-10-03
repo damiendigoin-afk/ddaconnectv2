@@ -75,9 +75,11 @@ describe("Commande Renault Sarlat 45954556", () => {
     const y = normalizePurchaseExtract(purchaseRules(SARLAT.replace("\n64,22 € HT", "\nPrix net : 64,22 € HT").replace("\n30,65 € HT", "\nPrix net : 30,65 € HT")));
     expect(y.lines?.map((l) => l.unit_price)).toEqual([64.22, 30.65]);
   });
-  it("montants HT incohérents avec le total => prix client conservé", () => {
+  // Règle 03/10/2026 : le Prix client n'alimente jamais le PA ; un écart de total devient une alerte de contrôle.
+  it("montants HT incohérents avec le total => PA conservé + alerte de contrôle", () => {
     const y = normalizePurchaseExtract(purchaseRules(SARLAT.replace("Total HT : 94,87 €", "Total HT : 178,06 €")));
-    expect(y.lines?.map((l) => l.unit_price)).toEqual([116.76, 61.3]);
+    expect(y.lines?.map((l) => l.unit_price)).toEqual([64.22, 30.65]);
+    expect(y.control_alerts?.join(" ")).toMatch(/Écart de contrôle/);
   });
 });
 
