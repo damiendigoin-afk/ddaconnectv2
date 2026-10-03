@@ -296,8 +296,8 @@ export async function notifyTourCompleted(args: {
               subject,
               html,
               (attachments ?? []).map((a: Record<string, unknown>) => [
-                a.filename,
-                typeof a.content === "string" ? a.content.length : 0,
+                a["filename"],
+                typeof a["content"] === "string" ? a["content"].length : 0,
               ]),
             ]),
           }),

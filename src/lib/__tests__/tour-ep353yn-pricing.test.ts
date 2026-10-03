@@ -33,7 +33,7 @@ function pending(statuses: Record<string, string>) {
 describe("Tour EP-353-YN — chaînage analyse 4 pneus → chiffrage", () => {
   it("dimension stockée séparée en dimension + indices exploitables", () => {
     const a = legacyTireAnalysis(step(1, true));
-    expect(a.ai.size).toBe("155/65 R14");
+    expect(a.ai.size).toBe("155/65R14");
     expect(a.ai.load_index).toBe("75");
     expect(a.ai.speed_index).toBe("T");
     expect(a.confirmedRef).toBe(SIZE);
@@ -42,14 +42,14 @@ describe("Tour EP-353-YN — chaînage analyse 4 pneus → chiffrage", () => {
   });
 
   it("données anciennes (taille complète dans size) normalisées au chiffrage", () => {
-    expect(normalizeTireRequirement({ size: SIZE, load: null, speed: null })).toEqual({ size: "155/65 R14", load: "75", speed: "T" });
+    expect(normalizeTireRequirement({ size: SIZE, load: null, speed: null })).toEqual({ size: "155/65R14", load: "75", speed: "T" });
   });
 
   it("remplacement AV seul => 2 pneus", () => {
     const items = buildTireGroupItems(pending({ pneu_avg: "defect", pneu_avd: "defect" }), new Map());
     expect(items).toHaveLength(1);
     expect(items[0]!.quantity).toBe(2);
-    expect(items[0]!.computation.size).toBe(SIZE);
+    expect(items[0]!.computation["size"]).toBe(SIZE);
   });
 
   it("un pneu AV + un pneu AR => 4 pneus", () => {
