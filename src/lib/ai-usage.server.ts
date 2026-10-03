@@ -36,11 +36,23 @@ export type PaidAiInput = {
    * insuffisante : autorisée même si le réglage « repli IA » est désactivé (budgets toujours appliqués).
    */
   essentialVision?: boolean;
+  /** Banc de test : ni lecture ni écriture du cache (nouvelle analyse réelle). */
+  bypassCache?: boolean;
+  /**
+   * Banc de test : budgets prod et réglage « repli IA » ignorés — l'appelant applique
+   * le budget benchmark séparé. Ne JAMAIS utiliser pour un flux métier.
+   */
+  benchmark?: boolean;
 };
 
+export type PaidAiMetrics = { tokensIn: number; tokensOut: number; durationMs: number; httpStatus: number | null };
+
 export type PaidAiResult =
-  | { ok: true; content: string; cached: boolean; credits: number }
-  | { ok: false; error: string; status?: number; blocked?: boolean };
+  | ({ ok: true; content: string; cached: boolean; credits: number } & PaidAiMetrics)
+  | ({ ok: false; error: string; status?: number; blocked?: boolean } & Partial<PaidAiMetrics>);
+
+/** Préfixe des fonctions du banc de test : exclues du budget prod, budget séparé. */
+export const BENCH_FEATURE = "ai_document_benchmark";
 
 /* ------------------------------ Empreintes ------------------------------- */
 
@@ -80,11 +92,10 @@ export async function readBudget(): Promise<Budget> {
   };
 }
 
-async function spentSince(iso: string): Promise<number> {
-  const { data } = await supabaseAdmin
-    .from("ai_usage_log")
-    .select("estimated_credits")
-    .gte("created_at", iso);
+/** Crédits consommés depuis `iso` : prod (hors banc de test) ou banc de test seul. */
+export async function spentSince(iso: string, scope: "prod" | "benchmark" = "prod"): Promise<number> {
+  const q = supabaseAdmin.from("ai_usage_log").select("estimated_credits").gte("created_at", iso);
+  const { data } = await (scope === "prod" ? q.not("feature", "like", `${BENCH_FEATURE}%`) : q.like("feature", `${BENCH_FEATURE}%`));
   return (data ?? []).reduce((s, r) => s + Number(r.estimated_credits ?? 0), 0);
 }
 
@@ -145,8 +156,8 @@ export async function journalLocal(row: { feature: string; fingerprint: string; 
 export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
   const fp = await fingerprint(input.feature, input.model, input.fingerprintSeed);
 
-  // 1. Cache : un média inchangé n'est jamais réanalysé.
-  try {
+  // 1. Cache : un média inchangé n'est jamais réanalysé (sauf banc de test en mode bypass).
+  if (!input.bypassCache) try {
     const { data: cached } = await supabaseAdmin
       .from("ai_cache")
       .select("content, hits")
@@ -169,7 +180,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
         cache_hit: true,
         estimated_credits: 0,
       });
-      return { ok: true, content: cached.content, cached: true, credits: 0 };
+      return { ok: true, content: cached.content, cached: true, credits: 0, tokensIn: 0, tokensOut: 0, durationMs: 0, httpStatus: null };
     }
   } catch (e) {
     console.error("ai_cache read failed", e);
@@ -179,6 +190,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) return { ok: false, error: MANUAL_FALLBACK_MESSAGE };
 
+  if (!input.benchmark) {
   const budget = await readBudget();
   // Règle DDA : toute IA est un repli ultime ; réglage « repli IA » désactivé => aucun appel.
   if (!budget.fallbackAiEnabled && !input.essentialVision) {
@@ -207,6 +219,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
     });
     return { ok: false, error: MANUAL_FALLBACK_MESSAGE, blocked: true };
   }
+  }
 
   // 3. Appel unique, sans aucun retry.
   const started = Date.now();
@@ -231,11 +244,12 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
       duration_ms: Date.now() - started,
       estimated_credits: 0,
     });
-    return { ok: false, error: MANUAL_FALLBACK_MESSAGE };
+    return { ok: false, error: MANUAL_FALLBACK_MESSAGE, durationMs: Date.now() - started, httpStatus: null };
   }
 
   if (!res.ok) {
     const detail = await res.text();
+    const durationMs = Date.now() - started;
     console.error("ai gateway error", res.status, detail.slice(0, 500));
     await journal({
       feature: input.feature,
@@ -246,22 +260,24 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
       entity: input.entity,
       route: input.route ?? "ai_vision_fallback",
       success: false,
-      duration_ms: Date.now() - started,
+      duration_ms: durationMs,
       http_status: res.status,
       blocked_reason: res.status === 402 ? "credits_epuises" : res.status === 429 ? "rate_limit" : null,
       estimated_credits: 0,
     });
+    const m = { durationMs, httpStatus: res.status };
     // 402 / 429 / 403 : terminal, aucun retry côté application.
-    if (res.status === 402) return { ok: false, error: "Crédits d'analyse épuisés. " + MANUAL_FALLBACK_MESSAGE, status: 402, blocked: true };
-    if (res.status === 429) return { ok: false, error: "Trop de demandes. " + MANUAL_FALLBACK_MESSAGE, status: 429, blocked: true };
-    if (res.status === 403) return { ok: false, error: MANUAL_FALLBACK_MESSAGE, status: 403, blocked: true };
-    return { ok: false, error: MANUAL_FALLBACK_MESSAGE, status: res.status };
+    if (res.status === 402) return { ok: false, error: "Crédits d'analyse épuisés. " + MANUAL_FALLBACK_MESSAGE, status: 402, blocked: true, ...m };
+    if (res.status === 429) return { ok: false, error: "Trop de demandes. " + MANUAL_FALLBACK_MESSAGE, status: 429, blocked: true, ...m };
+    if (res.status === 403) return { ok: false, error: MANUAL_FALLBACK_MESSAGE, status: 403, blocked: true, ...m };
+    return { ok: false, error: MANUAL_FALLBACK_MESSAGE, status: res.status, ...m };
   }
 
   const json = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
+  const durationMs = Date.now() - started;
   const content = json.choices?.[0]?.message?.content ?? "";
   const tokensIn = json.usage?.prompt_tokens ?? 0;
   const tokensOut = json.usage?.completion_tokens ?? 0;
@@ -276,13 +292,13 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
     entity: input.entity,
     tokens_in: tokensIn,
     tokens_out: tokensOut,
-    duration_ms: Date.now() - started,
+    duration_ms: durationMs,
     http_status: 200,
     success: Boolean(content),
     estimated_credits: credits,
   });
 
-  if (content) {
+  if (content && !input.bypassCache) {
     try {
       await supabaseAdmin
         .from("ai_cache")
@@ -292,5 +308,5 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
     }
   }
 
-  return { ok: true, content, cached: false, credits };
+  return { ok: true, content, cached: false, credits, tokensIn, tokensOut, durationMs, httpStatus: 200 };
 }

@@ -105,3 +105,11 @@ Reste à faire :
 - [x] Monter le composant réel et contrôler les valeurs DOM
 - [x] Reproduire avec le PDF utilisateur exact et corriger la première pièce extraite sur deux lignes
 - [ ] Suite complète, typecheck, publication et contrôle visuel du PDF exact
+
+## Recette IA documentaire (banc A/B)
+- [ ] Migration tables ai_bench_* (RLS gérant) + budget benchmark séparé
+- [ ] Service IA : bypass cache, métriques, exclusion benchmark du budget prod
+- [ ] Schéma/scores/classification/export (purs) + tests
+- [ ] Fonctions serveur (préparation média, classification, A/B, pipeline réel sans écriture métier)
+- [ ] Page /parametrage/recette-ia mobile-first + campagnes + exports
+- [ ] Tests, typecheck, build (pas de publication)

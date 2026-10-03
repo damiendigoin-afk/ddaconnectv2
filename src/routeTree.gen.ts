@@ -60,6 +60,7 @@ import { Route as ParametrageGlobalRouteImport } from './routes/parametrage.glob
 import { Route as ParametrageImportsWinmotorRouteImport } from './routes/parametrage.imports-winmotor'
 import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.messages'
 import { Route as ParametrageNotificationsRouteImport } from './routes/parametrage.notifications'
+import { Route as ParametrageRecetteIaRouteImport } from './routes/parametrage.recette-ia'
 import { Route as ParametrageSanteRouteImport } from './routes/parametrage.sante'
 import { Route as ParametrageTarifsRouteImport } from './routes/parametrage.tarifs'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
@@ -364,6 +365,11 @@ const ParametrageNotificationsRoute =
     path: '/parametrage/notifications',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ParametrageRecetteIaRoute = ParametrageRecetteIaRouteImport.update({
+  id: '/parametrage/recette-ia',
+  path: '/parametrage/recette-ia',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametrageSanteRoute = ParametrageSanteRouteImport.update({
   id: '/parametrage/sante',
   path: '/parametrage/sante',
@@ -634,6 +640,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/imports-winmotor': typeof ParametrageImportsWinmotorRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
+  '/parametrage/recette-ia': typeof ParametrageRecetteIaRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -731,6 +738,7 @@ export interface FileRoutesByTo {
   '/parametrage/imports-winmotor': typeof ParametrageImportsWinmotorRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
+  '/parametrage/recette-ia': typeof ParametrageRecetteIaRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -830,6 +838,7 @@ export interface FileRoutesById {
   '/parametrage/imports-winmotor': typeof ParametrageImportsWinmotorRoute
   '/parametrage/messages': typeof ParametrageMessagesRoute
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
+  '/parametrage/recette-ia': typeof ParametrageRecetteIaRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
@@ -930,6 +939,7 @@ export interface FileRouteTypes {
     | '/parametrage/imports-winmotor'
     | '/parametrage/messages'
     | '/parametrage/notifications'
+    | '/parametrage/recette-ia'
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
@@ -1027,6 +1037,7 @@ export interface FileRouteTypes {
     | '/parametrage/imports-winmotor'
     | '/parametrage/messages'
     | '/parametrage/notifications'
+    | '/parametrage/recette-ia'
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
@@ -1125,6 +1136,7 @@ export interface FileRouteTypes {
     | '/parametrage/imports-winmotor'
     | '/parametrage/messages'
     | '/parametrage/notifications'
+    | '/parametrage/recette-ia'
     | '/parametrage/sante'
     | '/parametrage/tarifs'
     | '/partage/$token'
@@ -1224,6 +1236,7 @@ export interface RootRouteChildren {
   ParametrageImportsWinmotorRoute: typeof ParametrageImportsWinmotorRoute
   ParametrageMessagesRoute: typeof ParametrageMessagesRoute
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
+  ParametrageRecetteIaRoute: typeof ParametrageRecetteIaRoute
   ParametrageSanteRoute: typeof ParametrageSanteRoute
   ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
@@ -1640,6 +1653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/recette-ia': {
+      id: '/parametrage/recette-ia'
+      path: '/parametrage/recette-ia'
+      fullPath: '/parametrage/recette-ia'
+      preLoaderRoute: typeof ParametrageRecetteIaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametrage/sante': {
       id: '/parametrage/sante'
       path: '/parametrage/sante'
@@ -2023,6 +2043,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageImportsWinmotorRoute: ParametrageImportsWinmotorRoute,
   ParametrageMessagesRoute: ParametrageMessagesRoute,
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,
+  ParametrageRecetteIaRoute: ParametrageRecetteIaRoute,
   ParametrageSanteRoute: ParametrageSanteRoute,
   ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,

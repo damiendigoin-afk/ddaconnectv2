@@ -2,7 +2,7 @@
  * Analyses visuelles Gemini — toutes routées par le service central `runPaidAi`
  * (cache par empreinte, budget, journal, aucun retry payant).
  */
-import { MANUAL_FALLBACK_MESSAGE, runPaidAi } from "./ai-usage.server";
+import { MANUAL_FALLBACK_MESSAGE, runPaidAi, type PaidAiResult } from "./ai-usage.server";
 
 export const VISION_MODEL = "google/gemini-3.5-flash";
 
@@ -24,6 +24,8 @@ export async function askVision(
   feature = "vision",
   extra: Record<string, unknown> = {},
   essentialVision = false,
+  /** Banc de test uniquement : nouvelle analyse sans cache + rapport des métriques. */
+  opts: { bypassCache?: boolean; onResult?: (r: PaidAiResult) => void } = {},
 ) {
   const res = await runPaidAi({
     feature,
@@ -32,7 +34,9 @@ export async function askVision(
     fingerprintSeed: `${prompt}\u0000${dataUrl}`,
     model: VISION_MODEL,
     body: { ...extra, messages: [{ role: "user", content: [{ type: "text", text: prompt }, blockFor(dataUrl, filename)] }] },
+    ...(opts.bypassCache ? { bypassCache: true } : {}),
   });
+  opts.onResult?.(res);
   if (!res.ok) return { ok: false as const, error: res.error };
   return { ok: true as const, content: res.content };
 }

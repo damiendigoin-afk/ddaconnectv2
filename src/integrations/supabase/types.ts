@@ -290,6 +290,235 @@ export type Database = {
           },
         ]
       }
+      ai_bench_campaigns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          model_a: string | null
+          model_b: string | null
+          name: string
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model_a?: string | null
+          model_b?: string | null
+          name: string
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model_a?: string | null
+          model_b?: string | null
+          name?: string
+          notes?: string | null
+        }
+        Relationships: []
+      }
+      ai_bench_runs: {
+        Row: {
+          ai_calls: number | null
+          ai_ms: number | null
+          cache_hit: boolean
+          created_at: string
+          credits: number | null
+          doc_kind: string | null
+          failure_reason: string | null
+          http_status: number | null
+          id: string
+          media_ms: number | null
+          model: string
+          parse_ms: number | null
+          parsed: Json | null
+          prompt_hash: string | null
+          prompt_text: string | null
+          prompt_version: string | null
+          raw_text: string | null
+          route: string | null
+          schema_version: string | null
+          server_ms: number | null
+          started_at: string | null
+          success: boolean
+          test_id: string
+          tokens_in: number | null
+          tokens_out: number | null
+          total_ms: number | null
+          variant: string
+        }
+        Insert: {
+          ai_calls?: number | null
+          ai_ms?: number | null
+          cache_hit?: boolean
+          created_at?: string
+          credits?: number | null
+          doc_kind?: string | null
+          failure_reason?: string | null
+          http_status?: number | null
+          id?: string
+          media_ms?: number | null
+          model: string
+          parse_ms?: number | null
+          parsed?: Json | null
+          prompt_hash?: string | null
+          prompt_text?: string | null
+          prompt_version?: string | null
+          raw_text?: string | null
+          route?: string | null
+          schema_version?: string | null
+          server_ms?: number | null
+          started_at?: string | null
+          success?: boolean
+          test_id: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          total_ms?: number | null
+          variant: string
+        }
+        Update: {
+          ai_calls?: number | null
+          ai_ms?: number | null
+          cache_hit?: boolean
+          created_at?: string
+          credits?: number | null
+          doc_kind?: string | null
+          failure_reason?: string | null
+          http_status?: number | null
+          id?: string
+          media_ms?: number | null
+          model?: string
+          parse_ms?: number | null
+          parsed?: Json | null
+          prompt_hash?: string | null
+          prompt_text?: string | null
+          prompt_version?: string | null
+          raw_text?: string | null
+          route?: string | null
+          schema_version?: string | null
+          server_ms?: number | null
+          started_at?: string | null
+          success?: boolean
+          test_id?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          total_ms?: number | null
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_bench_runs_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bench_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_bench_settings: {
+        Row: {
+          candidate_model: string
+          daily_credits: number
+          id: boolean
+          max_credits_per_test: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          candidate_model?: string
+          daily_credits?: number
+          id?: boolean
+          max_credits_per_test?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          candidate_model?: string
+          daily_credits?: number
+          id?: boolean
+          max_credits_per_test?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      ai_bench_tests: {
+        Row: {
+          app_version: string | null
+          campaign_id: string
+          corrected_kind: string | null
+          created_at: string
+          created_by: string | null
+          detected_kind: string | null
+          expected: Json | null
+          file_name: string
+          id: string
+          kind_confidence: number | null
+          kind_source: string | null
+          local_text_chars: number | null
+          mime: string | null
+          page_count: number | null
+          photo_count: number
+          scores: Json | null
+          sha256: string
+          storage_paths: string[]
+          timings: Json | null
+        }
+        Insert: {
+          app_version?: string | null
+          campaign_id: string
+          corrected_kind?: string | null
+          created_at?: string
+          created_by?: string | null
+          detected_kind?: string | null
+          expected?: Json | null
+          file_name: string
+          id?: string
+          kind_confidence?: number | null
+          kind_source?: string | null
+          local_text_chars?: number | null
+          mime?: string | null
+          page_count?: number | null
+          photo_count?: number
+          scores?: Json | null
+          sha256: string
+          storage_paths?: string[]
+          timings?: Json | null
+        }
+        Update: {
+          app_version?: string | null
+          campaign_id?: string
+          corrected_kind?: string | null
+          created_at?: string
+          created_by?: string | null
+          detected_kind?: string | null
+          expected?: Json | null
+          file_name?: string
+          id?: string
+          kind_confidence?: number | null
+          kind_source?: string | null
+          local_text_chars?: number | null
+          mime?: string | null
+          page_count?: number | null
+          photo_count?: number
+          scores?: Json | null
+          sha256?: string
+          storage_paths?: string[]
+          timings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_bench_tests_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bench_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_budget_settings: {
         Row: {
           daily_credits: number
