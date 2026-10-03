@@ -85,7 +85,7 @@ afterEach(cleanup);
 
 describe("Commande DISTRI CASH 27173596 — vrai PDF", () => {
   it("lecture : fournisseur, repérage, ligne unique au PA net, totaux", async () => {
-    const f = purchaseRules(await realText()) as Record<string, any>;
+    const f = purchaseRules(await realText()) as any;
     expect(f.template).toBe("logiweb_commande");
     expect(f.doc_kind).toBe("commande");
     expect(canonicalSupplierName(f.supplier)).toBe("DISTRICASH");
