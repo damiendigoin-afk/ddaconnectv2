@@ -86,6 +86,12 @@ const ENTRIES: { to: string; label: string; hint: string; icon: LucideIcon }[] =
     icon: Activity,
   },
   {
+    to: "/parametrage/recette-ia",
+    label: "Recette IA",
+    hint: "Banc de test A/B : qualité, vitesse et coût des modèles de lecture sur vos vrais documents (aucune donnée métier créée)",
+    icon: Bot,
+  },
+  {
     to: "/parametrage/api",
     label: "Paramètres API",
     hint: "Services externes : OCR, email, stockage, géocodage — activation, clés masquées et test de connexion",
