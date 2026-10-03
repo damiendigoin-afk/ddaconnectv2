@@ -5,7 +5,7 @@ import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { ocrPurchaseDocument } from "@/lib/ocr.functions";
 import type { InvoiceExtract } from "@/lib/supplier-docs";
 import { normalizePurchaseExtract } from "@/lib/purchase-extract";
-import { logOrderLineContract, orderFormLinesFromDoc, orderLineContractDiagnostic } from "@/lib/receipt-lines";
+import { hasUsableOrderLines, logOrderLineContract, orderFormLinesFromDoc, orderLineContractDiagnostic } from "@/lib/receipt-lines";
 
 /** `file` = ORIGINAL déposé (seul conservé) ; l'image compressée ne sert qu'à la lecture. */
 export type ReadDoc = { file: File; extracted: InvoiceExtract; warning: string | null };
@@ -26,8 +26,7 @@ export async function readPurchaseDoc(file: File): Promise<ReadDoc> {
       console.warn("[purchase-import] line contract rejected", diagnostic);
       return { file, extracted, warning: "Les lignes détectées n'ont pas pu être transmises au formulaire. Le document doit être relu ou complété manuellement." };
     }
-    const noLines = mapped.length === 0 || mapped.every((l) => !String((l as { reference?: unknown }).reference ?? "").trim() && !String((l as { label?: unknown }).label ?? "").trim());
-    if (noLines) {
+    if (!hasUsableOrderLines(mapped)) {
       console.warn("[purchase-import] zero lines extracted", diagnostic);
       return { file, extracted, warning: "Aucune ligne détectée dans le document – vérifiez le document ou ajoutez les lignes manuellement." };
     }

@@ -107,6 +107,11 @@ export function orderFormLinesFromDoc(doc: { lines?: (DocLine & { delay?: string
   return [...parts, { line_kind: "fee", physical_reference: SHIPPING_REFERENCE, designation: doc.shipping_label?.trim() || "Frais de port", qty_ordered: 1, expected_unit_cost_ht: shipping }];
 }
 
+/** Au moins une ligne de formulaire non vide (référence ou désignation) — clés du formulaire, pas du document. */
+export function hasUsableOrderLines(lines: OrderLineInput[]): boolean {
+  return lines.some((l) => !!(l.physical_reference ?? "").trim() || !!(l.designation ?? "").trim());
+}
+
 export type PendingOrderLine = {
   id?: string;
   line_kind?: string;
