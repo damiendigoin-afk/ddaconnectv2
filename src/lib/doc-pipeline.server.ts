@@ -5,6 +5,7 @@ import { fingerprint, journalLocal, readBudget, runPaidAi, type PaidAiResult } f
 import { detectMedia, runDocPipeline, type PipelineResult } from "./doc-pipeline";
 import { headerTokens, type DocKind, type Fields, type SupplierHint } from "./doc-rules";
 import { askVision, parseJsonBlock, VISION_MODEL } from "./ocr.server";
+import { RENAULT_AI_PROMPT } from "./renault-order";
 import { normSupplierName, supplierAliases } from "./supplier-identify";
 
 export type ReadDocInput = {
@@ -86,6 +87,12 @@ Champs manquants à trouver en priorité : ${missing.join(", ")}. N'invente rien
           },
         });
         input.bench?.onAi("ai_text_fallback", res);
+        return res.ok ? parseJsonBlock(res.content) : null;
+      },
+      aiRenault: async () => {
+        if (!input.dataUrl) return null;
+        // Gemini 3.8 Flash (VISION_MODEL), reasoning low, essentielle : autorisée même repli IA désactivé, une seule passe.
+        const res = await askVision(RENAULT_AI_PROMPT, input.dataUrl, input.filename, input.feature, { reasoning_effort: "low" }, true);
         return res.ok ? parseJsonBlock(res.content) : null;
       },
       aiVision: async (_missing, essential) => {

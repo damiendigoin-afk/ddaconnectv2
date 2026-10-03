@@ -5,6 +5,7 @@
  *  3. sinon, si le repli IA est autorisé : IA sur le TEXTE seul (`ai_text_fallback`) ;
  *  4. vision sur l'image seulement si le texte reste insuffisant (`ai_vision_fallback`).
  */
+import { mergeRenaultAi, renaultIncomplete } from "./renault-order";
 import { DOC_SPECS, fillMissing, missingFields, type DocKind, type Fields, type RuleContext } from "./doc-rules";
 
 const empty = (v: unknown) => v == null || v === "";
@@ -42,6 +43,8 @@ export type PipelineDeps = {
   /** essential = vision indispensable (photo/scan dont la qualité métier OCR est insuffisante). */
   aiVision: (missing: string[], essential: boolean) => Promise<Fields | null>;
   logLocal: (route: "ocr_rules" | "manual", missing: string[]) => Promise<void>;
+  /** Bon Renault « Détail de commande » incomplet : UNE passe vision dédiée (Gemini 3.8 Flash), hors réglage repli IA. */
+  aiRenault?: () => Promise<Fields | null>;
 };
 
 export type PipelineResult = { fields: Fields; route: DocRoute; missing: string[]; aiCalls: number };
@@ -79,6 +82,18 @@ export async function runDocPipeline(
   let fields: Fields = { ...first.fields };
   delete fields["_suspect"];
   // Lecture suspecte (valeur parasite rejetée) = champ manquant : le repli texte / vision peut le compléter.
+  // Gabarit Renault fréquent : lecture complète => 0 IA ; incomplète => une seule passe vision dédiée.
+  if (fields["template"] === "renault_detail_commande") {
+    if (renaultIncomplete(fields) && input.hasImage && deps.aiRenault) {
+      const r = await deps.aiRenault();
+      fields = mergeRenaultAi(fields, r);
+      return { fields, route: "ai_vision_fallback", missing: missingFields(spec, fields), aiCalls: 1 };
+    }
+    if (!renaultIncomplete(fields)) {
+      await deps.logLocal("ocr_rules", []);
+      return { fields, route: "ocr_rules", missing: [], aiCalls: 0 };
+    }
+  }
   let missing = [...new Set([...missingFields(spec, fields), ...first.rejected.filter((k) => empty(at(fields, k))), ...suspect])];
   if (!missing.length) {
     await deps.logLocal("ocr_rules", missing);
