@@ -66,3 +66,29 @@ export function plateAfterOrderPick(current: string, docPlate: string | null | u
   if (docPlate && docPlate.trim()) return formatPlate(docPlate);
   return "";
 }
+
+const SIV_RE = /^([A-HJ-NP-TV-Z]{2})(\d{3})([A-HJ-NP-TV-Z]{2})$/;
+const validSiv = (n: string) => { const m = SIV_RE.exec(n); return !!m && m[2] !== "000" && m[1] !== "SS" && m[1] !== "WW"; };
+
+/**
+ * Contrôle strict d'une immatriculation lue (OCR local ou IA) : format SIV AA-123-AA ou ancien FNI.
+ * Une lecture « presque » SIV (un caractère en trop, sosies O/0, I/1… dans le bloc chiffres) n'est
+ * corrigée que si UNE seule correction est possible ; sinon `hint` (autre lecture du même document)
+ * peut trancher ; à défaut null (jamais d'invention). Ex. EMA426NG => 3 corrections possibles => null.
+ */
+export function strictPlate(raw: unknown, hint?: string | null): string | null {
+  if (raw == null) return null;
+  const n = normalizePlate(String(raw));
+  if (!n) return null;
+  if (validSiv(n)) return formatPlate(n);
+  if (/^\d{1,4}[A-Z]{2,3}\d{2,3}$/.test(n) && n.length >= 6) return formatPlate(n);
+  const DIG: Record<string, string> = { O: "0", Q: "0", D: "0", I: "1", L: "1", Z: "2", S: "5", B: "8", G: "6" };
+  const fix = (s: string) => (s.length === 7 ? s.slice(0, 2) + s.slice(2, 5).replace(/[A-Z]/g, (c) => DIG[c] ?? c) + s.slice(5) : s);
+  const cands = new Set<string>();
+  if (n.length === 7 && validSiv(fix(n))) cands.add(fix(n));
+  if (n.length === 8) for (let i = 0; i < 8; i++) { const c = fix(n.slice(0, i) + n.slice(i + 1)); if (validSiv(c)) cands.add(c); }
+  if (cands.size === 1) return formatPlate([...cands][0]!);
+  const h = hint ? normalizePlate(hint) : "";
+  if (h && cands.has(h)) return formatPlate(h);
+  return null;
+}
