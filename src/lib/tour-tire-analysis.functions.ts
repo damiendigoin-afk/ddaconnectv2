@@ -39,7 +39,9 @@ export const analyzeTourTires = createServerFn({ method: "POST" })
     const proof: Record<string, { photoCount: number; mainPhotoPath: string | null }> = {};
     for (const key of TOUR_TIRE_KEYS) {
       const ims = picked.get(key)!;
-      proof[key] = { photoCount: ims.length, mainPhotoPath: ims.find((x) => x.label === "bande")?.path ?? null };
+      const mainPhotoPath = ims.find((x) => x.label === "bande")?.path ?? null;
+      const signed = mainPhotoPath ? await context.supabase.storage.from("dda-media").createSignedUrl(mainPhotoPath, 900) : { data: null };
+      proof[key] = { photoCount: ims.length, mainPhotoPath, mainPhotoUrl: signed.data?.signedUrl ?? null };
       content.push({ type: "text", text: `ROUE ${key.toUpperCase()}` });
       for (const im of ims) {
         const { data: blob, error } = await context.supabase.storage.from("dda-media").download(im.path);
