@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Camera, ImagePlus, Video, Loader2, RefreshCw, Save, Trash2 } from "lucide-react";
@@ -7,6 +7,8 @@ import { z } from "zod";
 
 import { AppShell } from "@/components/AppShell";
 import { TireTreadOverlay } from "@/components/TireTreadOverlay";
+import { BurstCamera, type BurstShot } from "@/components/BurstCamera";
+import { renderAnnotatedTread } from "@/lib/tread-annotate.browser";
 import { extractVideoFrames, probeVideo } from "@/lib/video-frames.browser";
 import { isVideoFile } from "@/lib/video-frames";
 import { useAuth } from "@/lib/auth";
@@ -14,7 +16,7 @@ import { useSite } from "@/lib/site-context";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { analyzeTireStep, saveTireStep, tireStepBudget } from "@/lib/tire-step.functions";
 import {
-  EXPERIMENTAL_DEPTH_NOTICE, TIRE_STEP_DEFAULT_MODEL, TIRE_STEP_MODELS, isAsymmetric, resolveInnerSide, zoneLabels, type Orientation, quoteSearchFromResult, wearLevel, type TireStepResult,
+  EXPERIMENTAL_DEPTH_NOTICE, QUOTE_PHOTOS_KEY, cameraStepsFrom, mergeQuotePhotos, nextCaptureRole, type QuotePhoto, TIRE_STEP_DEFAULT_MODEL, TIRE_STEP_MODELS, isAsymmetric, resolveInnerSide, zoneLabels, type Orientation, quoteSearchFromResult, wearLevel, type TireStepResult,
 } from "@/lib/tire-step";
 
 const search = z.object({ plate: z.string().optional(), or: z.string().optional() });
@@ -72,6 +74,35 @@ function TireStepPage() {
   const [position, setPosition] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
   const cam = useRef<HTMLInputElement>(null);
+  const [camOpen, setCamOpen] = useState(false);
+  const navigate = useNavigate();
+
+  /** Caméra guidée : masque en U (bande) puis cercle (flanc) puis complément, enchaînés sans clic. */
+  async function onShots(shots: BurstShot[]) {
+    setCamOpen(false);
+    const added: Img[] = [];
+    for (const sh of shots) {
+      const r: Role = sh.key === "tread" || sh.key === "sidewall" ? sh.key : "other";
+      try { added.push({ role: r, dataUrl: await blobToDataUrl(await compressImage(sh.blob, 1800, 0.85)) }); } catch { /* photo illisible ignorée */ }
+    }
+    if (!added.length) return;
+    setImages((cur) => [...cur, ...added].slice(0, 6));
+    if (added.some((a) => a.role === "tread")) setVideo(null);
+    setRole(nextCaptureRole(added[added.length - 1]!.role));
+  }
+
+  async function goQuote() {
+    // Photo principale annotée (vraie photo + profondeurs affichées) jointe au devis PDF.
+    if (treadSrc && d) {
+      try {
+        const dataUrl = await renderAnnotatedTread(treadSrc, [d.inner_mm, d.center_mm, d.outer_mm], labels);
+        const prev = JSON.parse(sessionStorage.getItem(QUOTE_PHOTOS_KEY) || "[]") as QuotePhoto[];
+        const caption = [position || "Pneu", sw?.size].filter(Boolean).join(" · ");
+        sessionStorage.setItem(QUOTE_PHOTOS_KEY, JSON.stringify(mergeQuotePhotos(Array.isArray(prev) ? prev : [], { dataUrl, caption, position: position || null })));
+      } catch (e) { console.warn("photo annotée indisponible", e); }
+    }
+    navigate({ to: "/devis/pneus", search: quote });
+  }
   const imp = useRef<HTMLInputElement>(null);
 
   useEffect(() => { budgetFn().then(setBudget).catch(() => undefined); }, [budgetFn]);
@@ -90,8 +121,8 @@ function TireStepPage() {
     setImages((cur) => [...cur, ...added].slice(0, 6));
     // Une photo de bande de roulement prise après une vidéo remplace la vidéo.
     if (role === "tread" && added.length) setVideo(null);
-    // Après la bande de roulement, on propose naturellement le flanc.
-    if (role === "tread") setRole("sidewall");
+    // Enchaînement automatique : Bande -> Flanc -> Complément.
+    if (added.length) setRole(nextCaptureRole(role));
   }
 
   async function extractFor(v: VideoState): Promise<string[] | null> {
@@ -206,7 +237,7 @@ function TireStepPage() {
             ))}
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <button type="button" onClick={() => cam.current?.click()} className="flex items-center justify-center gap-2 rounded-xl bg-brand px-3 py-4 text-sm font-extrabold uppercase text-brand-foreground">
+            <button type="button" onClick={() => setCamOpen(true)} className="flex items-center justify-center gap-2 rounded-xl bg-brand px-3 py-4 text-sm font-extrabold uppercase text-brand-foreground">
               <Camera className="h-5 w-5" /> Caméra
             </button>
             <button type="button" onClick={() => imp.current?.click()} className="flex items-center justify-center gap-2 rounded-xl border-2 border-border px-3 py-4 text-sm font-extrabold uppercase">
@@ -216,6 +247,9 @@ function TireStepPage() {
               {videoBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />} Vidéo
             </button>
           </div>
+          {camOpen ? (
+            <BurstCamera title="État pneus" steps={cameraStepsFrom(role).map((st) => ({ key: st.key, label: st.label, mask: st.mask, hint: st.hint }))} autoFinish allowFree={false} onFinish={(sh) => void onShots(sh)} onCancel={() => setCamOpen(false)} />
+          ) : null}
           {/* Inputs gardés dans le DOM (sr-only) : indispensable pour iPhone/Safari. */}
           <input ref={cam} type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Prendre une photo" onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
           <input ref={vid} type="file" accept="video/*" capture="environment" className="sr-only" aria-label="Filmer la bande de roulement" onChange={(e) => { void addVideo(e.target.files); e.target.value = ""; }} />
@@ -371,9 +405,9 @@ function TireStepPage() {
                 <button type="button" disabled={busy || !!savedId} onClick={save} className="flex items-center justify-center gap-2 rounded-xl border-2 border-border px-3 py-3 text-xs font-extrabold uppercase disabled:opacity-50">
                   <Save className="h-4 w-4" /> {savedId ? "Enregistré" : "Enregistrer"}
                 </button>
-                <Link to="/devis/pneus" search={quote} className="flex items-center justify-center rounded-xl bg-brand px-3 py-3 text-xs font-extrabold uppercase text-brand-foreground">
+                <button type="button" onClick={() => void goQuote()} className="flex items-center justify-center rounded-xl bg-brand px-3 py-3 text-xs font-extrabold uppercase text-brand-foreground">
                   Faire le devis pneu
-                </Link>
+                </button>
               </div>
             </section>
           </>

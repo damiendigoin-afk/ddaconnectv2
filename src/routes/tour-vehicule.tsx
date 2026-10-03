@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ChevronLeft, Plus } from "lucide-react";
+import { Camera, ChevronLeft, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { DocIdentify, type DocIdentifyResult } from "@/components/DocIdentify";
@@ -11,6 +11,14 @@ import { TourRow } from "@/components/RecentTours";
 import { EMPTY_TOUR_SEARCH, TourSearchForm } from "@/components/TourSearchForm";
 import { fetchRecentOrders, fetchRecentTours } from "@/lib/queries";
 import { refPrefillByVehicle } from "@/lib/refbase";
+import { localDocText } from "@/lib/doc-text.browser";
+import { orScanNeedsRetry } from "@/lib/doc-rules";
+import { blobToDataUrl, compressImage } from "@/lib/photo";
+import { ocrRepairOrder } from "@/lib/ocr.functions";
+import { afterTourEnsure, decideTourScan, parseRepairOrderScan } from "@/lib/or-scan-decision";
+import { ensureWinmotorDossier } from "@/lib/or-dossier";
+import { useSite } from "@/lib/site-context";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/tour-vehicule")({
   validateSearch: (search: Record<string, unknown>): { vehicle_id?: string } =>
@@ -45,6 +53,32 @@ function ModuleHome() {
   const [tab, setTab] = useState<"tours" | "drafts" | "ors">("tours");
   const [applied, setApplied] = useState(EMPTY_TOUR_SEARCH);
   const [globalSearch, setGlobalSearch] = useState(false);
+  const { site } = useSite();
+  const { displayName } = useAuth();
+  const [scanning, setScanning] = useState(false);
+
+  /** Entrée rapide : photo d'une plaque OU d'un OR papier. Le tour ne demande jamais d'OR ; DDA ne crée aucun OR. */
+  async function quickScan(file: File | undefined) {
+    if (!file) return;
+    setScanning(true);
+    try {
+      const dataUrl = await blobToDataUrl(await compressImage(file, 1800, 0.9));
+      const res = await ocrRepairOrder({ data: { text: await localDocText(dataUrl, "scan.jpg", orScanNeedsRetry), dataUrl } });
+      if (!res.ok) { toast.error(`${res.error} Saisissez l'immatriculation.`); navigate({ to: "/or/nouveau", search: { plate: "" } }); return; }
+      const scan = parseRepairOrderScan(res.json);
+      const d = decideTourScan({ or_number: scan.or_number, plate: scan.plate });
+      if (d.kind === "none") { toast.error(d.note); navigate({ to: "/or/nouveau", search: { plate: "" } }); return; }
+      if (d.kind === "plate_only") { navigate({ to: "/or/nouveau", search: { plate: d.plate } }); return; }
+      const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber: d.or_number, plate: d.plate, data: scan.data, userName: displayName || null, site });
+      const a = afterTourEnsure(d.or_number, d.plate, r);
+      if (a.kind === "open") { navigate({ to: "/or/$orId", params: { orId: a.orId } }); return; }
+      if (a.kind === "continue_without_or") { toast.message(a.note); navigate({ to: "/or/nouveau", search: { plate: a.plate } }); return; }
+      toast.error(a.note);
+    } catch (e) {
+      console.error(e);
+      toast.error("Lecture impossible. Saisissez l'immatriculation.");
+    } finally { setScanning(false); }
+  }
 
   // Le véhicule choisi sur une fiche suit l'utilisateur : aucune ressaisie.
   useEffect(() => {
@@ -202,9 +236,20 @@ function ModuleHome() {
         </div>
 
         <section>
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Rechercher un Tour Véhicule
-          </h2>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Rechercher un Tour Véhicule
+            </h2>
+            <label
+              htmlFor="tour-quick-camera"
+              aria-label="Scanner une immatriculation ou un OR"
+              className={`flex cursor-pointer items-center gap-2 rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground ${scanning ? "pointer-events-none opacity-60" : ""}`}
+            >
+              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />} Scanner immat / OR
+            </label>
+            {/* Input gardé dans le DOM (sr-only) : indispensable pour iPhone/Safari. */}
+            <input id="tour-quick-camera" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void quickScan(e.target.files?.[0]); e.target.value = ""; }} />
+          </div>
           <TourSearchForm
             applied={applied}
             onApply={(v) => {

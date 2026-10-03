@@ -3,7 +3,7 @@
  * Entrée : texte OCR local / texte natif PDF. Sortie : champs au format des prompts historiques.
  * Règle DDA : OCR/extraction non générative -> règles -> IA seulement en ultime recours.
  */
-import { findFrenchPlate, formatPlate } from "./plate";
+import { findFrenchPlate, formatPlate, strictPlate } from "./plate";
 import { normSupplierName } from "./supplier-identify";
 import { isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
 
@@ -714,9 +714,10 @@ function blockAfter(lines: string[], label: RegExp, max = 8): string | null {
 /* ---------- OR Renault / WinMotor : libellés sémantiques d'abord ---------- */
 
 const OR_LABELS: [string, RegExp][] = [
-  ["model", /mod[eè]le(?:\s+(?:du\s+)?v[ée]hicule)?/i],
+  // Variantes OCR tolérées : « Modile », « Mod1le », « Merque ».
+  ["model", /mod[eèéi1l]le(?:\s+(?:du\s+)?v[ée]hicule)?/i],
   ["vehicle", /v[ée]hicule(?=\s*:)/i],
-  ["brand", /\bmarque\b/i],
+  ["brand", /\bm[ae]rque\b/i],
   ["plate", /\bimmat(?:riculation)?\b\.?/i],
   ["vin", /\bvin\b|n[°o]\s*(?:de\s*)?s[ée]rie/i],
   ["firstreg", /(?:date\s+(?:de\s+)?)?(?:1[eè]?re\s+mise en circulation|1[eè]?re\s+mec)/i],
@@ -749,6 +750,14 @@ export function orLabeledValues(text: string): Record<string, string> {
   const out: Record<string, string> = {};
   lines.forEach((line, i) => {
     const hits = labelHits(line);
+    // En-tête en tableau (OR Renault : « Immat. Marque Modèle N° compte ») : valeurs sur la ligne suivante.
+    if (hits.length >= 2 && hits.every((h, j) => !line.slice(h.end, hits[j + 1]?.start ?? line.length).replace(/[\s:.\-–=|]+/g, ""))) {
+      const nx = lines[i + 1]?.trim();
+      if (nx && !labelHits(nx).length) {
+        for (const [k, v] of Object.entries(splitTableRow(hits.map((h) => h.k), nx))) if (out[k] == null && v) out[k] = v;
+        return;
+      }
+    }
     hits.forEach((h, j) => {
       if (out[h.k] != null) return;
       let v = line.slice(h.end, hits[j + 1]?.start ?? line.length).replace(/^[\s:.\-–=]+/, "").trim();
@@ -763,6 +772,40 @@ export function orLabeledValues(text: string): Record<string, string> {
   return out;
 }
 
+/**
+ * Ligne de valeurs sous un en-tête en tableau : chaque valeur est reconnue par sa NATURE
+ * (immat au format, VIN 17 car., n° de compte = chiffres seuls, marque connue, modèle = reste
+ * contenant des lettres) plutôt que par une position de colonne que l'OCR ne conserve pas.
+ */
+export function splitTableRow(keys: string[], row: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  let rest = ` ${row.replace(/[|;]/g, " ")} `;
+  const take = (k: string, re: RegExp) => {
+    if (!keys.includes(k)) return;
+    const m = re.exec(rest);
+    if (!m) return;
+    out[k] = m[1]!.trim();
+    rest = rest.replace(m[0], " ");
+  };
+  take("vin", /\s([A-HJ-NPR-Z0-9]{17})\s/i);
+  if (keys.includes("plate")) {
+    const m = /\s([A-Z]{2,3}[\s-]?[0-9OQDILZSBG]{3}[\s-]?[A-Z]{2})\s/i.exec(rest);
+    if (m) { out["plate"] = m[1]!.trim(); rest = rest.replace(m[0], " "); }
+  }
+  if (keys.includes("brand")) {
+    const b = CAR_BRANDS.find((x) => new RegExp(`\\s${x}\\s`, "i").test(rest));
+    if (b) { out["brand"] = b; rest = rest.replace(new RegExp(`\\s${b}\\s`, "i"), " "); }
+  }
+  // Chiffres seuls : n° de compte uniquement si aucun kilométrage n'est attendu dans la même ligne (sinon ambigu).
+  if (keys.includes("account") && !keys.includes("mileage")) take("account", /\s(\d{3,12})\s/);
+  if (keys.includes("mileage")) take("mileage", /\s(\d[\d ]{2,8})\s*km\b/i);
+  if (keys.includes("model")) {
+    const m = rest.replace(/\s+/g, " ").trim();
+    if (/[A-Z]{2}/i.test(m) && !/^\d+$/.test(m)) out["model"] = m;
+  }
+  return out;
+}
+
 const PARASITE_RE = /accueilli|accueil par|conseiller|\bvotre\b|agent renault|signature|sastillon|veyssi|beynac|bezenac/;
 const LABEL_ONLY_RE = /^(marque|modele|modele vehicule|vehicule|immat|immatriculation|vin|kilometrage|client|telephone|tel|email|mobile|portable|adresse|entree|restitution|tapv|travaux)$/;
 
@@ -771,6 +814,15 @@ export function isOrParasiteValue(v: unknown): boolean {
   const n = String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   if (!n) return false;
   return PARASITE_RE.test(n) || LABEL_ONLY_RE.test(n) || isGarageName(n);
+}
+
+/** Modèle véhicule plausible : au moins une lettre, pas un nombre seul, jamais égal au n° compte / OR / CP / téléphone / immat. */
+export function isPlausibleModel(model: unknown, others: unknown[] = []): boolean {
+  const m = String(model ?? "").trim();
+  if (!/[A-Z]/i.test(m) || !/[A-Z0-9]{2}/i.test(m)) return false;
+  const key = (v: unknown) => String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const mk = key(m);
+  return !others.some((o) => { const k = key(o); return k.length >= 3 && (k === mk || mk.includes(k) && /^\d+$/.test(k)); });
 }
 
 /**
@@ -792,7 +844,11 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
   }
   if (client["email"] != null && isGarageEmail(client["email"])) client["email"] = null;
   for (const k of ["phone", "mobile"]) if (client[k] != null && isGaragePhone(client[k])) client[k] = null;
-  if (vehicle["model"] != null && (isOrParasiteValue(vehicle["model"]) || !/[A-Z0-9]{2}/i.test(String(vehicle["model"])))) {
+  if (vehicle["plate"] != null && vehicle["plate"] !== "") {
+    const p = strictPlate(vehicle["plate"]);
+    if (!p) { rejected.push("vehicle.plate"); vehicle["plate"] = null; } else vehicle["plate"] = p;
+  }
+  if (vehicle["model"] != null && (isOrParasiteValue(vehicle["model"]) || !isPlausibleModel(vehicle["model"], [client["account_number"], order["or_number"], client["postal_code"], client["phone"], client["mobile"], vehicle["plate"], vehicle["vin"]]))) {
     rejected.push("vehicle.model");
     vehicle["model"] = null;
   }
@@ -889,7 +945,8 @@ export function repairOrderRules(raw: string): Fields {
   const draft: Fields = {
     client: { account_number, last_name, first_name, address, postal_code, city, phone, mobile, email },
     vehicle: {
-      plate: (L["plate"] ? findFrenchPlate(L["plate"]) : null) ?? findFrenchPlate(text),
+      // Immat : lecture au format strict ; une valeur labellisée « presque » SIV n'est corrigée que si non ambiguë.
+      plate: (L["plate"] ? findFrenchPlate(L["plate"]) ?? strictPlate(L["plate"].split(/\s{2,}/)[0], findFrenchPlate(text)) : null) ?? findFrenchPlate(text),
       vin: lvin ?? findVin(text),
       brand: brand === "VW" ? "VOLKSWAGEN" : brand,
       model,

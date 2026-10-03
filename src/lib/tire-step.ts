@@ -193,3 +193,29 @@ export function adjustDepth(start: number | null, dyPx: number): number {
   const v = Math.round(((start ?? 0) + steps * 0.1) * 10) / 10;
   return Math.min(DEPTH_MAX_MM, Math.max(DEPTH_MIN_MM, v));
 }
+
+/* ---------------- Capture guidée (masques) et photos annotées pour le devis ---------------- */
+
+export type CaptureRole = "tread" | "sidewall" | "other";
+/** Enchaînement automatique : Bande de roulement -> Flanc -> Complément. */
+export function nextCaptureRole(r: CaptureRole): CaptureRole {
+  return r === "tread" ? "sidewall" : "other";
+}
+/** Étapes caméra : masque en U (bande), cercle (flanc), libre (complément). Masques = guides d'aperçu, jamais dans la photo. */
+export const TIRE_CAMERA_STEPS: { key: CaptureRole; label: string; mask: "tread" | "sidewall" | "free"; hint: string }[] = [
+  { key: "tread", label: "Bande de roulement", mask: "tread", hint: "Cadrez la bande de roulement dans le U, avec les deux bords du pneu visibles" },
+  { key: "sidewall", label: "Flanc", mask: "sidewall", hint: "Cadrez le flanc du pneu dans le cercle" },
+  { key: "other", label: "Complément", mask: "free", hint: "Vue complémentaire (facultative)" },
+];
+export function cameraStepsFrom(r: CaptureRole) {
+  return TIRE_CAMERA_STEPS.slice(TIRE_CAMERA_STEPS.findIndex((s) => s.key === r));
+}
+
+export type QuotePhoto = { dataUrl: string; caption: string; position: string | null };
+export const QUOTE_PHOTOS_KEY = "dda.tireQuotePhotos";
+export const MAX_QUOTE_PHOTOS = 4;
+/** Ajoute une photo annotée pour le devis : une par position (la plus récente remplace), 4 maximum. */
+export function mergeQuotePhotos(list: QuotePhoto[], item: QuotePhoto): QuotePhoto[] {
+  const rest = list.filter((p) => !(item.position ? p.position === item.position : p.caption === item.caption));
+  return [...rest, item].slice(-MAX_QUOTE_PHOTOS);
+}
