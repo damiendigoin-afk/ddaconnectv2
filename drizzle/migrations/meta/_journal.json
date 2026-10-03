@@ -288,6 +288,13 @@
       "when": 1791050610467,
       "tag": "0040_part_orders_duplicate_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791050843141,
+      "tag": "0041_part_orders_drop_duplicate_block",
+      "breakpoints": true
     }
   ]
 }
