@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 
+import { frontOfficeErrorMessage } from "@/lib/tour-notify-core";
 import { closeTour } from "@/lib/tour-close.functions";
 import { uploadsFailed, uploadsPending } from "@/lib/upload-tracker";
 
@@ -46,7 +47,7 @@ export async function finishTour(args: {
       toast.success(`Tour terminé — Front Office notifié (${res.recipients.length} destinataire(s))`);
     } else {
       toast.error(
-        `Tour terminé — notification Front Office non envoyée. ${res.error}`.trim(),
+        `Tour terminé — notification Front Office non envoyée. ${frontOfficeErrorMessage(res.error)}`.trim(),
         { duration: 10_000 },
       );
     }
