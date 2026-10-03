@@ -95,8 +95,8 @@ export function DiffTable({ a, b, pipeline }: { a: BenchOutput | null; b: BenchO
             {shown.map((r) => (
               <tr key={r.path} className={`border-t border-border ${STATUS_CLS[r.status]}`}>
                 <td className="p-2 font-mono">{r.path}</td>
-                <td className="break-all p-2">{r.a || "—"}</td>
-                <td className="break-all p-2">{r.b || "—"}</td>
+                <td className="break-all p-2">{r.a || "—"}{conf(a, r.path)}</td>
+                <td className="break-all p-2">{r.b || "—"}{conf(b, r.path)}</td>
                 <td className="break-all p-2 text-muted-foreground">{fp[r.path] ?? "—"}</td>
                 <td className={`p-2 font-bold ${r.status === "different" ? "text-destructive" : ""}`}>{STATUS_LABEL[r.status]}</td>
               </tr>
@@ -106,6 +106,11 @@ export function DiffTable({ a, b, pipeline }: { a: BenchOutput | null; b: BenchO
       </div>
     </div>
   );
+}
+
+function conf(o: BenchOutput | null, path: string) {
+  const c = o?.confidence?.[path];
+  return typeof c === "number" ? <span className={`ml-1 text-[10px] ${c < 0.6 ? "font-bold text-destructive" : "text-muted-foreground"}`}>({Math.round(c * 100)} %)</span> : null;
 }
 
 /** Saisie des valeurs attendues : éditeur JSON prérempli (sortie A ou B), validé à la main. */
