@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { candidateTimes, isVideoFile, selectFrames, signature } from "../video-frames";
 
-const flat = (l: number) => signature(new Array(16 * 4).fill(0).map((_, i) => (i % 4 === 3 ? 255 : l)), 4, 4);
+const flat = (l: number) => signature(new Array(64 * 4).fill(0).map((_, i) => (i % 4 === 3 ? 255 : l)), 8, 8);
 
 describe("extraction vidéo État pneus", () => {
   it("garde 10 images réparties sur une vidéo de 4 s", () => {
