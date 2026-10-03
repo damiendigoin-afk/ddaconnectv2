@@ -29,12 +29,8 @@ export function OrderRow({ o, siteName }: { o: any; siteName: (id: string) => st
           {siteName(o.site_id)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
           {` · ${orderMarker(o)}`}
         </div>
-        {o.appointment_date || o.expected_delivery_date ? (
-          <div className="text-xs font-extrabold">
-            {o.appointment_date ? `RDV ${new Date(o.appointment_date).toLocaleDateString("fr-FR")}` : ""}
-            {o.appointment_date && o.expected_delivery_date ? " · " : ""}
-            {o.expected_delivery_date ? `Livraison prévue ${new Date(o.expected_delivery_date).toLocaleDateString("fr-FR")}` : ""}
-          </div>
+        {o.appointment_date ? (
+          <div className="text-xs font-extrabold">RDV {new Date(o.appointment_date).toLocaleDateString("fr-FR")}</div>
         ) : null}
         <LogisticsBadge order={o} />
         {lines.length ? <OrderLinesCompact lines={lines} /> : <div className="mt-2"><Badge tone="warn">Commande non détaillée</Badge></div>}

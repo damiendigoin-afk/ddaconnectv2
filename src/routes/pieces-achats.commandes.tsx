@@ -116,7 +116,7 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
   // Mémorisée automatiquement (document sinon jour de validation), non affichée.
   const [orderDate] = useState(initial.orderDate);
   const [appointment, setAppointment] = useState("");
-  const [delivery, setDelivery] = useState(x.expected_delivery_date ?? "");
+  const delivery = x.expected_delivery_date ?? "";
   const [supRef, setSupRef] = useState(initial.supplierOrderRef);
   const [dossier, setDossier] = useState(initial.dossier);
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
@@ -287,10 +287,9 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
       <div className="grid grid-cols-2 gap-2">
         <input className={inputCls} placeholder="N° commande fournisseur" value={supRef} onChange={(e) => setSupRef(e.target.value)} />
         <span />
-        <label className="text-xs font-bold">Date de RDV<input className={inputCls} type="date" value={appointment} onChange={(e) => setAppointment(e.target.value)} aria-label="Date de RDV" /></label>
-        <label className="text-xs font-bold">Livraison prévue<input className={inputCls} type="date" value={delivery} onChange={(e) => setDelivery(e.target.value)} aria-label="Livraison prévue" /></label>
+        <label className="text-xs font-bold">Date de RDV (facultatif)<input className={inputCls} type="date" value={appointment} onChange={(e) => setAppointment(e.target.value)} aria-label="Date de RDV" /></label>
       </div>
-      <LogisticsBadge order={{ appointment_date: appointment, expected_delivery_date: delivery, status: "ordered" }} />
+      <LogisticsBadge order={{ appointment_date: appointment, status: "ordered" }} />
       {x.control_alerts?.length ? (
         <div role="alert" className="space-y-0.5 rounded-lg border-2 border-destructive bg-destructive/10 p-2 text-xs font-bold">
           <p className="uppercase">Contrôle du document — à corriger avant validation</p>

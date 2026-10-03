@@ -94,20 +94,18 @@ function OrderDetail() {
 function OrderDatesEditor({ o }: { o: { id: string; status: string; appointment_date: string | null; expected_delivery_date?: string | null; order_date: string | null } }) {
   const qc = useQueryClient();
   const [rdv, setRdv] = useState(o.appointment_date ?? "");
-  const [liv, setLiv] = useState(o.expected_delivery_date ?? "");
-  const dirty = rdv !== (o.appointment_date ?? "") || liv !== (o.expected_delivery_date ?? "");
+  const dirty = rdv !== (o.appointment_date ?? "");
   async function save() {
-    try { await setOrderDates(o.id, { appointment_date: rdv || null, expected_delivery_date: liv || null }); toast.success("Dates enregistrées"); void qc.invalidateQueries({ queryKey: ["part-orders"] }); void qc.invalidateQueries({ queryKey: ["part-order", o.id] }); }
+    try { await setOrderDates(o.id, { appointment_date: rdv || null }); toast.success("RDV enregistré"); void qc.invalidateQueries({ queryKey: ["part-orders"] }); void qc.invalidateQueries({ queryKey: ["part-order", o.id] }); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
   }
   return (
     <div className="space-y-2 pt-1">
       <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs font-bold">Date de RDV<input className={inputCls} type="date" value={rdv} disabled={o.status === "cancelled"} onChange={(e) => setRdv(e.target.value)} aria-label="Date de RDV" /></label>
-        <label className="text-xs font-bold">Livraison prévue<input className={inputCls} type="date" value={liv} disabled={o.status === "cancelled"} onChange={(e) => setLiv(e.target.value)} aria-label="Livraison prévue" /></label>
+        <label className="text-xs font-bold">Date de RDV (facultatif)<input className={inputCls} type="date" value={rdv} disabled={o.status === "cancelled"} onChange={(e) => setRdv(e.target.value)} aria-label="Date de RDV" /></label>
       </div>
-      {dirty ? <button type="button" className={`${btnGhost} w-full`} onClick={() => void save()}>Enregistrer les dates</button> : null}
-      <LogisticsBadge order={{ appointment_date: rdv, expected_delivery_date: liv, status: o.status }} />
+      {dirty ? <button type="button" className={`${btnGhost} w-full`} onClick={() => void save()}>Enregistrer le RDV</button> : null}
+      <LogisticsBadge order={{ appointment_date: rdv, status: o.status }} />
       {o.order_date ? <p className="text-[11px] text-muted-foreground">Commande du {new Date(o.order_date).toLocaleDateString("fr-FR")}</p> : null}
     </div>
   );

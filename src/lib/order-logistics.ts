@@ -29,7 +29,6 @@ export function rankSuppliers(
 export type LogisticsAlert = { level: "warn" | "danger"; message: string };
 
 const dayNum = (iso: string) => Math.floor(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / 86_400_000);
-const fr = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
 /** today = date locale AAAA-MM-JJ. */
 export function orderLogisticsAlert(
@@ -39,10 +38,6 @@ export function orderLogisticsAlert(
   if (!o.appointment_date || o.status === "received" || o.status === "cancelled") return null;
   const rdv = dayNum(o.appointment_date);
   const left = rdv - dayNum(today);
-  if (o.expected_delivery_date && dayNum(o.expected_delivery_date) >= rdv) {
-    const same = dayNum(o.expected_delivery_date) === rdv;
-    return { level: "danger", message: `Livraison prévue ${same ? "le jour même du" : "après le"} RDV (${fr(o.expected_delivery_date)} / RDV ${fr(o.appointment_date)})` };
-  }
   if (left <= 1) {
     const when = left < 0 ? "RDV dépassé" : left === 0 ? "RDV aujourd'hui" : "RDV demain";
     const st = o.status === "partial" ? "partiellement reçue" : "non reçue";

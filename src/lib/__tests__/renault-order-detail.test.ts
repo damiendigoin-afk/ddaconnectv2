@@ -130,11 +130,11 @@ describe("fournisseurs les plus utilisés (dynamique)", () => {
 
 describe("RDV / livraison prévue", () => {
   const today = "2026-10-03";
-  it("livraison le jour du RDV ou après => alerte", () => {
-    expect(orderLogisticsAlert({ appointment_date: "2026-10-10", expected_delivery_date: "2026-10-10", status: "ordered" }, today)?.level).toBe("danger");
-    expect(orderLogisticsAlert({ appointment_date: "2026-10-10", expected_delivery_date: "2026-10-12", status: "ordered" }, today)?.message).toMatch(/après/);
+  it("livraison prévue ignorée : aucune alerte basée dessus ; sans RDV aucune alerte", () => {
+    expect(orderLogisticsAlert({ appointment_date: "2026-10-10", expected_delivery_date: "2026-10-12", status: "ordered" }, today)).toBeNull();
+    expect(orderLogisticsAlert({ appointment_date: null, status: "ordered" }, today)).toBeNull();
   });
-  it("livraison avant le RDV, RDV lointain => rien", () => {
+  it("RDV lointain => rien", () => {
     expect(orderLogisticsAlert({ appointment_date: "2026-10-10", expected_delivery_date: "2026-10-08", status: "ordered" }, today)).toBeNull();
   });
   it("sans livraison connue : J-1 / J0 non reçue ou partielle", () => {
