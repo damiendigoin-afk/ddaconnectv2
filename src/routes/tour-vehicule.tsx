@@ -19,6 +19,8 @@ import { afterTourEnsure, decideTourScan, parseRepairOrderScan } from "@/lib/or-
 import { ensureWinmotorDossier } from "@/lib/or-dossier";
 import { useSite } from "@/lib/site-context";
 import { useAuth } from "@/lib/auth";
+import { startQuickTour } from "@/lib/quick-tour";
+import { prioritizeRefVehicleIdentity } from "@/lib/refbase";
 
 export const Route = createFileRoute("/tour-vehicule")({
   validateSearch: (search: Record<string, unknown>): { vehicle_id?: string } =>
@@ -54,7 +56,7 @@ function ModuleHome() {
   const [applied, setApplied] = useState(EMPTY_TOUR_SEARCH);
   const [globalSearch, setGlobalSearch] = useState(false);
   const { site } = useSite();
-  const { displayName } = useAuth();
+  const { displayName, user, profile } = useAuth();
   const [scanning, setScanning] = useState(false);
 
   /** Entrée rapide : photo d'une plaque OU d'un OR papier. Le tour ne demande jamais d'OR ; DDA ne crée aucun OR. */
@@ -68,11 +70,15 @@ function ModuleHome() {
       const scan = parseRepairOrderScan(res.json);
       const d = decideTourScan({ or_number: scan.or_number, plate: scan.plate });
       if (d.kind === "none") { toast.error(d.note); navigate({ to: "/or/nouveau", search: { plate: "" } }); return; }
-      if (d.kind === "plate_only") { navigate({ to: "/or/nouveau", search: { plate: d.plate } }); return; }
-      const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber: d.or_number, plate: d.plate, data: scan.data, userName: displayName || null, site });
+      if (d.kind === "plate_only") {
+        const t = await startQuickTour({ plate: d.plate, userId: user?.id, userName: displayName, siteId: site?.id ?? (profile?.site_id as string | null) ?? null });
+        navigate({ to: "/tour/$tourId", params: { tourId: t.id } }); return;
+      }
+      const vehicle = await prioritizeRefVehicleIdentity(scan.data.vehicle);
+      const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber: d.or_number, plate: d.plate, data: { ...scan.data, vehicle }, userName: displayName || null, site });
       const a = afterTourEnsure(d.or_number, d.plate, r);
-      if (a.kind === "open") { navigate({ to: "/or/$orId", params: { orId: a.orId } }); return; }
-      if (a.kind === "continue_without_or") { toast.message(a.note); navigate({ to: "/or/nouveau", search: { plate: a.plate } }); return; }
+      if (a.kind === "open") { const t = await startQuickTour({ orderId: a.orId, userId: user?.id, userName: displayName, siteId: site?.id ?? (profile?.site_id as string | null) ?? null }); navigate({ to: "/tour/$tourId", params: { tourId: t.id } }); return; }
+      if (a.kind === "continue_without_or") { toast.message(a.note); const t = await startQuickTour({ plate: a.plate, userId: user?.id, userName: displayName, siteId: site?.id ?? (profile?.site_id as string | null) ?? null }); navigate({ to: "/tour/$tourId", params: { tourId: t.id } }); return; }
       toast.error(a.note);
     } catch (e) {
       console.error(e);
@@ -245,7 +251,7 @@ function ModuleHome() {
               aria-label="Scanner une immatriculation ou un OR"
               className={`flex cursor-pointer items-center gap-2 rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground ${scanning ? "pointer-events-none opacity-60" : ""}`}
             >
-              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />} Scanner immat / OR
+              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />} Démarrage rapide
             </label>
             {/* Input gardé dans le DOM (sr-only) : indispensable pour iPhone/Safari. */}
             <input id="tour-quick-camera" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void quickScan(e.target.files?.[0]); e.target.value = ""; }} />

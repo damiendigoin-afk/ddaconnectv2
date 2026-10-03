@@ -50,6 +50,15 @@ export function vehicleLabel(v: Pick<RefVehicle, "brand" | "model" | "range_name
   return [v.brand, v.range_name || v.model, v.version].filter(Boolean).join(" ") || "—";
 }
 
+/** Présentation WinMotor : gamme puis motorisation/modèle, sans doublon. */
+export function refVehicleModel(v: Pick<RefVehicle, "range_name" | "model">): string {
+  const range = (v.range_name ?? "").trim();
+  const model = (v.model ?? "").trim();
+  if (!range) return model;
+  if (!model || model.toUpperCase() === range.toUpperCase()) return range;
+  return `${range} / ${model}`;
+}
+
 export type SearchResult = {
   customers: (RefCustomer & { vehicles: RefVehicle[]; city: string | null; phone: string | null })[];
   vehicles: (RefVehicle & { customer: RefCustomer | null })[];
@@ -463,7 +472,7 @@ async function buildPrefill(found: RefVehicle, customer: RefCustomer | null): Pr
     plate: found.registration_display ?? plate.toUpperCase(),
     vin: found.vin ?? "",
     brand: found.brand ?? "",
-    model: found.model ?? found.range_name ?? "",
+    model: refVehicleModel(found),
     first_registration: found.first_registration_date ?? "",
     mileage: found.last_mileage ? String(found.last_mileage) : "",
   };
@@ -496,4 +505,30 @@ async function buildPrefill(found: RefVehicle, customer: RefCustomer | null): Pr
     label: `${found.registration_display ?? plate} — ${vehicleLabel(found)}${customer ? ` · ${customerName(customer)}` : ""}`,
     fields,
   };
+}
+
+/**
+ * Le référentiel WinMotor est prioritaire pour l'identité véhicule. Il complète
+ * la lecture OR et réaligne la fiche opérationnelle portant la même plaque/VIN.
+ * Aucun nettoyage global ni création d'OR n'est effectué ici.
+ */
+export async function prioritizeRefVehicleIdentity(vehicle: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const plate = typeof vehicle["plate"] === "string" ? vehicle["plate"] : "";
+  const vin = typeof vehicle["vin"] === "string" ? vehicle["vin"].toUpperCase().replace(/\s/g, "") : "";
+  const reg = normalizeRegistration(plate);
+  if (!reg && !vin) return vehicle;
+  let q = supabase.from("ref_vehicles").select(VEH_SELECT).limit(2);
+  q = reg ? q.eq("registration_normalized", reg) : q.eq("vin_normalized", vin);
+  const { data } = await q;
+  const ref = ((data ?? [])[0] ?? null) as RefVehicle | null;
+  if (!ref) return vehicle;
+  const identity = {
+    plate: ref.registration_display || plate,
+    vin: ref.vin || vin || null,
+    brand: ref.brand || null,
+    model: refVehicleModel(ref) || null,
+  };
+  const filters = [reg ? `plate_normalized.eq.${reg}` : "", ref.vin ? `vin.eq.${ref.vin}` : ""].filter(Boolean).join(",");
+  if (filters) await supabase.from("vehicles").update(identity).or(filters);
+  return { ...vehicle, ...Object.fromEntries(Object.entries(identity).filter(([, v]) => v)) };
 }

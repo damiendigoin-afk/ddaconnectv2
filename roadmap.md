@@ -120,3 +120,13 @@ Reste à faire :
 - [x] Tour du véhicule : bouton caméra (immat ou OR), tour sans OR
 - [x] Scan OR : contrôle strict immat (EMA426NG), modèle ≠ compte/OR/tél/CP, tableau Renault, prompt IA
 - [x] Tests ciblés + typecheck (pas de publication)
+
+## Lot correctif 03/10 — Tour pneus global / OR / référentiel
+- [ ] Ajuster les masques caméra bande, flanc et conserver dimension
+- [ ] Ajouter le démarrage rapide Tour plaque/OR sans dossier OR obligatoire
+- [ ] Renforcer plaque, marque, modèle et remarques OR 50985
+- [ ] Donner priorité à ref_vehicles sans nettoyage global
+- [ ] Capturer 12 photos pneus et analyser globalement à Terminer
+- [ ] Ajouter progression, reprise, validation tactile des 4 roues et persistance
+- [ ] Appliquer les règles essieu/4 pneus et réutiliser le devis/PDF existant
+- [ ] Tests ciblés, suite complète et typecheck ; ne pas publier

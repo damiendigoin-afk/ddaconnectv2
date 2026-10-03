@@ -24,6 +24,7 @@ import {
 import { applyDossierConflict, ensureWinmotorDossier } from "@/lib/or-dossier";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { prioritizeRefVehicleIdentity } from "@/lib/refbase";
 
 export const Route = createFileRoute("/atelier/")({
   head: () => ({
@@ -121,7 +122,8 @@ function AtelierHub() {
         setOrNote(`${res.error} Saisissez le numéro manuellement.`);
         return;
       }
-      const scan = parseRepairOrderScan(res.json);
+      const parsed = parseRepairOrderScan(res.json);
+      const scan = { ...parsed, data: { ...parsed.data, vehicle: await prioritizeRefVehicleIdentity(parsed.data.vehicle) } };
       const plate = scan.plate ? formatPlate(scan.plate) : null;
       setLastScan(scan);
       if (scan.or_number) setOrNum(scan.or_number);
