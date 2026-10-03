@@ -5,6 +5,8 @@ import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { listSuppliers } from "@/lib/suppliers";
+import { supabase } from "@/integrations/supabase/client";
+import { orderLogisticsAlert, rankSuppliers } from "@/lib/order-logistics";
 import { findOrByNumber, findOrsByPlate, type OrLite } from "@/lib/parts";
 import { GROUP_LABEL } from "@/lib/sites";
 import { partsReadSite, partsWriteSite } from "@/lib/parts-site";
@@ -94,18 +96,62 @@ export function useSuppliers() {
   return useQuery({ queryKey: ["suppliers-list"], queryFn: listSuppliers, staleTime: 300000 });
 }
 
+/** Fournisseurs les plus utilisés du site actif, recalculés depuis l'historique réel des commandes. */
+export function useTopSuppliers(max = 8) {
+  const { writeSite, readSite } = usePartsCtx();
+  const site = writeSite ?? readSite;
+  return useQuery({
+    queryKey: ["part-orders", "top-suppliers", site, max],
+    staleTime: 60000,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 365 * 86_400_000).toISOString();
+      let q = supabase.from("part_orders").select("supplier_id, created_at, status").not("supplier_id", "is", null).gte("created_at", since).order("created_at", { ascending: false }).limit(1500);
+      if (site) q = q.eq("site_id", site);
+      const { data } = await q;
+      return rankSuppliers(data ?? [], new Date(), max);
+    },
+  });
+}
+
 export function SupplierSelect({ value, onChange, required }: { value: string; onChange: (v: string) => void; required?: boolean }) {
   const q = useSuppliers();
+  const top = useTopSuppliers();
+  const [search, setSearch] = useState("");
+  const all = (q.data ?? []).filter((s) => s.active !== false);
+  const byId = new Map(all.map((s) => [s.id, s]));
+  const topList = (top.data ?? []).map((t) => byId.get(t.supplierId)).filter((s): s is NonNullable<typeof s> => !!s);
+  const n = search.trim().toLowerCase();
+  const rest = all.filter((s) => !n || s.name.toLowerCase().includes(n) || s.id === value);
   return (
-    <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} required={required}>
-      <option value="">— Fournisseur{required ? " *" : ""} —</option>
-      {(q.data ?? []).filter((s) => s.active !== false).map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.name}
-        </option>
-      ))}
-    </select>
+    <div className="space-y-1">
+      {all.length > 12 ? (
+        <input className={`${inputCls} h-9 text-xs`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un fournisseur…" aria-label="Rechercher un fournisseur" />
+      ) : null}
+      <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} required={required} aria-label="Fournisseur">
+        <option value="">— Fournisseur{required ? " *" : ""} —</option>
+        {topList.length && !n ? (
+          <optgroup label="Fournisseurs les plus utilisés">
+            {topList.map((s) => <option key={`top-${s.id}`} value={s.id}>{s.name}</option>)}
+          </optgroup>
+        ) : null}
+        <optgroup label="Tous les fournisseurs">
+          {rest.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </optgroup>
+      </select>
+    </div>
   );
+}
+
+/** Alerte logistique RDV / livraison prévue (avertissement, jamais bloquant). */
+export function LogisticsBadge({ order }: { order: { appointment_date?: string | null; expected_delivery_date?: string | null; status?: string | null } }) {
+  const a = orderLogisticsAlert(order, localTodayIso());
+  if (!a) return null;
+  return <p role="alert" className={`rounded-lg border-2 px-2 py-1 text-xs font-extrabold ${a.level === "danger" ? "border-destructive bg-destructive/10 text-destructive" : "border-status-watch bg-status-watch-soft"}`}>⚠ {a.message}</p>;
+}
+
+export function localTodayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /** Rattachement OR WinMotor existant (par n°) ou par immatriculation. Ne crée jamais de n° d'OR. */
