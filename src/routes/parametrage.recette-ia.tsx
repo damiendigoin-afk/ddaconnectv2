@@ -108,7 +108,7 @@ function RecetteIa() {
   async function onFiles(list: FileList | File[] | null) {
     const arr = Array.from(list ?? []).slice(0, MAX_FILES);
     if (!arr.length) return;
-    if (arr.some((f) => f.type === "application/pdf") && arr.length > 1) return toast.error("Un seul PDF par test (ou jusqu'à 5 photos).");
+    if (arr.some((f) => f.type === "application/pdf") && arr.length > 1) { toast.error("Un seul PDF par test (ou jusqu'à 5 photos)."); return; }
     if (!reset()) return;
     setFiles(arr);
     setBusy("Prétraitement…");
@@ -183,7 +183,7 @@ function RecetteIa() {
       kind_confidence: prepared?.confidence ?? null,
       kind_source: prepared?.source ?? null,
       corrected_kind: kind && kind !== prepared?.kind ? kind : null,
-      app_version: import.meta.env.VITE_APP_VERSION ?? null,
+      app_version: (import.meta.env["VITE_APP_VERSION"] as string | undefined) ?? null,
       timings_client: timings,
       runs: Object.values(runs).filter(Boolean) as BenchRun[],
       expected,
@@ -217,7 +217,7 @@ function RecetteIa() {
           file_name: files.map((f) => f.name).join(" + ").slice(0, 300), mime: files[0]?.type || "application/octet-stream", sha256: sha,
           storage_paths: prepared.paths, page_count: pages, photo_count: files.length, detected_kind: prepared.kind, kind_confidence: prepared.confidence,
           kind_source: prepared.source, corrected_kind: kind !== prepared.kind ? kind : null, local_text_chars: localText.length,
-          expected, scores: Object.keys(scores).length ? scores : null, timings, app_version: import.meta.env.VITE_APP_VERSION ?? null,
+          expected, scores: Object.keys(scores).length ? scores : null, timings, app_version: (import.meta.env["VITE_APP_VERSION"] as string | undefined) ?? null,
         },
         runs: Object.values(runs).filter(Boolean) as BenchRun[],
       } });
@@ -336,7 +336,7 @@ function RecetteIa() {
               <button type="button" disabled={busyAny} onClick={() => run(["B"])} className="rounded-lg border-2 border-border px-3 py-2 text-sm font-bold">B seul</button>
               <button type="button" disabled={busyAny} onClick={() => run(["pipeline"])} className="col-span-2 rounded-lg border-2 border-border px-3 py-2 text-sm font-bold md:col-span-4">Pipeline réel DDA seul</button>
             </div>
-            <p className="text-xs text-muted-foreground">Prétraitement {timings.preprocess_ms ?? "—"} ms · envoi + classification {timings.classify_total_ms ?? "—"} ms · texte local {localText.length} caractères. Budget banc de test : {settings?.daily_credits} crédits/jour.</p>
+            <p className="text-xs text-muted-foreground">Prétraitement {timings["preprocess_ms"] ?? "—"} ms · envoi + classification {timings["classify_total_ms"] ?? "—"} ms · texte local {localText.length} caractères. Budget banc de test : {settings?.daily_credits} crédits/jour.</p>
           </section>
         ) : null}
 
@@ -383,7 +383,7 @@ function RecetteIa() {
               <thead className="text-left text-muted-foreground"><tr><th>Type</th><th>Tests</th><th>A</th><th>B</th><th>Pipeline</th></tr></thead>
               <tbody>{summary.rows.map((r) => <tr key={r.kind} className="border-t border-border"><td className="py-1">{kindLabel(r.kind)}</td><td>{r.count}</td><td>{r.a ?? "—"}</td><td>{r.b ?? "—"}</td><td>{r.p ?? "—"}</td></tr>)}</tbody>
             </table>
-            <p className="mt-2 text-xs text-muted-foreground">Coût cumulé {summary.credits} crédits · temps IA moyen A {summary.avgMs.A ?? "—"} ms, B {summary.avgMs.B ?? "—"} ms, pipeline {summary.avgMs.pipeline ?? "—"} ms</p>
+            <p className="mt-2 text-xs text-muted-foreground">Coût cumulé {summary.credits} crédits · temps IA moyen A {summary.avgMs["A"] ?? "—"} ms, B {summary.avgMs["B"] ?? "—"} ms, pipeline {summary.avgMs["pipeline"] ?? "—"} ms</p>
           </section>
         ) : null}
       </div>

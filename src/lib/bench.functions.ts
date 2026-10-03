@@ -20,7 +20,7 @@ export const benchSettings = createServerFn({ method: "POST" })
     if (Object.keys(data).length) {
       if (data.candidate_model && !isAllowedBenchModel(data.candidate_model)) throw new Error("Modèle non autorisé en V1.");
       const cur = await readBenchSettings(context.supabase);
-      const { error } = await context.supabase.from("ai_bench_settings").upsert({ id: true, ...cur, ...data, updated_at: new Date().toISOString(), updated_by: context.userId });
+      const { error } = await context.supabase.from("ai_bench_settings").upsert({ id: true, ...cur, ...(Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as Partial<typeof cur>), updated_at: new Date().toISOString(), updated_by: context.userId });
       if (error) throw new Error(error.message);
     }
     const s = await readBenchSettings(context.supabase);
