@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { autoSupplier, initialOrderSupplier } from "@/lib/order-supplier";
 import { findRefVehicleByPlate } from "@/lib/refbase";
 import { Trash2 } from "lucide-react";
@@ -10,11 +10,12 @@ import { AppShell } from "@/components/AppShell";
 import { OrderRow } from "@/components/parts/OrderRow";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, PriceInput, OrPicker, SiteMismatchAlert, SupplierSelect, LogisticsBadge, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
-import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
+import { allocateToOr, createOrder, findDuplicateOrder, findOrByNumber, type DuplicateHit, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
 import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier, groupLinesByOr } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
-import { ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
+import { DuplicateOrderError, DUPLICATE_ORDER_MESSAGE, type OrderKey } from "@/lib/order-duplicate";
+import { findExistingSupplierDocId, ORDER_DOC_TYPE, uploadSupplierDoc } from "@/lib/supplier-docs";
 import { linkDocToOrder } from "@/lib/order-docs";
 import { logOrderLineContract, orderFormInitialState } from "@/lib/receipt-lines";
 import { formatPlate } from "@/lib/plate";
@@ -159,6 +160,35 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
   }
   const requestedOr = requestedDossier(orv.or, dossier);
 
+  // Anti-doublon : document déjà archivé (même fichier) puis commande active identique.
+  const [knownDocId, setKnownDocId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!doc || !writeSite) return;
+    let live = true;
+    void findExistingSupplierDocId(doc.file, writeSite, ORDER_DOC_TYPE).then((id) => { if (live) setKnownDocId(id); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [doc, writeSite]);
+  const dupKey = (docId: string | null): OrderKey | null => (writeSite ? {
+    site_id: writeSite, destination, supplier_id: supplier || null, supplier_order_ref: supRef.trim() || null,
+    source_document_id: docId, repair_order_id: orv.or?.id ?? null, requested_or_number: requestedOr,
+    plate: orv.plate.trim() || orv.or?.plate || null,
+  } : null);
+  const [duplicate, setDuplicate] = useState<DuplicateHit | null>(null);
+  const dupSig = JSON.stringify(dupKey(knownDocId));
+  useEffect(() => {
+    const k = dupKey(knownDocId);
+    if (!k || multiOrs.length || (!k.source_document_id && !(k.supplier_id && k.supplier_order_ref))) return void setDuplicate(null);
+    let live = true;
+    const t = setTimeout(() => { void findDuplicateOrder(k).then((d) => { if (live) setDuplicate(d); }).catch(() => undefined); }, 300);
+    return () => { live = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dupSig]);
+  const submitting = useRef(false);
+  const goExisting = (id: string | null) => {
+    toast.error(`${DUPLICATE_ORDER_MESSAGE} — aucune nouvelle commande créée.`);
+    if (id) { onDone(); void navigate({ to: "/pieces-achats/commande/$orderId", params: { orderId: id } }); }
+  };
+
   const setLine = (i: number, p: Partial<OrderLineInput>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   async function checkStock(i: number, ref: string) {
@@ -178,8 +208,17 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
 
   async function submit() {
     if (!writeSite) return void toast.error("Choisissez le site actif dans la barre du haut.");
+    if (submitting.current) return; // verrou synchrone anti-double-clic
+    submitting.current = true;
     setBusy(true);
     try {
+      // Contrôle juste avant création : rien n'est créé ni rattaché si la commande existe déjà.
+      if (!multiOrs.length) {
+        const preDoc = doc ? await findExistingSupplierDocId(doc.file, writeSite, ORDER_DOC_TYPE).catch(() => knownDocId) : null;
+        const k = dupKey(preDoc);
+        const existing = k ? await findDuplicateOrder(k) : null;
+        if (existing) { setDuplicate(existing); return goExisting(existing.id); }
+      }
       let docId: string | null = null;
       if (doc) {
         try {
@@ -199,14 +238,19 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
           const ro = orFound[g.or] ?? (await findOrByNumber(g.or));
           const reqOr = requestedDossier(ro, g.or);
           const gl = g.lines.map((t) => t.l);
-          const oid = await createOrder({
+          let oid: string;
+          try { oid = await createOrder({
             site_id: writeSite, supplier_id: supplier || null, source_document_id: docId,
             order_mode: gl.length ? "detailed" : "simplified", destination,
             repair_order_id: ro?.id ?? null, vehicle_id: ro?.vehicle_id ?? orv.vehicleId,
             plate: ro?.plate ?? plate, appointment_date: appointment || null, expected_delivery_date: delivery || null, order_date: orderDate || null, supplier_order_ref: supRef.trim() || null,
             comment: [comment.trim(), `Commande fournisseur multi-OR : ${multiOrs.join(" + ")}`].filter(Boolean).join(" — "),
             requested_or_number: reqOr, lines: gl,
-          }, actor);
+          }, actor); } catch (e) {
+            // Même document déjà commandé pour cet OR : on n'en crée pas un second.
+            if (e instanceof DuplicateOrderError) { if (e.existingId) ids.push(e.existingId); continue; }
+            throw e;
+          }
           ids.push(oid);
           if (docId && ids.length === 1) await linkDocToOrder(docId, oid).catch(() => undefined);
           const gaps = orderGaps({ supplier_id: supplier || null, hasDocument: !!doc, lines: gl.length, repair_order_id: ro?.id ?? null, plate: ro?.plate ?? plate, destination, requested_or_number: reqOr });
@@ -244,8 +288,10 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
       onDone();
       void navigate({ to: "/pieces-achats/commande/$orderId", params: { orderId: id } });
     } catch (e) {
+      if (e instanceof DuplicateOrderError) return goExisting(e.existingId);
       toast.error(e instanceof Error ? e.message : "Erreur d'enregistrement");
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -340,9 +386,22 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
         </div>
       ))}
       <button type="button" className={btnGhost} onClick={() => { setLines((ls) => [...ls, emptyLine()]); setLineOrs((a) => [...a, multiOrs[0] ?? ""]); }}>+ Ligne</button>
+      {duplicate ? (
+        <div role="alert" data-testid="order-duplicate" className="space-y-1 rounded-lg border-2 border-destructive bg-destructive/10 p-3 text-sm font-bold text-destructive">
+          <p className="text-base font-extrabold uppercase">{DUPLICATE_ORDER_MESSAGE}</p>
+          <p>
+            {duplicate.suppliers?.name ?? "Fournisseur ?"}
+            {duplicate.supplier_order_ref ? ` · commande ${duplicate.supplier_order_ref}` : ""}
+            {duplicate.repair_orders?.or_number ? ` · OR ${duplicate.repair_orders.or_number}` : duplicate.requested_or_number ? ` · dossier ${duplicate.requested_or_number}` : ""}
+            {duplicate.plate ? ` · ${formatPlate(duplicate.plate)}` : ""}
+            {duplicate.created_at ? ` · le ${new Date(duplicate.created_at).toLocaleDateString("fr-FR")}` : ""}
+          </p>
+          <Link to="/pieces-achats/commande/$orderId" params={{ orderId: duplicate.id }} className="underline">Ouvrir la commande existante</Link>
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         <button type="button" className={btnGhost} onClick={onDone}>Annuler</button>
-        <button type="button" className={btnPrimary} onClick={submit} disabled={busy}>Valider la commande</button>
+        <button type="button" className={btnPrimary} onClick={submit} disabled={busy || !!duplicate}>Valider la commande</button>
       </div>
     </div>
   );
