@@ -24,6 +24,7 @@ import { suggestBrands } from "@/lib/tire-brands";
 import { analyzeTireLabelPhoto } from "@/lib/tire-ai.functions";
 import { ocrTirePhoto } from "@/lib/tire-ocr.browser";
 import { buildTireQuotePdf, openPdfBlob } from "@/lib/tire-quote-pdf";
+import { QUOTE_PHOTOS_KEY, type QuotePhoto } from "@/lib/tire-step";
 
 import {
   EMPTY_TIRE_QUOTE_FORM,
@@ -202,6 +203,12 @@ function TireQuotePage() {
 
   /** Impression : le devis est déjà auto-enregistré, on ouvre le PDF A4. */
   const [printing, setPrinting] = useState(false);
+  // Photos annotées venant d'État pneus (même session navigateur) : jointes au PDF.
+  const [quotePhotos, setQuotePhotos] = useState<QuotePhoto[]>([]);
+  useEffect(() => {
+    try { const v = JSON.parse(sessionStorage.getItem(QUOTE_PHOTOS_KEY) || "[]"); if (Array.isArray(v)) setQuotePhotos(v as QuotePhoto[]); } catch { /* rien */ }
+  }, []);
+  const clearQuotePhotos = () => { sessionStorage.removeItem(QUOTE_PHOTOS_KEY); setQuotePhotos([]); };
   async function openPdf() {
     if (!result || !size) return;
     setPrinting(true);
@@ -222,6 +229,7 @@ function TireQuotePage() {
           speedIndex: form.speed.trim().toUpperCase() || null,
         },
         offers,
+        quotePhotos,
       );
       openPdfBlob(blob, `devis-pneus-${result.size.replace(/\W+/g, "-")}.pdf`);
     } catch (e) {

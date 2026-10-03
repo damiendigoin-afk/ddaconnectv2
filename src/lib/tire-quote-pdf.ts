@@ -167,6 +167,8 @@ function offerFor(offers: SevenOffer[], tier: string, season: string): SevenOffe
 export async function buildTireQuotePdf(
   header: TireQuotePdfHeader,
   offers: SevenOffer[],
+  /** Photos annotées venant d'État pneus (vraie photo + profondeurs) : 2e page, 4 maximum. */
+  photos: { dataUrl: string; caption: string }[] = [],
 ): Promise<Blob> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Devis pneumatiques ${header.size}`);
@@ -415,6 +417,26 @@ export async function buildTireQuotePdf(
   const foot = [garage, ...h.lines].join(" - ");
   draw(page, foot, M, 10, { font: regular, size: 7, color: rgb(0.8, 0.8, 0.8), maxWidth: innerW });
 
+  const usable = photos.filter((p) => p.dataUrl.startsWith("data:image/jpeg")).slice(0, 4);
+  if (usable.length) {
+    const p2 = pdf.addPage([A4.w, A4.h]);
+    draw(p2, "ÉTAT DES PNEUS", M, A4.h - 50, { font: bold, size: 15, color: BLACK });
+    draw(p2, "Profondeurs estimées sur photo — estimation visuelle à confirmer par une mesure manuelle.", M, A4.h - 66, { font: regular, size: 8, color: rgb(0.35, 0.35, 0.35), maxWidth: A4.w - 2 * M });
+    const cols = usable.length === 1 ? 1 : 2;
+    const cellW = (A4.w - 2 * M - (cols - 1) * 14) / cols;
+    const cellH = usable.length <= 2 ? 560 : 330;
+    for (const [i, ph] of usable.entries()) {
+      try {
+        const img = await pdf.embedJpg(Uint8Array.from(atob(ph.dataUrl.split(",")[1] ?? ""), (c) => c.charCodeAt(0)));
+        const k = Math.min(cellW / img.width, (cellH - 18) / img.height);
+        const x = M + (i % cols) * (cellW + 14);
+        const top = A4.h - 84 - Math.floor(i / cols) * (cellH + 10);
+        p2.drawImage(img, { x, y: top - img.height * k, width: img.width * k, height: img.height * k });
+        draw(p2, ph.caption, x, top - img.height * k - 12, { font: bold, size: 9, color: BLACK, maxWidth: cellW });
+      } catch { /* photo illisible : ignorée, le devis reste valide */ }
+    }
+    draw(p2, "Rouge <= 1,6 mm · Orange 1,6 – 3 mm · Vert >= 3 mm", M, 40, { font: regular, size: 8, color: rgb(0.35, 0.35, 0.35) });
+  }
   const data = await pdf.save();
   return new Blob([data.slice() as unknown as ArrayBuffer], { type: "application/pdf" });
 }
