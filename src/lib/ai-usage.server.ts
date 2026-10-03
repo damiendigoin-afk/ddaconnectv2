@@ -296,7 +296,6 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
     http_status: 200,
     success: Boolean(content),
     estimated_credits: credits,
-    route: input.route ?? null,
   });
 
   if (content && !input.bypassCache) {
