@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { orderMarker } from "@/lib/receipt-lines";
-import { Badge, ORDER_STATUS, usePartsCtx } from "@/components/parts/PartsUi";
+import { Badge, LogisticsBadge, ORDER_STATUS, usePartsCtx } from "@/components/parts/PartsUi";
 import { OrderLinesCompact } from "@/components/parts/OrderLinesCompact";
 import { CancelAction } from "@/components/parts/CancelAction";
 import { cancelOrder } from "@/lib/parts";
@@ -28,9 +28,15 @@ export function OrderRow({ o, siteName }: { o: any; siteName: (id: string) => st
         <div className="text-xs text-muted-foreground">
           {siteName(o.site_id)} · {new Date(o.created_at).toLocaleDateString("fr-FR")}
           {` · ${orderMarker(o)}`}
-          {o.order_date ? ` · commandée le ${new Date(o.order_date).toLocaleDateString("fr-FR")}` : ""}
-          {o.appointment_date ? ` · RDV ${new Date(o.appointment_date).toLocaleDateString("fr-FR")}` : ""}
         </div>
+        {o.appointment_date || o.expected_delivery_date ? (
+          <div className="text-xs font-extrabold">
+            {o.appointment_date ? `RDV ${new Date(o.appointment_date).toLocaleDateString("fr-FR")}` : ""}
+            {o.appointment_date && o.expected_delivery_date ? " · " : ""}
+            {o.expected_delivery_date ? `Livraison prévue ${new Date(o.expected_delivery_date).toLocaleDateString("fr-FR")}` : ""}
+          </div>
+        ) : null}
+        <LogisticsBadge order={o} />
         {lines.length ? <OrderLinesCompact lines={lines} /> : <div className="mt-2"><Badge tone="warn">Commande non détaillée</Badge></div>}
       </Link>
       <SourceDocButton o={o} compact />
