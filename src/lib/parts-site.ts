@@ -5,6 +5,7 @@
  */
 import { normalizeRef } from "@/lib/parts-rules";
 import { supplierNames } from "@/lib/supplier-identify";
+import { hardAliasSupplier } from "@/lib/supplier-aliases";
 
 export type SiteLite = { id: string; code: string | null; name: string };
 
@@ -276,6 +277,8 @@ const GENERIC_WORDS = new Set(["renault", "dacia", "groupe", "group", "auto", "a
 const sigWords = (s: string) => norm(s).split(" ").filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));
 
 export function matchSupplier<T extends { id: string; name: string; active?: boolean | null; notes?: string | null }>(name: string | null | undefined, suppliers: T[]): T | null {
+  const hard = hardAliasSupplier(name, suppliers);
+  if (hard) return hard;
   const n = norm(name);
   if (n.length < 3) return null;
   const pool = suppliers.filter((s) => s.active !== false && norm(s.name).length >= 3);

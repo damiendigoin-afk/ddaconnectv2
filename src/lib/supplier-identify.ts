@@ -3,6 +3,7 @@
  * Normalisation : casse, accents, ponctuation, espaces. Jamais de création si plusieurs fiches proches.
  */
 import type { InvoiceExtract, SupplierInfo } from "@/lib/supplier-docs";
+import { hardAliasSupplier } from "@/lib/supplier-aliases";
 
 export const normSupplierName = (s: string | null | undefined) =>
   (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
@@ -51,6 +52,8 @@ export type SupplierResolution<T extends S = S> =
 export function resolveSupplier<T extends S>(name: string | null | undefined, suppliers: T[], ids: (string | null | undefined)[] = []): SupplierResolution<T> {
   const clean = (name ?? "").replace(/\s+/g, " ").trim();
   const n = normSupplierName(clean);
+  const hard = hardAliasSupplier(clean, suppliers);
+  if (hard) return { kind: "found", supplier: hard };
   // Identifiant fiscal lu = fiche portant ce même identifiant (le plus sûr).
   const idKeys = ids.map((v) => (v ?? "").replace(/\s/g, "").toUpperCase()).filter((v) => v.length >= 8);
   if (idKeys.length) {
@@ -110,6 +113,9 @@ export function draftToSupplierRow(d: SupplierDraft) {
 
 /** Fournisseur effectif d'un document : rattachement explicite d'abord, sinon correspondance sûre. */
 export function docSupplierId<T extends S>(x: InvoiceExtract, suppliers: T[]): string | null {
+  // Alias codé en dur sur le nom lu (Distributeur) : prime sur un rattachement automatique erroné.
+  const hard = hardAliasSupplier(x.supplier, suppliers);
+  if (hard) return hard.id;
   if (x.supplier_id && suppliers.some((s) => s.id === x.supplier_id)) return x.supplier_id;
   const r = resolveSupplier(x.supplier, suppliers, [x.supplier_info?.vat_number, x.supplier_info?.siret]);
   return r.kind === "found" ? r.supplier.id : null;
