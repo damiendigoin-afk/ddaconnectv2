@@ -1,4 +1,4 @@
-/** Étape pneu — structures et règles pures (lecture flanc, usure, profondeur IA expérimentale). */
+/** État pneus (ex-« Étape pneu ») — structures et règles pures (lecture flanc, usure, profondeur IA expérimentale). */
 
 export type Conf = "elevee" | "moyenne" | "faible" | null;
 
@@ -24,6 +24,8 @@ export type TireStepResult = {
     inner_mm: number | null; center_mm: number | null; outer_mm: number | null;
     points_mm: number[];
     gauge_visible: boolean;
+    /** Côté de l'IMAGE correspondant à l'intérieur du véhicule, si déterminable de façon fiable. */
+    inner_side: "gauche" | "droite" | null;
     confidence: Conf;
     note: string | null;
   };
@@ -31,6 +33,31 @@ export type TireStepResult = {
 
 export const TIRE_STEP_FEATURE = "tire_step";
 export const TIRE_STEP_DEFAULT_MODEL = "google/gemini-3.8-flash";
+/** Modèles proposés dans État pneus (tous présents dans BENCH_MODELS / passerelle). */
+export const TIRE_STEP_MODELS = [
+  { id: "google/gemini-3.8-flash", label: "Gemini 3.8 Flash (défaut)" },
+  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (plus puissant)" },
+] as const;
+export function pickTireStepModel(requested: string | null | undefined): string {
+  return TIRE_STEP_MODELS.some((m) => m.id === requested) ? requested! : TIRE_STEP_DEFAULT_MODEL;
+}
+
+export type Orientation = "auto" | "gauche" | "droite" | "inconnue";
+/**
+ * Libellés des zones gauche/milieu/droite de l'image. inner_mm = zone GAUCHE de l'image,
+ * outer_mm = zone DROITE (convention image). Sans orientation fiable : Gauche/Milieu/Droite.
+ */
+export function zoneLabels(innerSide: "gauche" | "droite" | null): [string, string, string] {
+  if (innerSide === "gauche") return ["Intérieur", "Milieu", "Extérieur"];
+  if (innerSide === "droite") return ["Extérieur", "Milieu", "Intérieur"];
+  return ["Gauche", "Milieu", "Droite"];
+}
+export function resolveInnerSide(o: Orientation, ai: "gauche" | "droite" | null): "gauche" | "droite" | null {
+  if (o === "gauche" || o === "droite") return o;
+  if (o === "inconnue") return null;
+  return ai;
+}
 export const EXPERIMENTAL_DEPTH_NOTICE =
   "Estimation visuelle IA expérimentale — à confirmer par une mesure manuelle avant toute décision technique ou client.";
 export const LEGAL_MIN_MM = 1.6;
@@ -96,6 +123,7 @@ export function normalizeTireStep(raw: Record<string, unknown> | null): TireStep
       inner_mm: inner, center_mm: center, outer_mm: outer,
       points_mm: pts.length >= 3 ? pts : [inner, center, outer].filter((x): x is number => x !== null),
       gauge_visible: bool(d["gauge_visible"]),
+      inner_side: oneOf(d["inner_side"], ["gauche", "droite"] as const),
       confidence: conf(d["confidence"]),
       note: str(d["note"]),
     },
@@ -110,7 +138,7 @@ export function wearLevel(v: number | null): WearLevel | null {
   return "bon";
 }
 
-/** Écart intérieur/extérieur ≥ 1,5 mm => usure dissymétrique (suggère un contrôle géométrie). */
+/** Écart gauche/droite (intérieur/extérieur) ≥ 1,5 mm => usure dissymétrique (suggère un contrôle géométrie). */
 export function isAsymmetric(r: TireStepResult["depth"]) {
   if (r.inner_mm === null || r.outer_mm === null) return false;
   return Math.abs(r.inner_mm - r.outer_mm) >= 1.5;
@@ -136,7 +164,10 @@ FLANC : lis les marquages réellement visibles. N'invente jamais une marque, une
 BANDE DE ROULEMENT : décris l'usure (régulière/irrégulière, zone la plus usée vue de l'extérieur du véhicule si discernable,
 facettes, craquelures, déformation, témoins d'usure).
 PROFONDEUR (MODE EXPÉRIMENTAL DEMANDÉ PAR L'ATELIER) : donne ta meilleure ESTIMATION visuelle en mm de la profondeur
-de sculpture à l'intérieur, au centre et à l'extérieur (un pneu neuf fait ~8 mm, témoin d'usure à 1,6 mm). Si une réglette
+de sculpture, CONVENTION IMAGE : inner_mm = zone GAUCHE de l'image de bande de roulement, center_mm = milieu,
+outer_mm = zone DROITE de l'image. inner_side = "gauche" ou "droite" UNIQUEMENT si tu peux déterminer de façon fiable quel
+côté de l'image correspond à l'intérieur du véhicule, sinon null (ne devine jamais). Les images peuvent être des frames
+successives d'une vidéo de balayage du même pneu : combine-les (un pneu neuf fait ~8 mm, témoin d'usure à 1,6 mm). Si une réglette
 ou jauge est visible, indique gauge_visible=true et utilise-la comme référence. Si la bande de roulement n'est pas visible, null.
 Indique une confiance honnête.
 
@@ -146,7 +177,7 @@ Réponds STRICTEMENT en JSON :
 "homologations":[],"other_markings":[],"read_quality":"elevee|moyenne|faible"},
 "wear":{"pattern":"reguliere|irreguliere|null","stronger_zone":"interieur|centre|exterieur|epaules|null","facets":false,"cracks":false,
 "deformation":false,"wear_indicator":"non_visible|visible|proche|atteint|null","recommendation":null,"observations":[]},
-"depth":{"inner_mm":null,"center_mm":null,"outer_mm":null,"points_mm":[],"gauge_visible":false,"confidence":"elevee|moyenne|faible","note":null}}
+"depth":{"inner_mm":null,"center_mm":null,"outer_mm":null,"points_mm":[],"gauge_visible":false,"inner_side":null,"confidence":"elevee|moyenne|faible","note":null}}
 - size au format "205/55 R16 91V". homologations : ex "MO", "*", "AO", "N0", "E4 0212345".
-- dot = 4 derniers chiffres (semaine+année). points_mm facultatif : 5 à 7 points de l'intérieur vers l'extérieur.
+- dot = 4 derniers chiffres (semaine+année). points_mm facultatif : 5 à 7 points de la gauche vers la droite de l'image.
 - recommendation : prudente (ex "Contrôle de la géométrie conseillé"), jamais de kilométrage restant.`;

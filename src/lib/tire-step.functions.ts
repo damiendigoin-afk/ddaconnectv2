@@ -1,11 +1,11 @@
-/** Étape pneu — analyse IA (flanc + usure + profondeur expérimentale) et enregistrement. */
+/** État pneus — analyse IA (flanc + usure + profondeur expérimentale) et enregistrement. */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const MAX = 12 * 1024 * 1024;
-const images = z.array(z.object({ role: z.enum(["tread", "sidewall", "other"]), dataUrl: z.string().min(20).max(MAX) })).min(1).max(6);
+const images = z.array(z.object({ role: z.enum(["tread", "sidewall", "other"]), dataUrl: z.string().min(20).max(MAX) })).min(1).max(16);
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -17,15 +17,13 @@ async function assertActive(supabase: SupabaseClient<Database>, userId: string) 
 
 export const analyzeTireStep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((v: unknown) => z.object({ images, force: z.boolean().default(false), siteId: z.string().uuid().nullable().optional() }).parse(v))
+  .inputValidator((v: unknown) => z.object({ images, force: z.boolean().default(false), model: z.string().max(80).nullable().optional(), siteId: z.string().uuid().nullable().optional() }).parse(v))
   .handler(async ({ data, context }) => {
     await assertActive(context.supabase, context.userId);
     const { runPaidAi, dailyBudgetStatus } = await import("./ai-usage.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { TIRE_STEP_PROMPT, TIRE_STEP_FEATURE, TIRE_STEP_DEFAULT_MODEL, normalizeTireStep } = await import("./tire-step");
-    const { BENCH_MODELS } = await import("./bench-schema");
-    const { data: s } = await supabaseAdmin.from("ai_bench_settings").select("candidate_model").maybeSingle();
-    const model = s?.candidate_model && (BENCH_MODELS as readonly string[]).includes(s.candidate_model) ? s.candidate_model : TIRE_STEP_DEFAULT_MODEL;
+    const { TIRE_STEP_PROMPT, TIRE_STEP_FEATURE, normalizeTireStep, pickTireStepModel } = await import("./tire-step");
+    // Modèle choisi explicitement dans l'écran (liste blanche), sinon défaut 3.8 Flash.
+    const model = pickTireStepModel(data.model);
 
     const label = { tread: "Photo bande de roulement", sidewall: "Photo du flanc", other: "Vue complémentaire" } as const;
     const content: Record<string, unknown>[] = [{ type: "text", text: TIRE_STEP_PROMPT }];
@@ -35,7 +33,7 @@ export const analyzeTireStep = createServerFn({ method: "POST" })
     }
     const res = await runPaidAi({
       feature: TIRE_STEP_FEATURE,
-      fingerprintSeed: data.images.map((i) => `${i.role}:${i.dataUrl}`).join("\u0000"),
+      fingerprintSeed: model + "\u0000" + data.images.map((i) => `${i.role}:${i.dataUrl}`).join("\u0000"),
       model,
       essentialVision: true,
       bypassCache: data.force,

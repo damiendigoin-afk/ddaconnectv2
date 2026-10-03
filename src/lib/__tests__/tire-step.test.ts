@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { budgetStatus, parisDayStartIso } from "../ai-budget-day";
-import { isAsymmetric, normalizeTireStep, parseDot, parseTireSize, quoteSearchFromResult, wearLevel } from "../tire-step";
+import { TIRE_STEP_DEFAULT_MODEL, pickTireStepModel, resolveInnerSide, zoneLabels, isAsymmetric, normalizeTireStep, parseDot, parseTireSize, quoteSearchFromResult, wearLevel } from "../tire-step";
 
 describe("budget journalier partagé", () => {
   it("50 crédits configurés => plafond 50, jamais 3", () => {
@@ -40,5 +40,18 @@ describe("étape pneu", () => {
   it("devis prérempli avec la dimension lue", () => {
     const r = normalizeTireStep({ sidewall: { size: "205/55 R16 91V", brand: "Michelin" } });
     expect(quoteSearchFromResult(r)).toEqual({ w: "205", h: "55", d: "16", li: "91", si: "V", brand: "Michelin" });
+  });
+  it("modèle par défaut 3.8 Flash, modèle choisi respecté, inconnu refusé", () => {
+    expect(TIRE_STEP_DEFAULT_MODEL).toBe("google/gemini-3.8-flash");
+    expect(pickTireStepModel("google/gemini-3.5-flash")).toBe("google/gemini-3.5-flash");
+    expect(pickTireStepModel("google/gemini-3.1-pro-preview")).toBe("google/gemini-3.1-pro-preview");
+    expect(pickTireStepModel("openai/inconnu")).toBe("google/gemini-3.8-flash");
+  });
+  it("orientation inconnue => Gauche/Milieu/Droite, jamais inversée", () => {
+    expect(zoneLabels(null)).toEqual(["Gauche", "Milieu", "Droite"]);
+    expect(zoneLabels("droite")).toEqual(["Extérieur", "Milieu", "Intérieur"]);
+    expect(resolveInnerSide("auto", null)).toBeNull();
+    expect(resolveInnerSide("inconnue", "gauche")).toBeNull();
+    expect(resolveInnerSide("gauche", null)).toBe("gauche");
   });
 });

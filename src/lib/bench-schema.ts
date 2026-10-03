@@ -9,7 +9,7 @@ export const BENCH_PROMPT_VERSION = "bench-prompt-v1";
 export const BENCH_CLASSIFY_VERSION = "bench-classify-v1";
 
 /** Modèle A = vision actuelle DDA Connect (doit rester aligné sur VISION_MODEL). */
-export const MODEL_A = "google/gemini-3.5-flash";
+export const MODEL_A = "google/gemini-3.8-flash";
 
 /** V1 : modèles Gemini vision compatibles chat-completions de la passerelle. */
 export const BENCH_MODELS = [
