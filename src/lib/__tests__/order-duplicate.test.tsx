@@ -73,7 +73,7 @@ import { OrderForm } from "@/routes/pieces-achats.commandes";
 afterEach(() => { cleanup(); createOrder.mockReset(); findDuplicateOrder.mockReset(); });
 
 function renderForm() {
-  return render(<OrderForm doc={null} initialSupplier="districash" onDone={() => undefined} />);
+  return render(<OrderForm doc={null} docSite={null} initialSupplier="districash" onDone={() => undefined} />);
 }
 
 describe("Commander des pièces — anti-doublon", () => {

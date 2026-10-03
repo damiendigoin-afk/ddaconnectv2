@@ -42,11 +42,11 @@ vi.mock("@/components/parts/PartsUi", () => ({
 }));
 
 vi.mock("@/lib/parts", () => ({
-  allocateToOr: vi.fn(), createOrder: vi.fn(), findOrByNumber: vi.fn().mockResolvedValue(null),
+  allocateToOr: vi.fn(), createOrder: vi.fn(), findDuplicateOrder: vi.fn().mockResolvedValue(null), findOrByNumber: vi.fn().mockResolvedValue(null),
   findStockByRef: vi.fn().mockResolvedValue([]), listOrders: vi.fn().mockResolvedValue([]), openRegularization: vi.fn(),
 }));
 vi.mock("@/lib/refbase", () => ({ findRefVehicleByPlate: vi.fn().mockResolvedValue(null) }));
-vi.mock("@/lib/supplier-docs", () => ({ ORDER_DOC_TYPE: "supplier_order", uploadSupplierDoc: vi.fn() }));
+vi.mock("@/lib/supplier-docs", () => ({ ORDER_DOC_TYPE: "supplier_order", uploadSupplierDoc: vi.fn(), findExistingSupplierDocId: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/order-docs", () => ({ linkDocToOrder: vi.fn() }));
 
 import { OrderForm } from "@/routes/pieces-achats.commandes";
