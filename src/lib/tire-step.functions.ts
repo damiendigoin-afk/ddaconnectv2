@@ -33,7 +33,7 @@ export const analyzeTireStep = createServerFn({ method: "POST" })
     }
     const res = await runPaidAi({
       feature: TIRE_STEP_FEATURE,
-      fingerprintSeed: data.images.map((i) => `${i.role}:${i.dataUrl}`).join("\u0000"),
+      fingerprintSeed: model + "\u0000" + data.images.map((i) => `${i.role}:${i.dataUrl}`).join("\u0000"),
       model,
       essentialVision: true,
       bypassCache: data.force,
