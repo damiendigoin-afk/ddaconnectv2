@@ -523,7 +523,7 @@ export async function prioritizeRefVehicleIdentity(vehicle: Record<string, unkno
   const ref = ((data ?? [])[0] ?? null) as RefVehicle | null;
   if (!ref) return vehicle;
   const identity = {
-    plate: ref.registration_display || plate || null,
+    plate: ref.registration_display || plate,
     vin: ref.vin || vin || null,
     brand: ref.brand || null,
     model: refVehicleModel(ref) || null,

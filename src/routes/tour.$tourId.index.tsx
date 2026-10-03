@@ -441,7 +441,7 @@ function Guided(props: SharedProps) {
         const point = (points.data ?? []).find((p) => p.point_key === key);
         if (!point) continue;
         const legacy = legacyTireAnalysis(results[key]);
-        await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, globalModel: r.model, globalMetrics: r.metrics } as never, measure_value: legacy.ai.depth_mm, measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
+        await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, globalModel: r.model, globalMetrics: r.metrics } as never, measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm), measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
       }
       setTireResults(results); setTireProof((r.proof ?? {}) as typeof tireProof); setAnalysisProgress(100); setAnalysisState("review");
       await points.refetch();
@@ -463,7 +463,7 @@ function Guided(props: SharedProps) {
       const result = tireResults[key]; const point = (points.data ?? []).find((p) => p.point_key === key);
       if (!result || !point) continue;
       const legacy = legacyTireAnalysis(result);
-      await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, correctedAt: new Date().toISOString() } as never, measure_value: legacy.ai.depth_mm, measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
+      await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, correctedAt: new Date().toISOString() } as never, measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm), measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
     }
     await finish();
   }

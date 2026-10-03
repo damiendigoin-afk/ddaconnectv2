@@ -4,7 +4,7 @@ import { nextInternalRef } from "./or-ref";
 import { createInspection } from "./tour";
 import { findRefVehicleByPlate, refVehicleModel } from "./refbase";
 
-type Author = { userId?: string | null; userName?: string | null; siteId?: string | null };
+type Author = { userId?: string | null | undefined; userName?: string | null | undefined; siteId?: string | null | undefined };
 
 async function startForOrder(orderId: string, author: Author) {
   const { data, error } = await supabase.from("repair_orders").select("vehicle_id").eq("id", orderId).single();

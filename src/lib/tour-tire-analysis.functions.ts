@@ -37,7 +37,7 @@ export const analyzeTourTires = createServerFn({ method: "POST" })
 
     const battery = (points ?? []).find((p) => p.point_key === "batterie");
     const content: Record<string, unknown>[] = [{ type: "text", text: `Analyse les QUATRE pneus d'un même véhicule dans UNE réponse. Pour chaque roue, lis le flanc, évalue l'usure et estime prudemment les profondeurs gauche/milieu/droite. N'invente rien. Les défauts critiques (lisse, témoin atteint, carcasse ou corde visible) priment. Le test batterie déjà lu par le tour est fourni uniquement comme contexte et ne doit jamais modifier les résultats pneus : ${JSON.stringify(battery?.battery_test ?? battery?.measure_value ?? null)}. Réponds strictement en JSON {"wheels":{"pneu_avg":RESULTAT,"pneu_avd":RESULTAT,"pneu_arg":RESULTAT,"pneu_ard":RESULTAT}} où RESULTAT suit exactement le schéma État pneus sidewall/wear/depth.` }];
-    const proof: Record<string, { photoCount: number; mainPhotoPath: string | null }> = {};
+    const proof: Record<string, { photoCount: number; mainPhotoPath: string | null; mainPhotoUrl: string | null }> = {};
     for (const key of TOUR_TIRE_KEYS) {
       const ims = picked.get(key)!;
       const mainPhotoPath = ims.find((x) => x.label === "bande")?.path ?? null;
