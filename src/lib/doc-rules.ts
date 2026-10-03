@@ -600,7 +600,6 @@ export function isLogiwebOrder(raw: string): boolean {
   return /num[ée]ro\s+date\s+client\s+r[ée]f[ée]rence\s+immatriculation/i.test(t) && /\bquantit[ée]\s+d[ée]signation\b/i.test(t) && /prix\s+net/i.test(t);
 }
 
-const MONEY_TOKEN = /\d{1,6}(?:[ .]\d{3})*,\d{2}/g;
 /** Ligne article Logiweb : « 2 16764 - DÉSIGNATION 80,50 35.2 % 52,16 104,32 1 ». PA = Prix Net unitaire, jamais le Montant HT. */
 const LOGIWEB_LINE = /^(\d{1,4}(?:[.,]\d{1,2})?)\s+([A-Z0-9][A-Z0-9.\/]*)\s+-\s+(.+?)\s+(\d{1,6},\d{2})\s+(?:(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s+)?(\d{1,6},\d{2})\s+(\d{1,6},\d{2})(?:\s+\d)?\s*$/;
 
@@ -649,7 +648,7 @@ export function logiwebOrderRules(raw: string): Fields | null {
   let total_ht: number | null = null, vat_amount: number | null = null, total_ttc: number | null = null;
   const foot = rows.findIndex((r) => /total\s+ht.*total\s+ttc/i.test(r));
   for (const r of foot >= 0 ? rows.slice(foot + 1) : []) {
-    const v = (r.match(MONEY_TOKEN) ?? []).map((x) => money(x)!).filter((x) => x != null);
+    const v = r.split(" ").filter((t) => /^\d{1,7},\d{2}$/.test(t)).map((x) => money(x)!);
     for (let i = 0; i + 2 < v.length; i += 1) {
       if (Math.abs(v[i]! + v[i + 1]! - v[i + 2]!) <= 0.02) { total_ht = v[i]!; vat_amount = v[i + 1]!; total_ttc = v[v.length - 1]!; break; }
     }
