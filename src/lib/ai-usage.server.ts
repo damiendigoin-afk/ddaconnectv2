@@ -10,6 +10,7 @@
  * Aucune clé n'existe côté navigateur : ce module est serveur uniquement.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { budgetStatus, parisDayStartIso, parisMonthStartIso, type BudgetStatus } from "./ai-budget-day";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
@@ -92,11 +93,20 @@ export async function readBudget(): Promise<Budget> {
   };
 }
 
-/** Crédits consommés depuis `iso` : prod (hors banc de test) ou banc de test seul. */
-export async function spentSince(iso: string, scope: "prod" | "benchmark" = "prod"): Promise<number> {
+/**
+ * Crédits consommés depuis `iso`. "all" = budget journalier UNIQUE partagé (prod + banc + étape pneu) ;
+ * "prod"/"benchmark" restent disponibles pour l'affichage détaillé.
+ */
+export async function spentSince(iso: string, scope: "all" | "prod" | "benchmark" = "all"): Promise<number> {
   const q = supabaseAdmin.from("ai_usage_log").select("estimated_credits").gte("created_at", iso);
-  const { data } = await (scope === "prod" ? q.not("feature", "like", `${BENCH_FEATURE}%`) : q.like("feature", `${BENCH_FEATURE}%`));
+  const { data } = await (scope === "all" ? q : scope === "prod" ? q.not("feature", "like", `${BENCH_FEATURE}%`) : q.like("feature", `${BENCH_FEATURE}%`));
   return (data ?? []).reduce((s, r) => s + Number(r.estimated_credits ?? 0), 0);
+}
+
+/** Budget journalier configuré dans « Coûts et IA », consommé aujourd'hui (jour de Paris), restant. */
+export async function dailyBudgetStatus(): Promise<BudgetStatus> {
+  const [b, spent] = await Promise.all([readBudget(), spentSince(parisDayStartIso(), "all")]);
+  return budgetStatus(b.daily, spent);
 }
 
 /* -------------------------------- Journal -------------------------------- */
@@ -197,10 +207,7 @@ export async function runPaidAi(input: PaidAiInput): Promise<PaidAiResult> {
     await journal({ feature: input.feature, fingerprint: fp, model: input.model, user_id: input.userId, site_id: input.siteId, entity: input.entity, success: false, blocked_reason: "repli_ia_desactive", calls: 0, estimated_credits: 0, route: input.route ?? "ai_vision_fallback" });
     return { ok: false, error: MANUAL_FALLBACK_MESSAGE, blocked: true };
   }
-  const now = new Date();
-  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const [day, month] = await Promise.all([spentSince(dayStart), spentSince(monthStart)]);
+  const [day, month] = await Promise.all([spentSince(parisDayStartIso(), "all"), spentSince(parisMonthStartIso(), "all")]);
 
   const blocked =
     day >= budget.daily ? "budget_journalier" : month >= budget.monthly ? "budget_mensuel" : null;
