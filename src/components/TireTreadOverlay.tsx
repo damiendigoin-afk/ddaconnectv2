@@ -4,7 +4,7 @@ import { wearLevel } from "@/lib/tire-step";
 export function TireTreadOverlay({ src, values, labels }: { src: string; values: [number | null, number | null, number | null]; labels: [string, string, string] }) {
   const tone = (v: number | null) => {
     const l = wearLevel(v);
-    return l === "critique" ? "bg-destructive text-destructive-foreground" : l === "surveiller" ? "bg-warning text-warning-foreground" : l === "bon" ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground";
+    return l === "critique" ? "bg-destructive text-background" : l === "surveiller" ? "bg-warning text-foreground" : l === "bon" ? "bg-success text-background" : "bg-muted text-muted-foreground";
   };
   const line = (v: number | null) => {
     const l = wearLevel(v);
