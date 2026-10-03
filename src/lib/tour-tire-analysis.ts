@@ -1,4 +1,5 @@
 import type { TireStepResult } from "./tire-step";
+import { parseTireReference } from "./tires";
 import { TIRE_STEP_PROMPT, normalizeTireStep, quoteSearchFromResult, wearLevel } from "./tire-step";
 
 export const TOUR_TIRE_KEYS = ["pneu_avg", "pneu_avd", "pneu_arg", "pneu_ard"] as const;
@@ -40,14 +41,26 @@ export function estimatedAnalysisProgress(elapsedMs: number): number {
   return Math.min(95, Math.round(4 + 91 * (1 - Math.exp(-elapsedMs / 7_000))));
 }
 
+/**
+ * Dimension exploitable par le chiffrage : « 155/65 R14 75T » est séparé en
+ * dimension « 155/65 R14 » + indices de charge/vitesse (jamais la chaîne complète
+ * comme dimension de recherche fournisseur).
+ */
+export function normalizeTireRequirement(req: { size: string | null; load: string | null; speed: string | null }) {
+  const ref = parseTireReference(req.size);
+  if (!ref.size) return req;
+  return { size: ref.size, load: req.load ?? ref.load ?? null, speed: req.speed ?? ref.speed ?? null };
+}
+
 export function legacyTireAnalysis(result: TireStepResult) {
+  const req = normalizeTireRequirement({ size: result.sidewall.size, load: result.sidewall.load_index, speed: result.sidewall.speed_index });
   const depths = [result.depth.inner_mm, result.depth.center_mm, result.depth.outer_mm].filter((v): v is number => v !== null);
   const depth = depths.length ? Math.min(...depths) : null;
   const urgent = tireNeedsReplacement(result);
   const grade = urgent ? "imperatif" : depth !== null && depth < 3 ? "rapide" : depth !== null && depth <= 4 ? "a_prevoir" : "correct";
   const ai = {
-    brand: result.sidewall.brand, model: result.sidewall.model, size: result.sidewall.size,
-    load_index: result.sidewall.load_index, speed_index: result.sidewall.speed_index,
+    brand: result.sidewall.brand, model: result.sidewall.model, size: req.size,
+    load_index: req.load, speed_index: req.speed,
     season: null, dot: result.sidewall.dot, depth_mm: depth, depth_kind: "estimation",
     wear: result.wear.pattern, wear_zone: result.wear.stronger_zone,
     cracks: result.wear.cracks, cuts: false, bulges: /hernie|d[ée]formation/i.test(result.wear.observations.join(" ")),
