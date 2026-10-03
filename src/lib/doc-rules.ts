@@ -478,7 +478,7 @@ export function isRenaultOrderDetail(raw: string): boolean {
 }
 
 /** Labels Renault : PDF.js peut concaténer les colonnes ; on remet chaque libellé connu en début de ligne. */
-const RENAULT_LABELS = /\s+(?=(?:r[ée]f\s*:|stock\s*:|qt[ée]\s*:|prix\s+client|mode\s+de\s+livraison|en\s+cours\s+de\s+validation|informations\b|command[ée]\s+par|n[°o]\s*client|distributeur\b|compte\s+de\s+facturation|contact\b|t[ée]l[ée]phone\b|e-?mail\b|adresse\s+de\s+facturation|adresse\b|code\s+postal|ville\b|pays\b|total\b|t\.?v\.?a\s*:|plaque\s+d|rep[èe]re\s+commande|statut\s*:|client\s*:|date\s*:))/gi;
+const RENAULT_LABELS = /\s+(?=(?:r[ée]f\s*:|stock\s*:|qt[ée]\s*:|prix\s+client|mode\s+de\s+livraison|en\s+cours\s+de\s+validation|informations\b|command[ée]\s+par|n[°o]\s*client|distributeur\b|compte\s+de\s+facturation|contact\b|t[ée]l[ée]phone\b|e-?mail\b|adresse\s+de\s+facturation|adresse\b|code\s+postal|ville\b|pays\b|total\b|t\.?v\.?a\s*:|plaque\s+d|rep[èe]re\s+commande|statut\s*:|client\s*:(?!\s*\d)|date\s*:))/gi;
 export function splitRenaultColumns(text: string): string {
   return text.split("\n").map((l) => l.replace(RENAULT_LABELS, "\n")).join("\n");
 }
