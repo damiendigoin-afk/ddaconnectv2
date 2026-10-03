@@ -641,7 +641,7 @@ export function logiwebOrderRules(raw: string): Fields | null {
     if (!m) continue;
     const quantity = qtyOf(m[1]!);
     const net = money(m[6]!); const amount = money(m[7]!);
-    lines.push({ reference: m[2]!.toUpperCase(), label: m[3]!.trim(), quantity, unit_price: net, amount, gross_price: money(m[4]!), discount_pct: m[5] ? Number(m[5].replace(",", ".")) : null });
+    lines.push({ reference: m[2]!.toUpperCase(), label: m[3]!.trim(), quantity, unit_price: net, amount });
     if (quantity != null && net != null && amount != null && Math.abs(quantity * net - amount) > 0.02) anomalies.push(`Ligne ${m[2]} : ${quantity} × ${m[6]} ≠ ${m[7]} à vérifier`);
   }
   if (!lines.length) return null;
