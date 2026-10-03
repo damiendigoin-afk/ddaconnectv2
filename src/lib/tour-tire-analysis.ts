@@ -1,5 +1,5 @@
 import type { TireStepResult } from "./tire-step";
-import { wearLevel } from "./tire-step";
+import { quoteSearchFromResult, wearLevel } from "./tire-step";
 
 export const TOUR_TIRE_KEYS = ["pneu_avg", "pneu_avd", "pneu_arg", "pneu_ard"] as const;
 export type TourTireKey = (typeof TOUR_TIRE_KEYS)[number];
@@ -38,4 +38,23 @@ export function replacementRecommendation(rows: Partial<Record<TourTireKey, Tire
 export function estimatedAnalysisProgress(elapsedMs: number): number {
   if (elapsedMs <= 0) return 4;
   return Math.min(95, Math.round(4 + 91 * (1 - Math.exp(-elapsedMs / 7_000))));
+}
+
+export function legacyTireAnalysis(result: TireStepResult) {
+  const depths = [result.depth.inner_mm, result.depth.center_mm, result.depth.outer_mm].filter((v): v is number => v !== null);
+  const depth = depths.length ? Math.min(...depths) : null;
+  const urgent = tireNeedsReplacement(result);
+  const grade = urgent ? "imperatif" : depth !== null && depth < 3 ? "rapide" : depth !== null && depth <= 4 ? "a_prevoir" : "correct";
+  const ai = {
+    brand: result.sidewall.brand, model: result.sidewall.model, size: result.sidewall.size,
+    load_index: result.sidewall.load_index, speed_index: result.sidewall.speed_index,
+    season: null, dot: result.sidewall.dot, depth_mm: depth, depth_kind: "estimation",
+    wear: result.wear.pattern, wear_zone: result.wear.stronger_zone,
+    cracks: result.wear.cracks, cuts: false, bulges: /hernie|d[ée]formation/i.test(result.wear.observations.join(" ")),
+    foreign_objects: false, sidewall_damage: /flanc|carcasse|corde/i.test(result.wear.observations.join(" ")),
+    rim_damage: false, photo_quality: result.depth.confidence === "faible" ? "moyenne" : "bonne",
+    confidence: { depth_mm: result.depth.confidence, size: result.sidewall.read_quality }, observations: result.wear.observations,
+    client_comment: result.wear.recommendation, unreadable: [], model_used: "google/gemini-3.1-pro-preview",
+  };
+  return { ai, final: ai, grade, reasons: result.wear.observations, confirmed: true, partial: false, attempts: 1, confirmedRef: result.sidewall.size, tourStep: result, quote: quoteSearchFromResult(result) };
 }

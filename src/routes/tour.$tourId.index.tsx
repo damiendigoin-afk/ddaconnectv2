@@ -15,6 +15,13 @@ import { PointCard, type PointRow } from "@/components/PointCard";
 import { TechnicalControlCard } from "@/components/TechnicalControlCard";
 import { TireLabelCard } from "@/components/TireLabelCard";
 import { TireWheelCard } from "@/components/TireWheelCard";
+import { TourTireCapture } from "@/components/TourTireCapture";
+import { TireTreadOverlay } from "@/components/TireTreadOverlay";
+import { useServerFn } from "@tanstack/react-start";
+import { analyzeTourTires } from "@/lib/tour-tire-analysis.functions";
+import { estimatedAnalysisProgress, legacyTireAnalysis, replacementRecommendation, TOUR_TIRE_KEYS, type TourTireKey } from "@/lib/tour-tire-analysis";
+import { EXPERIMENTAL_DEPTH_NOTICE, QUOTE_PHOTOS_KEY, mergeQuotePhotos, quoteSearchFromResult, zoneLabels, type QuotePhoto, type TireStepResult } from "@/lib/tire-step";
+import { renderAnnotatedTread } from "@/lib/tread-annotate.browser";
 import type { TireLabelAi } from "@/lib/tire-types";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { supabase } from "@/integrations/supabase/client";
@@ -222,6 +229,12 @@ function Guided(props: SharedProps) {
   );
   const [mileage, setMileage] = useState(props.mileage);
   const [showSummary, setShowSummary] = useState(false);
+  const analyzeTires = useServerFn(analyzeTourTires);
+  const [analysisState, setAnalysisState] = useState<"idle" | "running" | "review" | "error">("idle");
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisError, setAnalysisError] = useState("");
+  const [tireResults, setTireResults] = useState<Partial<Record<TourTireKey, TireStepResult>>>({});
+  const [tireProof, setTireProof] = useState<Partial<Record<TourTireKey, { photoCount: number; mainPhotoPath: string | null; mainPhotoUrl?: string | null }>>>({});
   // Étiquette pneumatiques lue côté conducteur : sert de dimension homologuée
   // de référence pour les quatre roues du tour en cours.
   const [tireLabel, setTireLabel] = useState<TireLabelAi | null>(null);
@@ -414,6 +427,76 @@ function Guided(props: SharedProps) {
     });
     if (!ok) return;
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
+  }
+
+  async function runGlobalTireAnalysis(force = false) {
+    if (analysisState === "running") return;
+    setAnalysisState("running"); setAnalysisError(""); setAnalysisProgress(4);
+    const started = Date.now();
+    const timer = window.setInterval(() => setAnalysisProgress(estimatedAnalysisProgress(Date.now() - started)), 350);
+    try {
+      const r = await analyzeTires({ data: { inspectionId: props.tourId, siteId: isGroup ? null : activeSite || null, force } });
+      if (!r.ok || !r.results) { setAnalysisError(r.error); setAnalysisState("error"); return; }
+      const results = r.results as Record<TourTireKey, TireStepResult>;
+      for (const key of TOUR_TIRE_KEYS) {
+        const point = (points.data ?? []).find((p) => p.point_key === key);
+        if (!point) continue;
+        const legacy = legacyTireAnalysis(results[key]);
+        await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, globalModel: r.model, globalMetrics: r.metrics } as never, measure_value: legacy.ai.depth_mm, measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
+      }
+      setTireResults(results); setTireProof((r.proof ?? {}) as typeof tireProof); setAnalysisProgress(100); setAnalysisState("review");
+      await points.refetch();
+    } catch (e) { setAnalysisError(e instanceof Error ? e.message : "Analyse impossible."); setAnalysisState("error"); }
+    finally { window.clearInterval(timer); }
+  }
+
+  function setTourDepth(key: TourTireKey, field: "inner_mm" | "center_mm" | "outer_mm", value: number | null) {
+    setTireResults((all) => {
+      const current = all[key]; if (!current) return all;
+      const depth = { ...current.depth, [field]: value };
+      depth.points_mm = [depth.inner_mm, depth.center_mm, depth.outer_mm].filter((v): v is number => v !== null);
+      return { ...all, [key]: { ...current, depth } };
+    });
+  }
+
+  async function validateTiresAndFinish() {
+    for (const key of TOUR_TIRE_KEYS) {
+      const result = tireResults[key]; const point = (points.data ?? []).find((p) => p.point_key === key);
+      if (!result || !point) continue;
+      const legacy = legacyTireAnalysis(result);
+      await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, correctedAt: new Date().toISOString() } as never, measure_value: legacy.ai.depth_mm, measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
+    }
+    await finish();
+  }
+
+  async function quoteFromTour() {
+    const first = TOUR_TIRE_KEYS.map((k) => [k, tireResults[k]] as const).find(([, r]) => r?.sidewall.size);
+    if (!first?.[1]) { toast.error("Aucune dimension exploitable pour le devis."); return; }
+    const photos: QuotePhoto[] = [];
+    for (const key of TOUR_TIRE_KEYS) {
+      const r = tireResults[key], src = tireProof[key]?.mainPhotoUrl;
+      if (!r || !src) continue;
+      try { photos.push({ dataUrl: await renderAnnotatedTread(src, [r.depth.inner_mm, r.depth.center_mm, r.depth.outer_mm], zoneLabels(r.depth.inner_side)), caption: key.toUpperCase(), position: key.toUpperCase() }); } catch { /* une photo indisponible ne bloque pas le devis */ }
+    }
+    let merged: QuotePhoto[] = [];
+    for (const p of photos) merged = mergeQuotePhotos(merged, p);
+    sessionStorage.setItem(QUOTE_PHOTOS_KEY, JSON.stringify(merged));
+    navigate({ to: "/devis/pneus", search: quoteSearchFromResult(first[1]) });
+  }
+
+  if (analysisState !== "idle") {
+    const recommendation = replacementRecommendation(tireResults);
+    return <AppShell title="Analyse des 4 pneus" subtitle={props.plate} back={{ to: "/tour/$tourId", params: { tourId: props.tourId } }}>
+      <div className="space-y-4">
+        {analysisState === "running" ? <section className="card-surface space-y-3 p-5 text-center"><Loader2 className="mx-auto h-9 w-9 animate-spin text-brand"/><h2 className="font-extrabold uppercase">Analyse IA en cours</h2><div className="h-3 overflow-hidden rounded-full bg-secondary"><div className="h-full bg-brand transition-all" style={{ width: `${analysisProgress}%` }}/></div><p className="text-sm font-bold">{analysisProgress} % estimé</p><p className="text-xs text-muted-foreground">Les quatre roues et le ticket batterie sont consolidés à la fin du tour.</p></section> : null}
+        {analysisState === "error" ? <section className="card-surface space-y-3 border-2 border-destructive p-4"><p className="font-bold text-destructive">{analysisError}</p><p className="text-sm">Vos photos sont conservées. Reprenez seulement les photos manquantes ou relancez l’analyse.</p><button onClick={() => void runGlobalTireAnalysis(true)} className="w-full rounded-xl bg-brand px-4 py-3 font-bold uppercase text-brand-foreground">Relancer l’analyse</button><button onClick={() => setAnalysisState("idle")} className="w-full rounded-xl border-2 border-border px-4 py-3 font-bold uppercase">Revenir au tour</button></section> : null}
+        {analysisState === "review" ? <>
+          <section className="card-surface p-4"><h2 className="font-extrabold uppercase">Synthèse des quatre roues</h2><p className="mt-1 text-sm font-bold">{recommendation.label}</p><p className="mt-1 text-xs text-muted-foreground">{EXPERIMENTAL_DEPTH_NOTICE}</p></section>
+          {TOUR_TIRE_KEYS.map((key) => { const r = tireResults[key]; const src = tireProof[key]?.mainPhotoUrl; if (!r) return null; const labels = zoneLabels(r.depth.inner_side); return <section key={key} className="card-surface space-y-3 p-4"><h3 className="font-extrabold uppercase">{key.replace("pneu_", "Pneu ")}</h3>{src ? <TireTreadOverlay src={src} values={[r.depth.inner_mm,r.depth.center_mm,r.depth.outer_mm]} labels={labels} onAdjust={(i,v) => setTourDepth(key, (["inner_mm","center_mm","outer_mm"] as const)[i]!, v)}/> : null}<div className="grid grid-cols-3 gap-2">{(["inner_mm","center_mm","outer_mm"] as const).map((f,i)=><label key={f} className="text-center text-[10px] font-bold uppercase">{labels[i]}<input inputMode="decimal" value={r.depth[f] ?? ""} onChange={(e)=>{const n=Number(e.target.value.replace(",","."));setTourDepth(key,f,e.target.value&&Number.isFinite(n)?Math.min(12,Math.max(0,n)):null)}} className="mt-1 w-full rounded-lg border-2 border-border px-2 py-2 text-center text-lg"/></label>)}</div><p className="text-sm"><b>Usure :</b> {r.wear.pattern ?? "non déterminée"} · <b>Témoin :</b> {r.wear.wear_indicator ?? "non déterminé"}</p><p className="text-sm text-muted-foreground">{r.wear.recommendation ?? r.wear.observations.join(" · ")}</p></section>; })}
+          <div className="grid gap-2"><button onClick={() => void quoteFromTour()} disabled={!recommendation.quantity} className="rounded-xl border-2 border-brand px-4 py-4 font-extrabold uppercase text-brand disabled:opacity-50">Faire le devis pneus ({recommendation.quantity || "—"})</button><button onClick={() => void validateTiresAndFinish()} className="rounded-xl bg-brand px-4 py-5 text-lg font-extrabold uppercase text-brand-foreground">Valider les pneus et terminer</button></div>
+        </> : null}
+      </div>
+    </AppShell>;
   }
 
   if (showSummary) {
@@ -635,14 +718,7 @@ function Guided(props: SharedProps) {
             const rear = p.point_key.includes("ar");
             return (
               <LocalErrorBoundary key={p.id} label={p.point_label}>
-                <TireWheelCard
-                  point={p}
-                  inspectionId={props.tourId}
-                  vehicleId={props.vehicleId}
-                  requiredSize={(rear ? tireLabel?.size_rear : tireLabel?.size_front) ?? tireLabel?.size_front ?? null}
-                  requiredLoad={(rear ? tireLabel?.load_index_rear : tireLabel?.load_index_front) ?? null}
-                  requiredSpeed={(rear ? tireLabel?.speed_index_rear : tireLabel?.speed_index_front) ?? null}
-                />
+                <TourTireCapture point={p} inspectionId={props.tourId} onCaptured={() => void points.refetch()} />
               </LocalErrorBoundary>
             );
           }
@@ -695,7 +771,7 @@ function Guided(props: SharedProps) {
             </button>
           ) : (
             <button
-              onClick={() => setShowSummary(true)}
+              onClick={() => void runGlobalTireAnalysis()}
               className="flex-1 rounded-xl bg-brand px-3 py-4 font-bold uppercase text-brand-foreground"
             >
               Terminer le tour
@@ -704,7 +780,7 @@ function Guided(props: SharedProps) {
         </div>
         {position < zoneCount ? (
           <button
-            onClick={() => setShowSummary(true)}
+            onClick={() => void runGlobalTireAnalysis()}
             className="w-full rounded-xl border-2 border-border bg-card px-3 py-3 text-sm font-bold uppercase text-muted-foreground"
           >
             Terminer le tour maintenant
