@@ -180,6 +180,8 @@ function VehiclePage() {
               ))}
             </Section>
 
+            {plate ? <TireStepHistory plate={plate} /> : null}
+
             {isManager ? (
               <section className="card-surface p-4">
                 <button
