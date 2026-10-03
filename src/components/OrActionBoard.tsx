@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { PendingReceiptsForOr } from "@/components/parts/PendingReceiptsForOr";
 import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, usePartsCtx } from "@/components/parts/PartsUi";
 import { addUnplannedUsage, confirmUsage, finishWork, getWorkState, listSessions, listUsage, myOpenSessions, orPartsOverview, returnUnusedToStock, startTime, stopTime } from "@/lib/parts";
-import { finishCheck, formatMinutes, partsCompleteness, sessionMinutes, USAGE_REASONS } from "@/lib/parts-rules";
+import { finishCheck, partLineLabel, formatMinutes, partsCompleteness, sessionMinutes, USAGE_REASONS } from "@/lib/parts-rules";
 
 /**
  * Tableau d'actions terrain du dossier OR (V3 Phase B).
@@ -109,7 +109,7 @@ function PartsStatus({ orId }: { orId: string }) {
           Commande {(o.suppliers as { name: string } | null)?.name} · {o.status === "received" ? "reçue" : o.status === "partial" ? "partiellement reçue — reliquat" : "commandée"}
         </Link>
       ))}
-      {lines.map((l) => <div key={l.id} className="text-xs">{l.physical_reference ?? l.designation} · reçue {l.qty_received}/{l.qty_ordered ?? "?"}</div>)}
+      {lines.map((l) => <div key={l.id} className="line-clamp-2 text-xs" title={[l.physical_reference, l.designation].filter(Boolean).join(" — ")}>{partLineLabel(l)}</div>)}
       {(usage.data ?? []).length ? <p className="text-xs">Au garage / affectées : {(usage.data ?? []).filter((u) => u.qty_allocated > 0).length} · Montées / utilisées : {used}</p> : null}
     </div>
   );

@@ -8,7 +8,22 @@
 import { DOC_SPECS, fillMissing, missingFields, type DocKind, type Fields, type RuleContext } from "./doc-rules";
 
 const empty = (v: unknown) => v == null || v === "";
+const setAt = (o: Fields, path: string, v: unknown): Fields => {
+  const [k, ...rest] = path.split(".");
+  const out: Fields = { ...o };
+  if (!rest.length) out[k!] = v;
+  else out[k!] = setAt(o[k!] && typeof o[k!] === "object" ? (o[k!] as Fields) : {}, rest.join("."), v);
+  return out;
+};
+/** Fusion IA : complète les vides et remplace les champs remplis mais jugés faible confiance. */
+function mergeAi(base: Fields, extra: Fields, suspect: string[]): Fields {
+  let out = base;
+  for (const p of suspect) { const v = at(extra, p); if (!empty(v)) out = setAt(out, p, v); }
+  return fillMissing(out, extra);
+}
 const at = (o: Fields, path: string): unknown => path.split(".").reduce<unknown>((a, k) => (a && typeof a === "object" ? (a as Fields)[k] : undefined), o);
+
+const stripMeta = (f: Fields): Fields => { const o = { ...f }; delete o["_suspect"]; return o; };
 
 export type DocRoute = "ocr_rules" | "ai_text_fallback" | "ai_vision_fallback" | "manual";
 
@@ -59,9 +74,12 @@ export async function runDocPipeline(
   const media: DocMedia = input.media ?? (input.hasImage ? "photo" : "none");
   const clean = (f: Fields) => (spec.sanitize ? spec.sanitize(f) : { fields: f, rejected: [] as string[] });
   const first = clean(text.trim() ? spec.rules(text, input.ctx ?? {}) : {});
-  let fields = first.fields;
+  // Faible confiance (champ rempli mais incohérent) : déclenche le repli comme un champ manquant.
+  const suspect = Array.isArray(first.fields["_suspect"]) ? (first.fields["_suspect"] as string[]) : [];
+  let fields: Fields = { ...first.fields };
+  delete fields["_suspect"];
   // Lecture suspecte (valeur parasite rejetée) = champ manquant : le repli texte / vision peut le compléter.
-  let missing = [...new Set([...missingFields(spec, fields), ...first.rejected.filter((k) => empty(at(fields, k)))])];
+  let missing = [...new Set([...missingFields(spec, fields), ...first.rejected.filter((k) => empty(at(fields, k))), ...suspect])];
   if (!missing.length) {
     await deps.logLocal("ocr_rules", missing);
     return { fields, route: "ocr_rules", missing, aiCalls: 0 };
@@ -79,7 +97,7 @@ export async function runDocPipeline(
     aiCalls += 1;
     const r = await deps.aiText(missing);
     if (r) {
-      fields = fillMissing(fields, clean(r).fields);
+      fields = mergeAi(fields, stripMeta(clean(r).fields), suspect);
       missing = missingFields(spec, fields);
       route = "ai_text_fallback";
       if (!missing.length) return { fields, route, missing, aiCalls };
@@ -89,7 +107,7 @@ export async function runDocPipeline(
     aiCalls += 1;
     const r = await deps.aiVision(missing, essentialVision && !fallback);
     if (r) {
-      fields = fillMissing(fields, clean(r).fields);
+      fields = mergeAi(fields, stripMeta(clean(r).fields), suspect);
       missing = missingFields(spec, fields);
       route = "ai_vision_fallback";
     }

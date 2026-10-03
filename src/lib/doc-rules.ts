@@ -853,6 +853,16 @@ export function isPlausibleModel(model: unknown, others: unknown[] = []): boolea
  * Validation sémantique avant fusion (règles locales ou lecture IA) : toute valeur parasite est
  * retirée (null) et signalée, pour permettre le repli texte / vision sans jamais proposer de conflit.
  */
+/** Ligne d'adresse (rue, lieu-dit) : ne doit jamais être un prénom. */
+export function looksLikeAddress(v: unknown): boolean {
+  const s = String(v ?? "").trim();
+  if (!s) return false;
+  return /^\d+\s/.test(s) || /^(LE|LA|LES)\s?BOURG$/i.test(s) || /\b(rue|route|rte|chemin|ch|avenue|av|bd|boulevard|impasse|imp|all[ée]e|place|pl|lieu[- ]?dit|lotissement|lot|hameau|quai|cours|r[ée]sidence|zone|za|zi|bp|cs)\b/i.test(s) || /^(LE|LA|LES)\s?[A-Z]+$/i.test(s) && /BOURG|MOULIN|PEYRAT|PONT|CHATEAU|BOIS|MAS/i.test(s);
+}
+export function normalizeAddressLine(v: unknown): string {
+  return String(v ?? "").trim().replace(/^(LE|LA|LES)(BOURG)$/i, "$1 $2").toUpperCase();
+}
+
 export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: string[] } {
   const rejected: string[] = [];
   const obj = (v: unknown): Fields => (v && typeof v === "object" && !Array.isArray(v) ? { ...(v as Fields) } : {});
@@ -861,6 +871,37 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
     if (client["last_name"] != null) rejected.push("client.last_name");
     client["last_name"] = null;
     client["first_name"] = null;
+  }
+  const suspect = new Set<string>(Array.isArray(f["_suspect"]) ? (f["_suspect"] as string[]) : []);
+  const ln = typeof client["last_name"] === "string" ? client["last_name"].trim() : "";
+  const fn = typeof client["first_name"] === "string" ? client["first_name"].trim() : "";
+  const company = /^(SOCI|SARL|SAS|EURL|SA\b|GARAGE|ETS)/i.test(ln);
+  // Prénom suivi d'une adresse collée (« MARIE-ANNAELLE LEBOURG ») : on retire la fin et on signale.
+  const ft = fn.split(/\s+/);
+  for (const n of [2, 1]) {
+    if (ft.length > n && looksLikeAddress(ft.slice(-n).join(" "))) {
+      const addr = ft.slice(-n).join(" ");
+      client["first_name"] = ft.slice(0, -n).join(" ");
+      if (client["address"] == null || client["address"] === "") client["address"] = normalizeAddressLine(addr);
+      suspect.add("client.first_name"); suspect.add("client.address");
+      break;
+    }
+  }
+  if (fn && looksLikeAddress(fn)) {
+    // Prénom = ligne d'adresse : lecture de mise en page incohérente.
+    suspect.add("client.first_name"); suspect.add("client.last_name");
+    if (client["address"] == null || client["address"] === "") { client["address"] = normalizeAddressLine(fn); suspect.add("client.address"); }
+    client["first_name"] = null;
+    const toks = ln.split(/\s+/);
+    if (!company && toks.length >= 2) { client["last_name"] = toks[0]; client["first_name"] = toks.slice(1).join(" "); }
+  } else if (!company && !fn && ln.split(/\s+/).length >= 2) {
+    suspect.add("client.last_name"); suspect.add("client.first_name");
+  }
+  const em = typeof client["email"] === "string" ? client["email"].toLowerCase() : "";
+  const nm = [client["last_name"], client["first_name"]].map((v) => String(v ?? "").toLowerCase().normalize("NFD").replace(/[^a-z\s-]/g, "").split(/[\s-]+/)).flat().filter((t) => t.length >= 3);
+  if (em) {
+    const local = em.split("@")[0]!;
+    if (!/[._-]/.test(local) && nm.some((a) => nm.some((b) => a !== b && local.includes(a + b)))) suspect.add("client.email");
   }
   if (client["address"] != null && (isOrParasiteValue(client["address"]) || isGarageAddress(client["address"]))) {
     rejected.push("client.address");
@@ -881,6 +922,8 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
     if (isOrParasiteValue(b) || !CAR_BRANDS.some((x) => b === x || b.startsWith(`${x} `))) { rejected.push("vehicle.brand"); vehicle["brand"] = null; }
   }
   const out: Fields = { ...f };
+  delete out["_suspect"];
+  if (suspect.size) out["_suspect"] = [...suspect];
   if (f["client"] !== undefined) out["client"] = client;
   if (f["vehicle"] !== undefined) out["vehicle"] = vehicle;
   if (f["order"] !== undefined) out["order"] = order;
@@ -903,6 +946,9 @@ export function repairOrderRules(raw: string): Fields {
   const labeledEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(L["email"] ?? "")?.[0]?.toLowerCase();
   const email = (labeledEmail && !isGarageEmail(labeledEmail) ? labeledEmail : null)
     ?? [...text.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)].map((m) => m[0].toLowerCase()).find((e) => !isGarageEmail(e)) ?? null;
+  const suspect: string[] = [];
+  // E-mail dégradé : un mot collé juste avant (« marie vielescot@… », « marie,vielescot@… ») = point probablement perdu.
+  if (email) { const i = text.toLowerCase().indexOf(email); if (i > 0 && /[A-Za-z][\s,;']$/.test(text.slice(Math.max(0, i - 2), i))) suspect.push("client.email"); }
   const any = findFrenchPhones(text);
   const lp = findFrenchPhones(L["phone"] ?? "");
   const lm = findFrenchPhones(L["mobile"] ?? "");
@@ -917,6 +963,7 @@ export function repairOrderRules(raw: string): Fields {
     city = m[2]!.trim().toUpperCase();
     const prev = lines[cpIdx - 1];
     if (prev && /\d/.test(prev) && /\b(rue|av|avenue|bd|boulevard|chemin|route|place|all[ée]e|impasse|lieu[- ]dit|lotissement|quai|cours)\b/i.test(prev)) address = prev;
+    else if (prev && looksLikeAddress(prev) && !/^(M\.|MR|MME|MLLE|MONSIEUR|MADAME)\s/i.test(prev)) address = normalizeAddressLine(prev);
   }
   // Client : « M. / Mr / Mme / Monsieur / Madame / Société / Client : NOM Prénom ».
   let last_name: string | null = null, first_name: string | null = null;
@@ -991,6 +1038,7 @@ export function repairOrderRules(raw: string): Fields {
       client_remarks: clientRemarksBlock(lines),
     },
   };
+  if (suspect.length) draft["_suspect"] = suspect;
   return sanitizeRepairOrder(draft).fields;
 }
 
