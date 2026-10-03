@@ -7,7 +7,8 @@ import { z } from "zod";
 
 import { AppShell } from "@/components/AppShell";
 import { TireTreadOverlay } from "@/components/TireTreadOverlay";
-import { extractVideoFrames } from "@/lib/video-frames.browser";
+import { extractVideoFrames, probeVideo } from "@/lib/video-frames.browser";
+import { isVideoFile } from "@/lib/video-frames";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/etape-pneu")({
 
 type Role = "tread" | "sidewall" | "other";
 type Img = { role: Role; dataUrl: string; fromVideo?: boolean };
+type VideoState = { file: File; name: string; type: string; size: number; duration: number | null; frames: string[]; status: "extracting" | "ready" | "error"; error: string };
 type Perf = { model: string; source: "Photo" | "Vidéo"; images: number; durationMs: number; credits: number; tokensIn: number | null; tokensOut: number | null; cached: boolean };
 const ROLE_LABEL: Record<Role, string> = { tread: "Bande de roulement", sidewall: "Flanc", other: "Complément" };
 const ZONE: Record<string, string> = { interieur: "intérieur", centre: "centre", exterieur: "extérieur", epaules: "épaules" };
@@ -61,6 +63,7 @@ function TireStepPage() {
   const [sessionRuns, setSessionRuns] = useState(0);
   const [orient, setOrient] = useState<Orientation>("auto");
   const [videoBusy, setVideoBusy] = useState(false);
+  const [video, setVideo] = useState<VideoState | null>(null);
   const vid = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [budget, setBudget] = useState<{ daily: number; spentToday: number; remaining: number } | null>(null);
@@ -85,6 +88,8 @@ function TireStepPage() {
       }
     }
     setImages((cur) => [...cur, ...added].slice(0, 6));
+    // Une photo de bande de roulement prise après une vidéo remplace la vidéo.
+    if (role === "tread" && added.length) setVideo(null);
     // Après la bande de roulement, on propose naturellement le flanc.
     if (role === "tread") setRole("sidewall");
   }
@@ -160,8 +165,9 @@ function TireStepPage() {
     if (!edit || !result) return;
     setBusy(true);
     try {
+      const tread = video?.frames.length ? [video.frames[Math.floor(video.frames.length / 2)]!] : [];
       const r = await saveFn({ data: {
-        images: images.map(({ role, dataUrl }) => ({ role, dataUrl })), siteId: site?.id ?? null, plate: plate || null, orNumber: orNumber || null, position: position || null,
+        images: [...tread.map((dataUrl) => ({ role: "tread" as Role, dataUrl })), ...images.filter((i) => !video || i.role !== "tread").map(({ role, dataUrl }) => ({ role, dataUrl }))].slice(0, 16), siteId: site?.id ?? null, plate: plate || null, orNumber: orNumber || null, position: position || null,
         model, result: result as unknown as Record<string, unknown>, corrected: edit as unknown as Record<string, unknown>, userName: displayName || null,
       } });
       setSavedId(r.id); toast.success("État pneus enregistré");
@@ -170,7 +176,7 @@ function TireStepPage() {
 
   function reset() {
     if (result && !savedId && !confirm("Abandonner l'analyse non enregistrée ?")) return;
-    setImages([]); setResult(null); setEdit(null); setError(""); setSavedId(null); setRole("tread"); setPerf(null); setOrient("auto");
+    setImages([]); setVideo(null); setResult(null); setEdit(null); setError(""); setSavedId(null); setRole("tread"); setPerf(null); setOrient("auto");
   }
 
   const sw = edit?.sidewall, d = edit?.depth, w = edit?.wear;
@@ -184,7 +190,7 @@ function TireStepPage() {
   };
   const quote = edit ? quoteSearchFromResult(edit) : {};
   const labels = zoneLabels(resolveInnerSide(orient, d?.inner_side ?? null));
-  const treads = images.filter((i) => i.role === "tread");
+  const treads = video?.frames.length ? video.frames.map((dataUrl) => ({ dataUrl })) : images.filter((i) => i.role === "tread");
   const treadSrc = treads[Math.floor(treads.length / 2)]?.dataUrl ?? null;
 
   return (
@@ -221,19 +227,34 @@ function TireStepPage() {
               {TIRE_STEP_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </label>
+          {video ? (
+            <div className={`flex items-center gap-3 rounded-lg border-2 p-2 ${video.status === "error" ? "border-destructive" : "border-brand"}`}>
+              {video.frames[0] ? <img src={video.frames[Math.floor(video.frames.length / 2)]} alt="Aperçu vidéo" className="h-16 w-16 rounded object-cover" /> : <Video className="h-8 w-8 shrink-0" />}
+              <div className="min-w-0 flex-1 text-xs">
+                <p className="font-extrabold uppercase">{video.status === "extracting" ? "Vidéo reçue — extraction…" : video.status === "ready" ? "Vidéo prête" : "Vidéo illisible"}</p>
+                <p className="text-muted-foreground">{video.duration ? `${video.duration.toFixed(1)} s · ` : ""}{(video.size / 1024 / 1024).toFixed(1)} Mo · {video.type}</p>
+                {video.status === "error" ? <p className="font-semibold text-destructive">{video.error} Reprenez la vidéo ou utilisez une photo.</p> : null}
+              </div>
+              {video.status === "error" ? <button type="button" onClick={() => vid.current?.click()} className="rounded border-2 border-border px-2 py-1 text-[10px] font-bold uppercase">Reprendre</button> : null}
+              <button type="button" aria-label="Retirer la vidéo" onClick={() => setVideo(null)} className="rounded bg-background/85 p-1"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+          ) : null}
+          <p className="rounded bg-muted px-2 py-1 text-[11px] font-semibold" data-testid="tread-source">
+            Bande de roulement : {video ? (video.status === "ready" ? `vidéo – ${video.frames.length} images extraites` : video.status === "extracting" ? "vidéo – extraction en cours" : "vidéo – 0 image (échec)") : `${images.filter((i) => i.role === "tread").length ? `photo – ${images.filter((i) => i.role === "tread").length} image(s)` : "aucune"}`}
+          </p>
           {images.length ? (
             <div className="grid grid-cols-3 gap-2">
-              {images.map((im, i) => (
+              {images.filter((im) => !(video && im.role === "tread")).map((im) => { const i = images.indexOf(im); return (
                 <div key={i} className="relative overflow-hidden rounded-lg border-2 border-border">
                   <img src={im.dataUrl} alt={ROLE_LABEL[im.role]} className="aspect-square w-full object-cover" />
                   <div className="absolute inset-x-0 bottom-0 bg-background/85 px-1 py-0.5 text-[10px] font-bold uppercase">{ROLE_LABEL[im.role]}{im.fromVideo ? " · vidéo" : ""}</div>
                   <button type="button" aria-label="Retirer" onClick={() => setImages(images.filter((_, j) => j !== i))} className="absolute right-1 top-1 rounded bg-background/85 p-1"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
-              ))}
+              ); })}
             </div>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" disabled={busy || !images.length} onClick={() => analyze(false)} className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-4 text-sm font-extrabold uppercase text-primary-foreground disabled:opacity-50">
+            <button type="button" disabled={busy || videoBusy || (!images.length && !video)} onClick={() => analyze(false)} className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-4 text-sm font-extrabold uppercase text-primary-foreground disabled:opacity-50">
               {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : null} Analyser le pneu
             </button>
             {result ? (
