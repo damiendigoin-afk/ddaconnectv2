@@ -100,7 +100,7 @@ describe("Commander des pièces — anti-doublon", () => {
   });
 
   it("doublon détecté au moment de valider => rien n'est créé", async () => {
-    findDuplicateOrder.mockResolvedValueOnce(null).mockResolvedValue({ ...existing, suppliers: null, repair_orders: null });
+    findDuplicateOrder.mockResolvedValue({ ...existing, suppliers: null, repair_orders: null });
     renderForm();
     fireEvent.click(screen.getByText("Valider la commande"));
     await waitFor(() => expect(findDuplicateOrder).toHaveBeenCalled());
