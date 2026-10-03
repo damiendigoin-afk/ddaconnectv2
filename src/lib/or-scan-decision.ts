@@ -63,3 +63,31 @@ export const CONFLICT_LABELS: Record<string, string> = {
   first_name: "Prénom", address: "Adresse", address_extra: "Complément", postal_code: "Code postal", city: "Ville",
   phone: "Téléphone", mobile: "Mobile", email: "E-mail",
 };
+
+/**
+ * Entrée rapide Tour du véhicule (pure) : le tour ne demande jamais d'OR.
+ * OR WinMotor lu => ouvrir / constituer le dossier (jamais créer d'OR) ; OR non retrouvé mais immat lue
+ * => continuer sans OR (rattachement ultérieur) ; immat seule => nouvelle intervention préremplie.
+ */
+export type TourScanDecision =
+  | { kind: "ensure_or"; or_number: string; plate: string | null }
+  | { kind: "plate_only"; plate: string }
+  | { kind: "none"; note: string };
+
+export function decideTourScan(input: { or_number: string | null; plate: string | null }): TourScanDecision {
+  const d = decideOrScan(input);
+  if (d.kind === "ensure") return { kind: "ensure_or", or_number: d.or_number, plate: d.plate };
+  if (d.kind === "plate") return { kind: "plate_only", plate: d.plate };
+  return { kind: "none", note: "Aucune immatriculation ni OR lisible : saisissez l'immatriculation." };
+}
+
+/** Après tentative d'ouverture de l'OR : si l'OR n'aboutit pas mais que l'immat est connue, on continue sans OR. */
+export function afterTourEnsure(orNumber: string, plate: string | null, r: EnsureResult | null):
+  | { kind: "open"; orId: string }
+  | { kind: "continue_without_or"; plate: string; note: string }
+  | { kind: "error"; note: string } {
+  if (r?.id) return { kind: "open", orId: r.id };
+  if (plate) return { kind: "continue_without_or", plate, note: `OR ${orNumber} non retrouvé : tour possible sans OR, rattachement ultérieur.` };
+  const i = interpretEnsure(orNumber, r);
+  return { kind: "error", note: i.kind === "open" ? "" : i.note };
+}
