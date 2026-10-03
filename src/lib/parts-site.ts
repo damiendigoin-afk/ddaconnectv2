@@ -272,7 +272,7 @@ export function simplifiedOrderMeta(o: { order_mode?: string | null; comment?: s
 }
 
 /** Fournisseur connu correspondant au nom lu (sinon null : l'utilisateur choisit). */
-const GENERIC_WORDS = new Set(["groupe", "group", "auto", "autos", "automobile", "automobiles", "garage", "sas", "sarl", "distribution", "pieces", "piece", "france", "societe", "ets", "etablissements"]);
+const GENERIC_WORDS = new Set(["renault", "dacia", "groupe", "group", "auto", "autos", "automobile", "automobiles", "garage", "sas", "sarl", "distribution", "pieces", "piece", "france", "societe", "ets", "etablissements"]);
 const sigWords = (s: string) => norm(s).split(" ").filter((w) => w.length >= 3 && !GENERIC_WORDS.has(w));
 
 export function matchSupplier<T extends { id: string; name: string; active?: boolean | null; notes?: string | null }>(name: string | null | undefined, suppliers: T[]): T | null {

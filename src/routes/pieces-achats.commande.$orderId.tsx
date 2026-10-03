@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { AppShell } from "@/components/AppShell";
-import { Badge, fmtEur, ORDER_STATUS, OrLink, usePartsCtx } from "@/components/parts/PartsUi";
-import { getOrder } from "@/lib/parts";
+import { Badge, btnGhost, fmtEur, inputCls, LogisticsBadge, ORDER_STATUS, OrLink, usePartsCtx } from "@/components/parts/PartsUi";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { getOrder, setOrderDates } from "@/lib/parts";
 import { OrderSupplierFix } from "@/components/parts/OrderSupplierFix";
 import { SourceDocButton } from "@/components/parts/SourceDocButton";
 import { OrderEditForm } from "@/components/parts/OrderEditForm";
@@ -47,10 +49,10 @@ function OrderDetail() {
             <div className="flex flex-wrap gap-2">
               <OrLink id={o.repair_order_id} num={(o.repair_orders as { or_number: string | null } | null)?.or_number} />
               {o.plate ? <span>{o.plate}</span> : null}
-              {o.appointment_date ? <Badge tone="warn">RDV {new Date(o.appointment_date).toLocaleDateString("fr-FR")}</Badge> : null}
-              {o.order_date ? <span>Commandée le {new Date(o.order_date).toLocaleDateString("fr-FR")}</span> : null}
+
               {o.supplier_order_ref ? <span>Réf. fournisseur {o.supplier_order_ref}</span> : null}
             </div>
+            <OrderDatesEditor o={o} />
             {o.comment ? <p className="text-muted-foreground">{o.comment}</p> : null}
             <SourceDocButton o={o} />
             <OrderSupplierFix o={o as never} />
@@ -85,5 +87,28 @@ function OrderDetail() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+/** RDV + livraison prévue mis en avant ; date de commande seulement en info secondaire. */
+function OrderDatesEditor({ o }: { o: { id: string; status: string; appointment_date: string | null; expected_delivery_date?: string | null; order_date: string | null } }) {
+  const qc = useQueryClient();
+  const [rdv, setRdv] = useState(o.appointment_date ?? "");
+  const [liv, setLiv] = useState(o.expected_delivery_date ?? "");
+  const dirty = rdv !== (o.appointment_date ?? "") || liv !== (o.expected_delivery_date ?? "");
+  async function save() {
+    try { await setOrderDates(o.id, { appointment_date: rdv || null, expected_delivery_date: liv || null }); toast.success("Dates enregistrées"); void qc.invalidateQueries({ queryKey: ["part-orders"] }); void qc.invalidateQueries({ queryKey: ["part-order", o.id] }); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
+  }
+  return (
+    <div className="space-y-2 pt-1">
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-xs font-bold">Date de RDV<input className={inputCls} type="date" value={rdv} disabled={o.status === "cancelled"} onChange={(e) => setRdv(e.target.value)} aria-label="Date de RDV" /></label>
+        <label className="text-xs font-bold">Livraison prévue<input className={inputCls} type="date" value={liv} disabled={o.status === "cancelled"} onChange={(e) => setLiv(e.target.value)} aria-label="Livraison prévue" /></label>
+      </div>
+      {dirty ? <button type="button" className={`${btnGhost} w-full`} onClick={() => void save()}>Enregistrer les dates</button> : null}
+      <LogisticsBadge order={{ appointment_date: rdv, expected_delivery_date: liv, status: o.status }} />
+      {o.order_date ? <p className="text-[11px] text-muted-foreground">Commande du {new Date(o.order_date).toLocaleDateString("fr-FR")}</p> : null}
+    </div>
   );
 }

@@ -200,6 +200,10 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     shipping_label: str(o["shipping_label"]),
     total_ttc: num(o.total_ttc),
     handwritten_notes: str(o.handwritten_notes),
+    ...(str(o["expected_delivery_date"]) ? { expected_delivery_date: str(o["expected_delivery_date"]) } : {}),
+    ...(str(o["vehicle_label"]) ? { vehicle_label: str(o["vehicle_label"]) } : {}),
+    ...(str(o["template"]) ? { template: str(o["template"]) } : {}),
+    ...(Array.isArray(o["control_alerts"]) && o["control_alerts"].length ? { control_alerts: (o["control_alerts"] as unknown[]).map((v) => String(v)) } : {}),
   };
 }
 

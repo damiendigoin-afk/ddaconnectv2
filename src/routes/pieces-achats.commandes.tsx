@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { OrderRow } from "@/components/parts/OrderRow";
 import { DocDropZone } from "@/components/parts/DocDropZone";
-import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, PriceInput, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
+import { ActiveSiteNote, btnGhost, btnPrimary, inputCls, numOrNull, OrLink, PriceInput, OrPicker, SiteMismatchAlert, SupplierSelect, LogisticsBadge, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { allocateToOr, createOrder, findOrByNumber, findStockByRef, listOrders, openRegularization, type OrderLineInput, type OrLite, type StockRow } from "@/lib/parts";
 import { guessDocumentSite, matchSupplier, orderGaps, pendingReceptionOrders, requestedDossier, groupLinesByOr } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc, type ReadDoc } from "@/lib/purchase-doc";
@@ -113,7 +113,10 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
   const [orv, setOrv] = useState<{ or: OrLite | null; plate: string; vehicleId: string | null }>({ or: null, plate: initial.plate, vehicleId: null });
   const [comment, setComment] = useState("");
   // Date de commande : lue sur le document, sinon date du jour locale ; toujours modifiable.
-  const [orderDate, setOrderDate] = useState(initial.orderDate);
+  // Mémorisée automatiquement (document sinon jour de validation), non affichée.
+  const [orderDate] = useState(initial.orderDate);
+  const [appointment, setAppointment] = useState("");
+  const [delivery, setDelivery] = useState(x.expected_delivery_date ?? "");
   const [supRef, setSupRef] = useState(initial.supplierOrderRef);
   const [dossier, setDossier] = useState(initial.dossier);
   const [lines, setLines] = useState<OrderLineInput[]>(() => {
@@ -200,7 +203,7 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
             site_id: writeSite, supplier_id: supplier || null, source_document_id: docId,
             order_mode: gl.length ? "detailed" : "simplified", destination,
             repair_order_id: ro?.id ?? null, vehicle_id: ro?.vehicle_id ?? orv.vehicleId,
-            plate: ro?.plate ?? plate, appointment_date: null, order_date: orderDate || null, supplier_order_ref: supRef.trim() || null,
+            plate: ro?.plate ?? plate, appointment_date: appointment || null, expected_delivery_date: delivery || null, order_date: orderDate || null, supplier_order_ref: supRef.trim() || null,
             comment: [comment.trim(), `Commande fournisseur multi-OR : ${multiOrs.join(" + ")}`].filter(Boolean).join(" — "),
             requested_or_number: reqOr, lines: gl,
           }, actor);
@@ -225,7 +228,7 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
         repair_order_id: orv.or?.id ?? null,
         vehicle_id: orv.vehicleId,
         plate,
-        appointment_date: null, order_date: orderDate || null,
+        appointment_date: appointment || null, expected_delivery_date: delivery || null, order_date: orderDate || null,
         supplier_order_ref: supRef.trim() || null,
         comment: comment.trim() || null,
         requested_or_number: requestedOr,
@@ -283,8 +286,18 @@ export function OrderForm({ doc, docSite, initialSupplier, onDone }: { doc: Read
       ) : null}
       <div className="grid grid-cols-2 gap-2">
         <input className={inputCls} placeholder="N° commande fournisseur" value={supRef} onChange={(e) => setSupRef(e.target.value)} />
-        <input className={inputCls} type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} aria-label="Date de commande" title="Date de commande" />
+        <span />
+        <label className="text-xs font-bold">Date de RDV<input className={inputCls} type="date" value={appointment} onChange={(e) => setAppointment(e.target.value)} aria-label="Date de RDV" /></label>
+        <label className="text-xs font-bold">Livraison prévue<input className={inputCls} type="date" value={delivery} onChange={(e) => setDelivery(e.target.value)} aria-label="Livraison prévue" /></label>
       </div>
+      <LogisticsBadge order={{ appointment_date: appointment, expected_delivery_date: delivery, status: "ordered" }} />
+      {x.control_alerts?.length ? (
+        <div role="alert" className="space-y-0.5 rounded-lg border-2 border-destructive bg-destructive/10 p-2 text-xs font-bold">
+          <p className="uppercase">Contrôle du document — à corriger avant validation</p>
+          {x.control_alerts.map((a) => <p key={a}>• {a}</p>)}
+        </div>
+      ) : null}
+      {x.vehicle_label ? <p className="text-xs text-muted-foreground">Véhicule : {x.vehicle_label}</p> : null}
       <select className={inputCls} value={destination} onChange={(e) => setDestination(e.target.value as typeof destination)}>
         <option value="or">Destination : OR</option>
         <option value="store_sale">Destination : vente magasin</option>

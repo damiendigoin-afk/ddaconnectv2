@@ -31,6 +31,7 @@ vi.mock("@/components/parts/PartsUi", () => ({
   ),
   PriceInput: ({ value, ...props }: { value?: number | null; [key: string]: unknown }) => <input {...props} value={value ?? ""} readOnly />,
   OrLink: () => null,
+  LogisticsBadge: () => null,
   usePartsCtx: () => ({ actor: { userId: "user", name: "Test" }, writeSite: "site", siteName: () => "DDA", sites: [] }),
   useSuppliers: () => ({ data: [{ id: "supplier-pad", name: "OSKARBI AUTO SL" }] }),
   btnGhost: "",
@@ -68,7 +69,9 @@ describe("Commander des pièces — contrat DOM réel", () => {
 
     expect(screen.getByLabelText("Fournisseur")).toHaveProperty("value", "supplier-pad");
     expect(screen.getByPlaceholderText("N° commande fournisseur")).toHaveProperty("value", "2887178");
-    expect(screen.getByLabelText("Date de commande")).toHaveProperty("value", "2026-09-29");
+    expect(screen.queryByLabelText("Date de commande")).toBeNull();
+    expect(screen.getByLabelText("Date de RDV")).toBeTruthy();
+    expect(screen.getByLabelText("Livraison prévue")).toBeTruthy();
     expect(screen.getByLabelText("OR")).toHaveProperty("value", "16533");
     expect(screen.getAllByLabelText("Référence").map((node) => (node as HTMLInputElement).value)).toEqual(["557119W", "5571208", "5571209", "PORT"]);
     expect(screen.getAllByLabelText("Désignation").map((node) => (node as HTMLInputElement).value)).toEqual(["Support pare-chocs avant droit", "Amortisseur de pare-chocs avant", "Support de grille", "Frais de port et de emballage"]);

@@ -1,0 +1,2 @@
+ALTER TABLE public.part_orders ADD COLUMN IF NOT EXISTS expected_delivery_date date;
+COMMENT ON COLUMN public.part_orders.expected_delivery_date IS 'Date de livraison prévue (lue sur le document ou saisie).';

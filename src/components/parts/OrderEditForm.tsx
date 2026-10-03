@@ -24,7 +24,7 @@ export function OrderEditForm({ o, onDone }: { o: any; onDone: () => void }) {
   }));
   const [supplier, setSupplier] = useState<string>(o.supplier_id ?? "");
   const [supRef, setSupRef] = useState<string>(o.supplier_order_ref ?? "");
-  const [orderDate, setOrderDate] = useState<string>(o.order_date ?? "");
+  const [orderDate] = useState<string>(o.order_date ?? "");
   const [comment, setComment] = useState<string>(o.comment ?? "");
   const [destination, setDestination] = useState<"or" | "store_sale" | "stock">(o.destination ?? "or");
   const initialOr: OrLite | null = o.repair_order_id ? { id: o.repair_order_id, or_number: o.repair_orders?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id ?? null, plate: o.plate ?? null } : null;
@@ -80,7 +80,7 @@ export function OrderEditForm({ o, onDone }: { o: any; onDone: () => void }) {
       <SupplierSelect value={supplier} onChange={setSupplier} />
       <div className="grid grid-cols-2 gap-2">
         <input className={inputCls} aria-label="N° commande fournisseur" placeholder="N° commande fournisseur" value={supRef} onChange={(e) => setSupRef(e.target.value)} />
-        <input className={inputCls} type="date" aria-label="Date de commande" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
+
       </div>
       <OrPicker value={orv} onChange={setOrv} initialNumber={dossier || null} onNumberChange={setDossier} />
       <select className={inputCls} aria-label="Destination" value={destination} onChange={(e) => setDestination(e.target.value as typeof destination)}>
