@@ -289,7 +289,7 @@ function TireStepPage() {
               <div className="flex items-start gap-2 rounded-lg border-2 border-warning bg-warning/10 px-3 py-2 text-xs font-bold">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-warning" /> {EXPERIMENTAL_DEPTH_NOTICE}
               </div>
-              {treadSrc ? <TireTreadOverlay src={treadSrc} values={[d.inner_mm, d.center_mm, d.outer_mm]} labels={labels} /> : <p className="text-sm text-muted-foreground">Aucune photo de bande de roulement.</p>}
+              {treadSrc ? <TireTreadOverlay src={treadSrc} values={[d.inner_mm, d.center_mm, d.outer_mm]} labels={labels} onAdjust={(i, v) => setD((["inner_mm", "center_mm", "outer_mm"] as const)[i]!, String(v))} /> : <p className="text-sm text-muted-foreground">Aucune photo de bande de roulement.</p>}
               <label className="block text-[10px] font-bold uppercase text-muted-foreground">Orientation (côté intérieur du véhicule sur la photo)
                 <select value={orient} onChange={(e) => setOrient(e.target.value as Orientation)} className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-2 text-sm font-normal normal-case text-foreground">
                   <option value="auto">Automatique ({d.inner_side ? `IA : intérieur à ${d.inner_side}` : "IA : non déterminée"})</option>
