@@ -1,5 +1,5 @@
 import type { TireStepResult } from "./tire-step";
-import { quoteSearchFromResult, wearLevel } from "./tire-step";
+import { TIRE_STEP_PROMPT, normalizeTireStep, quoteSearchFromResult, wearLevel } from "./tire-step";
 
 export const TOUR_TIRE_KEYS = ["pneu_avg", "pneu_avd", "pneu_arg", "pneu_ard"] as const;
 export type TourTireKey = (typeof TOUR_TIRE_KEYS)[number];
@@ -59,7 +59,6 @@ export function legacyTireAnalysis(result: TireStepResult) {
   return { ai, final: ai, grade, reasons: result.wear.observations, confirmed: true, partial: false, attempts: 1, confirmedRef: result.sidewall.size, tourStep: result, quote: quoteSearchFromResult(result) };
 }
 /* ---------------- Analyse IA groupée des 4 roues (même moteur qu'État pneus) ---------------- */
-import { TIRE_STEP_PROMPT, normalizeTireStep } from "./tire-step";
 
 /** Change à chaque évolution du prompt : invalide les anciennes réponses mises en cache. */
 export const TOUR_TIRES_PROMPT_VERSION = "tour-tires-v2";
