@@ -1,46 +1,54 @@
-# Scan OR Atelier : fonctionnement actuel et correctif proposé
+# Lot correctif Atelier, OR et pneus
 
-## 1. Comment fonctionne le scan aujourd'hui (un mélange)
+## Résultat attendu
 
-```text
-Atelier > Scanner OR (src/routes/atelier.index.tsx, scanOr)
-  1. compressImage 1800 px
-  2. localDocText (src/lib/doc-text.browser.ts)  -> Tesseract local, 0 crédit
-       2e passe binarisée si orScanNeedsRetry (pas d'immat ou pas de n° OR lus)
-  3. ocrRepairOrder (src/lib/ocr.functions.ts) -> readDocument -> runDocPipeline
-       a. repairOrderRules (src/lib/doc-rules.ts) : libellés + regex
-       b. sanitizeRepairOrder : retire valeurs parasites (garage, conseiller)
-       c. champs obligatoires manquants (n° OR, immat, travaux/remarque, nom, modèle)
-          -> photo = vision Gemini 3.8 Flash obligatoire (askVision)
-       d. fillMissing : la vision ne complète QUE les champs vides
-  4. parseRepairOrderScan -> decideOrScan -> ensure_winmotor_dossier_full
-     (récupération fiche complète : inchangée)
-```
+- Ajuster uniquement les guides caméra de la bande, du flanc et de la dimension, sans altérer l’image enregistrée.
+- Ajouter un vrai démarrage rapide de Tour depuis une plaque ou un OR, sans imposer la création d’un dossier OR.
+- Fiabiliser les champs plaque, marque, modèle et remarques client des OR Renault, tout en gardant le pipeline OCR local → règles → IA de secours.
+- Donner priorité à `ref_vehicles` pour l’identité véhicule lorsqu’une plaque ou un VIN y existe, sans nettoyage global ni duplication de vérité.
+- Remplacer la saisie pneu actuelle du Tour par 3 photos guidées × 4 roues, puis une seule analyse globale après « Terminer ».
+- Afficher la progression, permettre la reprise sur erreur, puis faire valider les quatre pneus avec photo annotée et corrections synchronisées avant la clôture.
+- Réutiliser le devis pneu existant et ses photos PDF, avec recommandations cohérentes par essieu.
 
-Journal des coûts : le 03/10, deux lectures à 15:26 et 15:27 sont passées par la vision Gemini 3.8. Celle de 15:29 a été lue entièrement en local, sans IA.
+## Mise en œuvre
 
-## 2. Causes probables
+1. **Caméra et démarrage rapide**
+   - Ajuster les tracés U/cercle existants dans la caméra partagée.
+   - Distinguer le raccourci « Démarrage rapide » du scan OR complet.
+   - Chercher la plaque/OR, réutiliser le véhicule ou l’intervention trouvée, puis créer/reprendre directement le Tour sans OR obligatoire.
 
-**Immat EMA426NG au lieu de EM426NG : vient de l'IA vision, pas des règles locales.**
-- La recherche locale (`findFrenchPlate`, src/lib/plate.ts) n'accepte que le format AA-123-AA. Elle ne peut pas produire « EMA426NG ». Sur la photo, elle n'a donc rien trouvé, sans doute à cause de la police de la plaque.
-- La vision a alors renvoyé « EMA426NG ». Aucune étape ne vérifie le format de l'immatriculation venant de l'IA : `sanitizeRepairOrder` ne la contrôle pas. `formatPlate` laisse passer une valeur hors format sans la modifier, puis l'Atelier l'utilise.
+2. **Lecture OR et identité véhicule**
+   - Renforcer les validateurs purs de plaque, marque et modèle, dont `POLO1O60` → `POLO 1.0 60` seulement lorsque la correction est sûre.
+   - Isoler strictement « Remarques du client » jusqu’au prochain bloc et ajouter la régression OR 50985 → `revision`.
+   - Résoudre l’identité atelier par plaque/VIN dans `ref_vehicles` avant toute valeur contradictoire de `vehicles`; concaténer proprement gamme et modèle.
+   - Ne pas modifier le mécanisme WinMotor existant de récupération complète.
 
-**Numéro de compte pris pour le modèle : deux chemins possibles (non confirmé sans la photo).**
-- Règles locales : sur l'OR Renault, les libellés sont en tableau (« Immat. Marque Modèle N° compte » sur une ligne, valeurs sur la ligne suivante). `orLabeledValues` lit la valeur sur la même ligne, ou bien la ligne suivante, mais seulement pour le dernier libellé de la ligne. Les colonnes ne sont pas alignées entre elles, et l'OCR lit parfois mal le libellé (« Modile », vu dans un exemple de test). Une valeur peut donc tomber sous le mauvais libellé.
-- IA : la consigne demande seulement « Modèle = valeur du libellé modèle véhicule ». Aucun contrôle ne rejette un modèle purement numérique : `sanitizeRepairOrder` exige seulement 2 caractères alphanumériques, et « 012384 » passe.
+3. **Pneus dans le Tour**
+   - Capturer Bande, Flanc et Dimension pour chaque roue, soit 12 photos, sans analyse intermédiaire.
+   - Ajouter un appel serveur authentifié unique qui analyse les quatre lots avec Gemini 3.1 Pro et renvoie les quatre résultats normalisés, avec métriques communes.
+   - Garder les photos et l’état tant que l’analyse/reprise/validation n’est pas terminée.
 
-## 3. Correctif proposé (simple, sans toucher à la récupération de fiche)
+4. **Validation, clôture et devis**
+   - Intercepter « Terminer » pour afficher une progression estimée jusqu’à réception réelle; désactiver les doubles actions et conserver les photos après erreur.
+   - Présenter quatre contrôles réutilisant la photo annotée, le glissement ±0,1 mm et les champs manuels.
+   - Enregistrer résultats et corrections dans le Tour et l’historique véhicule, puis seulement clôturer.
+   - Calculer la recommandation par essieu/4 pneus avec priorité aux défauts critiques, et transmettre dimensions, quantités et photos au devis existant.
 
-1. **Contrôler l'immatriculation dans `sanitizeRepairOrder`.** Cette étape s'applique aussi bien aux règles locales qu'à l'IA. Toute immatriculation passe par `findFrenchPlate`, avec correction des confusions courantes de l'OCR. Si le format n'est pas valide (AA-123-AA ou ancien format), elle est mise à vide et marquée « rejetée ». Une valeur douteuse ne part donc jamais vers la fiche. L'écran demande alors l'immatriculation, comme il le fait déjà.
-2. **Réparer « EMA426NG » sans rien inventer.** Une lettre en trop est retirée seulement si une seule version au bon format est possible. Exemple : EMA426NG donne EM-426-NG si on retire le A, mais aussi EA-426-NG si on retire le M. Comme deux versions sont possibles, la valeur est rejetée. Si l'immatriculation lue sur la même photo par l'OCR local correspond à l'une des versions, c'est celle-là qui est gardée.
-3. **Contrôler le modèle.** Un modèle doit contenir au moins une lettre et ne peut pas être purement numérique. Il est aussi rejeté s'il est identique au n° de compte, au n° d'OR, au code postal ou au téléphone lus sur le même document.
-4. **Lire les en-têtes en tableau Renault.** Quand une ligne contient plusieurs libellés et que les valeurs sont sur la ligne suivante, les valeurs sont réparties par position de colonne. L'immatriculation est reconnue par son format, le n° de compte par ses chiffres seuls. Les libellés mal lus par l'OCR (« Modile », « Merque ») sont tolérés.
-5. **Renforcer la consigne donnée à l'IA.** Elle précise : « plate = format français AA-123-AA (2 lettres, 3 chiffres, 2 lettres) ; ne jamais mettre le n° de compte client dans model ». Les contrôles des points 1 et 3 restent le vrai garde-fou.
-6. **Tests.** Ils couvrent : EMA426NG rejetée ou ramenée à EM-426-NG grâce à la lecture locale ; un modèle « 012384 » rejeté ; un en-tête en tableau Renault avec modèle et compte bien séparés ; les tests existants de l'OR 50873 et de la photo d'OR, qui doivent rester verts.
+5. **Validation**
+   - Ajouter les tests ciblés demandés (guides, raccourci plaque/OR, priorité référentiel, modèle, OR 50985, 12 photos, analyse globale, progression, corrections et essieux).
+   - Lancer les tests ciblés, la suite complète et la vérification du code.
+   - Contrôler l’écran sur ordinateur; signaler séparément les essais téléphone et appels IA réels non effectués.
 
-Aucun changement à `ensure_winmotor_dossier_full`, `decideOrScan`, à la gestion des conflits ni au parcours d'ouverture.
+## Contraintes maintenues
+
+- Aucun nettoyage massif de `ref_vehicles`.
+- Aucun OR officiel créé par DDA.
+- Aucun changement des flux commandes/BL ou des droits d’audit.
+- Aucune publication.
+- Le coût en crédits de ce tour sera rapporté s’il est exposé par les outils; aucun appel IA réel ne sera lancé uniquement pour mesurer le coût.
 
 ## Détails techniques
-- Fichiers touchés : `src/lib/doc-rules.ts` (sanitizeRepairOrder, orLabeledValues), `src/lib/plate.ts` (fonction de réparation stricte de l'immatriculation), consigne dans `src/lib/ocr.functions.ts`, tests dans `src/lib/__tests__/`.
-- Une valeur rejetée compte comme champ manquant. Elle déclenche donc la vision si elle n'a pas encore été appelée, et ne sera jamais réinjectée telle quelle.
-- Pour confirmer le chemin exact du modèle mal lu : rejouer la photo réelle dans l'aperçu et lire le texte OCR local. Vous pouvez aussi me fournir la photo pour en faire un exemple de test.
+
+- Les règles métier resteront dans des fonctions pures testées; les appels IA passent par le budget/log existant.
+- L’analyse globale peut regrouper quatre analyses de pneu dans une seule action utilisateur et un même suivi, tout en conservant le schéma validé d’« État pneus » par roue.
+- Les photos privées seront associées aux enregistrements du Tour existants; aucune image IA ne sera générée.
