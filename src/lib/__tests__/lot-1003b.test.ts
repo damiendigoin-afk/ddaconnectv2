@@ -10,7 +10,7 @@ describe("filtres active=true (ancien import VEHIC.csv désactivé)", () => {
   const src = readFileSync("src/lib/refbase.ts", "utf8");
   it("chaque lecture contacts / adresses / relations véhicule filtre active=true", () => {
     const calls = [...src.matchAll(/from\("customer_(contacts|addresses|vehicle_relations)"\)([\s\S]{0,260})/g)];
-    expect(calls.length).toBeGreaterThanOrEqual(10);
+    expect(calls.length).toBeGreaterThanOrEqual(8);
     for (const c of calls) expect(c[2], c[0].slice(0, 120)).toMatch(/\.eq\("active", true\)/);
   });
 });

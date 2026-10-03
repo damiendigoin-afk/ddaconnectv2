@@ -876,6 +876,17 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
   const ln = typeof client["last_name"] === "string" ? client["last_name"].trim() : "";
   const fn = typeof client["first_name"] === "string" ? client["first_name"].trim() : "";
   const company = /^(SOCI|SARL|SAS|EURL|SA\b|GARAGE|ETS)/i.test(ln);
+  // Prénom suivi d'une adresse collée (« MARIE-ANNAELLE LEBOURG ») : on retire la fin et on signale.
+  const ft = fn.split(/\s+/);
+  for (const n of [2, 1]) {
+    if (ft.length > n && looksLikeAddress(ft.slice(-n).join(" "))) {
+      const addr = ft.slice(-n).join(" ");
+      client["first_name"] = ft.slice(0, -n).join(" ");
+      if (client["address"] == null || client["address"] === "") client["address"] = normalizeAddressLine(addr);
+      suspect.add("client.first_name"); suspect.add("client.address");
+      break;
+    }
+  }
   if (fn && looksLikeAddress(fn)) {
     // Prénom = ligne d'adresse : lecture de mise en page incohérente.
     suspect.add("client.first_name"); suspect.add("client.last_name");
