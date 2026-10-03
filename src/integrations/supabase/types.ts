@@ -8814,6 +8814,10 @@ export type Database = {
       norm_contact: { Args: { _v: string }; Returns: string }
       norm_person: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
+      part_order_target: {
+        Args: { _or: string; _plate: string; _ro: string }
+        Returns: string
+      }
       platform_storage_stats: {
         Args: never
         Returns: {
