@@ -13,6 +13,7 @@ export const HARD_SUPPLIER_ALIASES: Record<string, string[]> = {
     "GROUPE FAURIE SARLAT",
     "FAURIE AUTO SARLAT",
   ],
+  DISTRICASH: ["DISTRI CASH BRIVE", "DISTRI CASH", "DISTRICASH BRIVE", "DISTRICASH"],
 };
 
 /** Nom canonique si le nom lu est un alias connu (égalité normalisée stricte), sinon null. */
@@ -31,4 +32,27 @@ export function hardAliasSupplier<T extends { id: string; name: string; active?:
   if (!canon) return null;
   const c = norm(canon);
   return suppliers.find((s) => s.active !== false && norm(s.name) === c) ?? null;
+}
+
+/**
+ * Menu fournisseur sans doublon : une entrée par fiche (et par nom normalisé), les « plus utilisés »
+ * ne sont pas répétés dans « Tous les fournisseurs » (sauf pendant une recherche).
+ */
+export function supplierMenu<T extends { id: string; name: string; active?: boolean | null }>(
+  suppliers: T[], topIds: string[], search: string, value: string,
+): { top: T[]; rest: T[] } {
+  const seenName = new Set<string>(); const seenId = new Set<string>();
+  const all: T[] = [];
+  for (const s of suppliers) {
+    if (s.active === false && s.id !== value) continue;
+    const k = norm(canonicalSupplierName(s.name) ?? s.name);
+    if (seenId.has(s.id) || (seenName.has(k) && s.id !== value)) continue;
+    seenId.add(s.id); seenName.add(k); all.push(s);
+  }
+  const byId = new Map(all.map((s) => [s.id, s]));
+  const n = norm(search);
+  const top = n ? [] : [...new Set(topIds)].map((id) => byId.get(id)).filter((s): s is T => !!s);
+  const topSet = new Set(top.map((s) => s.id));
+  const rest = all.filter((s) => !topSet.has(s.id) && (!n || norm(s.name).includes(n) || s.id === value));
+  return { top, rest };
 }
