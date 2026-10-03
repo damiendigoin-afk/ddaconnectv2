@@ -13,9 +13,9 @@ export const analyzeTourTires = createServerFn({ method: "POST" })
     const { TOUR_TIRE_KEYS } = await import("./tour-tire-analysis");
     const { TIRE_STEP_DEFAULT_MODEL, normalizeTireStep } = await import("./tire-step");
     const { data: points, error: pe } = await context.supabase.from("inspection_points")
-      .select("id, point_key").eq("inspection_id", data.inspectionId).in("point_key", [...TOUR_TIRE_KEYS]);
+      .select("id, point_key, battery_test, measure_value").eq("inspection_id", data.inspectionId).in("point_key", [...TOUR_TIRE_KEYS, "batterie"]);
     if (pe) throw new Error(pe.message);
-    const byId = new Map((points ?? []).map((p) => [p.id, p.point_key]));
+    const byId = new Map((points ?? []).filter((p) => TOUR_TIRE_KEYS.includes(p.point_key as (typeof TOUR_TIRE_KEYS)[number])).map((p) => [p.id, p.point_key]));
     const { data: media, error: me } = await context.supabase.from("media")
       .select("id, inspection_point_id, storage_path, label, created_at")
       .eq("inspection_id", data.inspectionId).in("inspection_point_id", [...byId.keys()]).order("created_at", { ascending: false });
@@ -35,7 +35,8 @@ export const analyzeTourTires = createServerFn({ method: "POST" })
     });
     if (missing.length) return { ok: false as const, error: `Photos pneus incomplètes : ${missing.join(", ")}. Trois photos sont requises par roue.`, results: null, model: TIRE_STEP_DEFAULT_MODEL, metrics: null };
 
-    const content: Record<string, unknown>[] = [{ type: "text", text: `Analyse les QUATRE pneus d'un même véhicule dans UNE réponse. Pour chaque roue, lis le flanc, évalue l'usure et estime prudemment les profondeurs gauche/milieu/droite. N'invente rien. Les défauts critiques (lisse, témoin atteint, carcasse ou corde visible) priment. Réponds strictement en JSON {"wheels":{"pneu_avg":RESULTAT,"pneu_avd":RESULTAT,"pneu_arg":RESULTAT,"pneu_ard":RESULTAT}} où RESULTAT suit exactement le schéma État pneus sidewall/wear/depth.` }];
+    const battery = (points ?? []).find((p) => p.point_key === "batterie");
+    const content: Record<string, unknown>[] = [{ type: "text", text: `Analyse les QUATRE pneus d'un même véhicule dans UNE réponse. Pour chaque roue, lis le flanc, évalue l'usure et estime prudemment les profondeurs gauche/milieu/droite. N'invente rien. Les défauts critiques (lisse, témoin atteint, carcasse ou corde visible) priment. Le test batterie déjà lu par le tour est fourni uniquement comme contexte et ne doit jamais modifier les résultats pneus : ${JSON.stringify(battery?.battery_test ?? battery?.measure_value ?? null)}. Réponds strictement en JSON {"wheels":{"pneu_avg":RESULTAT,"pneu_avd":RESULTAT,"pneu_arg":RESULTAT,"pneu_ard":RESULTAT}} où RESULTAT suit exactement le schéma État pneus sidewall/wear/depth.` }];
     const proof: Record<string, { photoCount: number; mainPhotoPath: string | null }> = {};
     for (const key of TOUR_TIRE_KEYS) {
       const ims = picked.get(key)!;

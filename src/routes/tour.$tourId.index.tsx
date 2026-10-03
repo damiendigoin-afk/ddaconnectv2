@@ -2,7 +2,7 @@ import { formatMeasure, normalizeMeasureValue } from "@/lib/measure";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ChevronLeft, ChevronRight, LogOut, Plus, Trash2, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, Loader2, LogOut, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -14,7 +14,6 @@ import { PhotoManager } from "@/components/PhotoManager";
 import { PointCard, type PointRow } from "@/components/PointCard";
 import { TechnicalControlCard } from "@/components/TechnicalControlCard";
 import { TireLabelCard } from "@/components/TireLabelCard";
-import { TireWheelCard } from "@/components/TireWheelCard";
 import { TourTireCapture } from "@/components/TourTireCapture";
 import { TireTreadOverlay } from "@/components/TireTreadOverlay";
 import { useServerFn } from "@tanstack/react-start";
@@ -715,7 +714,6 @@ function Guided(props: SharedProps) {
             );
           }
           if (def?.special === "tire") {
-            const rear = p.point_key.includes("ar");
             return (
               <LocalErrorBoundary key={p.id} label={p.point_label}>
                 <TourTireCapture point={p} inspectionId={props.tourId} onCaptured={() => void points.refetch()} />
