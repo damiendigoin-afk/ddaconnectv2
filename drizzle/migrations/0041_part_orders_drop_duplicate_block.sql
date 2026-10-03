@@ -1,0 +1,2 @@
+DROP TRIGGER IF EXISTS trg_guard_part_order_duplicate ON public.part_orders;
+COMMENT ON FUNCTION public.guard_part_order_duplicate() IS 'DEPRECATED: anti-doublon commande = avertissement + confirmation utilisateur, jamais blocage en base';

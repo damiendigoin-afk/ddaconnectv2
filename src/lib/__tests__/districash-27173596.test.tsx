@@ -40,7 +40,7 @@ vi.mock("@/components/parts/PartsUi", () => ({
   numOrNull: (value: string) => Number(value),
 }));
 vi.mock("@/lib/parts", () => ({
-  allocateToOr: vi.fn(), createOrder: vi.fn(), findDuplicateOrder: vi.fn().mockResolvedValue(null), findOrByNumber: vi.fn().mockResolvedValue(null),
+  allocateToOr: vi.fn(), createOrder: vi.fn(), findSimilarOrder: vi.fn().mockResolvedValue(null), findOrByNumber: vi.fn().mockResolvedValue(null),
   findStockByRef: vi.fn().mockResolvedValue([]), listOrders: vi.fn().mockResolvedValue([]), openRegularization: vi.fn(),
 }));
 vi.mock("@/lib/refbase", () => ({ findRefVehicleByPlate: vi.fn().mockResolvedValue(null) }));
