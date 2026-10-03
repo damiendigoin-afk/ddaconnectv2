@@ -67,6 +67,14 @@ export type InvoiceExtract = {
   vat_amount?: number | null;
   total_ttc?: number | null;
   handwritten_notes?: string | null;
+  /** Date de livraison prévue lue sur le document. */
+  expected_delivery_date?: string | null;
+  /** Véhicule décrit sur le document (ex. bon de commande Renault). */
+  vehicle_label?: string | null;
+  /** Gabarit reconnu par une règle dédiée (ex. renault_detail_commande). */
+  template?: string | null;
+  /** Alertes de contrôle (ligne incomplète, écart de total) : à corriger, jamais validées silencieusement. */
+  control_alerts?: string[];
 };
 
 export type SupplierDoc = {
