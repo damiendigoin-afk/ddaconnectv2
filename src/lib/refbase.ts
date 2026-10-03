@@ -191,7 +191,7 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
     supabase.from("ref_vehicles").select(VEH_SELECT).or(vehFilters).limit(limit),
     supabase.from("customers").select(CUST_SELECT).or(custFilters).limit(limit),
     contactValue
-      ? supabase.from("customer_contacts").select("customer_id").ilike("normalized_value", `%${contactValue}%`).limit(limit)
+      ? supabase.from("customer_contacts").select("customer_id").eq("active", true).ilike("normalized_value", `%${contactValue}%`).limit(limit)
       : Promise.resolve({ data: [] as { customer_id: string }[] }),
     supabase
       .from("repair_orders")
@@ -229,6 +229,7 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
     ? await supabase
         .from("customer_vehicle_relations")
         .select("customer_id, vehicle_id")
+        .eq("active", true)
         .or(
           [
             relCustomerIds.length ? `customer_id.in.(${relCustomerIds.join(",")})` : "",
@@ -265,8 +266,8 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
   const custList = customers.slice(0, limit);
   const ids = custList.map((c) => c.id);
   const [contacts, addresses] = await Promise.all([
-    ids.length ? supabase.from("customer_contacts").select("customer_id, type, value").in("customer_id", ids) : Promise.resolve({ data: [] }),
-    ids.length ? supabase.from("customer_addresses").select("customer_id, city").in("customer_id", ids) : Promise.resolve({ data: [] }),
+    ids.length ? supabase.from("customer_contacts").select("customer_id, type, value").eq("active", true).in("customer_id", ids) : Promise.resolve({ data: [] }),
+    ids.length ? supabase.from("customer_addresses").select("customer_id, city").eq("active", true).in("customer_id", ids) : Promise.resolve({ data: [] }),
   ]);
   const phoneOf = new Map<string, string>();
   for (const c of (contacts.data ?? []) as { customer_id: string; type: string; value: string }[]) {
@@ -318,9 +319,9 @@ export async function findRefVehicleByPlate(plate: string): Promise<(RefVehicle 
 export async function fetchCustomer(id: string) {
   const [{ data: customer }, { data: contacts }, { data: addresses }, { data: rels }] = await Promise.all([
     supabase.from("customers").select("*").eq("id", id).maybeSingle(),
-    supabase.from("customer_contacts").select("*").eq("customer_id", id).order("is_primary", { ascending: false }),
+    supabase.from("customer_contacts").select("*").eq("customer_id", id).eq("active", true).order("is_primary", { ascending: false }),
     supabase.from("customer_addresses").select("*").eq("customer_id", id).eq("active", true),
-    supabase.from("customer_vehicle_relations").select("vehicle_id, relationship_type, active").eq("customer_id", id),
+    supabase.from("customer_vehicle_relations").select("vehicle_id, relationship_type, active").eq("customer_id", id).eq("active", true),
   ]);
   const vehIds = (rels ?? []).map((r) => r.vehicle_id);
   const { data: vehicles } = vehIds.length
