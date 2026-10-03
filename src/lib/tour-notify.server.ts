@@ -5,6 +5,7 @@ import {
   
   emailLogOutcome,
   frontOfficeIdempotencyKey,
+  payloadFingerprint,
   normalizeFrontOfficeRecipients,
 } from "./tour-notify-core";
 
@@ -291,6 +292,14 @@ export async function notifyTourCompleted(args: {
             recipient: to,
             mode,
             ...(attemptId ? { attemptId } : {}),
+            payload: payloadFingerprint([
+              subject,
+              html,
+              (attachments ?? []).map((a: Record<string, unknown>) => [
+                a["filename"],
+                typeof a["content"] === "string" ? a["content"].length : 0,
+              ]),
+            ]),
           }),
         });
       } catch (e) {

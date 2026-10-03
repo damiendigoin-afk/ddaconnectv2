@@ -25,14 +25,40 @@ function stableRecipientToken(recipient: string): string {
   return (hash >>> 0).toString(36);
 }
 
+/** Empreinte stable du contenu envoyé (sujet, corps, pièces jointes). */
+export function payloadFingerprint(parts: unknown[]): string {
+  return stableRecipientToken(JSON.stringify(parts));
+}
+
+/**
+ * Clé d'idempotence : identique pour UNE même requête (retry => dédoublonné
+ * par le fournisseur), différente dès que le contenu change (jamais de 409
+ * invalid_idempotent_request).
+ */
 export function frontOfficeIdempotencyKey(args: {
   inspectionId: string;
   recipient: string;
   mode: "automatic" | "manual";
   attemptId?: string;
+  payload?: string;
 }): string {
-  const base = `tour-fo-${args.mode}-${args.inspectionId}-${stableRecipientToken(args.recipient)}`;
-  return args.mode === "manual" && args.attemptId ? `${base}-${args.attemptId}` : base;
+  let key = `tour-fo-${args.mode}-${args.inspectionId}-${stableRecipientToken(args.recipient)}`;
+  if (args.mode === "manual" && args.attemptId) key += `-${args.attemptId}`;
+  if (args.payload) key += `-${args.payload}`;
+  return key;
+}
+
+/** Message lisible pour un échec de notification (jamais le JSON brut du fournisseur). */
+export function frontOfficeErrorMessage(raw: string | null | undefined): string {
+  const t = String(raw ?? "");
+  if (!t.trim()) return "";
+  if (/invalid_idempotent_request|idempotency key/i.test(t))
+    return "Notification déjà envoyée pour ce tour — aucun doublon envoyé.";
+  if (/^\s*[{[]/.test(t) || /statusCode|"name"\s*:/.test(t)) {
+    const code = /"statusCode"\s*:\s*(\d+)/.exec(t)?.[1];
+    return `Le service d’envoi a refusé le message${code ? ` (code ${code})` : ""}. Renvoyez la notification depuis le rapport.`;
+  }
+  return t;
 }
 
 export function acceptedProviderSend(result: ProviderSendResult): boolean {

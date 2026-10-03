@@ -13,6 +13,7 @@ import { axleMonteLabel, consolidateAxles, readingsFromPoints } from "./tire-axl
 import { ocrBatteryTest } from "./ocr.functions";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";
 import { blobToDataUrl, mediaUrl } from "./photo";
+import { normalizeTireRequirement } from "./tour-tire-analysis";
 import { fetchPublicTireOffers } from "./tire-provider.functions";
 import type { TireLabelAi, TireWheelAi } from "./tire-types";
 import {
@@ -197,11 +198,11 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
     const fromLabel = requiredFromLabel(label, code);
     const monte = montes[axle];
     const monteOk = monte.status !== "conflit";
-    const required = {
+    const required = normalizeTireRequirement({
       size: fromLabel.size ?? mountedAi?.size ?? (monteOk ? monte.size : null),
       load: fromLabel.load ?? mountedAi?.load_index ?? (monteOk ? monte.load : null),
       speed: fromLabel.speed ?? mountedAi?.speed_index ?? (monteOk ? monte.speed : null),
-    };
+    });
     if (!required.size && monte.status === "conflit") {
       report.notes.push(`${wheel.point_label} : ${axleMonteLabel(monte)}.`);
       continue;
@@ -242,7 +243,7 @@ async function rebuildTireOffers(inspectionId: string, points: PointRow[], repor
       mounted: {
         brand: mountedAi?.brand ?? null,
         model: mountedAi?.model ?? null,
-        size: mountedAi?.size ?? required.size,
+        size: required.size,
         season: (mountedAi?.season as TireSeason | null) ?? null,
       },
       required,

@@ -1,5 +1,5 @@
 import { brandedEmail, emailButton, sendEmail } from "./email.server";
-import { frontOfficeIdempotencyKey, normalizeFrontOfficeRecipients } from "./tour-notify-core";
+import { frontOfficeIdempotencyKey, payloadFingerprint, normalizeFrontOfficeRecipients } from "./tour-notify-core";
 
 type Row = Record<string, unknown>;
 
@@ -79,6 +79,7 @@ export async function sendTourFallbackNotice(args: {
             inspectionId: args.inspectionId,
             recipient: to,
             mode: "automatic",
+            payload: payloadFingerprint([subject, html]),
           }),
         });
       } catch (e) {
