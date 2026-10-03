@@ -477,6 +477,26 @@ export function isRenaultOrderDetail(raw: string): boolean {
   return /d[ée]tail\s+de\s+(?:la\s+)?commande/i.test(t) && /distributeur/i.test(t) && /^r[ée]f\.?\s*:/im.test(t);
 }
 
+/** Labels Renault : PDF.js peut concaténer les colonnes ; on remet chaque libellé connu en début de ligne. */
+const RENAULT_LABELS = /\s+(?=(?:r[ée]f\s*:|stock\s*:|qt[ée]\s*:|prix\s+client|mode\s+de\s+livraison|en\s+cours\s+de\s+validation|informations\b|command[ée]\s+par|n[°o]\s*client|distributeur\b|compte\s+de\s+facturation|contact\b|t[ée]l[ée]phone\b|e-?mail\b|adresse\s+de\s+facturation|adresse\b|code\s+postal|ville\b|pays\b|total\b|t\.?v\.?a\s*:|plaque\s+d|rep[èe]re\s+commande|statut\s*:|client\s*:|date\s*:))/gi;
+export function splitRenaultColumns(text: string): string {
+  return text.split("\n").map((l) => l.replace(RENAULT_LABELS, "\n")).join("\n");
+}
+const RENAULT_STOP = /\b(?:compte\s+de\s+facturation|contact|t[ée]l[ée]phone|e-?mail|adresse|code\s+postal|ville|pays|total|n[°o]\s*client|command[ée]\s+par)\b.*$/i;
+/** Valeur du champ « Distributeur » (même ligne ou suivante), coupée au libellé suivant ; jamais la ville / adresse. */
+export function renaultDistributor(rows: string[]): string | null {
+  for (let i = 0; i < rows.length; i += 1) {
+    const m = /distributeur\s*:?\s*(.*)$/i.exec(rows[i]!);
+    if (!m) continue;
+    for (const cand of [m[1] ?? "", rows[i + 1] ?? ""]) {
+      if (/^\s*(?:compte|contact|adresse|ville|code postal|pays|t[ée]l)/i.test(cand)) continue;
+      const v = cand.replace(RENAULT_STOP, "").replace(/\s+/g, " ").trim();
+      if (v.length >= 3 && /[A-Za-z]{3}/.test(v) && !isGarageName(v)) return v.toUpperCase();
+    }
+  }
+  return null;
+}
+
 const HT_AMOUNT = /(\d{1,5}(?:[ .]\d{3})*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?\s?T\.?/gi;
 
 /**
@@ -488,8 +508,8 @@ const HT_AMOUNT = /(\d{1,5}(?:[ .]\d{3})*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?\s?T\.?
  */
 export function renaultOrderDetailRules(raw: string): Fields | null {
   if (!isRenaultOrderDetail(raw)) return null;
-  const text = cleanText(raw);
-  const rows = text.split("\n").map((r) => r.trim());
+  const text = splitRenaultColumns(cleanText(raw));
+  const rows = text.split("\n").map((r) => r.trim()).filter(Boolean);
   const valueOf = (label: RegExp): string | null => {
     for (let i = 0; i < rows.length; i += 1) {
       const m = new RegExp(`^${label.source}\\s*:?\\s*(.*)$`, "i").exec(rows[i]!);
@@ -497,14 +517,14 @@ export function renaultOrderDetailRules(raw: string): Fields | null {
     }
     return null;
   };
-  const distRaw = valueOf(/distributeur/);
-  const supplier = distRaw && !/^(ville|adresse|code postal|compte)/i.test(distRaw) ? distRaw.replace(/\s+/g, " ").toUpperCase() : null;
+  const supplier = renaultDistributor(rows);
   const orderNo = /commande\s*n[°o]?\.?\s*:?\s*(\d{6,10})/i.exec(text)?.[1] ?? null;
   const repere = valueOf(/rep[èe]re\s+(?:de\s+)?commande/);
   const or_number = repere && /^\d{4,7}$/.test(repere.replace(/\s/g, "")) ? repere.replace(/\s/g, "") : null;
   const plateRaw = valueOf(/(?:plaque|immatriculation)/);
   const plate = plateRaw ? findFrenchPlate(plateRaw) : null;
-  const vehicle_label = valueOf(/v[ée]hicule/);
+  const plateRow = rows.findIndex((r) => /plaque|immatriculation/i.test(r));
+  const vehicle_label = valueOf(/v[ée]hicule/) ?? (plateRow >= 0 && /^(RENAULT|DACIA|ALPINE|NISSAN)\b/.test(rows[plateRow + 1] ?? "") ? rows[plateRow + 1]! : null);
   const dateRaw = valueOf(/date(?:\s+de\s+commande)?/);
   const document_date = isoDate(dateRaw ?? "") ?? isoDate(text);
   const deliveryRaw = valueOf(/(?:date\s+de\s+)?livraison\s+pr[ée]vue/);
@@ -521,8 +541,9 @@ export function renaultOrderDetailRules(raw: string): Fields | null {
     const reference = /^r[ée]f\.?\s*:\s*([A-Z0-9][A-Z0-9.\-/]{3,})/i.exec(head)?.[1]?.toUpperCase() ?? null;
     const block = rows.slice(start + 1, end);
     const joined = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+/i, ""), ...block].join("\n");
-    const label = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+\s*/i, ""), ...block].map((v) => v.trim()).find((v) =>
-      v.length >= 2 && /[A-Za-zÀ-ÿ]{2}/.test(v) && !BLOCK_META.test(v) && !/^(prix|qt|quantit|statut|stock|disponib)/i.test(v) && !/\d[.,]\d{2}\s*(?:€|EUR)?\s*(?:H\.?\s?T|T\.?T\.?C)/i.test(v)) ?? null;
+    const label = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+\s*/i, ""), ...block]
+      .map((v) => v.replace(/\d{1,5}(?:[ .]\d{3})*[.,]\d{2}\s*(?:€|EUR)?\s*(?:H\.?\s?T\.?|T\.?T\.?C\.?)?/gi, " ").replace(/\s{2,}/g, " ").replace(/[\s:]+$/, "").trim())
+      .find((v) => v.length >= 2 && /[A-Za-zÀ-ÿ]{2}/.test(v) && !BLOCK_META.test(v) && !/^(prix|qt|quantit|statut|stock|disponib)/i.test(v)) ?? null;
     const qtyRaw = /(?:qt[ée]|quantit[ée])\s*:?\s*(\d{1,3}(?:[.,]\d{1,2})?)/i.exec(joined)?.[1] ?? null;
     const quantity = qtyRaw ? qtyOf(qtyRaw) : null;
     // Montants HT du bloc ; celui qui suit « Prix client » est le prix de vente, jamais le PA.
