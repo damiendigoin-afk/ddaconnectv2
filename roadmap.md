@@ -115,8 +115,8 @@ Reste à faire :
 - [ ] Tests, typecheck, build (pas de publication)
 
 ## Lot 03/10 — État pneus / tour rapide / scan OR
-- [ ] État pneus : masques U (bande) et cercle (flanc) en caméra, enchaînement auto Bande > Flanc > Complément
-- [ ] État pneus : photos conservées dans l'historique véhicule ; photo annotée dans le devis pneu PDF
-- [ ] Tour du véhicule : bouton caméra (immat ou OR), tour sans OR
-- [ ] Scan OR : contrôle strict immat (EMA426NG), modèle ≠ compte/OR/tél/CP, tableau Renault, prompt IA
-- [ ] Tests ciblés + typecheck (pas de publication)
+- [x] État pneus : masques U (bande) et cercle (flanc) en caméra, enchaînement auto Bande > Flanc > Complément
+- [x] État pneus : photos conservées dans l'historique véhicule ; photo annotée dans le devis pneu PDF
+- [x] Tour du véhicule : bouton caméra (immat ou OR), tour sans OR
+- [x] Scan OR : contrôle strict immat (EMA426NG), modèle ≠ compte/OR/tél/CP, tableau Renault, prompt IA
+- [x] Tests ciblés + typecheck (pas de publication)
