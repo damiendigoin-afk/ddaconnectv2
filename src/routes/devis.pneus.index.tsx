@@ -405,6 +405,12 @@ function TireQuotePage() {
             <p className="text-center text-xs text-muted-foreground print:hidden">
               {savedId ? "Devis enregistré automatiquement dans l'historique." : "Enregistrement en cours…"}
             </p>
+            {quotePhotos.length ? (
+              <p className="text-center text-xs text-muted-foreground print:hidden">
+                {quotePhotos.length} photo(s) de pneu annotée(s) jointe(s) au PDF ·{" "}
+                <button type="button" onClick={clearQuotePhotos} className="font-bold underline">Retirer</button>
+              </p>
+            ) : null}
           </>
         ) : null}
 
