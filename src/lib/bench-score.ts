@@ -6,7 +6,7 @@ import type { BenchOutput } from "./bench-schema";
 
 export type FlatMap = Record<string, string>;
 const SECTIONS = ["document", "totals", "tire", "battery", "workshop"] as const;
-const AMOUNT_KEYS = /(price|amount|total|totals\.|discount|vat|ttc|ht|fees|shipping|eco_fee|deposit|gross)/;
+const AMOUNT_LEAVES = new Set(["unit_price_ht", "discount", "amount_ht", "vat", "amount_ttc", "deposit", "fees", "shipping", "eco_fee", "gross", "global_discount", "ht", "ttc", "amount"]);
 const REF_KEYS = /(reference)$/;
 const ID_KEYS = /(or_number|plate|vin|order_number|delivery_note_number|invoice_number|credit_note_number|document_number)$/;
 
@@ -121,7 +121,7 @@ export function scoreOutput(expected: BenchOutput | null | undefined, got: Bench
     if (path.startsWith("lines.")) buckets.push(s.lines);
     if (REF_KEYS.test(leaf)) buckets.push(s.references);
     if (ID_KEYS.test(leaf)) buckets.push(s.identifiers);
-    if (AMOUNT_KEYS.test(path) && !REF_KEYS.test(leaf) && leaf !== "label") buckets.push(s.amounts);
+    if (AMOUNT_LEAVES.has(leaf) && !path.startsWith("battery.") && !path.startsWith("tire.")) buckets.push(s.amounts);
     for (const b of buckets) {
       b.total += 1;
       if (verdict === "correct") b.correct += 1;
