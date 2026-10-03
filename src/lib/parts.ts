@@ -292,9 +292,9 @@ export async function createOrder(
   return data.id;
 }
 
-/** RDV et livraison prévue d'une commande (données logistiques, saisie libre). */
-export async function setOrderDates(orderId: string, d: { appointment_date: string | null; expected_delivery_date: string | null }) {
-  const { error } = await supabase.from("part_orders").update({ appointment_date: d.appointment_date || null, expected_delivery_date: d.expected_delivery_date || null }).eq("id", orderId);
+/** RDV facultatif d'une commande (donnée logistique, saisie libre). */
+export async function setOrderDates(orderId: string, d: { appointment_date: string | null }) {
+  const { error } = await supabase.from("part_orders").update({ appointment_date: d.appointment_date || null }).eq("id", orderId);
   if (error) throw error;
 }
 
