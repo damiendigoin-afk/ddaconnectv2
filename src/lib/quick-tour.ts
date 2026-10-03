@@ -9,7 +9,10 @@ type Author = { userId?: string | null | undefined; userName?: string | null | u
 async function startForOrder(orderId: string, author: Author) {
   const { data, error } = await supabase.from("repair_orders").select("vehicle_id").eq("id", orderId).single();
   if (error || !data) throw error ?? new Error("Intervention introuvable");
-  return createInspection(orderId, data.vehicle_id, "guide", { ...author, source: "demarrage_rapide_tour" });
+  return createInspection(orderId, data.vehicle_id, "guide", {
+    userId: author.userId ?? null, userName: author.userName ?? null,
+    siteId: author.siteId ?? null, source: "demarrage_rapide_tour",
+  });
 }
 
 /** Démarre immédiatement un tour. Une plaque seule crée un dossier DDA sans OR WinMotor. */
