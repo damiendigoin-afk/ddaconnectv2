@@ -113,6 +113,9 @@ export function draftToSupplierRow(d: SupplierDraft) {
 
 /** Fournisseur effectif d'un document : rattachement explicite d'abord, sinon correspondance sûre. */
 export function docSupplierId<T extends S>(x: InvoiceExtract, suppliers: T[]): string | null {
+  // Alias codé en dur sur le nom lu (Distributeur) : prime sur un rattachement automatique erroné.
+  const hard = hardAliasSupplier(x.supplier, suppliers);
+  if (hard) return hard.id;
   if (x.supplier_id && suppliers.some((s) => s.id === x.supplier_id)) return x.supplier_id;
   const r = resolveSupplier(x.supplier, suppliers, [x.supplier_info?.vat_number, x.supplier_info?.siret]);
   return r.kind === "found" ? r.supplier.id : null;
