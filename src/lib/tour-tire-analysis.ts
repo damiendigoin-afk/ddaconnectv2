@@ -58,3 +58,59 @@ export function legacyTireAnalysis(result: TireStepResult) {
   };
   return { ai, final: ai, grade, reasons: result.wear.observations, confirmed: true, partial: false, attempts: 1, confirmedRef: result.sidewall.size, tourStep: result, quote: quoteSearchFromResult(result) };
 }
+/* ---------------- Analyse IA groupée des 4 roues (même moteur qu'État pneus) ---------------- */
+import { TIRE_STEP_PROMPT, normalizeTireStep } from "./tire-step";
+
+/** Change à chaque évolution du prompt : invalide les anciennes réponses mises en cache. */
+export const TOUR_TIRES_PROMPT_VERSION = "tour-tires-v2";
+
+export const TOUR_ROLE_LABEL = { bande: "Photo bande de roulement", flanc: "Photo du flanc", dimension: "Photo de la dimension (flanc, marquages)" } as const;
+
+/** Prompt groupé : reprend mot pour mot les consignes et le schéma JSON d'État pneus, appliqués à chaque roue. */
+export function tourTiresPrompt(batteryContext: unknown): string {
+  return `Tu vas analyser les QUATRE pneus d'un même véhicule en UNE réponse. Pour CHAQUE roue, applique exactement les consignes État pneus ci-dessous (écrites pour un pneu) aux photos de cette roue, dont la clé (ROUE PNEU_AVG, etc.) et le rôle sont indiqués avant chaque image.
+
+=== CONSIGNES ÉTAT PNEUS (PAR ROUE) ===
+${TIRE_STEP_PROMPT}
+=== FIN CONSIGNES ===
+
+Les défauts critiques (lisse, témoin atteint, carcasse ou corde visible) priment. Le test batterie suivant est un simple contexte, il ne modifie jamais les pneus : ${JSON.stringify(batteryContext ?? null)}.
+RÉPONSE FINALE STRICTEMENT EN JSON : {"wheels":{"pneu_avg":OBJET,"pneu_avd":OBJET,"pneu_arg":OBJET,"pneu_ard":OBJET}} où chaque OBJET est l'objet complet {"sidewall":{...},"wear":{...},"depth":{...}} décrit ci-dessus, avec les mêmes clés (inner_mm, center_mm, outer_mm, pattern, wear_indicator...). Aucune autre forme.`;
+}
+
+/** Tolère une profondeur renvoyée sous forme de tableau [gauche, milieu, droite] (valeurs réelles de l'IA, jamais inventées). */
+function coerceWheel(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = { ...(raw as Record<string, unknown>) };
+  if (Array.isArray(r["depth"])) {
+    const [a, b, c] = r["depth"] as unknown[];
+    r["depth"] = { inner_mm: a ?? null, center_mm: b ?? null, outer_mm: c ?? null };
+  }
+  for (const k of ["sidewall", "wear", "depth"]) if (typeof r[k] !== "object" || r[k] === null) r[k] = {};
+  return r;
+}
+
+/** Une roue est exploitable si l'IA a donné au moins une profondeur, un type d'usure, un témoin ou une dimension. */
+export function wheelAnalysed(r: TireStepResult): boolean {
+  return [r.depth.inner_mm, r.depth.center_mm, r.depth.outer_mm].some((v) => v !== null) ||
+    r.wear.pattern !== null || r.wear.wear_indicator !== null || r.sidewall.size !== null;
+}
+
+export type TourTiresParse =
+  | { ok: true; results: Record<TourTireKey, TireStepResult> }
+  | { ok: false; error: string };
+
+/** Lecture stricte : une réponse vide ou hors schéma est une ERREUR, jamais une synthèse « non déterminée ». */
+export function parseTourTiresResponse(raw: unknown): TourTiresParse {
+  const wheels = (raw as { wheels?: Record<string, unknown> } | null)?.wheels;
+  if (!wheels || typeof wheels !== "object") return { ok: false, error: "Réponse IA illisible — relancez l’analyse sans reprendre les photos." };
+  const results = {} as Record<TourTireKey, TireStepResult>;
+  const empty: TourTireKey[] = [];
+  for (const key of TOUR_TIRE_KEYS) {
+    const r = normalizeTireStep(coerceWheel(wheels[key]));
+    results[key] = r;
+    if (!wheelAnalysed(r)) empty.push(key);
+  }
+  if (empty.length) return { ok: false, error: `Analyse IA inexploitable pour : ${empty.map((k) => k.replace("pneu_", "").toUpperCase()).join(", ")}. Relancez l’analyse.` };
+  return { ok: true, results };
+}
