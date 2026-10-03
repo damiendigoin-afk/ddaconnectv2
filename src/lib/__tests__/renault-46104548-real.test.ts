@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renaultOrderDetailRules, purchaseRules } from "@/lib/doc-rules";
-import { identifySupplier } from "@/lib/supplier-identify";
+import { resolveSupplier } from "@/lib/supplier-identify";
 import { runDocPipeline } from "@/lib/doc-pipeline";
 import { RENAULT_46104548_REAL } from "./fixtures/renault-46104548-real";
 
@@ -38,11 +38,11 @@ describe("Renault 46104548 — texte réel du PDF", () => {
   it("texte natif réel : nickel, aucune alerte", () => expectNickel(renaultOrderDetailRules(RENAULT_46104548_REAL)));
   it("texte PDF.js concaténé : nickel, jamais Ville CASTELS", () => expectNickel(purchaseRules(PDFJS)));
   it("alias : rapproché de FAURIE AUTO SARLAT", () => {
-    const r = identifySupplier("RENAULT SARLAT - GROUPE FAURIE", [
+    const r = resolveSupplier("RENAULT SARLAT - GROUPE FAURIE", [
       { id: "s1", name: "FAURIE AUTO SARLAT", active: true },
       { id: "s2", name: "RENAULT BERGERAC - GROUPE FAURIE", active: true },
     ] as never);
-    expect(JSON.stringify(r)).toContain("s1");
+    expect(r.kind === "found" && r.supplier.id).toBe("s1");
   });
 });
 
