@@ -7,7 +7,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const MAX = 12 * 1024 * 1024;
 const images = z.array(z.object({ role: z.enum(["tread", "sidewall", "other"]), dataUrl: z.string().min(20).max(MAX) })).min(1).max(6);
 
-async function assertActive(supabase: { rpc: (f: string, a: Record<string, unknown>) => PromiseLike<{ data: unknown }> }, userId: string) {
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+
+async function assertActive(supabase: SupabaseClient<Database>, userId: string) {
   const { data } = await supabase.rpc("is_active_user", { _user_id: userId });
   if (data !== true) throw new Error("Compte inactif.");
 }

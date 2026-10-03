@@ -81,7 +81,7 @@ function TireStepPage() {
   }
 
   async function analyze(force: boolean) {
-    if (!images.length) return toast.error("Ajoutez au moins une photo.");
+    if (!images.length) { toast.error("Ajoutez au moins une photo."); return; }
     setBusy(true); setError("");
     try {
       const r = await analyzeFn({ data: { images, force, siteId: site?.id ?? null } });
