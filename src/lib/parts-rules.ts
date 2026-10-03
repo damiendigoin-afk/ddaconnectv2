@@ -175,3 +175,14 @@ export function cancelOrderLines<T extends { status: string; line_kind?: string;
   const alreadyReceived = lines.filter((l) => (l.line_kind ?? "part") === "part").reduce((s, l) => s + (l.qty_received || 0), 0);
   return { lines: lines.map((l) => (l.status === "ordered" || l.status === "partial" ? { ...l, status: "cancelled" } : l)), alreadyReceived };
 }
+
+/** Libellé mobile d'une ligne de pièce OR : « RÉF — Désignation · reçue x/y » (réf conservée, désignation tronquée). */
+export function partLineLabel(l: { physical_reference?: string | null; designation?: string | null; qty_received?: number | null; qty_ordered?: number | null }, max = 48): string {
+  const ref = (l.physical_reference ?? "").trim();
+  const shortRef = ref.length > 16 ? `${ref.slice(0, 15)}…` : ref;
+  let des = (l.designation ?? "").trim().replace(/\s+/g, " ");
+  if (des && ref && des.toUpperCase() === ref.toUpperCase()) des = "";
+  if (des.length > max) des = `${des.slice(0, max - 1).trimEnd()}…`;
+  const head = [shortRef, des].filter(Boolean).join(" — ") || "Pièce";
+  return `${head} · reçue ${l.qty_received ?? 0}/${l.qty_ordered ?? "?"}`;
+}
