@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { strictPlate } from "../plate";
-import { isPlausibleModel, repairOrderRules, sanitizeRepairOrder, splitTableRow } from "../doc-rules";
+import { isPlausibleModel, normalizeVehicleModel, repairOrderRules, sanitizeRepairOrder, splitTableRow } from "../doc-rules";
 import { afterTourEnsure, decideTourScan } from "../or-scan-decision";
 import { MAX_QUOTE_PHOTOS, TIRE_CAMERA_STEPS, TIRE_STEP_DEFAULT_MODEL, cameraStepsFrom, mergeQuotePhotos, nextCaptureRole, pickTireStepModel } from "../tire-step";
 
@@ -63,5 +63,13 @@ describe("Scan OR : garde-fous", () => {
     expect(f["vehicle"]!["plate"]).toBe("EM-426-NG");
     expect(f["vehicle"]!["model"]).toBe("CLIO V");
     expect(f["client"]!["account_number"]).toBe("012384");
+  });
+  it("normalise une confusion OCR certaine du modèle", () => {
+    expect(normalizeVehicleModel("POLO1O60")).toBe("POLO 1.0 60");
+  });
+  it("OR 50985 : remarque client bornée à sa zone", () => {
+    const f = repairOrderRules(`ORDRE DE REPARATION N° 50985\nImmatriculation : EM426NG\nMarque : VOLKSWAGEN\nModèle : POLO1O60\nRemarques du client\nrevision\nTravaux à effectuer\nVIDANGE + FILTRE\nDessin carrosserie\ndu ojenc: or PJone revalon`) as Record<string, Record<string, unknown>>;
+    expect(f["order"]!["client_remarks"]).toBe("revision");
+    expect(f["vehicle"]!["model"]).toBe("POLO 1.0 60");
   });
 });

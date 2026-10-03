@@ -122,7 +122,10 @@ function NewOrder() {
       setForm((f) => {
         const next = { ...f };
         for (const [k, v] of Object.entries(hit.fields)) {
-          if (v && !next[k as keyof Form]) next[k as keyof Form] = v;
+          // L'identité issue de ref_vehicles (WinMotor) prime sur une lecture
+          // OCR contradictoire ; les coordonnées client ne comblent que le vide.
+          if (v && (["plate", "vin", "brand", "model"] as string[]).includes(k)) next[k as keyof Form] = v;
+          else if (v && !next[k as keyof Form]) next[k as keyof Form] = v;
         }
         return next;
       });
@@ -275,26 +278,28 @@ function NewOrder() {
       let vehicleId: string;
       if (existing.data) {
         vehicleId = existing.data.id;
+        const refIdentity = refHit?.fields ?? {};
         await supabase
           .from("vehicles")
           .update({
             client_id: clientId,
-            vin: form.vin || null,
-            brand: form.brand || null,
-            model: form.model || null,
+            vin: refIdentity["vin"] || form.vin || null,
+            brand: refIdentity["brand"] || form.brand || null,
+            model: refIdentity["model"] || form.model || null,
             ...(mileage ? { last_mileage: mileage, last_mileage_at: new Date().toISOString() } : {}),
           })
           .eq("id", vehicleId);
       } else {
+        const refIdentity = refHit?.fields ?? {};
         const { data, error } = await supabase
           .from("vehicles")
           .insert({
             client_id: clientId,
             plate: form.plate.toUpperCase(),
             plate_normalized: norm,
-            vin: form.vin || null,
-            brand: form.brand || null,
-            model: form.model || null,
+            vin: refIdentity["vin"] || form.vin || null,
+            brand: refIdentity["brand"] || form.brand || null,
+            model: refIdentity["model"] || form.model || null,
             first_registration: isoDate(form.first_registration),
             last_mileage: mileage,
             last_mileage_at: mileage ? new Date().toISOString() : null,

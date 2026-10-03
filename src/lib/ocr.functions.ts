@@ -49,7 +49,8 @@ retours à la ligne "\\n". Conserve l'ordre du document. N'invente rien.
 L'en-tête du garage émetteur (raison sociale, « Agent Renault », adresse, téléphone, logo) et le bloc « votre conseiller / accueilli par » ne sont JAMAIS le client ni le véhicule. Modèle = valeur du libellé « modèle véhicule » uniquement. « Mr NOM PRENOM » : last_name = NOM, first_name = PRENOM.
 Distingue strictement : vehicle.plate = immatriculation française au format AA-123-AA (2 lettres, 3 chiffres, 2 lettres) ou ancien format 123-ABC-45 — recopie-la caractère par caractère, sans ajouter de lettre ; si tu n'es pas sûr, mets null et ajoute "vehicle.plate" dans uncertain.
 vehicle.brand = constructeur (RENAULT, DACIA…) ; vehicle.model = nom commercial contenant des lettres (ex. CLIO V, CAPTUR) ; client.account_number = n° de compte / n° client (chiffres) ; order.or_number = n° d'OR / dossier.
-Sur les OR en tableau (libellés « Immat. Marque Modèle N° compte » sur une ligne, valeurs sur la ligne dessous), associe chaque valeur à sa colonne. Ne mets JAMAIS le n° de compte, le n° d'OR, un téléphone ou un code postal dans vehicle.model.`;
+Sur les OR en tableau Renault/WinMotor (libellés « Immat. Marque Modèle N° compte », parfois lus « Merque » / « Modile », puis valeurs sur la ligne dessous), associe chaque valeur à sa colonne sémantique, jamais par simple proximité. Ne mets JAMAIS le n° de compte, le n° d'OR, un téléphone ou un code postal dans vehicle.model.
+Pour order.client_remarks, lis uniquement le bloc immédiatement sous « Remarques du client » jusqu'au prochain titre de zone. Ne mélange jamais travaux prévus, mentions légales, dessin carrosserie ou texte voisin. Si le bloc est incohérent, renvoie null.`;
     const result = await viaPipeline("repair_order", prompt, data, "ocr_or");
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
