@@ -255,6 +255,17 @@ function AtelierHub() {
           </Link>
         ) : null}
 
+        {can("pneus") ? (
+          <Link to="/etape-pneu" className={cls}>
+            <Camera className="h-6 w-6 shrink-0 text-brand" />
+            <div className="flex-1">
+              <div className="text-sm font-extrabold uppercase">Étape pneu</div>
+              <div className="text-xs text-muted-foreground">Photos flanc + bande de roulement : marquages, usure, profil client</div>
+            </div>
+            <ChevronRight className="h-5 w-5" />
+          </Link>
+        ) : null}
+
         {can("expertise") ? (
           <Link to="/expertises" className={cls}>
             <ClipboardCheck className="h-6 w-6 shrink-0 text-brand" />

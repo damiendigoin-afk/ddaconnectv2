@@ -23,7 +23,7 @@ export type ModuleDef = {
 export const MODULES = [
   // ------------------------------------------------------------- Atelier
   { key: "tour", label: "Tour Véhicule", group: "Atelier", prefixes: ["/tour-vehicule", "/tours", "/tour", "/ordres", "/or", "/scan-plaque"] },
-  { key: "pneus", label: "Devis pneus", group: "Atelier", prefixes: ["/devis/pneus"] },
+  { key: "pneus", label: "Devis pneus", group: "Atelier", prefixes: ["/devis/pneus", "/etape-pneu"] },
   { key: "expertise", label: "Expertise Véhicule", group: "Atelier", prefixes: ["/expertises", "/expertise"] },
   { key: "carrosserie", label: "Carrosserie", group: "Atelier", prefixes: ["/carrosserie"] },
   { key: "maintenance", label: "Maintenance prédictive", group: "Atelier", prefixes: ["/maintenance"] },
