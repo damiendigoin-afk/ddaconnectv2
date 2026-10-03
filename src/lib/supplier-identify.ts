@@ -10,6 +10,8 @@ export const normSupplierName = (s: string | null | undefined) =>
 const STOP = new Set(["sa", "sas", "sarl", "eurl", "snc", "ste", "societe", "ets", "etablissements", "et", "de", "des", "du", "la", "le", "les", "groupe", "sasu"]);
 const sig = (s: string) => normSupplierName(s).split(" ").filter((w) => w.length >= 3 && !STOP.has(w));
 
+const GENERIC = new Set(["auto", "autos", "automobile", "automobiles", "pieces", "piece", "distribution", "renault", "dacia", "garage", "concession", "agence", "service", "services"]);
+
 type S = { id: string; name: string; active?: boolean | null; notes?: string | null };
 
 /**
@@ -69,6 +71,12 @@ export function resolveSupplier<T extends S>(name: string | null | undefined, su
   const full = active.filter((s) => { const sw = sig(s.name); return sw.length > 0 && sw.every((w) => words.has(w)); });
   if (full.length === 1) return { kind: "found", supplier: full[0]! };
   if (full.length > 1) return { kind: "ambiguous", candidates: full };
+  // Enseigne / groupe : « RENAULT SARLAT - GROUPE FAURIE » = « FAURIE AUTO SARLAT » (mots génériques ignorés).
+  const core = (v: string) => sig(v).filter((w) => !GENERIC.has(w));
+  const readCore = new Set(core(clean));
+  const byCore = active.filter((s) => supplierNames(s).some((nm) => { const c = core(nm); return c.length >= 2 && c.every((w) => readCore.has(w)); }));
+  if (byCore.length === 1) return { kind: "found", supplier: byCore[0]! };
+  if (byCore.length > 1) return { kind: "ambiguous", candidates: byCore };
   return { kind: "new", name: clean.toUpperCase() };
 }
 

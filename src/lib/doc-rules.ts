@@ -470,7 +470,109 @@ export function resolveNetPrices(lines: Line[], totalHt: number | null): Line[] 
   return lines.map(({ net_price, ...l }) => (useNet ? { ...l, unit_price: net_price ?? l.unit_price } : l));
 }
 
+/* ------------------- Template Renault « Détail de commande » ------------------- */
+
+export function isRenaultOrderDetail(raw: string): boolean {
+  const t = cleanText(raw);
+  return /d[ée]tail\s+de\s+(?:la\s+)?commande/i.test(t) && /distributeur/i.test(t) && /^r[ée]f\.?\s*:/im.test(t);
+}
+
+const HT_AMOUNT = /(\d{1,5}(?:[ .]\d{3})*[.,]\d{2})\s*(?:€|EUR)?\s*H\.?\s?T\.?/gi;
+
+/**
+ * Parser dur du bon de commande Renault (portail « Détail de commande ») :
+ * fournisseur = champ Distributeur (jamais la ville de facturation du garage) ;
+ * chaque bloc « Réf : » -> réf, désignation, qté, PA HT = montant HT de droite (jamais le Prix client) ;
+ * somme des PA contrôlée contre le Total HT ; ligne incomplète = anomalie, jamais de ligne vide.
+ * Retourne null si le template n'est pas reconnu ou ne donne aucune ligne (repli générique / IA).
+ */
+export function renaultOrderDetailRules(raw: string): Fields | null {
+  if (!isRenaultOrderDetail(raw)) return null;
+  const text = cleanText(raw);
+  const rows = text.split("\n").map((r) => r.trim());
+  const valueOf = (label: RegExp): string | null => {
+    for (let i = 0; i < rows.length; i += 1) {
+      const m = new RegExp(`^${label.source}\\s*:?\\s*(.*)$`, "i").exec(rows[i]!);
+      if (m) return (m[1]?.trim() || rows[i + 1]?.trim() || null);
+    }
+    return null;
+  };
+  const distRaw = valueOf(/distributeur/);
+  const supplier = distRaw && !/^(ville|adresse|code postal|compte)/i.test(distRaw) ? distRaw.replace(/\s+/g, " ").toUpperCase() : null;
+  const orderNo = /commande\s*n[°o]?\.?\s*:?\s*(\d{6,10})/i.exec(text)?.[1] ?? null;
+  const repere = valueOf(/rep[èe]re\s+(?:de\s+)?commande/);
+  const or_number = repere && /^\d{4,7}$/.test(repere.replace(/\s/g, "")) ? repere.replace(/\s/g, "") : null;
+  const plateRaw = valueOf(/(?:plaque|immatriculation)/);
+  const plate = plateRaw ? findFrenchPlate(plateRaw) : null;
+  const vehicle_label = valueOf(/v[ée]hicule/);
+  const dateRaw = valueOf(/date(?:\s+de\s+commande)?/);
+  const document_date = isoDate(dateRaw ?? "") ?? isoDate(text);
+  const deliveryRaw = valueOf(/(?:date\s+de\s+)?livraison\s+pr[ée]vue/);
+  const expected_delivery_date = deliveryRaw ? isoDate(deliveryRaw) : null;
+  const status = valueOf(/statut/);
+  const account = valueOf(/compte\s+de\s+facturation/);
+  const starts = rows.map((r, i) => (/^r[ée]f\.?\s*:/i.test(r) ? i : -1)).filter((i) => i >= 0);
+  const endAll = rows.findIndex((r, i) => i > (starts[starts.length - 1] ?? 0) && /^(total|distributeur|compte de facturation|adresse de facturation)\b/i.test(r));
+  const lines: Line[] = [];
+  const anomalies: string[] = [];
+  starts.forEach((start, n) => {
+    const end = starts[n + 1] ?? (endAll > start ? endAll : rows.length);
+    const head = rows[start]!;
+    const reference = /^r[ée]f\.?\s*:\s*([A-Z0-9][A-Z0-9.\-/]{3,})/i.exec(head)?.[1]?.toUpperCase() ?? null;
+    const block = rows.slice(start + 1, end);
+    const joined = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+/i, ""), ...block].join("\n");
+    const label = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+\s*/i, ""), ...block].map((v) => v.trim()).find((v) =>
+      v.length >= 2 && /[A-Za-zÀ-ÿ]{2}/.test(v) && !BLOCK_META.test(v) && !/^(prix|qt|quantit|statut|stock|disponib)/i.test(v) && !/\d[.,]\d{2}\s*(?:€|EUR)?\s*(?:H\.?\s?T|T\.?T\.?C)/i.test(v)) ?? null;
+    const qtyRaw = /(?:qt[ée]|quantit[ée])\s*:?\s*(\d{1,3}(?:[.,]\d{1,2})?)/i.exec(joined)?.[1] ?? null;
+    const quantity = qtyRaw ? qtyOf(qtyRaw) : null;
+    // Montants HT du bloc ; celui qui suit « Prix client » est le prix de vente, jamais le PA.
+    const clientIdx = joined.search(/prix\s+(?:client|public)/i);
+    const hts = [...joined.matchAll(HT_AMOUNT)].map((m) => ({ v: money(m[1]!), at: m.index ?? 0 }));
+    const clientHt = clientIdx >= 0 ? hts.find((h) => h.at > clientIdx) ?? null : null;
+    const pa = [...hts].reverse().find((h) => h !== clientHt && h.v != null)?.v ?? null;
+    if (!reference && !label) return;
+    const ref = reference ?? "";
+    const missing = [!reference ? "référence" : "", !label ? "désignation" : "", quantity == null ? "quantité" : "", pa == null ? "PA HT" : ""].filter(Boolean);
+    if (missing.length) anomalies.push(`Ligne ${n + 1}${ref ? ` (${ref})` : ""} incomplète : ${missing.join(", ")} à corriger`);
+    lines.push({ reference: ref, label, quantity, unit_price: pa, amount: pa != null && quantity != null ? Math.round(pa * quantity * 100) / 100 : null });
+  });
+  if (!lines.length) return null;
+  const totalHt = lastMoneyOnLines(text, /total\s*h\.?\s?t/i);
+  const sum = Math.round(lines.reduce((t, l) => t + (l.amount ?? 0), 0) * 100) / 100;
+  const control_alerts = [...anomalies];
+  if (totalHt != null && Math.abs(sum - totalHt) > 0.02) control_alerts.push(`Écart de contrôle : somme des PA ${sum.toFixed(2).replace(".", ",")} € ≠ Total HT ${totalHt.toFixed(2).replace(".", ",")} €`);
+  if (!supplier) control_alerts.push("Distributeur illisible : fournisseur à choisir");
+  return {
+    template: "renault_detail_commande",
+    doc_kind: "commande",
+    supplier,
+    supplier_info: supplier ? { name: supplier } : null,
+    order_reference: orderNo,
+    document_number: orderNo,
+    document_date,
+    order_date: document_date,
+    expected_delivery_date,
+    order_status: status,
+    billing_account: account,
+    or_number,
+    or_numbers: or_number ? [or_number] : [],
+    plate,
+    plate_printed: !!plate,
+    vehicle_label,
+    lines,
+    line_quality: control_alerts.length ? null : "complete",
+    control_alerts,
+    total_ht: totalHt ?? sum,
+    vat_amount: null,
+    total_ttc: null,
+    currency: "EUR",
+    quality_score: 6,
+  };
+}
+
 export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
+  const renault = renaultOrderDetailRules(raw);
+  if (renault) return renault;
   const text = cleanText(raw);
   const low = text.toLowerCase();
   const doc_kind = /facture/.test(low) && !/bon de livraison/.test(low)
