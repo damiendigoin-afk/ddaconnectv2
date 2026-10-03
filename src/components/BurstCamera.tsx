@@ -524,28 +524,15 @@ const MASKS: Record<MaskKind, ReactElement> = {
   /* Flanc complet + roue entière : zone conseillée pour la dimension. */
   sidewall: (
     <>
-      <circle cx="50" cy="50" r="46" strokeWidth="1" />
-      <circle cx="50" cy="50" r="26" strokeDasharray="2 5" />
-      <rect x="20" y="70" width="60" height="14" rx="3" strokeDasharray="3 2" />
-      <text
-        x="50"
-        y="79"
-        fill="#ffd400"
-        fillOpacity="0.85"
-        stroke="none"
-        fontSize="4.2"
-        textAnchor="middle"
-      >
-        Si possible, placer la dimension ici
-      </text>
+      <circle cx="50" cy="52" r="49" strokeWidth="1.2" />
     </>
   ),
 
   /* Bande de roulement : masque en U, largeur maximale visible. */
   tread: (
     <>
-      <path d="M14 12 V58 Q14 84 50 84 Q86 84 86 58 V12" strokeWidth="1" />
-      <path d="M30 22 V70 M50 22 V76 M70 22 V70" strokeDasharray="2 5" />
+      <path d="M7 18 V64 Q7 94 50 94 Q93 94 93 64 V18" strokeWidth="1.2" />
+      <path d="M25 29 V78 M50 29 V87 M75 29 V78" strokeDasharray="2 5" />
     </>
   ),
   /* Caractères du pneu : cadre rapproché sur la dimension et les indices. */
