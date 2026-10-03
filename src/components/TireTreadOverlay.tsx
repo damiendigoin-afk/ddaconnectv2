@@ -21,7 +21,7 @@ export function TireTreadOverlay({ src, values, labels, onAdjust }: { src: strin
         <img src={src} alt="Bande de roulement analysée" className="block max-h-[420px] w-full object-cover" />
         {values.map((v, i) => (
           <div key={i} className="pointer-events-none absolute top-0 flex h-full -translate-x-1/2 flex-col items-center" style={{ left: xs[i] }}>
-            <DragBadge value={v} className={tone(v)} label={labels[i] ?? ""} onChange={onAdjust ? (n) => onAdjust(i, n) : undefined} />
+            <DragBadge value={v} className={tone(v)} label={labels[i] ?? ""} {...(onAdjust ? { onChange: (n: number) => onAdjust(i, n) } : {})} />
             <div className={`w-1 flex-1 opacity-80 ${line(v)}`} />
             <div className={`mb-2 h-4 w-4 rounded-full border-2 border-background ${line(v)}`} />
           </div>
