@@ -71,7 +71,7 @@ describe("Commander des pièces — contrat DOM réel", () => {
     expect(screen.getByPlaceholderText("N° commande fournisseur")).toHaveProperty("value", "2887178");
     expect(screen.queryByLabelText("Date de commande")).toBeNull();
     expect(screen.getByLabelText("Date de RDV")).toBeTruthy();
-    expect(screen.getByLabelText("Livraison prévue")).toBeTruthy();
+    expect(screen.queryByLabelText("Livraison prévue")).toBeNull();
     expect(screen.getByLabelText("OR")).toHaveProperty("value", "16533");
     expect(screen.getAllByLabelText("Référence").map((node) => (node as HTMLInputElement).value)).toEqual(["557119W", "5571208", "5571209", "PORT"]);
     expect(screen.getAllByLabelText("Désignation").map((node) => (node as HTMLInputElement).value)).toEqual(["Support pare-chocs avant droit", "Amortisseur de pare-chocs avant", "Support de grille", "Frais de port et de emballage"]);
