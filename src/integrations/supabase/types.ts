@@ -7140,6 +7140,59 @@ export type Database = {
           },
         ]
       }
+      tire_step_analyses: {
+        Row: {
+          corrected: Json | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          model: string | null
+          or_number: string | null
+          photo_paths: string[]
+          plate: string | null
+          position: string | null
+          result: Json
+          site_id: string | null
+        }
+        Insert: {
+          corrected?: Json | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          model?: string | null
+          or_number?: string | null
+          photo_paths?: string[]
+          plate?: string | null
+          position?: string | null
+          result?: Json
+          site_id?: string | null
+        }
+        Update: {
+          corrected?: Json | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          model?: string | null
+          or_number?: string | null
+          photo_paths?: string[]
+          plate?: string | null
+          position?: string | null
+          result?: Json
+          site_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_step_analyses_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tour_notification_recipients: {
         Row: {
           active: boolean
