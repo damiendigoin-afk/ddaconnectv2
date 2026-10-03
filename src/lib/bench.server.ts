@@ -6,7 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { BENCH_FEATURE, runPaidAi, spentSince, type PaidAiResult } from "./ai-usage.server";
+import { BENCH_FEATURE, dailyBudgetStatus, runPaidAi, type PaidAiResult } from "./ai-usage.server";
 import { readDocument } from "./doc-pipeline.server";
 import {
   BENCH_PROMPT_VERSION, BENCH_SCHEMA_VERSION, MODEL_A, classifyPrompt, enforceTireDepthRule, extractionPrompt,
@@ -27,24 +27,23 @@ export function assertBenchPath(p: string) {
   if (!p.startsWith(BENCH_PREFIX) || p.includes("..")) throw new Error("Chemin de média invalide.");
 }
 
-type Settings = { candidate_model: string; daily_credits: number; max_credits_per_test: number };
+type Settings = { candidate_model: string; max_credits_per_test: number };
 
 export async function readBenchSettings(supabase: SupabaseClient): Promise<Settings> {
-  const { data } = await supabase.from("ai_bench_settings").select("candidate_model, daily_credits, max_credits_per_test").maybeSingle();
+  const { data } = await supabase.from("ai_bench_settings").select("candidate_model, max_credits_per_test").maybeSingle();
   return {
     candidate_model: isAllowedBenchModel(data?.candidate_model) ? data!.candidate_model : "google/gemini-3.8-flash",
-    daily_credits: Number(data?.daily_credits ?? 3),
     max_credits_per_test: Number(data?.max_credits_per_test ?? 1),
   };
 }
 
-/** Budget benchmark séparé : jamais compté dans le budget prod, jamais bloquant pour la prod. */
-export async function checkBenchBudget(supabase: SupabaseClient): Promise<string | null> {
-  const s = await readBenchSettings(supabase);
-  const now = new Date();
-  const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-  const spent = await spentSince(day, "benchmark");
-  return spent >= s.daily_credits ? `Budget journalier du banc de test atteint (${spent.toFixed(2)} / ${s.daily_credits} crédits).` : null;
+/**
+ * Budget journalier UNIQUE : celui de « Coûts et IA » (ai_budget_settings.daily_credits), jour de Paris.
+ * L'ancien ai_bench_settings.daily_credits (défaut 3) n'est plus lu.
+ */
+export async function checkBenchBudget(_supabase?: SupabaseClient): Promise<string | null> {
+  const b = await dailyBudgetStatus();
+  return b.remaining <= 0 ? `Budget journalier atteint (${b.spentToday.toFixed(2)} / ${b.daily} crédits — réglable dans Coûts et IA).` : null;
 }
 
 /* --------------------------------- Média ---------------------------------- */

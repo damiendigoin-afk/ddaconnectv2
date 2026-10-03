@@ -39,7 +39,17 @@ import {
 } from "@/lib/tire-quotes";
 import type { TireLabelAi, TireWheelAi } from "@/lib/tire-types";
 
+const prefillSearch = (s: Record<string, unknown>) => {
+  const out: { w?: string; h?: string; d?: string; li?: string; si?: string; brand?: string } = {};
+  for (const k of ["w", "h", "d", "li", "si", "brand"] as const) {
+    const v = s[k];
+    if (typeof v === "string" || typeof v === "number") out[k] = String(v).slice(0, 40);
+  }
+  return out;
+};
+
 export const Route = createFileRoute("/devis/pneus/")({
+  validateSearch: prefillSearch,
   head: () => ({
     meta: [
       { title: "Devis pneus — DDA Connect" },
@@ -87,7 +97,13 @@ function TireQuotePage() {
   const { user, displayName } = useAuth();
   const { site, label: siteLabel } = useSite();
 
-  const [form, setForm] = useState<TireQuoteForm>(EMPTY_TIRE_QUOTE_FORM);
+  const prefill = Route.useSearch();
+  // Préremplissage optionnel depuis « Étape pneu » (dimension lue sur le flanc).
+  const [form, setForm] = useState<TireQuoteForm>(() => ({
+    ...EMPTY_TIRE_QUOTE_FORM,
+    width: prefill.w ?? "", height: prefill.h ?? "", diameter: prefill.d ?? "",
+    load: prefill.li ?? "", speed: prefill.si ?? "", brand: prefill.brand ?? "",
+  }));
   const [result, setResult] = useState<ManualQuoteResult | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [adjust, setAdjust] = useState(0);

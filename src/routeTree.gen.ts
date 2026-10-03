@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as EtapePneuRouteImport } from './routes/etape-pneu'
 import { Route as ExpertisesRouteImport } from './routes/expertises'
 import { Route as OrdresRouteImport } from './routes/ordres'
 import { Route as ScanPlaqueRouteImport } from './routes/scan-plaque'
@@ -115,6 +116,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EtapePneuRoute = EtapePneuRouteImport.update({
+  id: '/etape-pneu',
+  path: '/etape-pneu',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpertisesRoute = ExpertisesRouteImport.update({
@@ -605,6 +611,7 @@ const DevisPneusQuoteIdPdfRoute = DevisPneusQuoteIdPdfRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/etape-pneu': typeof EtapePneuRoute
   '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
@@ -704,6 +711,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/etape-pneu': typeof EtapePneuRoute
   '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
@@ -803,6 +811,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/etape-pneu': typeof EtapePneuRoute
   '/expertises': typeof ExpertisesRoute
   '/ordres': typeof OrdresRoute
   '/scan-plaque': typeof ScanPlaqueRoute
@@ -904,6 +913,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/etape-pneu'
     | '/expertises'
     | '/ordres'
     | '/scan-plaque'
@@ -1003,6 +1013,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/etape-pneu'
     | '/expertises'
     | '/ordres'
     | '/scan-plaque'
@@ -1101,6 +1112,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/etape-pneu'
     | '/expertises'
     | '/ordres'
     | '/scan-plaque'
@@ -1201,6 +1213,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  EtapePneuRoute: typeof EtapePneuRoute
   ExpertisesRoute: typeof ExpertisesRoute
   OrdresRoute: typeof OrdresRoute
   ScanPlaqueRoute: typeof ScanPlaqueRoute
@@ -1308,6 +1321,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/etape-pneu': {
+      id: '/etape-pneu'
+      path: '/etape-pneu'
+      fullPath: '/etape-pneu'
+      preLoaderRoute: typeof EtapePneuRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expertises': {
@@ -2008,6 +2028,7 @@ const DevisPneusRouteWithChildren = DevisPneusRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  EtapePneuRoute: EtapePneuRoute,
   ExpertisesRoute: ExpertisesRoute,
   OrdresRoute: OrdresRoute,
   ScanPlaqueRoute: ScanPlaqueRoute,

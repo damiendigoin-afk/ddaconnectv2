@@ -12,7 +12,7 @@ const MAX_ITEM = 20 * 1024 * 1024 * 1.4; // ~20 Mo en base64
 export const benchSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>
-    z.object({ candidate_model: z.string().optional(), daily_credits: z.number().min(0).max(1000).optional(), max_credits_per_test: z.number().min(0).max(100).optional() }).parse(v ?? {}),
+    z.object({ candidate_model: z.string().optional(), max_credits_per_test: z.number().min(0).max(100).optional() }).parse(v ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { assertManager, readBenchSettings } = await import("./bench.server");
@@ -24,7 +24,9 @@ export const benchSettings = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
     const s = await readBenchSettings(context.supabase);
-    return { ...s, modelA: MODEL_A, models: [...BENCH_MODELS] };
+    const { dailyBudgetStatus } = await import("./ai-usage.server");
+    const budget = await dailyBudgetStatus();
+    return { ...s, daily_credits: budget.daily, budget, modelA: MODEL_A, models: [...BENCH_MODELS] };
   });
 
 /** Stocke le média (une fois, commun à A/B/pipeline) puis classe le document. */

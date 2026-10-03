@@ -65,7 +65,7 @@ function RecetteIa() {
   const campaignsFn = useServerFn(benchCampaigns);
   const detailFn = useServerFn(benchCampaignDetail);
 
-  const [settings, setSettings] = useState<{ candidate_model: string; daily_credits: number; modelA: string; models: string[] } | null>(null);
+  const [settings, setSettings] = useState<{ candidate_model: string; daily_credits: number; budget: { daily: number; spentToday: number; remaining: number }; modelA: string; models: string[] } | null>(null);
   const [modelB, setModelB] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [sha, setSha] = useState("");
@@ -336,7 +336,14 @@ function RecetteIa() {
               <button type="button" disabled={busyAny} onClick={() => run(["B"])} className="rounded-lg border-2 border-border px-3 py-2 text-sm font-bold">B seul</button>
               <button type="button" disabled={busyAny} onClick={() => run(["pipeline"])} className="col-span-2 rounded-lg border-2 border-border px-3 py-2 text-sm font-bold md:col-span-4">Pipeline réel DDA seul</button>
             </div>
-            <p className="text-xs text-muted-foreground">Prétraitement {timings["preprocess_ms"] ?? "—"} ms · envoi + classification {timings["classify_total_ms"] ?? "—"} ms · texte local {localText.length} caractères. Budget banc de test : {settings?.daily_credits} crédits/jour.</p>
+            <p className="text-xs text-muted-foreground">Prétraitement {timings["preprocess_ms"] ?? "—"} ms · envoi + classification {timings["classify_total_ms"] ?? "—"} ms · texte local {localText.length} caractères. </p>
+            {settings ? (
+              <div className="grid grid-cols-3 gap-2 rounded-lg border-2 border-border p-2 text-center text-xs">
+                <div><div className="font-bold uppercase text-muted-foreground">Budget journalier configuré</div><div className="text-base font-extrabold">{settings.budget.daily} cr.</div></div>
+                <div><div className="font-bold uppercase text-muted-foreground">Consommé aujourd'hui</div><div className="text-base font-extrabold">{settings.budget.spentToday.toFixed(2)} cr.</div></div>
+                <div><div className="font-bold uppercase text-muted-foreground">Restant</div><div className="text-base font-extrabold">{settings.budget.remaining.toFixed(2)} cr.</div></div>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
