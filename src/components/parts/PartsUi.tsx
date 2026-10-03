@@ -118,10 +118,8 @@ export function SupplierSelect({ value, onChange, required }: { value: string; o
   const top = useTopSuppliers();
   const [search, setSearch] = useState("");
   const all = (q.data ?? []).filter((s) => s.active !== false);
-  const byId = new Map(all.map((s) => [s.id, s]));
-  const topList = (top.data ?? []).map((t) => byId.get(t.supplierId)).filter((s): s is NonNullable<typeof s> => !!s);
-  const n = search.trim().toLowerCase();
-  const rest = all.filter((s) => !n || s.name.toLowerCase().includes(n) || s.id === value);
+  const { top: topList, rest } = supplierMenu(q.data ?? [], (top.data ?? []).map((t) => t.supplierId), search, value);
+  const n = search.trim();
   return (
     <div className="space-y-1">
       {all.length > 12 ? (
