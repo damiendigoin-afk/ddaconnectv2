@@ -49,6 +49,8 @@ export function OrderRow({ o, siteName }: { o: any; siteName: (id: string) => st
             onConfirm={async (why) => {
               await cancelOrder(o.id, why, actor);
               void qc.invalidateQueries({ queryKey: ["part-orders"] });
+              void qc.invalidateQueries({ queryKey: ["open-orders"] });
+              void qc.invalidateQueries({ queryKey: ["part-order", o.id] });
               return "Commande annulée";
             }}
           />
