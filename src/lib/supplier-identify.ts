@@ -3,6 +3,7 @@
  * Normalisation : casse, accents, ponctuation, espaces. Jamais de création si plusieurs fiches proches.
  */
 import type { InvoiceExtract, SupplierInfo } from "@/lib/supplier-docs";
+import { hardAliasSupplier } from "@/lib/supplier-aliases";
 
 export const normSupplierName = (s: string | null | undefined) =>
   (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
@@ -51,6 +52,8 @@ export type SupplierResolution<T extends S = S> =
 export function resolveSupplier<T extends S>(name: string | null | undefined, suppliers: T[], ids: (string | null | undefined)[] = []): SupplierResolution<T> {
   const clean = (name ?? "").replace(/\s+/g, " ").trim();
   const n = normSupplierName(clean);
+  const hard = hardAliasSupplier(clean, suppliers);
+  if (hard) return { kind: "found", supplier: hard };
   // Identifiant fiscal lu = fiche portant ce même identifiant (le plus sûr).
   const idKeys = ids.map((v) => (v ?? "").replace(/\s/g, "").toUpperCase()).filter((v) => v.length >= 8);
   if (idKeys.length) {
