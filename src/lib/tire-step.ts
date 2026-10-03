@@ -32,12 +32,12 @@ export type TireStepResult = {
 };
 
 export const TIRE_STEP_FEATURE = "tire_step";
-export const TIRE_STEP_DEFAULT_MODEL = "google/gemini-3.8-flash";
+export const TIRE_STEP_DEFAULT_MODEL = "google/gemini-3.1-pro-preview";
 /** Modèles proposés dans État pneus (tous présents dans BENCH_MODELS / passerelle). */
 export const TIRE_STEP_MODELS = [
-  { id: "google/gemini-3.8-flash", label: "Gemini 3.8 Flash (défaut)" },
+  { id: "google/gemini-3.8-flash", label: "Gemini 3.8 Flash" },
   { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
-  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (plus puissant)" },
+  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (défaut, plus puissant)" },
 ] as const;
 export function pickTireStepModel(requested: string | null | undefined): string {
   return TIRE_STEP_MODELS.some((m) => m.id === requested) ? requested! : TIRE_STEP_DEFAULT_MODEL;
@@ -181,3 +181,15 @@ Réponds STRICTEMENT en JSON :
 - size au format "205/55 R16 91V". homologations : ex "MO", "*", "AO", "N0", "E4 0212345".
 - dot = 4 derniers chiffres (semaine+année). points_mm facultatif : 5 à 7 points de la gauche vers la droite de l'image.
 - recommendation : prudente (ex "Contrôle de la géométrie conseillé"), jamais de kilométrage restant.`;
+
+export const DEPTH_MIN_MM = 0;
+export const DEPTH_MAX_MM = 12;
+/** Pixels de glissement vertical par cran de 0,1 mm, et seuil avant d'engager l'ajustement. */
+export const DRAG_PX_PER_STEP = 8;
+export const DRAG_START_PX = 10;
+/** Ajustement par geste : dy négatif (vers le haut) = +0,1 mm par cran ; borné 0–12 mm, arrondi au dixième. */
+export function adjustDepth(start: number | null, dyPx: number): number {
+  const steps = Math.trunc(-dyPx / DRAG_PX_PER_STEP);
+  const v = Math.round(((start ?? 0) + steps * 0.1) * 10) / 10;
+  return Math.min(DEPTH_MAX_MM, Math.max(DEPTH_MIN_MM, v));
+}
