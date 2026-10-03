@@ -13,11 +13,11 @@ export function TireWearProfile({ points, max = 8 }: { points: number[]; max?: n
   const area = `${line} L${L + iw},${T + ih} L${L},${T + ih} Z`;
   const color = (p: number) => {
     const l = wearLevel(p);
-    return l === "critique" ? "var(--destructive)" : l === "surveiller" ? "var(--warning, #d97706)" : "var(--success, #16a34a)";
+    return l === "critique" ? "var(--destructive)" : l === "surveiller" ? "var(--warning)" : "var(--success)";
   };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Profil d'usure : ${points.join(" / ")} mm`}>
-      <rect x={L} y={y(3)} width={iw} height={y(LEGAL_MIN_MM) - y(3)} fill="var(--warning, #d97706)" opacity={0.12} />
+      <rect x={L} y={y(3)} width={iw} height={y(LEGAL_MIN_MM) - y(3)} fill="var(--warning)" opacity={0.12} />
       <rect x={L} y={y(LEGAL_MIN_MM)} width={iw} height={T + ih - y(LEGAL_MIN_MM)} fill="var(--destructive)" opacity={0.15} />
       {[0, 2, 4, 6, 8].filter((v) => v <= max).map((v) => (
         <g key={v}>
