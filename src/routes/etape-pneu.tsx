@@ -89,31 +89,62 @@ function TireStepPage() {
     if (role === "tread") setRole("sidewall");
   }
 
+  async function extractFor(v: VideoState): Promise<string[] | null> {
+    setVideo({ ...v, status: "extracting", error: "" });
+    try {
+      const frames = await extractVideoFrames(v.file, 10);
+      setVideo((cur) => (cur && cur.file === v.file ? { ...cur, status: "ready", frames } : cur));
+      return frames;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Extraction vidéo impossible.";
+      setVideo((cur) => (cur && cur.file === v.file ? { ...cur, status: "error", frames: [], error: msg } : cur));
+      return null;
+    }
+  }
+
   async function addVideo(list: FileList | null) {
+    // Lecture synchrone du fichier AVANT la remise à zéro de l'input (FileList vivante sur mobile).
     const f = list?.[0];
-    if (!f) return;
+    if (!f) { toast.error("Aucune vidéo reçue du téléphone — reprenez la vidéo."); return; }
+    if (!isVideoFile(f) || f.size === 0) { toast.error("Fichier vidéo invalide — reprenez la vidéo ou utilisez une photo."); return; }
+    const v: VideoState = { file: f, name: f.name, type: f.type || "inconnu", size: f.size, duration: null, frames: [], status: "extracting", error: "" };
+    setVideo(v); setRole("sidewall");
     setVideoBusy(true);
     try {
-      const frames = await extractVideoFrames(f, 10);
-      // Une vidéo remplace les anciennes images de bande de roulement (flanc conservé).
-      setImages((cur) => [...frames.map((dataUrl) => ({ role: "tread" as Role, dataUrl, fromVideo: true })), ...cur.filter((i) => i.role !== "tread")].slice(0, 16));
-      toast.success(`${frames.length} images extraites de la vidéo`);
-      setRole("sidewall");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Vidéo illisible — réessayez en photo.");
+      const { duration } = await probeVideo(f);
+      const withDur = { ...v, duration };
+      const frames = await extractFor(withDur);
+      setVideo((cur) => (cur && cur.file === f ? { ...cur, duration } : cur));
+      if (frames) toast.success(`Vidéo prête — ${frames.length} images extraites`);
+      else toast.error("Extraction vidéo impossible — reprenez la vidéo ou utilisez une photo.");
     } finally { setVideoBusy(false); }
   }
 
   async function analyze(force: boolean) {
-    if (!images.length) { toast.error("Ajoutez au moins une photo."); return; }
+    if (!images.length && !video) { toast.error("Ajoutez au moins une photo."); return; }
+    let frames = video?.frames ?? [];
+    if (video && !frames.length) {
+      setVideoBusy(true);
+      frames = (await extractFor(video)) ?? [];
+      setVideoBusy(false);
+      if (!frames.length) {
+        // Jamais d'analyse silencieuse sans bande de roulement quand une vidéo a été choisie.
+        setError("La vidéo de la bande de roulement n'a pas pu être lue. Reprenez la vidéo ou utilisez une photo de la bande de roulement.");
+        return;
+      }
+    }
+    const payload = video
+      ? [...frames.map((dataUrl) => ({ role: "tread" as Role, dataUrl })), ...images.filter((i) => i.role !== "tread").map(({ role, dataUrl }) => ({ role, dataUrl }))]
+      : images.map(({ role, dataUrl }) => ({ role, dataUrl }));
+    if (!payload.length) { toast.error("Ajoutez au moins une photo."); return; }
     setBusy(true); setError("");
     try {
       const t0 = performance.now();
-      const r = await analyzeFn({ data: { images: images.map(({ role, dataUrl }) => ({ role, dataUrl })), force, model: chosenModel, siteId: site?.id ?? null } });
+      const r = await analyzeFn({ data: { images: payload.slice(0, 16), force, model: chosenModel, siteId: site?.id ?? null } });
       setBudget(r.budget); setModel(r.model);
       const m = r.metrics;
       setPerf({
-        model: r.model, source: images.some((i) => i.fromVideo) ? "Vidéo" : "Photo", images: images.length,
+        model: r.model, source: video ? "Vidéo" : "Photo", images: Math.min(16, payload.length),
         durationMs: m?.durationMs ?? Math.round(performance.now() - t0), credits: m?.credits ?? 0,
         tokensIn: m?.tokensIn ?? null, tokensOut: m?.tokensOut ?? null, cached: m?.cached ?? false,
       });
