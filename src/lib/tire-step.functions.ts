@@ -92,3 +92,28 @@ export const tireStepBudget = createServerFn({ method: "POST" })
     const { dailyBudgetStatus } = await import("./ai-usage.server");
     return dailyBudgetStatus();
   });
+
+/** Historique État pneus d'un véhicule (par immatriculation) : lecture soumise à RLS, photos en URL signée courte. */
+export const tireStepHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ plate: z.string().min(2).max(20) }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertActive(context.supabase, context.userId);
+    const plate = data.plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const { data: rows, error } = await context.supabase.from("tire_step_analyses")
+      .select("id, created_at, position, or_number, photo_paths, corrected, created_by_name")
+      .eq("plate", plate).order("created_at", { ascending: false }).limit(20);
+    if (error) throw new Error(error.message);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const out = [];
+    for (const r of rows ?? []) {
+      const urls: string[] = [];
+      for (const p of (r.photo_paths ?? []).slice(0, 4)) {
+        const { data: s } = await supabaseAdmin.storage.from("dda-media").createSignedUrl(p, 300);
+        if (s?.signedUrl) urls.push(s.signedUrl);
+      }
+      const dep = ((r.corrected as Record<string, unknown> | null)?.["depth"] ?? {}) as Record<string, number | null>;
+      out.push({ id: r.id, date: r.created_at, position: r.position, orNumber: r.or_number, by: r.created_by_name, urls, depth: [dep["inner_mm"] ?? null, dep["center_mm"] ?? null, dep["outer_mm"] ?? null] });
+    }
+    return out;
+  });

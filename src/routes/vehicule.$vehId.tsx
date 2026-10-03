@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ClipboardCheck, Car, FilePlus2, User } from "lucide-react";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { tireStepHistory } from "@/lib/tire-step.functions";
 
 import { normalizeVin } from "@/lib/winmotor/mapping";
 import { InvoiceTimeline } from "@/components/InvoiceTimeline";
@@ -25,6 +27,25 @@ export const Route = createFileRoute("/vehicule/$vehId")({
   }),
   component: VehiclePage,
 });
+
+function TireStepHistory({ plate }: { plate: string }) {
+  const fn = useServerFn(tireStepHistory);
+  const { data } = useQuery({ queryKey: ["tire-step-history", plate], enabled: plate.length > 1, queryFn: () => fn({ data: { plate } }) });
+  if (!data?.length) return null;
+  const mm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("fr-FR", { minimumFractionDigits: 1 })}`);
+  return (
+    <section className="card-surface space-y-3 p-4">
+      <h2 className="text-xs font-bold uppercase text-muted-foreground">États pneus</h2>
+      {data.map((r) => (
+        <div key={r.id} className="space-y-1 border-t border-border pt-2 first:border-0 first:pt-0">
+          <p className="text-sm font-bold">{new Date(r.date).toLocaleDateString("fr-FR")}{r.position ? ` · ${r.position}` : ""}{r.orNumber ? ` · OR ${r.orNumber}` : ""}</p>
+          <p className="text-xs text-muted-foreground">Profondeurs (mm) : {r.depth.map(mm).join(" / ")}{r.by ? ` · ${r.by}` : ""}</p>
+          <div className="flex gap-2 overflow-x-auto">{r.urls.map((u) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="Photo pneu" className="h-20 w-20 rounded object-cover" /></a>)}</div>
+        </div>
+      ))}
+    </section>
+  );
+}
 
 const fr = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—");
 
