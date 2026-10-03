@@ -98,7 +98,7 @@ function TireQuotePage() {
   const { site, label: siteLabel } = useSite();
 
   const prefill = Route.useSearch();
-  // Préremplissage optionnel depuis « Étape pneu » (dimension lue sur le flanc).
+  // Préremplissage optionnel depuis « État pneus » (dimension lue sur le flanc).
   const [form, setForm] = useState<TireQuoteForm>(() => ({
     ...EMPTY_TIRE_QUOTE_FORM,
     width: prefill.w ?? "", height: prefill.h ?? "", diameter: prefill.d ?? "",

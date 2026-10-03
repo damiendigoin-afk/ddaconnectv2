@@ -4,7 +4,7 @@
  */
 import { MANUAL_FALLBACK_MESSAGE, runPaidAi, type PaidAiResult } from "./ai-usage.server";
 
-export const VISION_MODEL = "google/gemini-3.5-flash";
+export const VISION_MODEL = "google/gemini-3.8-flash";
 
 type Block =
   | { type: "text"; text: string }
