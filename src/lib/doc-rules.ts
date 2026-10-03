@@ -541,7 +541,9 @@ export function renaultOrderDetailRules(raw: string): Fields | null {
     const reference = /^r[ée]f\.?\s*:\s*([A-Z0-9][A-Z0-9.\-/]{3,})/i.exec(head)?.[1]?.toUpperCase() ?? null;
     const block = rows.slice(start + 1, end);
     const joined = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+/i, ""), ...block].join("\n");
-    const label = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+\s*/i, ""), ...block]
+    const metaAt = block.findIndex((v) => /^(stock|qt[ée]|quantit|prix|mode\s*de\s*livraison|en\s*cours|statut|disponib)/i.test(v));
+    // Désignation : uniquement avant le premier libellé de colonne (Stock, Qté, Prix client, Mode de livraison…).
+    const label = [head.replace(/^r[ée]f\.?\s*:\s*[A-Z0-9.\-/]+\s*/i, ""), ...(metaAt >= 0 ? block.slice(0, metaAt) : block)]
       .map((v) => v.replace(/\d{1,5}(?:[ .]\d{3})*[.,]\d{2}\s*(?:€|EUR)?\s*(?:H\.?\s?T\.?|T\.?T\.?C\.?)?/gi, " ").replace(/\s{2,}/g, " ").replace(/[\s:]+$/, "").trim())
       .find((v) => v.length >= 2 && /[A-Za-zÀ-ÿ]{2}/.test(v) && !BLOCK_META.test(v) && !/^(prix|qt|quantit|statut|stock|disponib)/i.test(v)) ?? null;
     const qtyRaw = /(?:qt[ée]|quantit[ée])\s*:?\s*(\d{1,3}(?:[.,]\d{1,2})?)/i.exec(joined)?.[1] ?? null;
