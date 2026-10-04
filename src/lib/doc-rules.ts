@@ -1101,7 +1101,7 @@ export function emailLooksDegraded(email: string, nameTokens: string[] = []): bo
 
 /** Zones libres OR : retire les lignes parasites (schéma carrosserie, débris OCR, mentions de prix WinMotor). */
 export function cleanOrFreeText(v: string): string {
-  const keep = v.split(/\n/).map((l) => l.replace(/\s+[^\sA-Za-z0-9À-ÿ]{1,2}$/, "").trim()).filter((l) => {
+  const keep = v.split(/\n/).map((l) => l.replace(/\s+[^\sA-Za-z0-9À-ÿ]{1,2}$/, "").replace(/\s+\S$/, "").trim()).filter((l) => {
     if (!l) return false;
     if (/[[\]{}|]/.test(l)) return false;
     if (/prix unitaire|remise accord|non remis/i.test(l)) return false;
