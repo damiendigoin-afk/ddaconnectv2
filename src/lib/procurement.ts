@@ -94,8 +94,8 @@ export async function addProcurementLine(listId: string, position: number) {
 }
 
 export async function updateProcurementLine(id: string, patch: Partial<Pick<ProcLine, "designation" | "reference" | "quantity" | "source_price_ht" | "item_type" | "supplier_id">>) {
-  const p: Record<string, unknown> = { ...patch };
-  if ("supplier_id" in patch) p["status"] = patch.supplier_id ? "ready" : "to_assign";
+  const p: typeof patch & { status?: string } = { ...patch };
+  if ("supplier_id" in patch) p.status = patch.supplier_id ? "ready" : "to_assign";
   const { error } = await supabase.from("procurement_list_lines").update(p).eq("id", id).is("generated_order_id", null);
   if (error) throw error;
 }
