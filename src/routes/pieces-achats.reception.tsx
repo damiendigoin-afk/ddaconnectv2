@@ -124,11 +124,20 @@ function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
     }
   }
   const q = useQuery({ queryKey: ["open-orders", readSite], queryFn: async () => pendingReceptionOrders(await listOrders({ siteId: readSite })) });
+  const [supplierId, setSupplierId] = useState("");
+  const options = supplierFilterOptions((q.data ?? []) as never);
+  const shown = filterBySupplier(q.data ?? [], options.some((o) => o.id === supplierId) ? supplierId : "");
   return (
     <section className="space-y-2">
       <h2 className="text-xs font-bold uppercase text-muted-foreground">Commandes en attente de réception</h2>
+      {options.length ? (
+        <select className={inputCls} aria-label="Filtrer par fournisseur" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+          <option value="">Tous les fournisseurs ({(q.data ?? []).length})</option>
+          {options.map((o) => <option key={o.id} value={o.id}>{o.name} ({o.count})</option>)}
+        </select>
+      ) : null}
       {q.data && !q.data.length ? <p className="card-surface p-3 text-sm text-muted-foreground">Aucune commande en attente sur ce site.</p> : null}
-      {(q.data ?? []).map((o) => (
+      {shown.map((o) => (
         <div key={o.id} className="rounded-xl border-2 border-border bg-card p-3 text-left text-sm">
           <button type="button" className="block w-full text-left" onClick={() => onPick(o.id)}>
           <div className="flex justify-between gap-2"><b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur à préciser"}</b><span className="flex gap-1">{hasPendingShipment(o as never) ? <Badge tone="warn">Expédiée</Badge> : null}{o.status === "partial" ? <Badge tone="warn">Reliquat</Badge> : null}</span></div>
