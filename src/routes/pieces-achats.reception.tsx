@@ -166,7 +166,22 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const x0p = x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")); const x = { ...x0, plate: x0p ? formatPlate(x0p) : null };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
   const sup = matchSupplier(x.supplier, suppliers.data ?? []) ?? (suppliers.data ?? []).find((s) => s.id === docSupplierId(x, suppliers.data ?? [])) ?? null;
-  const xm = { ...x, supplier_id: x.supplier_id ?? sup?.id ?? null };
+  // Immat lue : OR ouverts du site rattachés au véhicule (signal immat pour une commande simplifiée sans plaque).
+  const plateKeyDoc = x.plate ? normalizePlate(x.plate) : "";
+  const plateOrs = useQuery({
+    queryKey: ["plate-ors", writeSite, plateKeyDoc],
+    enabled: plateKeyDoc.length >= 5,
+    queryFn: async () => {
+      const { data: vs } = await supabase.from("vehicles").select("id").eq("plate_normalized", plateKeyDoc).limit(5);
+      const ids = (vs ?? []).map((v) => v.id);
+      if (!ids.length) return [] as string[];
+      let q = supabase.from("repair_orders").select("or_number, status").in("vehicle_id", ids).limit(20);
+      if (writeSite) q = q.eq("site_id", writeSite);
+      const { data } = await q;
+      return (data ?? []).filter((r) => r.or_number && r.status !== "cancelled").map((r) => r.or_number as string);
+    },
+  });
+  const xm = { ...x, supplier_id: x.supplier_id ?? sup?.id ?? null, plate_or_numbers: plateOrs.data ?? [] };
   // Fournisseur non identifié avec certitude : confirmation d'abord, aucun rapprochement proposé.
   const needSupplier = !xm.supplier_id;
   const sugg = receptionSuggestions(xm, needSupplier ? [] : orders.data ?? [], writeSite);

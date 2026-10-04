@@ -204,10 +204,51 @@ export function parseItemBlocks(text: string): Line[] {
  * Un nombre seul (5 chiffres, éventuellement entre parenthèses) sous une ligne = repère isolé (dossier atelier possible).
  */
 export function parseItemLines(text: string): Line[] {
+  const discounted = parseDiscountLines(text);
+  if (discounted.length) return discounted;
   const blocks = parseItemBlocks(text);
   if (blocks.length) return blocks;
   const strict = parseItemLinesStrict(text);
   return strict.length ? strict : parseItemLinesTolerant(text);
+}
+
+/**
+ * Ligne « Réf Désignation Qté Brut Remise% Net [Montant] » (BL CAZES / distributeurs Mercedes) :
+ * référence éventuellement espacée (« A 420 420 62 00 »). Retenue seulement si brut × (1 − remise) = net
+ * (±0,02 €) : le PA HT est le NET, jamais la remise ni un montant décalé.
+ */
+export function parseDiscountLines(text: string): Line[] {
+  const out: Line[] = [];
+  const num = String.raw`\d{1,6}(?:[ .]\d{3})*[.,]\d{2}`;
+  const re = new RegExp(String.raw`^\s*([A-Z]?\s?\d[\dA-Z]*(?:[ .\-]?[\dA-Z]+){0,5}?)\s+([A-Za-zÀ-ÿ][^\n]*?[A-Za-zÀ-ÿ.)])\s+(\d{1,3})\s+(${num})\s+(\d{1,2}(?:[.,]\d{1,2})?)\s*%?\s+(${num})(?:\s+(${num}))?\s*(?:€|EUR)?\s*$`, "i");
+  for (const raw of cleanText(text).split("\n")) {
+    const m = re.exec(raw.replace(/[|\t]+/g, " ").replace(/\s{2,}/g, " "));
+    if (!m) continue;
+    const qty = Number(m[3]), gross = money(m[4]), pct = Number(m[5]!.replace(",", ".")), net = money(m[6]);
+    if (!qty || gross == null || net == null || !(pct > 0 && pct < 90)) continue;
+    if (Math.abs(gross * (1 - pct / 100) - net) > 0.02) continue;
+    const reference = m[1]!.replace(/[\s.\-]/g, "").toUpperCase();
+    if (reference.length < 4 || !/\d/.test(reference)) continue;
+    const amt = m[7] ? money(m[7]) : null;
+    out.push({ reference, label: m[2]!.trim(), quantity: qty, unit_price: net, amount: amt ?? Math.round(net * qty * 100) / 100 });
+  }
+  return out;
+}
+
+/**
+ * Lecture OCR incohérente à faire relire par la vision : référence = chiffres d'un montant
+ * (« 7117 » pour 71,17), PU = taux de remise imprimé, ou annotation « Commande … // … » sans OR ni immat.
+ */
+export function purchaseSuspects(text: string, f: { lines: Line[]; plate: string | null; or_number: string | null }): string[] {
+  const out: string[] = [];
+  const t = cleanText(text);
+  const moneyDigits = new Set([...t.matchAll(/(?<![\d.,])\d{1,6}[.,]\d{2}(?![\d])/g)].map((m) => m[0].replace(/\D/g, "")));
+  const pcts = new Set([...t.matchAll(/(\d{1,2})[.,]00\s*%?/g)].map((m) => Number(m[1])));
+  const bad = f.lines.some((l) => (l.reference && /^\d{3,6}$/.test(l.reference) && moneyDigits.has(l.reference))
+    || (l.unit_price != null && /remise|%/i.test(t) && pcts.has(l.unit_price) && Number.isInteger(l.unit_price)));
+  if (bad) out.push("lines");
+  if (!f.plate && !f.or_number && /commande[^\n]*\/\//i.test(t)) out.push("or_number");
+  return out;
 }
 
 const TOLERANT_SKIP = /total|t\.?v\.?a|sous-total|frais|\bport\b|transport|livraison|remise|acompte|net\s*[àa]\s*payer|siret|iban|bic|t[ée]l|fax|@|www\.|capital|rcs|page\s*\d|date|adresse|client\s*:|n[°o]\s*client/i;
@@ -726,6 +767,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const totalTtc = lastMoneyOnLines(text, /t\.?t\.?c|net\s*[àa]\s*payer|^total\s+(?!h\.?t)\d/i);
   const supplier = detectSupplier(text, ctx.suppliers) ?? headerSupplierName(text);
   const parsedOrderDate = doc_kind === "facture" ? (/date\s*(?:de\s*)?commande|command[ée]e?\s+le/i.test(text) ? orderDate(text) : null) : orderDate(text);
+  const suspects = purchaseSuspects(text, { lines, plate, or_number: orSingle ?? or_numbers[0] ?? null });
   const qualityScore = (orderRef ? 1 : 0) + (parsedOrderDate ? 1 : 0) + (supplier ? 1 : 0) + (orSingle || or_numbers.length || plate ? 1 : 0) + (lines.length ? 2 : 0);
   return {
     doc_kind,
@@ -752,6 +794,7 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     shipping_ht: lastMoneyOnLines(text, /frais de port|\bport\b|transport|emballage/i),
     shipping_label: /^\s*((?:frais\s+de\s+)?(?:port|transport|livraison)[^\d€\n]*?)\s*:?\s*\d[\d .]*[.,]\d{2}/im.exec(text)?.[1]?.trim() ?? null,
     currency: "EUR",
+    ...(suspects.length ? { _suspect: suspects } : {}),
   };
 }
 
