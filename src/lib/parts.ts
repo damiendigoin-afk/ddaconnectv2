@@ -254,6 +254,18 @@ export async function listMovements(articleId: string) {
   return data ?? [];
 }
 
+/** Rattache une commande à son OR (repère unique du site) et affecte les pièces reçues en « à pointer ». Idempotent. */
+export async function syncOrderOr(orderId: string, actor: Actor) {
+  const { error } = await supabase.rpc("sync_part_order_or", { _order: orderId, _user_name: actor.name });
+  if (error) console.error("sync_part_order_or", error);
+}
+
+/** Rattrapage paresseux à l'ouverture de l'OR : commandes reliées seulement par le repère OR. Idempotent. */
+export async function syncOrOrders(orId: string, userName?: string | null) {
+  const { error } = await supabase.rpc("sync_or_part_orders", { _or: orId, _user_name: userName ?? null });
+  if (error) console.error("sync_or_part_orders", error);
+}
+
 /** Affecte une quantité de stock à un OR + ligne de pointage commune « en attente ». */
 export async function allocateToOr(a: { articleId: string; siteId: string; orId: string; qty: number; ref: string; designation: string | null; receiptLineId?: string | null; isOil?: boolean }, actor: Actor) {
   const mvId = await addMovement({ site_id: a.siteId, article_id: a.articleId, type: "allocate_to_or", qty: a.qty, repair_order_id: a.orId, receipt_line_id: a.receiptLineId ?? null }, actor);
@@ -490,6 +502,8 @@ export async function validateReceipt(
     const { data: ols } = await supabase.from("part_order_lines").select("status, line_kind").eq("order_id", r.order_id);
     await supabase.from("part_orders").update({ status: orderStatus(ols ?? [], true) }).eq("id", r.order_id);
   }
+  // Chaînage OR : repère OR unique du site => vrai rattachement + pièces reçues « à pointer » (idempotent, SQL).
+  if (r.order_id) await syncOrderOr(r.order_id, actor);
   await logEvent({ site_id: r.site_id, entity: "part_receipt", entity_id: rec.id, repair_order_id: r.repair_order_id, action: "validate", detail: { lines: lines.length, type: r.receipt_type } }, actor);
   return rec.id;
 }
