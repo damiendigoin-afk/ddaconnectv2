@@ -8937,7 +8937,9 @@ export type Database = {
       next_dda_order_ref: { Args: never; Returns: string }
       next_part_return_ref: { Args: never; Returns: string }
       norm_contact: { Args: { _v: string }; Returns: string }
+      norm_or_number: { Args: { _v: string }; Returns: string }
       norm_person: { Args: { _v: string }; Returns: string }
+      norm_plate_key: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
       part_order_target: {
         Args: { _or: string; _plate: string; _ro: string }
@@ -8957,6 +8959,10 @@ export type Database = {
           inspections_deleted: number
           returns_deleted: number
         }[]
+      }
+      resolve_or_for_order: {
+        Args: { _or: string; _plate: string; _site: string }
+        Returns: string
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
