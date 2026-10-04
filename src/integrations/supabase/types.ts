@@ -4464,6 +4464,7 @@ export type Database = {
           order_date: string | null
           order_mode: string
           plate: string | null
+          procurement_list_id: string | null
           repair_order_id: string | null
           requested_or_number: string | null
           site_id: string
@@ -4490,6 +4491,7 @@ export type Database = {
           order_date?: string | null
           order_mode?: string
           plate?: string | null
+          procurement_list_id?: string | null
           repair_order_id?: string | null
           requested_or_number?: string | null
           site_id: string
@@ -4516,6 +4518,7 @@ export type Database = {
           order_date?: string | null
           order_mode?: string
           plate?: string | null
+          procurement_list_id?: string | null
           repair_order_id?: string | null
           requested_or_number?: string | null
           site_id?: string
@@ -4527,6 +4530,13 @@ export type Database = {
           vehicle_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "part_orders_procurement_list_id_fkey"
+            columns: ["procurement_list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_lists"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "part_orders_repair_order_id_fkey"
             columns: ["repair_order_id"]
@@ -5448,6 +5458,171 @@ export type Database = {
             columns: ["grid_id"]
             isOneToOne: false
             referencedRelation: "pricing_grids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_list_lines: {
+        Row: {
+          created_at: string
+          designation: string
+          generated_order_id: string | null
+          generated_order_line_id: string | null
+          id: string
+          item_type: string
+          list_id: string
+          metadata: Json
+          original_text: string | null
+          position: number
+          quantity: number
+          reference: string | null
+          source_operation: string | null
+          source_price_ht: number | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          designation: string
+          generated_order_id?: string | null
+          generated_order_line_id?: string | null
+          id?: string
+          item_type?: string
+          list_id: string
+          metadata?: Json
+          original_text?: string | null
+          position?: number
+          quantity?: number
+          reference?: string | null
+          source_operation?: string | null
+          source_price_ht?: number | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          designation?: string
+          generated_order_id?: string | null
+          generated_order_line_id?: string | null
+          id?: string
+          item_type?: string
+          list_id?: string
+          metadata?: Json
+          original_text?: string | null
+          position?: number
+          quantity?: number
+          reference?: string | null
+          source_operation?: string | null
+          source_price_ht?: number | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_list_lines_generated_order_id_fkey"
+            columns: ["generated_order_id"]
+            isOneToOne: false
+            referencedRelation: "part_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_list_lines_generated_order_line_id_fkey"
+            columns: ["generated_order_line_id"]
+            isOneToOne: false
+            referencedRelation: "part_order_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_list_lines_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_list_lines_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procurement_lists: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          extraction_route: string | null
+          id: string
+          plate: string | null
+          repair_order_id: string | null
+          requested_or_number: string | null
+          site_id: string
+          source_document_id: string | null
+          source_label: string | null
+          source_type: string
+          status: string
+          updated_at: string
+          warnings: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          extraction_route?: string | null
+          id?: string
+          plate?: string | null
+          repair_order_id?: string | null
+          requested_or_number?: string | null
+          site_id: string
+          source_document_id?: string | null
+          source_label?: string | null
+          source_type?: string
+          status?: string
+          updated_at?: string
+          warnings?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          extraction_route?: string | null
+          id?: string
+          plate?: string | null
+          repair_order_id?: string | null
+          requested_or_number?: string | null
+          site_id?: string
+          source_document_id?: string | null
+          source_label?: string | null
+          source_type?: string
+          status?: string
+          updated_at?: string
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procurement_lists_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_lists_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "procurement_lists_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -8990,6 +9165,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      generate_procurement_orders: {
+        Args: { _list: string; _user_name: string }
+        Returns: Json
       }
       has_role: {
         Args: {
