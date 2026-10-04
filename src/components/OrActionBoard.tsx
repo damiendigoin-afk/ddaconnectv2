@@ -6,8 +6,9 @@ import { toast } from "sonner";
 
 import { PendingReceiptsForOr } from "@/components/parts/PendingReceiptsForOr";
 import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, usePartsCtx } from "@/components/parts/PartsUi";
-import { addUnplannedUsage, confirmUsage, finishWork, getWorkState, listSessions, listUsage, myOpenSessions, orPartsOverview, returnUnusedToStock, startTime, stopTime } from "@/lib/parts";
-import { finishCheck, partLineLabel, formatMinutes, partsCompleteness, sessionMinutes, USAGE_REASONS } from "@/lib/parts-rules";
+import { addUnplannedUsage, confirmUsage, finishWork, resumeWork, getWorkState, listSessions, listUsage, myOpenSessions, orPartsOverview, returnUnusedToStock, startTime, stopTime } from "@/lib/parts";
+import { finishCheck, notUsedMotifError, partLineLabel, formatMinutes, partsCompleteness, sessionMinutes, usageNeedsMotif, USAGE_REASONS } from "@/lib/parts-rules";
+import { orderTrackLabel } from "@/lib/shipment-rules";
 
 /**
  * Tableau d'actions terrain du dossier OR (V3 Phase B).
@@ -33,7 +34,7 @@ export function OrActionBoard({ hasOfficialOr, orId, orSiteId, orNumber = null, 
       <PartsStatus orId={orId} />
       <PendingReceiptsForOr or={{ id: orId, or_number: orNumber, site_id: orSiteId, vehicle_id: vehicleId }} plate={plate} />
       <UsagePanel orId={orId} orSiteId={orSiteId} />
-      <FinishPanel orId={orId} orSiteId={orSiteId} />
+      <FinishPanel orId={orId} orSiteId={orSiteId} orNumber={orNumber} />
     </section>
   );
 }
@@ -57,6 +58,7 @@ function TimePanel({ orId, orSiteId }: { orId: string; orSiteId: string | null }
   const mine = useQuery({ queryKey: ["my-open-time", actor.userId], enabled: !!actor.userId, queryFn: () => myOpenSessions(actor.userId!) });
   const myOpenHere = (sessions.data ?? []).find((s) => s.user_id === actor.userId && !s.stopped_at);
   const elsewhere = (mine.data ?? []).filter((s) => s.repair_order_id !== orId);
+  const finished = useWorkState(orId).data?.state === "travaux_termines";
   const total = (sessions.data ?? []).reduce((t, s) => t + sessionMinutes(s), 0);
   const refresh = () => { qc.invalidateQueries({ queryKey: ["or-time", orId] }); qc.invalidateQueries({ queryKey: ["my-open-time"] }); qc.invalidateQueries({ queryKey: ["or-state", orId] }); };
 
@@ -76,6 +78,8 @@ function TimePanel({ orId, orSiteId }: { orId: string; orSiteId: string | null }
       {elsewhere.length ? <p className="flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="h-3 w-3" /> Temps déjà ouvert sur l'OR {elsewhere.map((s) => (s.repair_orders as { or_number: string | null } | null)?.or_number ?? "?").join(", ")}</p> : null}
       {myOpenHere ? (
         <button className={`${btnPrimary} w-full`} onClick={stop}><Square className="mr-1 inline h-4 w-4" /> Arrêter le temps · {formatMinutes(sessionMinutes(myOpenHere))}</button>
+      ) : finished ? (
+        <p className="text-xs text-muted-foreground">Travaux terminés : utilisez « Reprendre les travaux » pour démarrer un nouveau pointage.</p>
       ) : (
         <button className={`${btnPrimary} w-full`} onClick={start}><Play className="mr-1 inline h-4 w-4" /> Démarrer le temps</button>
       )}
@@ -106,7 +110,7 @@ function PartsStatus({ orId }: { orId: string }) {
       )}
       {ov.data.orders.map((o) => (
         <Link key={o.id} to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} className="block text-xs underline">
-          Commande {(o.suppliers as { name: string } | null)?.name} · {o.status === "received" ? "reçue" : o.status === "partial" ? "partiellement reçue — reliquat" : "commandée"}
+          Commande {(o.suppliers as { name: string } | null)?.name} · {orderTrackLabel(o as never)}
         </Link>
       ))}
       {lines.map((l) => <div key={l.id} className="line-clamp-2 text-xs" title={[l.physical_reference, l.designation].filter(Boolean).join(" — ")}>{partLineLabel(l)}</div>)}
@@ -127,15 +131,26 @@ function UsagePanel({ orId, orSiteId }: { orId: string; orSiteId: string | null 
   const refresh = () => { qc.invalidateQueries({ queryKey: ["or-usage", orId] }); qc.invalidateQueries({ queryKey: ["or-state", orId] }); };
   const site = orSiteId ?? writeSite;
 
-  async function mark(u: { id: string; qty_allocated: number }, status: "used" | "not_used") {
-    let reason: string | null = null;
-    let comment: string | null = null;
-    if (status === "not_used") {
-      reason = window.prompt(`Motif (encouragé) : ${USAGE_REASONS.join(" / ")}`) || null;
-      if (reason === "Autre") comment = window.prompt("Commentaire :") || null;
-    }
-    await confirmUsage({ id: u.id, orId, siteId: site, status, qty_used: status === "used" ? u.qty_allocated : 0, reason, comment }, actor);
-    refresh();
+  const [motifFor, setMotifFor] = useState<string | null>(null);
+  const [motif, setMotif] = useState("");
+  const [motifComment, setMotifComment] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function markUsed(u: { id: string; qty_allocated: number }) {
+    if (busy) return;
+    setBusy(u.id);
+    try { await confirmUsage({ id: u.id, orId, siteId: site, status: "used", qty_used: u.qty_allocated, reason: null, comment: null }, actor); refresh(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); } finally { setBusy(null); }
+  }
+  async function markNotUsed(u: { id: string }) {
+    const err = notUsedMotifError(motif, motifComment);
+    if (err) return void toast.error(err);
+    if (busy) return;
+    setBusy(u.id);
+    try {
+      await confirmUsage({ id: u.id, orId, siteId: site, status: "not_used", qty_used: 0, reason: motif, comment: motifComment.trim() || null }, actor);
+      setMotifFor(null); setMotif(""); setMotifComment(""); refresh();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); } finally { setBusy(null); }
   }
   async function partial(u: { id: string; qty_allocated: number }) {
     const n = numOrNull(window.prompt(`Quantité réellement utilisée (sur ${u.qty_allocated}) :`) ?? "");
@@ -156,25 +171,43 @@ function UsagePanel({ orId, orSiteId }: { orId: string; orSiteId: string | null 
     <div className="card-surface space-y-2 p-3">
       <span className="text-xs font-bold uppercase text-muted-foreground">Pointer pièces / consommables</span>
       {!(usage.data ?? []).length ? <p className="text-sm text-muted-foreground">Aucune pièce affectée à cet OR.</p> : null}
-      {(usage.data ?? []).map((u) => (
+      {(usage.data ?? []).map((u) => {
+        const needMotif = usageNeedsMotif(u);
+        const st = needMotif ? "pending" : u.usage_status;
+        return (
         <div key={u.id} className="rounded-lg border-2 border-border p-2 text-sm">
           <div className="flex justify-between gap-2">
-            <b>{u.physical_reference ?? u.designation}</b>
-            <Badge tone={u.usage_status === "used" ? "ok" : u.usage_status === "pending" ? "warn" : "muted"}>
-              {u.usage_status === "used" ? "Utilisée" : u.usage_status === "not_used" ? "Non utilisée" : u.usage_status === "partial" ? "Partielle" : "À pointer"}
+            <b className="min-w-0 break-words">{[u.physical_reference, u.designation].filter(Boolean).join(" — ") || "Pièce"}</b>
+            <Badge tone={st === "used" ? "ok" : st === "pending" ? "warn" : "muted"}>
+              {st === "used" ? "Montée" : st === "not_used" ? "Non utilisée" : st === "partial" ? "Partielle" : "À pointer"}
             </Badge>
           </div>
-          <div className="text-xs text-muted-foreground">{u.designation} · affectée {u.qty_allocated}{u.qty_used != null ? ` · utilisée ${u.qty_used}` : ""}{u.unplanned ? " · ajout non prévu" : ""}{u.reason ? ` · ${u.reason}` : ""}{u.confirmed_by_name ? ` · ${u.confirmed_by_name}` : ""}</div>
+          <div className="text-xs text-muted-foreground">Qté : {u.qty_allocated}{u.qty_used != null && st !== "pending" ? ` · utilisée ${u.qty_used}` : ""}{u.unplanned ? " · ajout non prévu" : ""}{u.reason ? ` · Motif : ${u.reason}` : ""}{u.comment ? ` · ${u.comment}` : ""}{u.confirmed_by_name && st !== "pending" ? ` · ${u.confirmed_by_name}` : ""}</div>
+          {needMotif ? <p className="text-xs font-bold text-destructive">Motif manquant : choisissez à nouveau « Non utilisée » avec un motif.</p> : null}
           <div className="mt-2 flex flex-wrap gap-2">
-            <button className="rounded-lg border-2 border-status-ok px-3 py-1 text-xs font-bold" onClick={() => mark(u, "used")}>Utilisée</button>
-            <button className="rounded-lg border-2 border-border px-3 py-1 text-xs font-bold" onClick={() => partial(u)}>Partielle</button>
-            <button className="rounded-lg border-2 border-border px-3 py-1 text-xs font-bold" onClick={() => mark(u, "not_used")}>Non utilisée</button>
-            {u.article_id && site && u.usage_status !== "used" && u.qty_allocated > (u.qty_used ?? 0) ? (
+            <button type="button" data-on={st === "used"} disabled={busy === u.id} className="rounded-lg border-2 border-border px-3 py-1 text-xs font-bold data-[on=true]:border-status-ok data-[on=true]:bg-status-ok-soft" onClick={() => markUsed(u)}>Montée / utilisée</button>
+            <button type="button" data-on={st === "not_used"} disabled={busy === u.id} className="rounded-lg border-2 border-border px-3 py-1 text-xs font-bold data-[on=true]:border-destructive data-[on=true]:bg-destructive/10" onClick={() => { setMotifFor(u.id); setMotif(""); setMotifComment(""); }}>Non utilisée</button>
+            <button type="button" className="rounded-lg border-2 border-border px-3 py-1 text-xs font-bold" onClick={() => partial(u)}>Partielle</button>
+            {u.article_id && site && u.usage_status === "not_used" && !needMotif && u.qty_allocated > (u.qty_used ?? 0) ? (
               <button className="text-xs underline" onClick={async () => { await returnUnusedToStock({ id: u.id, orId, siteId: u.site_id ?? site, articleId: u.article_id!, qty: u.qty_allocated - (u.qty_used ?? 0) }, actor); refresh(); toast.success("Remise en stock"); }}>Remettre en stock</button>
             ) : null}
           </div>
+          {motifFor === u.id ? (
+            <div className="mt-2 space-y-2 rounded-lg border-2 border-destructive p-2">
+              <select className={inputCls} value={motif} onChange={(e) => setMotif(e.target.value)} aria-label="Motif non utilisée">
+                <option value="">Motif (obligatoire)…</option>
+                {USAGE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <input className={inputCls} placeholder={motif === "Autre" ? "Commentaire (obligatoire)" : "Commentaire (facultatif)"} value={motifComment} onChange={(e) => setMotifComment(e.target.value)} />
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" className={btnGhost} onClick={() => setMotifFor(null)}>Annuler</button>
+                <button type="button" className={btnPrimary} disabled={!!notUsedMotifError(motif, motifComment) || busy === u.id} onClick={() => markNotUsed(u)}>Valider</button>
+              </div>
+            </div>
+          ) : null}
         </div>
-      ))}
+        );
+      })}
       {adding ? (
         <div className="space-y-2">
           <select className={inputCls} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
@@ -190,37 +223,73 @@ function UsagePanel({ orId, orSiteId }: { orId: string; orSiteId: string | null 
   );
 }
 
-function FinishPanel({ orId, orSiteId }: { orId: string; orSiteId: string | null }) {
+function FinishPanel({ orId, orSiteId, orNumber }: { orId: string; orSiteId: string | null; orNumber?: string | null }) {
   const { actor, writeSite } = usePartsCtx();
   const qc = useQueryClient();
   const usage = useQuery({ queryKey: ["or-usage", orId], queryFn: () => listUsage(orId) });
+  const sessions = useQuery({ queryKey: ["or-time", orId], queryFn: () => listSessions(orId) });
   const state = useWorkState(orId).data;
   const site = orSiteId ?? writeSite;
   const [confirm, setConfirm] = useState(false);
   const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
   const chk = finishCheck(usage.data ?? []);
+  const open = (sessions.data ?? []).filter((s) => !s.stopped_at);
+  const refresh = () => { for (const k of ["or-state", "or-time", "or-usage"]) qc.invalidateQueries({ queryKey: [k, orId] }); qc.invalidateQueries({ queryKey: ["my-open-time"] }); };
 
   async function finish(forced: boolean) {
     if (!site) return void toast.error("Aucun site pour cet OR.");
-    await finishWork(orId, site, { forced, reason: reason.trim() || null, pending: chk.pending }, actor);
-    setConfirm(false); setReason("");
-    qc.invalidateQueries({ queryKey: ["or-state", orId] });
-    toast.success(forced ? "Travaux terminés (anomalie créée)" : "Travaux terminés");
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await finishWork(orId, site, { forced, reason: reason.trim() || null, pending: chk.pending }, actor);
+      setConfirm(false); setReason("");
+      toast.success(r.already ? "Travaux déjà terminés" : `Travaux terminés${r.closed_sessions ? ` · ${r.closed_sessions} pointage(s) arrêté(s)` : ""}${r.forced ? " (anomalie créée)" : ""}`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Clôture impossible"); }
+    finally { setBusy(false); refresh(); }
   }
-  if (state?.state === "travaux_termines") return null;
+  async function resume() {
+    if (!site || busy) return;
+    setBusy(true);
+    try {
+      await resumeWork(orId, site, actor);
+      if (window.confirm("Travaux repris. Démarrer un nouveau pointage maintenant ?")) await startTime(orId, site, actor);
+      toast.success("Travaux repris");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Reprise impossible"); }
+    finally { setBusy(false); refresh(); }
+  }
+  if (state?.state === "travaux_termines") {
+    return (
+      <div className="card-surface p-3">
+        <button className={`${btnGhost} w-full`} disabled={busy} onClick={resume}><Play className="mr-1 inline h-4 w-4" /> Reprendre les travaux</button>
+      </div>
+    );
+  }
   return (
     <div className="card-surface space-y-2 p-3">
       {confirm ? (
-        <>
-          <p className="text-sm font-bold text-destructive">{chk.pending} ligne(s) pièces non traitée(s).</p>
-          <input className={inputCls} placeholder="Justification (encouragée)" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <div role="alertdialog" className="space-y-2">
+          <p className="text-sm font-bold">Confirmer la fin des travaux sur l'OR {orNumber ?? ""} ? Cette action arrêtera les pointages en cours{open.length ? ` (${open.length})` : ""} et clôturera les travaux atelier.</p>
+          {chk.pending ? (
+            <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-2 text-sm">
+              <p className="font-extrabold text-destructive">{chk.pending} ligne(s) pièces non traitée(s) — à pointer avant la clôture :</p>
+              <ul className="list-disc pl-5 text-xs">
+                {(usage.data ?? []).filter((u) => u.usage_status === "pending" || usageNeedsMotif(u)).map((u) => <li key={u.id}>{[u.physical_reference, u.designation].filter(Boolean).join(" — ") || "Pièce"}{usageNeedsMotif(u) ? " (motif manquant)" : ""}</li>)}
+              </ul>
+              <input className={`${inputCls} mt-2`} placeholder="Justification (clôture forcée manager)" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
-            <button className={btnGhost} onClick={() => setConfirm(false)}>Revenir pointer</button>
-            <button className={btnPrimary} onClick={() => finish(true)}>Terminer malgré tout</button>
+            <button className={btnGhost} onClick={() => setConfirm(false)}>{chk.pending ? "Revenir pointer" : "Annuler"}</button>
+            {chk.pending ? (
+              <button className={btnPrimary} disabled={busy} onClick={() => finish(true)}>Forcer (manager)</button>
+            ) : (
+              <button className={btnPrimary} disabled={busy} onClick={() => finish(false)}>{busy ? "Clôture…" : "Confirmer la fin"}</button>
+            )}
           </div>
-        </>
+        </div>
       ) : (
-        <button className={`${btnPrimary} w-full`} onClick={() => (chk.canFinishCleanly ? finish(false) : setConfirm(true))}>
+        <button className={`${btnPrimary} w-full`} onClick={() => setConfirm(true)}>
           <CheckCircle2 className="mr-1 inline h-4 w-4" /> Travaux terminés
         </button>
       )}

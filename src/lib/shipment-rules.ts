@@ -90,3 +90,35 @@ export function shipmentQtyFromDoc(orderLines: ShipLine[], docLines: ShipDocLine
   }
   return out;
 }
+
+/** Statut affiché d'une commande dans le suivi atelier de l'OR (réception > expédition > commandée). */
+export function orderTrackLabel(o: { status?: string | null; part_order_lines?: ShipLine[] | null }): string {
+  if (o.status === "cancelled") return "Annulée";
+  if (o.status === "received") return "Reçue";
+  const lines = (o.part_order_lines ?? []).filter((l) => (l.line_kind ?? "part") === "part" && l.status !== "cancelled");
+  const m = lines.map(shipMetrics);
+  const ordered = m.reduce((t, x) => t + (x.ordered ?? 0), 0);
+  const received = m.reduce((t, x) => t + x.received, 0);
+  const shipped = m.reduce((t, x) => t + x.shipped, 0);
+  if (lines.length && ordered > 0 && received >= ordered) return "Reçue";
+  if (o.status === "partial" || received > 0) return shipped > received ? "Partiellement reçue — reliquat expédié" : "Partiellement reçue — reliquat";
+  if (shipped > 0) return ordered > 0 && shipped < ordered ? "Partiellement expédiée" : "Expédiée";
+  return "Commandée";
+}
+
+/** Fournisseurs présents dans les commandes à réceptionner, avec compteur (tri par nom). */
+export function supplierFilterOptions(orders: { supplier_id?: string | null; suppliers?: { name: string } | null }[]): { id: string; name: string; count: number }[] {
+  const map = new Map<string, { id: string; name: string; count: number }>();
+  for (const o of orders) {
+    const id = o.supplier_id ?? "none";
+    const cur = map.get(id) ?? { id, name: o.suppliers?.name ?? "Fournisseur à préciser", count: 0 };
+    cur.count++;
+    map.set(id, cur);
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+}
+
+export function filterBySupplier<T extends { supplier_id?: string | null }>(orders: T[], supplierId: string): T[] {
+  if (!supplierId) return orders;
+  return orders.filter((o) => (o.supplier_id ?? "none") === supplierId);
+}

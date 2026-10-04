@@ -8935,6 +8935,16 @@ export type Database = {
         }
         Returns: Json
       }
+      finish_or_work: {
+        Args: {
+          _forced: boolean
+          _or: string
+          _reason: string
+          _site: string
+          _user_name: string
+        }
+        Returns: Json
+      }
       finish_vehicle_inspection: {
         Args: { _inspection_id: string; _user_id: string; _user_name: string }
         Returns: {
@@ -9041,6 +9051,10 @@ export type Database = {
       resolve_or_for_order: {
         Args: { _or: string; _plate: string; _site: string }
         Returns: string
+      }
+      resume_or_work: {
+        Args: { _or: string; _site: string; _user_name: string }
+        Returns: Json
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

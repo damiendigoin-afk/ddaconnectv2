@@ -323,6 +323,13 @@
       "when": 1791113272933,
       "tag": "0045_part_order_shipments",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791114678948,
+      "tag": "0046_or_finish_resume_work",
+      "breakpoints": true
     }
   ]
 }
