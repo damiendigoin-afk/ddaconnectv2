@@ -577,14 +577,25 @@ export async function markOrChanged(orId: string, siteId: string | null, actor: 
   await logEvent({ site_id: siteId, entity: "or", entity_id: orId, repair_order_id: orId, action }, actor);
 }
 
+/**
+ * Fin des travaux via RPC atomique finish_or_work : arrête TOUS les pointages ouverts de l'OR,
+ * puis passe en « Travaux terminés ». Idempotent (déjà terminé => rien fermé deux fois).
+ * Clôture forcée (pièces non traitées) réservée au manager côté serveur.
+ */
 export async function finishWork(orId: string, siteId: string, opts: { forced: boolean; reason: string | null; pending: number }, actor: Actor) {
-  const row = { repair_order_id: orId, site_id: siteId, state: "travaux_termines", finished_at: new Date().toISOString(), finished_by: actor.userId, finished_by_name: actor.name, forced: opts.forced, force_reason: opts.reason };
-  const { error } = await supabase.from("or_work_state").upsert(row);
-  if (error) throw error;
-  if (opts.forced) {
-    await openRegularization({ site_id: siteId, kind: "travaux_forces", source_table: "or_work_state", source_id: orId, repair_order_id: orId, comment: `${opts.pending} ligne(s) non traitée(s)${opts.reason ? ` — ${opts.reason}` : ""}` }, actor);
+  const { data, error } = await supabase.rpc("finish_or_work", { _or: orId, _site: siteId, _forced: opts.forced, _reason: opts.reason ?? "", _user_name: actor.name ?? "" });
+  if (error) throw new Error(error.message);
+  const r = data as { already: boolean; closed_sessions: number; forced?: boolean; pending?: number };
+  if (!r.already && r.forced) {
+    await openRegularization({ site_id: siteId, kind: "travaux_forces", source_table: "or_work_state", source_id: orId, repair_order_id: orId, comment: `${r.pending ?? opts.pending} ligne(s) non traitée(s)${opts.reason ? ` — ${opts.reason}` : ""}` }, actor);
   }
-  await logEvent({ site_id: siteId, entity: "or", entity_id: orId, repair_order_id: orId, action: opts.forced ? "work_done_forced" : "work_done", detail: opts }, actor);
+  return r;
+}
+
+/** Reprise après « Travaux terminés » : OR repasse en cours ; les anciennes sessions restent intactes. */
+export async function resumeWork(orId: string, siteId: string, actor: Actor) {
+  const { error } = await supabase.rpc("resume_or_work", { _or: orId, _site: siteId, _user_name: actor.name ?? "" });
+  if (error) throw new Error(error.message);
 }
 
 export async function listUsage(orId: string) {

@@ -123,8 +123,22 @@ export function stateAfterChange(state: WorkState | null | undefined): WorkState
   return state === "travaux_termines" || state === "a_revalider" ? "a_revalider" : "en_cours";
 }
 
-export function finishCheck(usages: { usage_status: string }[]): { pending: number; canFinishCleanly: boolean } {
-  const pending = usages.filter((u) => u.usage_status === "pending").length;
+/** Ligne « Non utilisée » sans motif ni commentaire = non traitée (motif obligatoire). */
+export function usageNeedsMotif(u: { usage_status: string; reason?: string | null; comment?: string | null }): boolean {
+  return u.usage_status === "not_used" && !(u.reason ?? "").trim() && !(u.comment ?? "").trim();
+}
+
+/** « Non utilisée » exige un motif ; « Autre » exige en plus un commentaire. */
+export function notUsedMotifError(reason: string | null | undefined, comment: string | null | undefined): string | null {
+  const r = (reason ?? "").trim();
+  if (!r) return "Motif obligatoire pour « Non utilisée »";
+  if (r === "Autre" && !(comment ?? "").trim()) return "Commentaire obligatoire pour le motif « Autre »";
+  return null;
+}
+
+/** Miroir pur du contrôle de public.finish_or_work : à pointer + non utilisées sans motif. */
+export function finishCheck(usages: { usage_status: string; reason?: string | null; comment?: string | null }[]): { pending: number; canFinishCleanly: boolean } {
+  const pending = usages.filter((u) => u.usage_status === "pending" || usageNeedsMotif(u)).length;
   return { pending, canFinishCleanly: pending === 0 };
 }
 
