@@ -6,7 +6,7 @@ import { Loader2, Wifi } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Badge, Section } from "@/components/bits";
 import { useSite } from "@/lib/site-context";
-import { formatParis } from "@/lib/winmotor-datetime";
+import { formatWorkshopDateTime as formatParis } from "@/lib/datetime";
 import {
   COMMAND_LABELS,
   STATUS_LABELS,
