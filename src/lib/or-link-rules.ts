@@ -13,7 +13,7 @@ export function resolveOrLink(o: LinkOrder, ors: LinkOr[]): string | null {
   const key = normOr(o.requested_or_number);
   if (!key) return null;
   const hits = ors.filter((r) => r.site_id === o.site_id && normOr(r.or_number) === key);
-  return hits.length === 1 ? hits[0].id : null;
+  return hits.length === 1 ? hits[0]!.id : null;
 }
 
 /** Affectations à créer : une par ligne reçue utilisable, jamais si déjà affectée (receipt_line_id), stock suffisant. */
