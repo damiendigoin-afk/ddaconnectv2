@@ -457,6 +457,14 @@ export function orNumbersFromText(raw: string, exclude: (string | null | undefin
   for (const m of text.matchAll(re)) {
     for (const n of m[1]!.match(/\d{5,6}/g) ?? []) if (!ex.has(n) && !out.includes(n)) out.push(n);
   }
+  // Annotation « Commande *immat // modèle // 50912 » (CAZES) : segment purement numérique 5-6 chiffres
+  // séparé par « // » après « Commande ». Jamais le n° BL (« BL 432112 ») ni le n° client.
+  for (const m of text.matchAll(/commande\s*[:#*]*\s*([^\n]*\/\/[^\n]*)/gi)) {
+    for (const seg of m[1]!.split(/\/\//)) {
+      const n = seg.replace(/[*\s]/g, "");
+      if (/^\d{5,6}$/.test(n) && !ex.has(n) && !out.includes(n)) out.push(n);
+    }
+  }
   return out.slice(0, 8);
 }
 
@@ -709,7 +717,8 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
   const orRaw = firstMatch(text, [OR_LABEL, /\bO\.?R\.?(?:\s*n[°o])?\s*[:#.]\s*(\d{4,7})\b/i]);
   const lines = resolveNetPrices(parseItemLines(text), lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i));
   const visibleBlocks = [...text.matchAll(/^r[ée]f\.?\s*:\s*[A-Z0-9][A-Z0-9.\-/]{3,}/gim)].length;
-  const orderRef = order_reference && /\d/.test(order_reference) ? order_reference : null;
+  // Une immatriculation lue après « Commande » (annotation CAZES) n'est jamais un n° de commande.
+  const orderRef = order_reference && /\d/.test(order_reference) && !findFrenchPlate(order_reference) ? order_reference : null;
   const or_numbers = orNumbersFromText(text, [orderRef, docNumber]);
   const orSingle = plate && orRaw && findFrenchPlate(orRaw) ? null : orRaw;
   const totalHt = lastMoneyOnLines(text, /total\s*h\.?t|net\s*h\.?t|montant\s*h\.?t/i);
