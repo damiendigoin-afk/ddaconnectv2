@@ -9044,6 +9044,7 @@ export type Database = {
         Args: { p_agent_key: string; p_status?: Json; p_token: string }
         Returns: boolean
       }
+      winmotor_agent_status: { Args: { p_site_id: string }; Returns: Json }
       winmotor_enqueue_job: {
         Args: {
           p_command: string

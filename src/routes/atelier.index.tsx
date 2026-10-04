@@ -3,7 +3,7 @@ import { localDocText } from "@/lib/doc-text.browser";
 import { orScanNeedsRetry } from "@/lib/doc-rules";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search, History, Loader2 } from "lucide-react";
+import { Camera, ChevronRight, CircleDot, ClipboardCheck, Gauge, Search, History, Loader2, Server } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -278,6 +278,15 @@ function AtelierHub() {
             <ChevronRight className="h-5 w-5" />
           </Link>
         ) : null}
+
+        <Link to="/winmotor" className={cls}>
+          <Server className="h-6 w-6 shrink-0 text-brand" />
+          <div className="flex-1">
+            <div className="text-sm font-extrabold uppercase">WINmotor</div>
+            <div className="text-xs text-muted-foreground">Agent local : statut, lecture d'un OR, test de connexion</div>
+          </div>
+          <ChevronRight className="h-5 w-5" />
+        </Link>
 
         {(recent.data ?? []).length ? (
           <section className="space-y-2 pt-2">
