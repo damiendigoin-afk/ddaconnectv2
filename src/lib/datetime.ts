@@ -57,9 +57,10 @@ export function workshopLocalToIso(value: string | null | undefined): string | n
 }
 
 /** Timestamp → « JJ/MM/AAAA HH:mm » heure atelier ; date seule si minuit pile (restitution sans heure). */
+const parseTs = (ts: string) => new Date(ts.trim().replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00"));
 export function formatWorkshopDateTime(ts: string | null | undefined): string {
   if (!ts) return "—";
-  const d = new Date(ts);
+  const d = parseTs(ts);
   if (Number.isNaN(d.getTime())) return "—";
   const date = d.toLocaleDateString("fr-FR", { timeZone: WORKSHOP_TZ });
   const time = d.toLocaleTimeString("fr-FR", { timeZone: WORKSHOP_TZ, hour: "2-digit", minute: "2-digit" });
@@ -75,7 +76,7 @@ export function formatDateOnly(v: string | null | undefined): string {
 /** Timestamp UTC → valeur `datetime-local` en heure atelier. */
 export function isoToWorkshopLocal(ts: string | null | undefined): string {
   if (!ts) return "";
-  const d = new Date(ts);
+  const d = parseTs(ts);
   if (Number.isNaN(d.getTime())) return "";
   const l = new Date(d.getTime() + tzOffsetMinutes(d.getTime()) * 60000).toISOString();
   return l.slice(0, 16);
