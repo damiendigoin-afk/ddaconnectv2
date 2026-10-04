@@ -61,6 +61,8 @@ type OrderLike = {
   supplier_order_ref: string | null;
   /** Commandes simplifiées (front office) vs détaillées/importées. */
   order_mode?: string | null;
+  /** Repère OR/dossier saisi à la commande (sans OR DDA lié). */
+  requested_or_number?: string | null;
   comment?: string | null;
   created_by_name?: string | null;
   created_at?: string;
@@ -125,15 +127,16 @@ export function sameSupplier(doc: Pick<DocExtractLite, "supplier" | "supplier_id
 }
 
 /** Score explicable document ↔ commande : chaque indice ajoute des points et une raison lisible. */
-export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; refMatch: boolean; reasons: string[] } {
+export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; refMatch: boolean; orMatch: boolean; reasons: string[] } {
   // Filtre 1 bloquant : fournisseur identique, sinon aucun indice n'est compté.
-  if (!sameSupplier(doc, order)) return { score: 0, strong: 0, idMatch: false, refMatch: false, reasons: [] };
+  if (!sameSupplier(doc, order)) return { score: 0, strong: 0, idMatch: false, refMatch: false, orMatch: false, reasons: [] };
   let score = 2, strong = 0;
   let idMatch = false;
   const reasons: string[] = ["même fournisseur"];
   const orn = (doc.or_number ?? "").replace(/\D/g, "");
-  const oorn = (order.repair_orders?.or_number ?? "").replace(/\D/g, "");
-  if (orn && oorn && orn === oorn) { score += 5; strong += 5; reasons.push(`OR/repère ${oorn} exact`); }
+  const oorns = [order.repair_orders?.or_number, order.requested_or_number].map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean);
+  const orMatch = !!orn && oorns.includes(orn);
+  if (orMatch) { score += 5; strong += 5; reasons.push(`OR/repère ${orn} exact`); }
   if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) { score += 4; strong += 4; idMatch = true; reasons.push(`immat ${doc.plate} exacte`); }
   const oref = normalizeRef(order.supplier_order_ref ?? "");
   if (oref && docIdentifiers(doc).includes(oref)) { score += 6; strong += 6; idMatch = true; reasons.push(`n° commande ${order.supplier_order_ref}`); }
@@ -158,7 +161,7 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
     reasons.push(`réf ${l.reference} exacte${qtyOk ? ` + qté ${l.quantity}` : ""}${price}`);
   }
   // Une désignation proche seule ne compte jamais comme indice de rapprochement.
-  return { score, strong, idMatch, refMatch: common > 0, reasons };
+  return { score, strong, idMatch, refMatch: common > 0, orMatch, reasons };
 }
 
 /** Score de rapprochement document ↔ commande (0 = aucun indice). */
@@ -184,9 +187,18 @@ export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[
     .filter((m) => m.score > 0 && m.strong > 0 && (hasMark || m.refMatch || m.idMatch))
     // Références pièces lisibles mais aucune commune avec la commande : JAMAIS candidate.
     // Ni OR, ni immat, ni n° commande exact ne compense une référence différente.
-    .filter((m) => !hasReadableRefs || m.refMatch)
+    // Exception : commande SIMPLIFIÉE sans ligne (aucune réf à comparer) — fournisseur + OR/repère exact suffit.
+    .filter((m) => !hasReadableRefs || m.refMatch || (isBareSimplified(m.order) && m.orMatch))
     .sort((a, b) => b.score - a.score || recent(a.order, b.order))
-    .map(({ order, score, idMatch, reasons }) => ({ order, score, reasons, level: idMatch && score >= 4 ? ("certain" as const) : ("probable" as const) }));
+    .map(({ order, score, idMatch, orMatch, reasons }) => {
+      const simple = isBareSimplified(order) && orMatch;
+      return { order, score, reasons: simple ? [...reasons, "commande simplifiée (sans lignes)"] : reasons, level: (idMatch && score >= 4) || simple ? ("certain" as const) : ("probable" as const) };
+    });
+}
+
+/** Commande simplifiée (front office) sans aucune ligne article. */
+export function isBareSimplified(o: Pick<OrderLike, "order_mode" | "part_order_lines">): boolean {
+  return o.order_mode === "simplified" && !(o.part_order_lines ?? []).length;
 }
 
 /** « N° lus » affichables : jamais n° BL/commande/facture/document, OR, référence pièce ni fragment de ceux-ci. */
