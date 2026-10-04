@@ -10,7 +10,7 @@ describe("réception : repère libre et lignes BL", () => {
   it("BL 1 ligne + commande simplified 0 ligne => la ligne BL reste", () => {
     const r = linesAfterOrderPick([], bl, "unknown");
     expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ physical_reference: "7711640502", qty_received: 2, unit_cost: 98.5, destination: "unknown", order_line_id: null });
+    expect(r[0]).toMatchObject({ physical_reference: "7711640502", qty_expected: 2, qty_received: 0, unit_cost: 98.5, destination: "unknown", order_line_id: null });
   });
   it("simplified sans lignes et sans document => ligne vide", () => {
     const r = linesAfterOrderPick([], [], "stock");
