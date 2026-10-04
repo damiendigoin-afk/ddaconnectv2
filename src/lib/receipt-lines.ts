@@ -119,6 +119,7 @@ export type PendingOrderLine = {
   designation?: string | null;
   qty_ordered?: number | null;
   qty_received?: number | null;
+  qty_shipped?: number | null;
   expected_unit_cost_ht?: number | null;
   status?: string;
 };
@@ -130,24 +131,32 @@ export function pendingOrderLineMetrics(line: PendingOrderLine) {
   return { ordered, received, remaining: ordered == null ? null : Math.max(0, ordered - received) };
 }
 
-/** Toutes les lignes de pièces non soldées d'une commande, préremplies avec leur reliquat. */
-export function receiptLinesFromOrder(lines: PendingOrderLine[], destination: ReceiptLineInput["destination"]): ReceiptLineInput[] {
+/**
+ * Toutes les lignes de pièces non soldées d'une commande.
+ * prefill « auto » (réception physique sans document) : reliquat expédié à recevoir s'il existe, sinon reliquat commandé (flux historique).
+ * prefill « zero » (un BL/facture/avis d'expédition est présent) : « Reçue maintenant » = 0, jamais déduit du document.
+ */
+export function receiptLinesFromOrder(lines: PendingOrderLine[], destination: ReceiptLineInput["destination"], prefill: "auto" | "zero" = "auto"): ReceiptLineInput[] {
   return lines
-    .filter((line) => line.line_kind === "part" && line.status !== "received")
+    .filter((line) => line.line_kind === "part" && line.status !== "received" && line.status !== "cancelled")
     .map((line) => {
       const qty = pendingOrderLineMetrics(line);
       const remaining = qty.remaining ?? 1;
+      const shipped = Number(line.qty_shipped ?? 0);
+      const toReceive = Math.max(0, shipped - qty.received);
+      const now = prefill === "zero" ? 0 : toReceive > 0 ? toReceive : remaining;
       return {
         ...blankReceiptLine(),
         order_line_id: line.id ?? null,
         physical_reference: line.physical_reference ?? "",
         ordered_reference: line.physical_reference ?? null,
         designation: line.designation ?? "",
-        qty_expected: remaining,
+        qty_expected: toReceive > 0 ? toReceive : remaining,
         qty_ordered: qty.ordered,
+        qty_shipped: shipped,
         qty_already_received: qty.received,
-        qty_received: remaining,
-        allocate_qty: remaining,
+        qty_received: now,
+        allocate_qty: now,
         expected_cost: line.expected_unit_cost_ht ?? null,
         unit_cost: line.expected_unit_cost_ht ?? null,
         destination,
@@ -159,7 +168,7 @@ export function receiptLinesFromOrder(lines: PendingOrderLine[], destination: Re
 export function receiptLinesFromDoc(lines: DocLine[] | null | undefined): ReceiptLineInput[] {
   return (lines ?? [])
     .filter((l) => l.reference || l.label)
-    .map((l) => ({ ...blankReceiptLine(), physical_reference: l.reference ?? "", designation: l.label ?? "", qty_expected: l.quantity ?? null, qty_received: l.quantity ?? 1, allocate_qty: l.quantity ?? 1, unit_cost: l.unit_price ?? null }));
+    .map((l) => ({ ...blankReceiptLine(), physical_reference: l.reference ?? "", designation: l.label ?? "", qty_expected: l.quantity ?? null, qty_received: 0, allocate_qty: 0, unit_cost: l.unit_price ?? null }));
 }
 
 /** Anomalies affichées sur la ligne elle-même. */
@@ -167,7 +176,7 @@ export function lineAnomalies(l: ReceiptLineInput): string[] {
   const out: string[] = [];
   const n = (s: string) => s.replace(/\W/g, "").toUpperCase();
   if (l.ordered_reference && l.physical_reference && n(l.ordered_reference) !== n(l.physical_reference)) out.push(`Réf. commandée ${l.ordered_reference}`);
-  if (l.qty_expected != null && l.qty_received !== l.qty_expected) out.push(`Qté attendue ${l.qty_expected}`);
+  if (l.qty_expected != null && l.qty_received > 0 && l.qty_received !== l.qty_expected) out.push(`Qté attendue ${l.qty_expected}`);
   if (l.unit_cost != null && l.expected_cost != null && Math.abs(l.unit_cost - l.expected_cost) > 0.009) out.push(`PA attendu ${l.expected_cost}`);
   return out;
 }
@@ -255,8 +264,8 @@ export function defaultFreeReference(x: { customer_reference?: string | null } |
 }
 
 /** Lignes après choix d'une commande : lignes de commande si elle en a, sinon lignes du BL (jamais effacées), sinon ligne vide. */
-export function linesAfterOrderPick(orderLines: PendingOrderLine[], docLines: DocLine[] | null | undefined, destination: ReceiptLineInput["destination"]): ReceiptLineInput[] {
-  const fromOrder = receiptLinesFromOrder(orderLines, destination);
+export function linesAfterOrderPick(orderLines: PendingOrderLine[], docLines: DocLine[] | null | undefined, destination: ReceiptLineInput["destination"], withDoc = false): ReceiptLineInput[] {
+  const fromOrder = receiptLinesFromOrder(orderLines, destination, withDoc ? "zero" : "auto");
   if (orderLines.some((l) => l.line_kind === "part")) return fromOrder.length ? fromOrder : [{ ...blankReceiptLine(), destination }];
   const fromDoc = receiptLinesFromDoc(docLines).map((l) => ({ ...l, destination }));
   return fromDoc.length ? fromDoc : [{ ...blankReceiptLine(), destination }];

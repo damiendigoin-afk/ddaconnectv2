@@ -377,6 +377,8 @@ export type ReceiptLineInput = {
   /** Valeurs d'affichage conservées lors d'une réception depuis commande. */
   qty_ordered?: number | null;
   qty_already_received?: number;
+  /** Quantité expédiée par le fournisseur (affichage) — jamais du reçu. */
+  qty_shipped?: number;
   qty_received: number;
   condition: "usable" | "damaged_return" | "to_check";
   destination: "or" | "store_sale" | "stock" | "unknown";
