@@ -130,3 +130,8 @@ Reste à faire :
 - [ ] Ajouter progression, reprise, validation tactile des 4 roues et persistance
 - [ ] Appliquer les règles essieu/4 pneus et réutiliser le devis/PDF existant
 - [ ] Tests ciblés, suite complète et typecheck ; ne pas publier
+
+# Liste d approvisionnement multi-fournisseurs (04/10)
+- [x] Tables + RPC generate_procurement_orders (0048/0049)
+- [x] Lecture déterministe + IA de secours, écran dans Commander des pièces
+- [x] Tests parsing (ROADIA 9, Ixellio 5, Audi 12) + règles de génération
