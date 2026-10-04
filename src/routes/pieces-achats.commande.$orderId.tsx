@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { lineShipDisplay } from "@/lib/shipment-rules";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -71,7 +72,8 @@ function OrderDetail() {
                   <div className="text-xs text-muted-foreground">{l.designation} · {fmtEur(l.expected_unit_cost_ht)}</div>
                 </div>
                 <div className="text-right text-xs">
-                  <div>{l.qty_received}/{l.qty_ordered ?? "?"} reçue(s)</div>
+                  <div>{l.qty_received}/{l.qty_ordered ?? "?"} reçue(s){Number(l.qty_shipped ?? 0) > 0 ? ` · ${l.qty_shipped} expédiée(s)` : ""}</div>
+                  {l.line_kind === "part" && lineShipDisplay(l) === "shipped" ? <Badge tone="warn">Expédiée — réception physique à confirmer</Badge> : null}
                   {l.qty_ordered != null && l.qty_received < l.qty_ordered && l.line_kind === "part" ? <Badge tone="warn">Reliquat {l.qty_ordered - l.qty_received}</Badge> : null}
                 </div>
               </div>
