@@ -89,6 +89,8 @@ export type DocExtractLite = {
   delivery_note_number?: string | null;
   invoice_number?: string | null;
   lines?: { reference: string | null; quantity?: number | null; label?: string | null; unit_price?: number | null }[] | null;
+  /** OR ouverts du site rattachés au véhicule de l'immat lue (repair_orders ↔ vehicles) : signal immat pour une commande sans plaque. */
+  plate_or_numbers?: string[] | null;
 };
 
 const plateKey = (p: string | null | undefined) => (p ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
@@ -127,9 +129,9 @@ export function sameSupplier(doc: Pick<DocExtractLite, "supplier" | "supplier_id
 }
 
 /** Score explicable document ↔ commande : chaque indice ajoute des points et une raison lisible. */
-export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; refMatch: boolean; orMatch: boolean; reasons: string[] } {
+export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { score: number; strong: number; idMatch: boolean; refMatch: boolean; orMatch: boolean; plateMatch: boolean; reasons: string[] } {
   // Filtre 1 bloquant : fournisseur identique, sinon aucun indice n'est compté.
-  if (!sameSupplier(doc, order)) return { score: 0, strong: 0, idMatch: false, refMatch: false, orMatch: false, reasons: [] };
+  if (!sameSupplier(doc, order)) return { score: 0, strong: 0, idMatch: false, refMatch: false, orMatch: false, plateMatch: false, reasons: [] };
   let score = 2, strong = 0;
   let idMatch = false;
   const reasons: string[] = ["même fournisseur"];
@@ -137,7 +139,15 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
   const oorns = [order.repair_orders?.or_number, order.requested_or_number].map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean);
   const orMatch = !!orn && oorns.includes(orn);
   if (orMatch) { score += 5; strong += 5; reasons.push(`OR/repère ${orn} exact`); }
-  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) { score += 4; strong += 4; idMatch = true; reasons.push(`immat ${doc.plate} exacte`); }
+  let plateMatch = false;
+  if (plateKey(doc.plate) && plateKey(doc.plate) === plateKey(order.plate)) { score += 4; strong += 4; idMatch = true; plateMatch = true; reasons.push(`immat ${doc.plate} exacte`); }
+  else if (plateKey(doc.plate) && !plateKey(order.plate)) {
+    // Commande sans plaque : l'immat lue retrouve l'OR via le véhicule (repair_orders) => même signal fort.
+    const viaOr = (doc.plate_or_numbers ?? []).map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean);
+    const hit = oorns.find((n) => viaOr.includes(n));
+    if (hit) { score += 4; strong += 4; idMatch = true; plateMatch = true; reasons.push(`immat ${doc.plate} → OR ${hit}`); }
+  }
+  if (orMatch && plateMatch) reasons.push("OR + immat exacts");
   const oref = normalizeRef(order.supplier_order_ref ?? "");
   if (oref && docIdentifiers(doc).includes(oref)) { score += 6; strong += 6; idMatch = true; reasons.push(`n° commande ${order.supplier_order_ref}`); }
   else if (oref && doc.order_reference && normalizeRef(doc.order_reference) !== oref) reasons.push(`écart n° commande : BL ${doc.order_reference} / enregistrée ${order.supplier_order_ref}`);
@@ -161,7 +171,7 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
     reasons.push(`réf ${l.reference} exacte${qtyOk ? ` + qté ${l.quantity}` : ""}${price}`);
   }
   // Une désignation proche seule ne compte jamais comme indice de rapprochement.
-  return { score, strong, idMatch, refMatch: common > 0, orMatch, reasons };
+  return { score, strong, idMatch, refMatch: common > 0, orMatch, plateMatch, reasons };
 }
 
 /** Score de rapprochement document ↔ commande (0 = aucun indice). */
@@ -188,10 +198,11 @@ export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[
     // Références pièces lisibles mais aucune commune avec la commande : JAMAIS candidate.
     // Ni OR, ni immat, ni n° commande exact ne compense une référence différente.
     // Exception : commande SIMPLIFIÉE sans ligne (aucune réf à comparer) — fournisseur + OR/repère exact suffit.
-    .filter((m) => !hasReadableRefs || m.refMatch || (isBareSimplified(m.order) && m.orMatch))
+    // Exception : commande SIMPLIFIÉE sans ligne — fournisseur + OR/repère exact, ou immat exacte (directe ou via l'OR du véhicule), suffit.
+    .filter((m) => !hasReadableRefs || m.refMatch || (isBareSimplified(m.order) && (m.orMatch || m.plateMatch)))
     .sort((a, b) => b.score - a.score || recent(a.order, b.order))
-    .map(({ order, score, idMatch, orMatch, reasons }) => {
-      const simple = isBareSimplified(order) && orMatch;
+    .map(({ order, score, idMatch, orMatch, plateMatch, reasons }) => {
+      const simple = isBareSimplified(order) && (orMatch || plateMatch);
       return { order, score, reasons: simple ? [...reasons, "commande simplifiée (sans lignes)"] : reasons, level: (idMatch && score >= 4) || simple ? ("certain" as const) : ("probable" as const) };
     });
 }
