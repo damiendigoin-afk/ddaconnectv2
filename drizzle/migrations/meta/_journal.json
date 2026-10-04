@@ -295,6 +295,13 @@
       "when": 1791050843141,
       "tag": "0041_part_orders_drop_duplicate_block",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791110866407,
+      "tag": "0042_link_part_orders_to_winmotor_or",
+      "breakpoints": true
     }
   ]
 }

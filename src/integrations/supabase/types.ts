@@ -7990,6 +7990,131 @@ export type Database = {
           },
         ]
       }
+      winmotor_agent_jobs: {
+        Row: {
+          agent_id: string | null
+          attempts: number
+          claimed_at: string | null
+          command: string
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          max_attempts: number
+          payload: Json
+          priority: number
+          queued_at: string
+          requested_by: string | null
+          result: Json | null
+          site_id: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          attempts?: number
+          claimed_at?: string | null
+          command: string
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          queued_at?: string
+          requested_by?: string | null
+          result?: Json | null
+          site_id: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          attempts?: number
+          claimed_at?: string | null
+          command?: string
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          queued_at?: string
+          requested_by?: string | null
+          result?: Json | null
+          site_id?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_agent_jobs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "winmotor_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winmotor_agent_jobs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winmotor_agents: {
+        Row: {
+          agent_key: string
+          created_at: string
+          enabled: boolean
+          id: string
+          last_seen_at: string | null
+          last_status: Json
+          name: string
+          site_id: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          agent_key: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_seen_at?: string | null
+          last_status?: Json
+          name: string
+          site_id: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          agent_key?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_seen_at?: string | null
+          last_status?: Json
+          name?: string
+          site_id?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winmotor_agents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       winmotor_import_batches: {
         Row: {
           completed_at: string | null
@@ -8812,7 +8937,9 @@ export type Database = {
       next_dda_order_ref: { Args: never; Returns: string }
       next_part_return_ref: { Args: never; Returns: string }
       norm_contact: { Args: { _v: string }; Returns: string }
+      norm_or_number: { Args: { _v: string }; Returns: string }
       norm_person: { Args: { _v: string }; Returns: string }
+      norm_plate_key: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
       part_order_target: {
         Args: { _or: string; _plate: string; _ro: string }
@@ -8832,6 +8959,10 @@ export type Database = {
           inspections_deleted: number
           returns_deleted: number
         }[]
+      }
+      resolve_or_for_order: {
+        Args: { _or: string; _plate: string; _site: string }
+        Returns: string
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -8893,6 +9024,34 @@ export type Database = {
       user_can_access_site: {
         Args: { _site_id: string; _user_id: string }
         Returns: boolean
+      }
+      winmotor_agent_claim_next: {
+        Args: { p_agent_key: string; p_token: string }
+        Returns: Json
+      }
+      winmotor_agent_complete: {
+        Args: {
+          p_agent_key: string
+          p_error?: string
+          p_job_id: string
+          p_result?: Json
+          p_success: boolean
+          p_token: string
+        }
+        Returns: boolean
+      }
+      winmotor_agent_heartbeat: {
+        Args: { p_agent_key: string; p_status?: Json; p_token: string }
+        Returns: boolean
+      }
+      winmotor_enqueue_job: {
+        Args: {
+          p_command: string
+          p_payload?: Json
+          p_priority?: number
+          p_site_id: string
+        }
+        Returns: string
       }
       wm_can_import: { Args: { _site: string }; Returns: boolean }
       wm_find_or: { Args: { _num: string; _site: string }; Returns: string }

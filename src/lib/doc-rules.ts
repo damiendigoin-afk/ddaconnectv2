@@ -1084,6 +1084,33 @@ export function normalizeAddressLine(v: unknown): string {
   return String(v ?? "").trim().replace(/^(LE|LA|LES)(BOURG)$/i, "$1 $2").toUpperCase();
 }
 
+const MAIL_DOMAINS = ["gmail.com", "hotmail.com", "hotmail.fr", "outlook.com", "outlook.fr", "yahoo.fr", "yahoo.com", "orange.fr", "free.fr", "sfr.fr", "wanadoo.fr", "laposte.net", "icloud.com", "live.fr", "neuf.fr", "bbox.fr"];
+function editDistance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[]);
+  for (let j = 1; j <= b.length; j++) d[0]![j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length]![b.length]!;
+}
+/** E-mail probablement mal lu : domaine voisin d'un fournisseur connu (gmoail.com) ou partie locale proche — mais différente — du nom client. */
+export function emailLooksDegraded(email: string, nameTokens: string[] = []): boolean {
+  const [local = "", domain = ""] = email.toLowerCase().split("@");
+  if (domain && !MAIL_DOMAINS.includes(domain) && MAIL_DOMAINS.some((k) => editDistance(domain, k) <= 2)) return true;
+  const parts = local.split(/[^a-z]+/).filter((t) => t.length >= 4);
+  return parts.some((p) => nameTokens.some((n) => n.length >= 4 && p !== n && editDistance(p, n) === 1));
+}
+
+/** Zones libres OR : retire les lignes parasites (schéma carrosserie, débris OCR, mentions de prix WinMotor). */
+export function cleanOrFreeText(v: string): string {
+  const keep = v.split(/\n/).map((l) => l.replace(/\s+[^\sA-Za-z0-9À-ÿ]{1,2}$/, "").replace(/\s+\S$/, "").trim()).filter((l) => {
+    if (!l) return false;
+    if (/[[\]{}|]/.test(l)) return false;
+    if (/prix unitaire|remise accord|non remis/i.test(l)) return false;
+    const words = l.split(/\s+/).filter((w) => /^[A-Za-zÀ-ÿ'’-]{3,}$/.test(w));
+    return words.length >= 1 && l.replace(/[^A-Za-zÀ-ÿ0-9]/g, "").length >= 4;
+  });
+  return keep.join("\n").replace(/\bFUITEDE\b/g, "FUITE DE");
+}
+
 export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: string[] } {
   const rejected: string[] = [];
   const obj = (v: unknown): Fields => (v && typeof v === "object" && !Array.isArray(v) ? { ...(v as Fields) } : {});
@@ -1094,6 +1121,15 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
     client["first_name"] = null;
   }
   const suspect = new Set<string>(Array.isArray(f["_suspect"]) ? (f["_suspect"] as string[]) : []);
+  // Fin de nom/prénom collée à l'en-tête garage (« CECILE SAS CASTILLON ») : on coupe et on signale.
+  for (const k of ["first_name", "last_name"]) {
+    const v = typeof client[k] === "string" ? (client[k] as string) : "";
+    const m = /^(.*?\S)\s+(?:SAS|SARL|EURL|GARAGE|ETS)\b.*$/i.exec(v);
+    if (m && (isOrParasiteValue(v.slice(m[1]!.length)) || /castillon|digoin|veyssi/i.test(v.slice(m[1]!.length)))) {
+      client[k] = m[1]!.trim();
+      suspect.add("client.last_name"); suspect.add("client.first_name");
+    }
+  }
   const ln = typeof client["last_name"] === "string" ? client["last_name"].trim() : "";
   const fn = typeof client["first_name"] === "string" ? client["first_name"].trim() : "";
   const company = /^(SOCI|SARL|SAS|EURL|SA\b|GARAGE|ETS)/i.test(ln);
@@ -1123,6 +1159,10 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
   if (em) {
     const local = em.split("@")[0]!;
     if (!/[._-]/.test(local) && nm.some((a) => nm.some((b) => a !== b && local.includes(a + b)))) suspect.add("client.email");
+    if (emailLooksDegraded(em, nm)) suspect.add("client.email");
+  }
+  for (const k of ["client_remarks", "requested_work"]) {
+    if (typeof order[k] === "string") { const c = cleanOrFreeText(order[k] as string); if (c !== order[k]) order[k] = c; }
   }
   if (client["address"] != null && (isOrParasiteValue(client["address"]) || isGarageAddress(client["address"]))) {
     rejected.push("client.address");
@@ -1242,7 +1282,8 @@ export function repairOrderRules(raw: string): Fields {
       vin: lvin ?? findVin(text),
       brand: brand === "VW" ? "VOLKSWAGEN" : brand,
       model,
-      mileage: lmil ?? odometerRules(text)["mileage"],
+      // Kilométrage OR souvent manuscrit : seulement la valeur du libellé, jamais un nombre deviné ailleurs.
+      mileage: lmil,
       // « Date livraison » n'est pas la 1re mise en circulation.
       first_registration: L["firstreg"] ? isoDate(L["firstreg"]) : null,
       delivery_date: L["delivery"] ? isoDate(L["delivery"]) : null,
