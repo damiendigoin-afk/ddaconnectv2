@@ -245,6 +245,10 @@ Réponds STRICTEMENT en JSON :
 - or_number : numéro d'OR / dossier atelier (« Repère commande », « Votre référence », « Réf. client », « N° OR »), chiffres uniquement.
   Ne pas confondre avec « N° client » ni « Compte de facturation ». Si ce repère (« Mes références », « Véhicule »…) est une
   IMMATRICULATION (ex. HG 732 GH), la mettre dans plate avec plate_printed=true et laisser or_number à null.
+- Annotation « Commande *gp747ta // tclass // 50912 » : un segment en forme d'immatriculation (même compacte/minuscule) => plate « GP-747-TA » (plate_printed=true) ;
+  un segment de 5-6 chiffres => or_number ; le texte intermédiaire (modèle, « tclass ») n'est ni OR ni order_reference. « BL 432112 » et « Client 03337 » ne sont JAMAIS l'OR.
+- Colonnes « Brut / Remise % / Net » : unit_price = prix NET unitaire (ex. brut 101,67, remise 30,00 %, net 71,17 => 71.17) ; jamais le taux de remise ni un montant comme référence.
+  Référence espacée (« A 420 420 62 00 ») => recopiée sans espaces.
 - isolated_number : nombre imprimé SEUL, sans libellé, sur une ligne sous la désignation de l'article (souvent 5 chiffres = dossier atelier). null sinon.
 - lines : une entrée par article (« Réf », « Désignation », « Qté »). unit_price = prix d'achat NET unitaire HT ;
   client_price = « Prix client », « Prix public », prix catalogue (ne pas le mettre dans unit_price) ; amount = montant net HT de la ligne.
