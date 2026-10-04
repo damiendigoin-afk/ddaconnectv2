@@ -22,7 +22,7 @@ describe("réception : repère libre et lignes BL", () => {
     expect(linesAfterOrderPick(ol, bl, "or")).toEqual(receiptLinesFromOrder(ol, "or"));
   });
   it("enrichissement simplified : lignes à créer une seule fois, jamais sur detailed ou déjà liée", () => {
-    const lines = receiptLinesFromDoc(bl);
+    const lines = receiptLinesFromDoc(bl).map((l) => ({ ...l, qty_received: 2 }));
     expect(simplifiedEnrichment({ order_mode: "simplified", line_count: 0 }, lines)).toHaveLength(1);
     expect(simplifiedEnrichment({ order_mode: "simplified", line_count: 1 }, lines)).toHaveLength(0);
     expect(simplifiedEnrichment({ order_mode: "detailed", line_count: 0 }, lines)).toHaveLength(0);
