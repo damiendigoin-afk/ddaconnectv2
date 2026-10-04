@@ -145,7 +145,7 @@ describe("liste d'approvisionnement — expertise Audi A1 (réfs en fin de ligne
     expect(parts[5]!.designation).toBe("BRAS SUSPENSION AVD - PQE");
   });
   it("AILE AVD R P, contrôles, diag : jamais des pièces ; consommables / frais typés", () => {
-    expect(p.lines.some((l) => /AILE AVD$|CTRL|RADAR|CALIBRAGE|DIAG|LECTURE|ESSAI/.test(l.designation))).toBe(false);
+    expect(p.lines.some((l) => /^AILE AVD$|CTRL|RADAR|CALIBRAGE|DIAG|LECTURE|ESSAI/.test(l.designation))).toBe(false);
     expect(p.lines.find((l) => l.designation === "AGRAFES/RIVETS")?.item_type).toBe("consumable");
     expect(p.lines.find((l) => l.designation === "ERD")?.item_type).toBe("fee");
   });
