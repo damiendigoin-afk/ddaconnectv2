@@ -7,6 +7,8 @@ import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
+import { receiveAllShipped, recordShipment } from "@/lib/parts";
+import { hasPendingShipment, SHIPMENT_BANNER, shipmentQtyFromDoc, type ShipLine } from "@/lib/shipment-rules";
 import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { CancelAction } from "@/components/parts/CancelAction";
 import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
@@ -105,20 +107,43 @@ function ReceptionPage() {
 }
 
 function PendingOrderList({ onPick }: { onPick: (id: string) => void }) {
-  const { readSite, siteName } = usePartsCtx();
+  const { readSite, siteName, actor } = usePartsCtx();
+  const qc = useQueryClient();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  async function allArrived(id: string) {
+    if (busyId || !window.confirm("Tout le reliquat expédié est physiquement arrivé au garage ? Le stock sera mis à jour et les pièces affectées à l'OR si prévu.")) return;
+    setBusyId(id);
+    try {
+      const r = await receiveAllShipped(id, actor);
+      toast.success(r ? "Réception physique validée — stock mis à jour" : "Rien à réceptionner");
+      await qc.invalidateQueries();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Réception impossible");
+    } finally {
+      setBusyId(null);
+    }
+  }
   const q = useQuery({ queryKey: ["open-orders", readSite], queryFn: async () => pendingReceptionOrders(await listOrders({ siteId: readSite })) });
   return (
     <section className="space-y-2">
       <h2 className="text-xs font-bold uppercase text-muted-foreground">Commandes en attente de réception</h2>
       {q.data && !q.data.length ? <p className="card-surface p-3 text-sm text-muted-foreground">Aucune commande en attente sur ce site.</p> : null}
       {(q.data ?? []).map((o) => (
-        <button key={o.id} className="block w-full rounded-xl border-2 border-border bg-card p-3 text-left text-sm" onClick={() => onPick(o.id)}>
-          <div className="flex justify-between gap-2"><b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur à préciser"}</b>{o.status === "partial" ? <Badge tone="warn">Reliquat</Badge> : null}</div>
+        <div key={o.id} className="rounded-xl border-2 border-border bg-card p-3 text-left text-sm">
+          <button type="button" className="block w-full text-left" onClick={() => onPick(o.id)}>
+          <div className="flex justify-between gap-2"><b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur à préciser"}</b><span className="flex gap-1">{hasPendingShipment(o as never) ? <Badge tone="warn">Expédiée</Badge> : null}{o.status === "partial" ? <Badge tone="warn">Reliquat</Badge> : null}</span></div>
           <div className="text-xs text-muted-foreground">
             {siteName(o.site_id)} · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
           </div>
           <OrderLinesCompact lines={o.part_order_lines ?? []} order={o as never} />
-        </button>
+          </button>
+          {hasPendingShipment(o as never) ? (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <button type="button" className={btnPrimary} onClick={() => onPick(o.id)}>Confirmer la réception</button>
+              <button type="button" className={btnGhost} disabled={busyId === o.id} onClick={() => void allArrived(o.id)}>{busyId === o.id ? "Réception…" : "Tout est arrivé"}</button>
+            </div>
+          ) : null}
+        </div>
       ))}
     </section>
   );
@@ -188,7 +213,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
           <p className="text-xs text-muted-foreground">Sélectionnez ou créez la fiche fournisseur exacte (établissement) ci-dessus : aucun rapprochement n'est proposé tant que le fournisseur n'est pas certain.</p>
         </div>
       ) : showMulti && xm.supplier_id ? (
-        <MultiOrderReception doc={{ ...xm, supplier_id: xm.supplier_id }} docId={doc.id} blNumber={x.delivery_note_number ?? x.document_number ?? null} orders={(orders.data ?? []) as unknown as MoOrder[]} onDone={onCancel} />
+        <MultiOrderReception doc={{ ...xm, supplier_id: xm.supplier_id }} docId={doc.id} blNumber={x.delivery_note_number ?? x.document_number ?? null} shippedOn={x.document_date ?? null} orders={(orders.data ?? []) as unknown as MoOrder[]} onDone={onCancel} />
       ) : sugg.hasExact ? (
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase text-muted-foreground">Correspondance certaine</p>
@@ -327,6 +352,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const [supplierRef, setSupplierRef] = useState(x.order_reference && x.order_reference !== x.or_number ? x.order_reference : "");
   const [freeRef, setFreeRef] = useState(defaultFreeReference(x as { customer_reference?: string | null }));
   const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const [orderLinesRaw, setOrderLinesRaw] = useState<ShipLine[]>([]);
   const [lines, setLines] = useState<ReceiptLineInput[]>(() => {
     if (mode === "order") return [];
     const fromDoc = receiptLinesFromDoc(x.lines);
@@ -359,7 +385,9 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       setDossier(o.requested_or_number ?? "");
       setOrv({ or: o.repair_order_id ? { id: o.repair_order_id, or_number: (o.repair_orders as { or_number: string | null } | null)?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id, plate: o.plate } : null, plate: plateAfterOrderPick(orv.plate, x.plate, o.plate, false), vehicleId: o.vehicle_id });
       const dest = o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination;
-      setLines(linesAfterOrderPick(o.part_order_lines ?? [], x.lines, dest as ReceiptLineInput["destination"]));
+      setOrderLinesRaw((o.part_order_lines ?? []) as ShipLine[]);
+      // Document présent : il prouve l'expédition, pas l'arrivée => « Reçue maintenant » = 0.
+      setLines(linesAfterOrderPick(o.part_order_lines ?? [], x.lines, dest as ReceiptLineInput["destination"], !!doc));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
@@ -367,8 +395,30 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   const set = (i: number, p: Partial<ReceiptLineInput>) => { setChecked((c) => ({ ...c, [i]: false })); setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l))); };
   const reqOr = requestedDossier(orv.or, dossier);
 
+  const docNumber = x.delivery_note_number ?? x.invoice_number ?? x.document_number ?? null;
+  const shipPlan = doc && orderId ? shipmentQtyFromDoc(orderLinesRaw, x.lines) : [];
+  const shippedLeft = (l: ReceiptLineInput) => Math.max(0, (l.qty_shipped ?? 0) - (l.qty_already_received ?? 0));
+  const anyShippedLeft = lines.some((l) => shippedLeft(l) > 0);
+
+  async function ship() {
+    if (!orderId || !doc || busy) return;
+    if (!shipPlan.length) return void toast.error("Aucune ligne du document ne correspond aux lignes de la commande.");
+    setBusy(true);
+    try {
+      const r = await recordShipment({ order_id: orderId, source_document_id: doc.id, lines: shipPlan, shipped_on: x.document_date ?? null, document_number: docNumber }, actor);
+      toast.success(r.recorded ? "Expédition enregistrée — aucune réception ni mouvement de stock. Confirmez à l'arrivée physique." : "Expédition déjà enregistrée pour ce document");
+      qc.invalidateQueries();
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit() {
     if (!site) return void toast.error("Choisissez le site actif dans la barre du haut.");
+    if (!lines.some((l) => l.qty_received > 0)) return void toast.error(doc && orderId ? "Aucune quantité « Reçue maintenant ». Si les pièces ne sont pas encore arrivées, enregistrez l'expédition." : "Saisissez la quantité reçue maintenant.");
     const over = lines.filter((l) => isOverReceipt(l.qty_expected, l.qty_received));
     if (over.length && !window.confirm(`Sur-réception : ${over.map((l) => `${l.physical_reference} attendu ${l.qty_expected} / reçu ${l.qty_received}`).join(", ")}. Confirmer les quantités réellement reçues ?`)) return;
     setBusy(true);
@@ -435,6 +485,12 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
               {(docs.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.file_name} · {new Date(d.created_at).toLocaleDateString("fr-FR")}</option>)}
             </select>
           ) : null}
+          {doc && orderId ? (
+            <div className="rounded-lg border-2 border-status-warn p-2 text-xs">
+              <p className="font-extrabold">{SHIPMENT_BANNER}</p>
+              <p>Ce document prouve l'expédition{x.document_date ? ` du ${new Date(x.document_date).toLocaleDateString("fr-FR")}` : ""}, pas l'arrivée au garage. Enregistrez l'expédition maintenant ; la réception se confirme quand les pièces sont là.</p>
+            </div>
+          ) : null}
           {doc ? (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border-2 border-border bg-muted p-2 text-xs md:grid-cols-5">
               <p>Fournisseur<br /><b>{(suppliers.data ?? []).find((s) => s.id === (supplier || docSupplierId(x, suppliers.data ?? [])))?.name ?? x.supplier ?? "—"}</b></p>
@@ -464,8 +520,8 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
             <input className={inputCls} placeholder="Colis / cartons (facultatif)" value={packages} onChange={(e) => setPackages(e.target.value)} />
             <input className={inputCls} placeholder="Commentaire" aria-label="Commentaire" value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
-           <div className="hidden grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
-             <span>Référence</span><span>Désignation</span><span>Commandée</span><span>Déjà reçue</span><span>Reçue maintenant</span><span>PA HT</span><span>État</span><span>Destination</span><span>Ctrl</span>
+           <div className="hidden grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] gap-1 px-1 text-[10px] font-extrabold uppercase text-muted-foreground md:grid">
+             <span>Référence</span><span>Désignation</span><span>Commandée</span><span>Expédiée</span><span>Déjà reçue</span><span>Reçue maintenant</span><span>PA HT</span><span>État</span><span>Destination</span><span>Ctrl</span>
           </div>
           {lines.map((l, i) => {
             const anomalies = lineAnomalies(l);
@@ -473,10 +529,11 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
             const cell = "h-9 w-full rounded-md border-2 border-border bg-card px-2 text-xs";
             return (
               <div key={i} className={`rounded-lg border-2 p-2 md:p-1 ${ok ? "border-status-ok" : "border-border"}`}>
-                 <div className="grid grid-cols-2 gap-1 md:grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] md:items-center">
+                 <div className="grid grid-cols-2 gap-1 md:grid-cols-[1.05fr_1.65fr_0.5fr_0.5fr_0.5fr_0.55fr_0.65fr_0.8fr_0.9fr_auto] md:items-center">
                   <input className={cell} aria-label="Référence" placeholder="Référence" value={l.physical_reference} onChange={(e) => set(i, { physical_reference: e.target.value })} />
                   <input className={`${cell} col-span-2 md:col-span-1 order-first md:order-none`} aria-label="Désignation" placeholder="Désignation" value={l.designation} onChange={(e) => set(i, { designation: e.target.value })} />
                    <span className="flex h-9 items-center text-xs"><span className="text-muted-foreground md:hidden">Commandée :&nbsp;</span>{l.qty_ordered ?? l.qty_expected ?? "—"}</span>
+                   <span className="flex h-9 items-center text-xs"><span className="text-muted-foreground md:hidden">Expédiée :&nbsp;</span>{l.order_line_id ? (l.qty_shipped ?? 0) : "—"}</span>
                    <span className="flex h-9 items-center text-xs"><span className="text-muted-foreground md:hidden">Déjà reçue :&nbsp;</span>{l.qty_already_received ?? 0}</span>
                    <input className={cell} aria-label="Qté reçue maintenant" inputMode="decimal" value={l.qty_received} onChange={(e) => { const q = numOrNull(e.target.value) ?? 0; set(i, { qty_received: q, allocate_qty: q }); }} />
                   <input className={cell} aria-label="PA HT" placeholder="PA HT" inputMode="decimal" value={l.unit_cost ?? ""} onChange={(e) => set(i, { unit_cost: numOrNull(e.target.value) })} />
@@ -505,9 +562,15 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
             );
           })}
           <button type="button" className={btnGhost} onClick={() => setLines((ls) => [...ls, blank()])}>+ Pièce reçue</button>
+          {anyShippedLeft ? (
+            <button type="button" className={`${btnGhost} w-full`} onClick={() => setLines((ls) => ls.map((l) => { const q = shippedLeft(l); return q > 0 ? { ...l, qty_received: q, allocate_qty: q } : l; }))}>Tout est arrivé (reliquat expédié)</button>
+          ) : null}
+          {doc && orderId ? (
+            <button type="button" className={`${btnPrimary} w-full`} onClick={() => void ship()} disabled={busy}>Enregistrer l'expédition (sans réception)</button>
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             <button className={btnGhost} onClick={onDone}>Annuler</button>
-            <button className={btnPrimary} onClick={submit} disabled={busy}>Valider réception</button>
+            <button className={doc && orderId ? btnGhost : btnPrimary} onClick={submit} disabled={busy}>{doc && orderId ? "Valider la réception physique" : "Valider réception"}</button>
           </div>
         </>
       ) : null}

@@ -179,3 +179,10 @@ export function payloadsToCreate(payloads: MultiReceiptPayload[], existing: { or
   const done = new Set(existing.filter((e) => e.status !== "cancelled").map((e) => e.order_id ?? "none"));
   return payloads.filter((p) => !done.has(p.order_id ?? "none"));
 }
+
+/** Expédition par commande déduite du BL multi-commandes : quantité du document = expédiée, jamais reçue. */
+export function multiShipmentPayloads(plan: MultiDispatch): { order_id: string; lines: { order_line_id: string; qty: number }[] }[] {
+  return plan.groups
+    .map(({ order, lines }) => ({ order_id: order.id, lines: lines.filter((a) => a.orderLineId).map((a) => ({ order_line_id: a.orderLineId as string, qty: Number(a.line.quantity ?? 1) || 1 })) }))
+    .filter((p) => p.lines.length);
+}

@@ -377,6 +377,8 @@ export type ReceiptLineInput = {
   /** Valeurs d'affichage conservées lors d'une réception depuis commande. */
   qty_ordered?: number | null;
   qty_already_received?: number;
+  /** Quantité expédiée par le fournisseur (affichage) — jamais du reçu. */
+  qty_shipped?: number;
   qty_received: number;
   condition: "usable" | "damaged_return" | "to_check";
   destination: "or" | "store_sale" | "stock" | "unknown";
@@ -785,4 +787,36 @@ export async function shipSupplierReturnStock(returnId: string, actor: Actor): P
     moved++;
   }
   return { moved, regul };
+}
+
+// ---------- Expéditions fournisseur (≠ réception physique) ----------
+/** Enregistre l'expédition déclarée par un BL/facture/avis : qty_shipped seulement, aucun stock, aucune réception. Idempotent par document+ligne. */
+export async function recordShipment(
+  r: { order_id: string; source_document_id: string | null; lines: { order_line_id: string; qty: number }[]; shipped_on: string | null; document_number: string | null },
+  actor: Actor,
+): Promise<{ recorded: number; skipped: number }> {
+  const { data, error } = await supabase.rpc("record_part_shipment", {
+    _order: r.order_id, _doc: r.source_document_id as string, _lines: r.lines as never, _shipped_on: r.shipped_on as string, _document_number: r.document_number as string, _user_name: actor.name,
+  });
+  if (error) throw error;
+  if (r.source_document_id) await supabase.from("inbox_documents").update({ status: "valide" }).eq("id", r.source_document_id);
+  return data as { recorded: number; skipped: number };
+}
+
+/** « Tout est arrivé » : réception physique de tout le reliquat expédié de la commande (mouvements de stock + affectation OR). */
+export async function receiveAllShipped(orderId: string, actor: Actor): Promise<string | null> {
+  const { receiptLinesFromOrder } = await import("@/lib/receipt-lines");
+  const { shippedToReceive } = await import("@/lib/shipment-rules");
+  const o = await getOrder(orderId);
+  const toRecv = shippedToReceive((o.part_order_lines ?? []) as never[]);
+  if (!toRecv.length) return null;
+  const dest = (o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination) as ReceiptLineInput["destination"];
+  const lines = receiptLinesFromOrder(toRecv, dest, "auto");
+  const { data: sh } = await supabase.from("part_order_shipments").select("source_document_id").eq("order_id", orderId).not("source_document_id", "is", null).order("created_at", { ascending: false }).limit(1);
+  const docId = (sh?.[0]?.source_document_id as string | undefined) ?? o.source_document_id ?? null;
+  return validateReceipt({
+    site_id: o.site_id, supplier_id: o.supplier_id, order_id: orderId, repair_order_id: o.repair_order_id, vehicle_id: o.vehicle_id, plate: o.plate,
+    source_document_id: docId, receipt_type: docId ? "document" : "physical_without_document", packages: null, comment: "Arrivée physique confirmée (tout le reliquat expédié)",
+    lines,
+  }, actor);
 }

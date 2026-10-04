@@ -4328,6 +4328,7 @@ export type Database = {
           physical_reference: string | null
           qty_ordered: number | null
           qty_received: number
+          qty_shipped: number
           repair_order_id: string | null
           requested_or_number: string | null
           status: string
@@ -4343,6 +4344,7 @@ export type Database = {
           physical_reference?: string | null
           qty_ordered?: number | null
           qty_received?: number
+          qty_shipped?: number
           repair_order_id?: string | null
           requested_or_number?: string | null
           status?: string
@@ -4358,6 +4360,7 @@ export type Database = {
           physical_reference?: string | null
           qty_ordered?: number | null
           qty_received?: number
+          qty_shipped?: number
           repair_order_id?: string | null
           requested_or_number?: string | null
           status?: string
@@ -4376,6 +4379,70 @@ export type Database = {
             columns: ["repair_order_id"]
             isOneToOne: false
             referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      part_order_shipments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          document_number: string | null
+          id: string
+          order_id: string
+          order_line_id: string
+          qty: number
+          shipped_on: string | null
+          site_id: string
+          source_document_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          document_number?: string | null
+          id?: string
+          order_id: string
+          order_line_id: string
+          qty: number
+          shipped_on?: string | null
+          site_id: string
+          source_document_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          document_number?: string | null
+          id?: string
+          order_id?: string
+          order_line_id?: string
+          qty?: number
+          shipped_on?: string | null
+          site_id?: string
+          source_document_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_order_shipments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "part_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_order_shipments_order_line_id_fkey"
+            columns: ["order_line_id"]
+            isOneToOne: false
+            referencedRelation: "part_order_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_order_shipments_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -8959,6 +9026,17 @@ export type Database = {
           inspections_deleted: number
           returns_deleted: number
         }[]
+      }
+      record_part_shipment: {
+        Args: {
+          _doc: string
+          _document_number: string
+          _lines: Json
+          _order: string
+          _shipped_on: string
+          _user_name: string
+        }
+        Returns: Json
       }
       resolve_or_for_order: {
         Args: { _or: string; _plate: string; _site: string }
