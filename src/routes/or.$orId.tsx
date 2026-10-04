@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { formatDateOnly, formatWorkshopDateTime } from "@/lib/datetime";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ChevronDown, ClipboardList, ListChecks, Loader2, Pencil, Route as RouteIcon, Wrench } from "lucide-react";
@@ -109,7 +110,7 @@ function OrderPage() {
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
               <Info label="Kilométrage connu" value={v?.last_mileage ? `${v.last_mileage.toLocaleString("fr-FR")} km` : "—"} />
-              <Info label="Date d'ouverture" value={order.data?.or_date ? new Date(order.data.or_date).toLocaleDateString("fr-FR") : "—"} />
+              <Info label="Date d'ouverture" value={order.data?.or_date ? formatDateOnly(order.data.or_date) : "—"} />
               <Info label="N° OR WinMotor" value={order.data?.or_number ?? OR_PENDING_LABEL} />
               <Info label="Référence intervention DDA" value={order.data?.internal_ref ?? "—"} />
               <Info label="Client" value={[c?.["first_name"], c?.["last_name"]].filter(Boolean).join(" ") || "—"} />
@@ -133,8 +134,8 @@ function OrderPage() {
                 <Info label="Téléphone" value={c?.["phone"] ?? "—"} />
                 <Info label="Mobile" value={c?.["mobile"] ?? "—"} />
                 <Info label="Email" value={c?.["email"] ?? "—"} />
-                <Info label="Entrée" value={order.data?.entry_at ? new Date(order.data.entry_at).toLocaleString("fr-FR") : "—"} />
-                <Info label="Restitution" value={order.data?.delivery_at ? new Date(order.data.delivery_at).toLocaleString("fr-FR") : "—"} />
+                <Info label="Entrée" value={formatWorkshopDateTime(order.data?.entry_at)} />
+                <Info label="Restitution" value={formatWorkshopDateTime(order.data?.delivery_at)} />
               </div>
             ) : null}
           </section>

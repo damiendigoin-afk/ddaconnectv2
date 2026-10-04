@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { formatDateOnly } from "@/lib/datetime";
 import { useState } from "react";
 
 import { formatPlate } from "@/lib/plate";
@@ -81,7 +82,7 @@ export function OrCard({ o }: { o: Order }) {
             ) : (
               <div className="text-[10px] font-bold uppercase text-status-watch">{OR_PENDING_LABEL}</div>
             )}
-            <div>{o.or_date ? new Date(o.or_date).toLocaleDateString("fr-FR") : "—"}</div>
+            <div>{o.or_date ? formatDateOnly(o.or_date) : "—"}</div>
           </div>
 
         </div>

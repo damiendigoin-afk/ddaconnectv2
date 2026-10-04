@@ -9,7 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidEmail } from "@/lib/validation";
-import { isoDate, isoTimestamp } from "@/lib/datetime";
+import { isoDate, workshopLocalToIso } from "@/lib/datetime";
 import { normalizePlate } from "@/lib/plate";
 import { findDuplicateOrder } from "@/lib/queries";
 import { nextInternalRef } from "@/lib/or-ref";
@@ -330,8 +330,8 @@ function NewOrder() {
           or_date: isoDate(form.or_date),
           client_remarks: form.client_remarks || null,
           requested_work: form.requested_work || null,
-          entry_at: isoTimestamp(form.entry_at),
-          delivery_at: isoTimestamp(form.delivery_at),
+          entry_at: workshopLocalToIso(form.entry_at),
+          delivery_at: workshopLocalToIso(form.delivery_at),
           mileage_in: mileage,
         })
         .select()
