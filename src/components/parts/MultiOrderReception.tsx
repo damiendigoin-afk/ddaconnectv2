@@ -3,14 +3,15 @@ import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Badge, btnPrimary, inputCls, usePartsCtx } from "@/components/parts/PartsUi";
-import { validateMultiReceipt } from "@/lib/parts";
-import { dispatchDocLines, multiReceiptPayloads, PRICE_GAP_LABEL, type MoDoc, type MoOrder } from "@/lib/multi-order-reception";
+import { Badge, btnGhost, btnPrimary, inputCls, usePartsCtx } from "@/components/parts/PartsUi";
+import { recordShipment, validateMultiReceipt } from "@/lib/parts";
+import { SHIPMENT_BANNER } from "@/lib/shipment-rules";
+import { dispatchDocLines, multiReceiptPayloads, multiShipmentPayloads, PRICE_GAP_LABEL, type MoDoc, type MoOrder } from "@/lib/multi-order-reception";
 
 const eur = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
 
 /** BL regroupant plusieurs commandes : répartition ligne par ligne, confirmation puis réception en une action. */
-export function MultiOrderReception({ doc, docId, blNumber, orders, onDone }: { doc: MoDoc & { supplier_id: string }; docId: string; blNumber: string | null; orders: MoOrder[]; onDone: () => void }) {
+export function MultiOrderReception({ doc, docId, blNumber, shippedOn, orders, onDone }: { doc: MoDoc & { supplier_id: string }; docId: string; blNumber: string | null; shippedOn?: string | null; orders: MoOrder[]; onDone: () => void }) {
   const { writeSite, actor } = usePartsCtx();
   const qc = useQueryClient();
   const [choices, setChoices] = useState<Record<number, string | "none">>({});
@@ -27,7 +28,24 @@ export function MultiOrderReception({ doc, docId, blNumber, orders, onDone }: { 
   };
   const set = (i: number, v: string) => setChoices((c) => { const n = { ...c }; if (v) n[i] = v; else delete n[i]; return n; });
 
+  async function ship() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      let n = 0;
+      for (const p of multiShipmentPayloads(plan)) n += (await recordShipment({ order_id: p.order_id, source_document_id: docId, lines: p.lines, shipped_on: shippedOn ?? null, document_number: blNumber }, actor)).recorded;
+      toast.success(n ? `Expédition enregistrée sur ${n} ligne(s) — réception physique à confirmer à l'arrivée` : "Expédition déjà enregistrée");
+      await qc.invalidateQueries();
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Enregistrement impossible");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit() {
+    if (!window.confirm("Confirmer que ces pièces sont PHYSIQUEMENT arrivées au garage ? Le stock sera mis à jour.")) return;
     if (!writeSite || busy) return;
     setBusy(true);
     try {
@@ -54,6 +72,7 @@ export function MultiOrderReception({ doc, docId, blNumber, orders, onDone }: { 
   const toReceive = plan.groups.length + (plan.unmatched.some((a) => choices[a.index] === "none") ? 1 : 0);
   return (
     <div className="space-y-2 rounded-lg border-2 border-primary p-3" data-testid="multi-order">
+      <p className="rounded border-2 border-status-warn p-2 text-xs font-bold">{SHIPMENT_BANNER}</p>
       <p className="text-sm font-extrabold">Ce BL correspond à {plan.groups.length} commandes ouvertes</p>
       <p className="text-xs text-muted-foreground">Rapprochement ligne par ligne sur la référence exacte, parmi les commandes ouvertes de ce fournisseur. Le repère affiché vient de la commande DDA.</p>
       {plan.groups.map((g) => (
@@ -95,8 +114,12 @@ export function MultiOrderReception({ doc, docId, blNumber, orders, onDone }: { 
       ) : null}
       {plan.globalGap != null ? <p className="text-xs text-status-warn">{PRICE_GAP_LABEL} Écart global BL / commandes : {plan.globalGap > 0 ? "+" : ""}{eur(plan.globalGap)}</p> : null}
       {!plan.complete ? <p className="text-xs text-muted-foreground">Le document restera « à traiter » tant que toutes ses lignes ne sont pas affectées ou acceptées sans commande.</p> : null}
-      <button type="button" className={`${btnPrimary} w-full`} disabled={busy || !toReceive} onClick={() => void submit()}>
-        {busy ? "Réception…" : `Réceptionner ${toReceive > 1 ? `les ${toReceive} réceptions` : "la réception"} en une fois`}
+      <button type="button" className={`${btnPrimary} w-full`} disabled={busy || !plan.groups.length} onClick={() => void ship()}>
+        {busy ? "Enregistrement…" : "Enregistrer l'expédition (sans réception)"}
+      </button>
+      <p className="text-[11px] text-muted-foreground">Aucun mouvement de stock : les pièces passent « Expédiée » et la réception se confirme à l'arrivée physique.</p>
+      <button type="button" className={`${btnGhost} w-full`} disabled={busy || !toReceive} onClick={() => void submit()}>
+        {`Pièces déjà arrivées au garage : réceptionner ${toReceive > 1 ? `les ${toReceive} réceptions` : "la réception"}`}
       </button>
       <p className="text-[11px] text-muted-foreground">Une réception par commande, toutes rattachées au même BL. Un second clic ne crée pas de doublon.</p>
     </div>
