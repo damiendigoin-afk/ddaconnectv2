@@ -1111,8 +1111,8 @@ export function isOrFreeTextForeign(line: string, names: unknown[] = []): boolea
   const n = l.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (/renault|\bcare\b|^service$|longue vie|voitures? a vivre|conseill|accueilli|a renseigner|signature|mentions? l|conditions? g/.test(n)) return true;
   if (/^(m|mr|mme|mlle|mm|monsieur|madame|ste|societe)\.?\s+[a-z]/i.test(n)) return true;
-  if (/^\d{5}\s+[a-z]/i.test(n) || /@/.test(l) || /(?:\d[\s.]?){10}/.test(l)) return true;
-  if (looksLikeAddress(l) && !/\d+\s*(km|mm|x)\b/i.test(l)) return true;
+  if (/^\d{5}\s+[a-z]/i.test(n) || /@/.test(l) || /(?<!\d)(?:\+33|0)[1-9](?:[\s.-]?\d{2}){4}(?!\d)/.test(l)) return true;
+  if (/^\d+\s+(?:bis\s+|ter\s+)?(rue|route|rte|chemin|avenue|av|bd|boulevard|impasse|all[ée]e|place|lieu|lotissement|hameau|quai|cours|r[ée]sidence)\b/i.test(l) || /^(le|la|les)\s?bourg$/i.test(n)) return true;
   if (labelHits(l).length || /^(travaux|remarques?|immat|kilom|date|n[°o]\s*(or|client|compte)|v[ée]hicule|client)\b/i.test(n)) return true;
   // Fragment isolé trop court (« dant ») : bruit OCR, jamais un travail lisible.
   const words = l.split(/\s+/).filter((w) => /[A-Za-zÀ-ÿ]{2,}/.test(w));
