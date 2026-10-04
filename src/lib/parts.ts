@@ -612,7 +612,15 @@ export async function resumeWork(orId: string, siteId: string, actor: Actor) {
   if (error) throw new Error(error.message);
 }
 
+const orSyncOnce = new Map<string, Promise<void>>();
+/** Une seule réconciliation par OR et par chargement de page (les deux listes l'attendent). */
+const ensureOrSynced = (orId: string) => {
+  if (!orSyncOnce.has(orId)) orSyncOnce.set(orId, syncOrOrders(orId).catch(() => undefined));
+  return orSyncOnce.get(orId)!;
+};
+
 export async function listUsage(orId: string) {
+  await ensureOrSynced(orId);
   const { data } = await supabase.from("or_part_usage").select("*").eq("repair_order_id", orId).order("created_at");
   return data ?? [];
 }
@@ -686,6 +694,7 @@ export async function stopTime(sessionId: string, orId: string, siteId: string |
 }
 
 export async function orPartsOverview(orId: string) {
+  await ensureOrSynced(orId);
   const orders = await listOrders({ siteId: null, orId });
   const { data: rlines } = await supabase.from("part_receipt_lines").select("*, part_receipts!inner(received_at, site_id)").eq("repair_order_id", orId);
   return { orders, receiptLines: rlines ?? [] };
