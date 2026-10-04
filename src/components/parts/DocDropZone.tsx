@@ -13,11 +13,13 @@ export function DocDropZone({
   hint,
   busy,
   onFile,
+  pickLabel = "Choisir un fichier",
 }: {
   title: string;
   hint?: string;
   busy?: boolean;
   onFile: (file: File) => void | Promise<void>;
+  pickLabel?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -52,7 +54,7 @@ export function DocDropZone({
       <p className="text-xs text-muted-foreground">{hint ?? "Glissez-déposez ici un PDF, une photo ou une capture d'écran"}</p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button type="button" disabled={busy} onClick={() => pick(false)} className="flex h-11 items-center justify-center gap-2 rounded-lg border-2 border-border bg-background text-xs font-bold uppercase disabled:opacity-50">
-          <Paperclip className="h-4 w-4" /> Choisir un fichier
+          <Paperclip className="h-4 w-4" /> {pickLabel}
         </button>
         <button type="button" disabled={busy} onClick={() => pick(true)} className="flex h-11 items-center justify-center gap-2 rounded-lg border-2 border-border bg-background text-xs font-bold uppercase disabled:opacity-50">
           <Camera className="h-4 w-4" /> Photo

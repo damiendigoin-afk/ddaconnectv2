@@ -19,6 +19,8 @@ import { findExistingSupplierDocId, ORDER_DOC_TYPE, uploadSupplierDoc } from "@/
 import { linkDocToOrder } from "@/lib/order-docs";
 import { logOrderLineContract, orderFormInitialState } from "@/lib/receipt-lines";
 import { formatPlate } from "@/lib/plate";
+import { OpenProcurementLists, ProcurementListEditor } from "@/components/parts/ProcurementList";
+import { createProcurementList, readProcurementFile } from "@/lib/procurement";
 
 export const Route = createFileRoute("/pieces-achats/commandes")({
   head: () => ({
@@ -44,6 +46,27 @@ function OrdersPage() {
   const [doc, setDoc] = useState<ReadDoc | null>(null);
   const [manual, setManual] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { writeSite, actor } = usePartsCtx();
+  const [procId, setProcId] = useState<string | null>(null);
+  const [procBusy, setProcBusy] = useState(false);
+  const procLock = useRef(false);
+
+  async function onListFile(file: File) {
+    if (procLock.current) return;
+    if (!writeSite) return void toast.error("Choisissez un site précis avant d'importer une liste.");
+    procLock.current = true;
+    setProcBusy(true);
+    try {
+      const r = await readProcurementFile(file);
+      if (r.error) toast.warning(r.error);
+      setProcId(await createProcurementList({ siteId: writeSite, file, parsed: r.list, route: r.route }, actor));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import de la liste impossible.");
+    } finally {
+      procLock.current = false;
+      setProcBusy(false);
+    }
+  }
 
   async function onFile(file: File) {
     setBusy(true);
@@ -59,7 +82,9 @@ function OrdersPage() {
     <AppShell title="Commander des pièces" subtitle="Pièces & achats" back={{ to: "/pieces-achats" }}>
       <div className="space-y-3">
         <ActiveSiteNote />
-        {doc || manual ? (
+        {procId ? (
+          <ProcurementListEditor listId={procId} onClose={() => setProcId(null)} />
+        ) : doc || manual ? (
           <OrderForm
             key={doc?.file.name ?? "manual"}
             doc={doc}
@@ -69,10 +94,14 @@ function OrdersPage() {
           />
         ) : (
           <>
-            <DocDropZone title="Importer un bon de commande" hint="PDF, scan, photo ou capture d'écran du site fournisseur — glissez-déposez ici" busy={busy} onFile={onFile} />
+            <div className="grid gap-3 md:grid-cols-2">
+              <DocDropZone title="Importer un bon de commande" hint="PDF, scan, photo ou capture d'écran du site fournisseur — glissez-déposez ici" busy={busy} onFile={onFile} />
+              <DocDropZone title="Importer une liste de pièces" hint="Rapport d'expertise, devis Ixellio/ETAI, devis carrosserie — PDF, scan ou photo" busy={procBusy} onFile={onListFile} pickLabel="Importer un document" />
+            </div>
             <button type="button" className="w-full text-center text-sm font-bold underline" onClick={() => setManual(true)}>
               Pas de document ? Saisie manuelle rapide
             </button>
+            <OpenProcurementLists onOpen={setProcId} />
             <PendingOrders />
           </>
         )}

@@ -337,6 +337,20 @@
       "when": 1791120082020,
       "tag": "0047_sync_part_order_or",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791122624643,
+      "tag": "0048_procurement_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791122654865,
+      "tag": "0049_procurement_fix_event_cols",
+      "breakpoints": true
     }
   ]
 }
