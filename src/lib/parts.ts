@@ -262,7 +262,7 @@ export async function syncOrderOr(orderId: string, actor: Actor) {
 
 /** Rattrapage paresseux à l'ouverture de l'OR : commandes reliées seulement par le repère OR. Idempotent. */
 export async function syncOrOrders(orId: string, userName?: string | null) {
-  const { error } = await supabase.rpc("sync_or_part_orders", { _or: orId, _user_name: userName ?? null });
+  const { error } = await supabase.rpc("sync_or_part_orders", { _or: orId, ...(userName ? { _user_name: userName } : {}) });
   if (error) console.error("sync_or_part_orders", error);
 }
 
