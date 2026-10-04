@@ -182,6 +182,9 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
     const meta = o as unknown as { comment?: string | null; created_by_name?: string | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null; order_mode?: string | null };
     return (
       <div key={o.id} className="rounded-lg border-2 border-border p-2 text-left text-xs">
+        {tone && isBareSimplified(o as never) && (meta.requested_or_number || (o.repair_orders as { or_number: string | null } | null)?.or_number) ? (
+          <p className="mb-1 text-sm font-extrabold">Commande simplifiée trouvée — {(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"} · OR {meta.requested_or_number ?? (o.repair_orders as { or_number: string | null } | null)?.or_number} · commandée le {new Date(o.created_at).toLocaleDateString("fr-FR")}</p>
+        ) : null}
         {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Correspondance probable"}</Badge>{" "}</> : null}
         {meta.order_mode === "simplified" ? <><Badge tone="muted">Front office</Badge>{" "}</> : null}
         <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
