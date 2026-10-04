@@ -9108,6 +9108,14 @@ export type Database = {
         Args: { _name: string; _user_id: string }
         Returns: boolean
       }
+      sync_or_part_orders: {
+        Args: { _or: string; _user_name?: string }
+        Returns: Json
+      }
+      sync_part_order_or: {
+        Args: { _order: string; _user_name?: string }
+        Returns: Json
+      }
       unaccent: { Args: { "": string }; Returns: string }
       update_part_order: {
         Args: { _head: Json; _lines: Json; _order: string; _user_name: string }
