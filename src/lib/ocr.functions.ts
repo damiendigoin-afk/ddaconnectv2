@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { askVision, parseJsonBlock } from "./ocr.server";
+import { OR_SCAN_MODEL } from "./or-scan-model";
 import { learnSupplierProfile, readDocument } from "./doc-pipeline.server";
 import { plausibleMileage, type DocKind } from "./doc-rules";
 import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
@@ -23,8 +24,9 @@ async function viaPipeline(
   data: z.infer<typeof fileInput>,
   feature: string,
   visionExtra?: Record<string, unknown>,
+  model?: string,
 ) {
-  const r = await readDocument({ feature, kind, prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename, visionExtra });
+  const r = await readDocument({ feature, kind, prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename, visionExtra, model });
   const any = Object.values(r.fields).some((v) => v != null && v !== "" && !(Array.isArray(v) && !v.length) && !(typeof v === "object" && !Array.isArray(v) && !Object.keys(v as object).length));
   if (!any) {
     return { ok: false as const, error: "Lecture automatique sans résultat : complétez les informations manuellement.", route: r.route, content: "", missing: r.missing };
@@ -57,7 +59,7 @@ client.email : recopie visuellement l'adresse exacte, caractère par caractère,
 La raison sociale du garage (SAS CASTILLON VEYSSIERE, SAS DAMIEN DIGOIN AUTOMOBILE…) n'est JAMAIS une partie du nom ou du prénom du client. Nom composé tout en capitales (« Mme SALAZAR BLANCHEZ CECILE ») : le dernier mot est le prénom, les précédents le nom ; en cas de doute ajoute "client.last_name" dans uncertain.
 entry_at / delivery_at / or_date : recopie la date et l'heure telles qu'imprimées (heure locale française, sans conversion de fuseau) ; restitution sans heure = date seule.
 vehicle.mileage est souvent manuscrit : ne le renseigne que s'il est clairement lisible, sinon null et "vehicle.mileage" dans uncertain. Ignore le schéma de carrosserie et ses annotations.`;
-    const result = await viaPipeline("repair_order", prompt, data, "ocr_or");
+    const result = await viaPipeline("repair_order", prompt, data, "ocr_or", undefined, OR_SCAN_MODEL);
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible.", json: "" };
