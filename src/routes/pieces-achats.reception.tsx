@@ -8,7 +8,7 @@ import { DocDropZone } from "@/components/parts/DocDropZone";
 import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { receiveAllShipped, recordShipment } from "@/lib/parts";
-import { hasPendingShipment, SHIPMENT_BANNER, shipmentQtyFromDoc, type ShipLine } from "@/lib/shipment-rules";
+import { filterBySupplier, hasPendingShipment, SHIPMENT_BANNER, shipmentQtyFromDoc, supplierFilterOptions, type ShipLine } from "@/lib/shipment-rules";
 import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { CancelAction } from "@/components/parts/CancelAction";
 import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
