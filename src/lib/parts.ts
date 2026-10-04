@@ -801,6 +801,23 @@ export async function shipSupplierReturnStock(returnId: string, actor: Actor): P
 }
 
 // ---------- Expéditions fournisseur (≠ réception physique) ----------
+/**
+ * Commande SIMPLIFIÉE sans ligne rapprochée d'un BL : complète la commande avec les lignes du document
+ * (réf, désignation, qté, PA). Même commande (aucun doublon) ; no-op si la commande a déjà des lignes.
+ */
+export async function completeSimplifiedOrder(orderId: string, docLines: { reference?: string | null; label?: string | null; quantity?: number | null; unit_price?: number | null }[]) {
+  const { data: ord } = await supabase.from("part_orders").select("order_mode, part_order_lines(id)").eq("id", orderId).single();
+  if (!ord || ord.order_mode !== "simplified" || ((ord.part_order_lines as unknown[] | null)?.length ?? 0) > 0) return [];
+  const rows = docLines.filter((l) => (l.reference ?? "").trim() || (l.label ?? "").trim()).map((l) => ({
+    order_id: orderId, line_kind: "part", physical_reference: (l.reference ?? "").trim() || null, designation: (l.label ?? "").trim() || null,
+    qty_ordered: Number(l.quantity) > 0 ? Number(l.quantity) : 1, expected_unit_cost_ht: l.unit_price ?? null,
+  }));
+  if (!rows.length) return [];
+  const { data, error } = await supabase.from("part_order_lines").insert(rows).select("*");
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Enregistre l'expédition déclarée par un BL/facture/avis : qty_shipped seulement, aucun stock, aucune réception. Idempotent par document+ligne. */
 export async function recordShipment(
   r: { order_id: string; source_document_id: string | null; lines: { order_line_id: string; qty: number }[]; shipped_on: string | null; document_number: string | null },

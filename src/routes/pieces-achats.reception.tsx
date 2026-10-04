@@ -7,14 +7,14 @@ import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
-import { receiveAllShipped, recordShipment } from "@/lib/parts";
+import { completeSimplifiedOrder, receiveAllShipped, recordShipment } from "@/lib/parts";
 import { filterBySupplier, hasPendingShipment, SHIPMENT_BANNER, shipmentQtyFromDoc, supplierFilterOptions, type ShipLine } from "@/lib/shipment-rules";
 import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { CancelAction } from "@/components/parts/CancelAction";
 import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
 import { listReceiptDocs } from "@/lib/receipt-docs";
 import { receiptDocState } from "@/lib/receipt-docs-rules";
-import { guessDocumentSite, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
+import { guessDocumentSite, isBareSimplified, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
@@ -182,6 +182,9 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
     const meta = o as unknown as { comment?: string | null; created_by_name?: string | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null; order_mode?: string | null };
     return (
       <div key={o.id} className="rounded-lg border-2 border-border p-2 text-left text-xs">
+        {tone && isBareSimplified(o as never) && (meta.requested_or_number || (o.repair_orders as { or_number: string | null } | null)?.or_number) ? (
+          <p className="mb-1 text-sm font-extrabold">Commande simplifiée trouvée — {(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"} · OR {meta.requested_or_number ?? (o.repair_orders as { or_number: string | null } | null)?.or_number} · commandée le {new Date(o.created_at).toLocaleDateString("fr-FR")}</p>
+        ) : null}
         {tone ? <><Badge tone={tone}>{tone === "ok" ? "Certaine" : "Correspondance probable"}</Badge>{" "}</> : null}
         {meta.order_mode === "simplified" ? <><Badge tone="muted">Front office</Badge>{" "}</> : null}
         <b>{(o.suppliers as { name: string } | null)?.name ?? "Fournisseur ?"}</b> · {orderMarker(o as never)} · {new Date(o.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
@@ -411,10 +414,16 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
 
   async function ship() {
     if (!orderId || !doc || busy) return;
-    if (!shipPlan.length) return void toast.error("Aucune ligne du document ne correspond aux lignes de la commande.");
+    let plan = shipPlan;
+    if (!plan.length && !orderLinesRaw.length) {
+      // Commande simplifiée sans ligne : le BL la complète (réf/désignation/qté/PA), puis l'expédition est enregistrée.
+      const added = await completeSimplifiedOrder(orderId, x.lines ?? []).catch(() => []);
+      plan = shipmentQtyFromDoc(added as never, x.lines);
+    }
+    if (!plan.length) return void toast.error("Aucune ligne du document ne correspond aux lignes de la commande.");
     setBusy(true);
     try {
-      const r = await recordShipment({ order_id: orderId, source_document_id: doc.id, lines: shipPlan, shipped_on: x.document_date ?? null, document_number: docNumber }, actor);
+      const r = await recordShipment({ order_id: orderId, source_document_id: doc.id, lines: plan, shipped_on: x.document_date ?? null, document_number: docNumber }, actor);
       toast.success(r.recorded ? "Expédition enregistrée — aucune réception ni mouvement de stock. Confirmez à l'arrivée physique." : "Expédition déjà enregistrée pour ce document");
       qc.invalidateQueries();
       onDone();
