@@ -309,6 +309,13 @@
       "when": 1791111527245,
       "tag": "0043_revoke_resolve_or_for_order_execute",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791112268810,
+      "tag": "0044_tighten_rls_reference_tables",
+      "breakpoints": true
     }
   ]
 }
