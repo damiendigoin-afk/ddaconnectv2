@@ -25,14 +25,14 @@ export async function askVision(
   extra: Record<string, unknown> = {},
   essentialVision = false,
   /** Banc de test uniquement : nouvelle analyse sans cache + rapport des métriques. */
-  opts: { bypassCache?: boolean; onResult?: (r: PaidAiResult) => void } = {},
+  opts: { bypassCache?: boolean; onResult?: (r: PaidAiResult) => void; model?: string } = {},
 ) {
   const res = await runPaidAi({
     feature,
     essentialVision,
     route: "ai_vision_fallback",
     fingerprintSeed: `${prompt}\u0000${dataUrl}`,
-    model: VISION_MODEL,
+    model: opts.model ?? VISION_MODEL,
     body: { ...extra, messages: [{ role: "user", content: [{ type: "text", text: prompt }, blockFor(dataUrl, filename)] }] },
     ...(opts.bypassCache ? { bypassCache: true } : {}),
   });

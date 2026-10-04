@@ -17,6 +17,8 @@ export type ReadDocInput = {
   dataUrl?: string | null;
   filename?: string | undefined;
   visionExtra?: Record<string, unknown> | undefined;
+  /** Modèle IA dédié (repli texte + vision) ; défaut VISION_MODEL. */
+  model?: string | undefined;
   /** Banc de test : nouvelle analyse sans cache, métriques remontées (jamais utilisé par le métier). */
   bench?: { bypassCache: boolean; onAi: (route: "ai_text_fallback" | "ai_vision_fallback", r: PaidAiResult) => void };
 };
@@ -74,7 +76,7 @@ export async function readDocument(input: ReadDocInput): Promise<PipelineResult>
           feature: input.feature,
           route: "ai_text_fallback",
           fingerprintSeed: `${input.prompt}\u0000${text}`,
-          model: VISION_MODEL,
+          model: input.model ?? VISION_MODEL,
           ...(input.bench?.bypassCache ? { bypassCache: true } : {}),
           body: {
             messages: [
@@ -97,7 +99,7 @@ Champs manquants à trouver en priorité : ${missing.join(", ")}. N'invente rien
       },
       aiVision: async (_missing, essential) => {
         if (!input.dataUrl) return null;
-        const res = await askVision(input.prompt, input.dataUrl, input.filename, input.feature, input.visionExtra ?? {}, essential, input.bench ? { bypassCache: input.bench.bypassCache, onResult: (r) => input.bench!.onAi("ai_vision_fallback", r) } : {});
+        const res = await askVision(input.prompt, input.dataUrl, input.filename, input.feature, input.visionExtra ?? {}, essential, { ...(input.model ? { model: input.model } : {}), ...(input.bench ? { bypassCache: input.bench.bypassCache, onResult: (r: PaidAiResult) => input.bench!.onAi("ai_vision_fallback", r) } : {}) });
         return res.ok ? parseJsonBlock(res.content) : null;
       },
     },
