@@ -7,7 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { orderMarker } from "@/lib/receipt-lines";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
-import { receiveAllShipped, recordShipment } from "@/lib/parts";
+import { completeSimplifiedOrder, receiveAllShipped, recordShipment } from "@/lib/parts";
 import { filterBySupplier, hasPendingShipment, SHIPMENT_BANNER, shipmentQtyFromDoc, supplierFilterOptions, type ShipLine } from "@/lib/shipment-rules";
 import { cancelReceipt, cancelReceiptIncident, findOrByNumber, getOrder, listOrders, listReceipts, listSupplierDocs, openRegularization, validateReceipt, type OrLite, type ReceiptLineInput } from "@/lib/parts";
 import { CancelAction } from "@/components/parts/CancelAction";
@@ -414,10 +414,16 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
 
   async function ship() {
     if (!orderId || !doc || busy) return;
-    if (!shipPlan.length) return void toast.error("Aucune ligne du document ne correspond aux lignes de la commande.");
+    let plan = shipPlan;
+    if (!plan.length && !orderLinesRaw.length) {
+      // Commande simplifiée sans ligne : le BL la complète (réf/désignation/qté/PA), puis l'expédition est enregistrée.
+      const added = await completeSimplifiedOrder(orderId, x.lines ?? []).catch(() => []);
+      plan = shipmentQtyFromDoc(added as never, x.lines);
+    }
+    if (!plan.length) return void toast.error("Aucune ligne du document ne correspond aux lignes de la commande.");
     setBusy(true);
     try {
-      const r = await recordShipment({ order_id: orderId, source_document_id: doc.id, lines: shipPlan, shipped_on: x.document_date ?? null, document_number: docNumber }, actor);
+      const r = await recordShipment({ order_id: orderId, source_document_id: doc.id, lines: plan, shipped_on: x.document_date ?? null, document_number: docNumber }, actor);
       toast.success(r.recorded ? "Expédition enregistrée — aucune réception ni mouvement de stock. Confirmez à l'arrivée physique." : "Expédition déjà enregistrée pour ce document");
       qc.invalidateQueries();
       onDone();
