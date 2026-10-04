@@ -924,9 +924,11 @@ function blockAfter(lines: string[], label: RegExp, max = 8): string | null {
   const i = lines.findIndex((l) => label.test(l));
   if (i < 0) return null;
   const inline = lines[i]!.replace(label, "").replace(/^\s*[:\-]\s*/, "").trim();
-  const out: string[] = inline ? [inline] : [];
+  const out: string[] = inline && !isOrFreeTextForeign(inline) ? [inline] : [];
   for (const l of lines.slice(i + 1, i + 1 + max)) {
     if (/^(total|montant|signature|date|client|v[ée]hicule|kilom|immat|conseiller|r[ée]ception)/i.test(l) || /:\s*$/.test(l)) break;
+    // Zonage strict : la première ligne étrangère (branding, bloc client, autre libellé) ferme la zone.
+    if (isOrFreeTextForeign(l)) break;
     out.push(l);
   }
   return out.length ? out.join("\n") : null;
@@ -1100,16 +1102,38 @@ export function emailLooksDegraded(email: string, nameTokens: string[] = []): bo
 }
 
 /** Zones libres OR : retire les lignes parasites (schéma carrosserie, débris OCR, mentions de prix WinMotor). */
-export function cleanOrFreeText(v: string): string {
+/**
+ * Ligne manifestement étrangère à une zone libre d'OR (travaux / remarques) :
+ * branding Renault, bloc conseiller, bloc client (civilité, adresse, CP ville, tél., e-mail), libellés imprimés.
+ */
+export function isOrFreeTextForeign(line: string, names: unknown[] = []): boolean {
+  const l = line.trim();
+  const n = l.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/renault|\bcare\b|^service$|longue vie|voitures? a vivre|conseill|accueilli|a renseigner|signature|mentions? l|conditions? g/.test(n)) return true;
+  if (/^(m|mr|mme|mlle|mm|monsieur|madame|ste|societe)\.?\s+[a-z]/i.test(n)) return true;
+  if (/^\d{5}\s+[a-z]/i.test(n) || /@/.test(l) || /(?:\d[\s.]?){10}/.test(l)) return true;
+  if (looksLikeAddress(l) && !/\d+\s*(km|mm|x)\b/i.test(l)) return true;
+  if (labelHits(l).length || /^(travaux|remarques?|immat|kilom|date|n[°o]\s*(or|client|compte)|v[ée]hicule|client)\b/i.test(n)) return true;
+  // Fragment isolé trop court (« dant ») : bruit OCR, jamais un travail lisible.
+  const words = l.split(/\s+/).filter((w) => /[A-Za-zÀ-ÿ]{2,}/.test(w));
+  if (words.length === 1 && l.replace(/[^A-Za-zÀ-ÿ]/g, "").length <= 5) return true;
+  const toks = names.map((v) => String(v ?? "").toLowerCase().normalize("NFD").replace(/[^a-z]/g, "")).filter((t) => t.length >= 3);
+  if (toks.length && toks.some((t) => n.replace(/[^a-z]/g, "").includes(t))) return true;
+  return false;
+}
+
+export function cleanOrFreeText(v: string, names: unknown[] = []): string {
   const keep = v.split(/\n/).map((l) => l.replace(/\s+[^\sA-Za-z0-9À-ÿ]{1,2}$/, "").replace(/\s+\S$/, "").trim()).filter((l) => {
     if (!l) return false;
     if (/[[\]{}|]/.test(l)) return false;
     if (/prix unitaire|remise accord|non remis/i.test(l)) return false;
+    if (isOrFreeTextForeign(l, names)) return false;
     const words = l.split(/\s+/).filter((w) => /^[A-Za-zÀ-ÿ'’-]{3,}$/.test(w));
     return words.length >= 1 && l.replace(/[^A-Za-zÀ-ÿ0-9]/g, "").length >= 4;
   });
   return keep.join("\n").replace(/\bFUITEDE\b/g, "FUITE DE");
 }
+
 
 export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: string[] } {
   const rejected: string[] = [];
@@ -1161,8 +1185,9 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
     if (!/[._-]/.test(local) && nm.some((a) => nm.some((b) => a !== b && local.includes(a + b)))) suspect.add("client.email");
     if (emailLooksDegraded(em, nm)) suspect.add("client.email");
   }
+  const names = [client["last_name"], client["first_name"]];
   for (const k of ["client_remarks", "requested_work"]) {
-    if (typeof order[k] === "string") { const c = cleanOrFreeText(order[k] as string); if (c !== order[k]) order[k] = c; }
+    if (typeof order[k] === "string") { const c = cleanOrFreeText(order[k] as string, names); order[k] = c || null; }
   }
   if (client["address"] != null && (isOrParasiteValue(client["address"]) || isGarageAddress(client["address"]))) {
     rejected.push("client.address");
