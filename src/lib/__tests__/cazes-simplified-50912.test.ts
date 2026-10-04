@@ -19,10 +19,10 @@ const doc = { supplier: "CAZES", supplier_id: CAZES.id, or_number: "50912", line
 describe("BL CAZES 432112 — commande simplifiée OR 50912", () => {
   it("extrait 50912 comme repère OR, jamais le BL 432112 ni le client 03337", () => {
     const r = purchaseRules(BL);
-    expect(r.or_number).toBe("50912");
-    expect(r.or_numbers).not.toContain("432112");
-    expect(r.or_numbers).not.toContain("03337");
-    expect(r.order_reference).toBeNull();
+    expect(r["or_number"]).toBe("50912");
+    expect(r["or_numbers"]).not.toContain("432112");
+    expect(r["or_numbers"]).not.toContain("03337");
+    expect(r["order_reference"]).toBeNull();
   });
   it("fournisseur + OR suffit pour une commande simplifiée sans ligne : certaine", () => {
     const s = receptionSuggestions(doc, [simple("o1", "50912")], "cas");
