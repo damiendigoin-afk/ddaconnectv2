@@ -1161,9 +1161,6 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
     if (!/[._-]/.test(local) && nm.some((a) => nm.some((b) => a !== b && local.includes(a + b)))) suspect.add("client.email");
     if (emailLooksDegraded(em, nm)) suspect.add("client.email");
   }
-  // Nom tout en capitales sur 3 mots ou plus (« SALAZAR BLANCHEZ CECILE ») : découpage nom/prénom ambigu.
-  const caps = `${String(client["last_name"] ?? "")} ${String(client["first_name"] ?? "")}`.trim();
-  if (caps.split(/\s+/).length >= 3 && caps === caps.toUpperCase()) { suspect.add("client.last_name"); suspect.add("client.first_name"); }
   for (const k of ["client_remarks", "requested_work"]) {
     if (typeof order[k] === "string") { const c = cleanOrFreeText(order[k] as string); if (c !== order[k]) order[k] = c; }
   }
