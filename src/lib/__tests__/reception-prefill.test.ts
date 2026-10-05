@@ -40,7 +40,7 @@ describe("réception préremplie", () => {
     expect(receiptPrefillQty(l({ qty_received: 3, status: "partial" }))).toBe(1);
   });
   it("9) commande issue d'une liste d'approvisionnement : PA vide, quantité préremplie", () => {
-    const ol = orderLineFromProcurement({ reference: "8200670290", designation: "SUPPORT", quantity: 2, source_price_ht: 54.01 } as never);
+    const ol = orderLineFromProcurement({ reference: "8200670290", designation: "SUPPORT", quantity: 2, source_price_ht: 54.01, item_type: "part" });
     expect(ol.expected_unit_cost_ht).toBeNull();
     const [x] = receiptLinesFromOrder([{ id: "p1", line_kind: "part", physical_reference: ol.physical_reference, designation: ol.designation, qty_ordered: ol.qty_ordered, qty_received: 0, status: "ordered" }], "or");
     expect(x!.qty_received).toBe(2);
