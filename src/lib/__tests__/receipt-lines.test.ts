@@ -29,8 +29,8 @@ describe("lignes BL", () => {
       { reference: "7701", label: "Clip", quantity: 4, unit_price: 0.5 },
     ]);
     expect(ls).toHaveLength(2);
-    expect(ls[0]).toMatchObject({ physical_reference: "8100166273", designation: "Phare avant", qty_expected: 1, qty_received: 0, unit_cost: 357.21 });
-    expect(ls[1]).toMatchObject({ physical_reference: "7701", qty_expected: 4, qty_received: 0, unit_cost: 0.5 });
+    expect(ls[0]).toMatchObject({ physical_reference: "8100166273", designation: "Phare avant", qty_expected: 1, qty_received: 1, unit_cost: 357.21 });
+    expect(ls[1]).toMatchObject({ physical_reference: "7701", qty_expected: 4, qty_received: 4, unit_cost: 0.5 });
   });
   it("anomalies affichées sur la ligne", () => {
     const [l] = receiptLinesFromDoc([{ reference: "A", label: "x", quantity: 2, unit_price: 10 }]);
