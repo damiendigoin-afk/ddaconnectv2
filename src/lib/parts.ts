@@ -862,7 +862,7 @@ export async function receiveAllShipped(orderId: string, actor: Actor): Promise<
   const toRecv = shippedToReceive((o.part_order_lines ?? []) as never[]);
   if (!toRecv.length) return null;
   const dest = (o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination) as ReceiptLineInput["destination"];
-  const lines = receiptLinesFromOrder(toRecv, dest, "auto");
+  const lines = receiptLinesFromOrder(toRecv, dest);
   const { data: sh } = await supabase.from("part_order_shipments").select("source_document_id").eq("order_id", orderId).not("source_document_id", "is", null).order("created_at", { ascending: false }).limit(1);
   const docId = (sh?.[0]?.source_document_id as string | undefined) ?? o.source_document_id ?? null;
   return validateReceipt({
