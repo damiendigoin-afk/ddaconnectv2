@@ -9,13 +9,13 @@ const line = { id: "ol1", line_kind: "part", physical_reference: "2152010", desi
 const bl = [{ reference: "2152010", label: "Pièce", quantity: 1, unit_price: 33.74 }];
 
 describe("expédition fournisseur ≠ réception physique", () => {
-  it("BL rapproché : Reçue maintenant = 0 (jamais la quantité expédiée)", () => {
+  it("BL rapproché : quantité du BL préremplie (rien n'est enregistré avant Réceptionner)", () => {
     const [l] = linesAfterOrderPick([line], bl, "or", true);
-    expect(l).toMatchObject({ qty_ordered: 1, qty_already_received: 0, qty_received: 0, allocate_qty: 0 });
+    expect(l).toMatchObject({ qty_ordered: 1, qty_already_received: 0, qty_received: 1, allocate_qty: 1 });
   });
-  it("BL sans commande : quantité du document conservée comme attendue, reçue = 0", () => {
+  it("BL sans commande : quantité du document préremplie", () => {
     const [l] = receiptLinesFromDoc(bl);
-    expect(l).toMatchObject({ qty_expected: 1, qty_received: 0 });
+    expect(l).toMatchObject({ qty_expected: 1, qty_received: 1 });
     expect(lineAnomalies(l!)).toEqual([]);
   });
   it("le document donne la quantité expédiée par ligne de commande", () => {
