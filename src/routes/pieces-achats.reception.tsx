@@ -413,7 +413,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
       setOrv({ or: o.repair_order_id ? { id: o.repair_order_id, or_number: (o.repair_orders as { or_number: string | null } | null)?.or_number ?? null, site_id: o.site_id, vehicle_id: o.vehicle_id, plate: o.plate } : null, plate: plateAfterOrderPick(orv.plate, x.plate, o.plate, false), vehicleId: o.vehicle_id });
       const dest = o.destination === "or" ? (o.repair_order_id ? "or" : "unknown") : o.destination;
       setOrderLinesRaw((o.part_order_lines ?? []) as ShipLine[]);
-      // Document présent : il prouve l'expédition, pas l'arrivée => « Reçue maintenant » = 0.
+      // Prérempli = quantité attendue dans ce colis (document rapproché sinon reliquat) ; rien n'est enregistré avant « Réceptionner ».
       setLines(linesAfterOrderPick(o.part_order_lines ?? [], x.lines, dest as ReceiptLineInput["destination"], !!doc));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -450,6 +450,7 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
   }
 
   async function submit() {
+    if (busy) return;
     if (!site) return void toast.error("Choisissez le site actif dans la barre du haut.");
     if (!lines.some((l) => l.qty_received > 0)) return void toast.error(doc && orderId ? "Aucune quantité « Reçue maintenant ». Si les pièces ne sont pas encore arrivées, enregistrez l'expédition." : "Saisissez la quantité reçue maintenant.");
     const over = lines.filter((l) => isOverReceipt(l.qty_expected, l.qty_received));
@@ -599,11 +600,11 @@ function ReceiptForm({ mode, initialOrder, doc, onDone }: { mode: "order" | "phy
             <button type="button" className={`${btnGhost} w-full`} onClick={() => setLines((ls) => ls.map((l) => { const q = shippedLeft(l); return q > 0 ? { ...l, qty_received: q, allocate_qty: q } : l; }))}>Tout est arrivé (reliquat expédié)</button>
           ) : null}
           {doc && orderId ? (
-            <button type="button" className={`${btnPrimary} w-full`} onClick={() => void ship()} disabled={busy}>Enregistrer l'expédition (sans réception)</button>
+            <button type="button" className={`${btnGhost} w-full`} onClick={() => void ship()} disabled={busy}>Pièces pas encore arrivées : enregistrer l'expédition (sans réception)</button>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
             <button className={btnGhost} onClick={onDone}>Annuler</button>
-            <button className={doc && orderId ? btnGhost : btnPrimary} onClick={submit} disabled={busy}>{doc && orderId ? "Valider la réception physique" : "Valider réception"}</button>
+            <button className={btnPrimary} onClick={submit} disabled={busy}>{busy ? "Réception…" : "Réceptionner"}</button>
           </div>
         </>
       ) : null}
