@@ -220,11 +220,11 @@ export function parseItemLines(text: string): Line[] {
 export function parseDiscountLines(text: string): Line[] {
   const out: Line[] = [];
   const num = String.raw`\d{1,6}(?:[ .]\d{3})*[.,]\d{2}`;
-  const re = new RegExp(String.raw`^\s*([A-Z]?\s?\d[\dA-Z]*(?:[ .\-]?[\dA-Z]+){0,5}?)\s+([A-Za-zÀ-ÿ][^\n]*?[A-Za-zÀ-ÿ.)])\s+(\d{1,3})\s+(${num})\s+(\d{1,2}(?:[.,]\d{1,2})?)\s*%?\s+(${num})(?:\s+(${num}))?\s*(?:€|EUR)?\s*$`, "i");
+  const re = new RegExp(String.raw`^\s*([A-Z]?\s?\d[\dA-Z]*(?:[ .\-]?[\dA-Z]+){0,5}?)\s+([A-Za-zÀ-ÿ][^\n]*?[A-Za-zÀ-ÿ.)])\s+(\d{1,3}(?:[.,]0{1,3})?)\s+(${num})\s+(\d{1,2}(?:[.,]\d{1,2})?)\s*%?\s+(${num})(?:\s+(${num}))?\s*(?:€|EUR)?\s*$`, "i");
   for (const raw of cleanText(text).split("\n")) {
     const m = re.exec(raw.replace(/[|\t]+/g, " ").replace(/\s{2,}/g, " "));
     if (!m) continue;
-    const qty = Number(m[3]), gross = money(m[4]), pct = Number(m[5]!.replace(",", ".")), net = money(m[6]);
+    const qty = Number(m[3]!.replace(",", ".")), gross = money(m[4]), pct = Number(m[5]!.replace(",", ".")), net = money(m[6]);
     if (!qty || gross == null || net == null || !(pct > 0 && pct < 90)) continue;
     if (Math.abs(gross * (1 - pct / 100) - net) > 0.02) continue;
     const reference = m[1]!.replace(/[\s.\-]/g, "").toUpperCase();
@@ -246,7 +246,10 @@ export function purchaseSuspects(text: string, f: { lines: Line[]; plate: string
   const pcts = new Set([...t.matchAll(/(\d{1,2})[.,]00\s*%?/g)].map((m) => Number(m[1])));
   const bad = f.lines.some((l) => (l.reference && /^\d{3,6}$/.test(l.reference) && moneyDigits.has(l.reference))
     || (l.unit_price != null && /remise|%/i.test(t) && pcts.has(l.unit_price) && Number.isInteger(l.unit_price)));
-  if (bad) out.push("lines");
+  // Ligne brut/remise/net cohérente lisible dans le texte : un PU différent du NET (brut, remise…) est décalé.
+  const nets = new Map(parseDiscountLines(text).map((l) => [l.reference, l.unit_price] as const));
+  const shifted = f.lines.some((l) => l.reference && nets.has(l.reference) && nets.get(l.reference) !== l.unit_price);
+  if (bad || shifted) out.push("lines");
   if (!f.plate && !f.or_number && /commande[^\n]*\/\//i.test(t)) out.push("or_number");
   return out;
 }
