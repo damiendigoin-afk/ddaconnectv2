@@ -247,6 +247,7 @@ Réponds STRICTEMENT en JSON :
   IMMATRICULATION (ex. HG 732 GH), la mettre dans plate avec plate_printed=true et laisser or_number à null.
 - Annotation « Commande *gp747ta // tclass // 50912 » : un segment en forme d'immatriculation (même compacte/minuscule) => plate « GP-747-TA » (plate_printed=true) ;
   un segment de 5-6 chiffres => or_number ; le texte intermédiaire (modèle, « tclass ») n'est ni OR ni order_reference. « BL 432112 » et « Client 03337 » ne sont JAMAIS l'OR.
+  Sans segment numérique (ex. « Commande *dg893tk // berlingo ») : or_number = null, n'invente jamais d'OR. Ligne « Réf Désignation Qté Brut Remise% Net » : unit_price = NET (ex. 746,96 −23 % => 575,16), jamais le brut ni la remise.
 - Colonnes « Brut / Remise % / Net » : unit_price = prix NET unitaire (ex. brut 101,67, remise 30,00 %, net 71,17 => 71.17) ; jamais le taux de remise ni un montant comme référence.
   Référence espacée (« A 420 420 62 00 ») => recopiée sans espaces.
 - isolated_number : nombre imprimé SEUL, sans libellé, sur une ligne sous la désignation de l'article (souvent 5 chiffres = dossier atelier). null sinon.
