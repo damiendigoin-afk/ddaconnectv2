@@ -135,3 +135,4 @@ Reste à faire :
 - [x] Tables + RPC generate_procurement_orders (0048/0049)
 - [x] Lecture déterministe + IA de secours, écran dans Commander des pièces
 - [x] Tests parsing (ROADIA 9, Ixellio 5, Audi 12) + règles de génération
+- [x] Rollback vite-tanstack-config 2.23.1 (502 prod 08/10)
