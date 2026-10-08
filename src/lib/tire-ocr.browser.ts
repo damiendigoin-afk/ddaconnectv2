@@ -9,6 +9,8 @@ type Worker = { recognize: (img: HTMLCanvasElement) => Promise<{ data: { text: s
 let workerPromise: Promise<Worker> | null = null;
 
 async function getWorker(): Promise<Worker> {
+  // SSR guard: keeps tesseract.js (CommonJS, needs createRequire) out of the server bundle.
+  if (import.meta.env.SSR) throw new Error("OCR indisponible côté serveur");
   if (!workerPromise) {
     workerPromise = import("tesseract.js").then(async (m) => {
       const w = await m.createWorker("eng");

@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { QrCode, ShieldCheck, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import QRCode from "qrcode";
 
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
@@ -69,7 +68,11 @@ function UsersPage() {
 
   useEffect(() => {
     if (!qrOpen || !inviteUrl) return;
-    void QRCode.toDataURL(inviteUrl, { width: 512, margin: 1 }).then(setQrDataUrl);
+    // Loaded lazily and never in SSR: qrcode pulls pngjs (CommonJS + createRequire) into the server bundle.
+    if (import.meta.env.SSR) return;
+    void import("qrcode")
+      .then((m) => (m.default ?? m).toDataURL(inviteUrl, { width: 512, margin: 1 }))
+      .then(setQrDataUrl);
   }, [qrOpen, inviteUrl]);
 
   const mutate = useMutation({
