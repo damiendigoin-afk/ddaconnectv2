@@ -136,3 +136,7 @@ Reste à faire :
 - [x] Lecture déterministe + IA de secours, écran dans Commander des pièces
 - [x] Tests parsing (ROADIA 9, Ixellio 5, Audi 12) + règles de génération
 - [x] Rollback vite-tanstack-config 2.23.1 (502 prod 08/10)
+
+# Incident 08/10
+
+- [x] Production 502 au démarrage : modules OCR/QR (tesseract.js, qrcode/pngjs) retirés du serveur construit

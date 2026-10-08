@@ -16,3 +16,4 @@
 - Never name app modules `*.client.ts` when a route/component imports them: TanStack import-protection denies them in the server build and silently blocks every publish. Use `*.browser.ts` + browser-only APIs inside functions.
 - Recette IA (banc A/B) isolée dans src/lib/bench-*.ts + bench.server.ts : écrit seulement ai_bench_*, dda-media/benchmark/ et ai_usage_log (feature ai_document_benchmark*, budget séparé, hors budget prod), jamais learnSupplierProfile ni tables métier. Why: mesurer les modèles sans effet de bord.
 - Domain rules (stock, parts, WinMotor, documents, tires) live in src/lib/AGENTS.md.
+- Browser-only CommonJS libs (tesseract.js, qrcode) are imported lazily behind `if (import.meta.env.SSR)` guards. Why: their presence in the server bundle emits a top-level createRequire that crashed the published server (502).
