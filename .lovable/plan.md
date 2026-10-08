@@ -1,21 +1,25 @@
-# Diagnostic production — "Internal server error"
+# Diagnostic production — 502 persistant après rollback
 
-## Cause probable : déploiement (outil de build du serveur), pas l'auth ni la base
+## Constat (vérifié le 08/10 à ~08:00 UTC)
 
-Preuves :
-- Toutes les pages de production renvoient l'erreur 502 "Internal server error", y compris `/`, `/auth` et même `/favicon.ico`. Ce n'est donc pas lié à la connexion, ni à une page, ni à une requête en base.
-- Le journal du serveur montre la même erreur à chaque requête, avant tout code applicatif :
-  `TypeError: The argument 'path' ... Received 'undefined' at createRequire (node:module) at _runtime.mjs:1:883`.
-  Le serveur publié plante dès son démarrage, dans son environnement d'exécution généré.
-- Le commit 51a42ed (07/10 15:01) a modifié `package.json` et `bun.lock` : l'outil de build `@lovable.dev/vite-tanstack-config` est passé de 2.23.1 à 2.25.3. C'est le seul changement d'infrastructure. Le code métier (lecture du BL) ne s'exécute pas au démarrage.
-- Les migrations 0048/0049, la sécurité d'accès aux données (RLS) et l'auth ne sont pas en cause. La page plante avant toute lecture en base ou toute session.
+- `https://ddaconnectv2.lovable.app/` → **HTTP 502, "Internal server error"**
+- `https://ddaconnectv2.lovable.app/auth` → **HTTP 502, "Internal server error"**
 
-Catégorie : déploiement / serveur (build). Pas un problème d'écran, d'auth ni de base.
+Le rollback de `@lovable.dev/vite-tanstack-config` vers 2.23.1 suivi d'une republication **n'a pas suffi** : la production plante toujours au démarrage du serveur, avant l'authentification et la base de données.
 
-## Correctif minimal (à appliquer après accord)
-1. Remettre `@lovable.dev/vite-tanstack-config` à `2.23.1` dans `package.json`, la dernière version connue qui fonctionne, et réinstaller.
-2. Republier, puis vérifier que `/`, `/auth` et la connexion Google renvoient 200.
-3. Remarque : le commit 19c0b5e de ce matin a encore modifié `package.json`. Il faut vérifier quelle version il fixe avant de republier.
+## Hypothèses restantes
 
-## Retour arrière possible
-Via l'historique, restaurer la version d'avant 51a42ed puis republier. On perd seulement la correction de lecture du BL CAZES sans OR, qu'on pourra réappliquer ensuite sans toucher à l'outil de build.
+1. La republication n'a pas réellement utilisé la version 2.23.1 (cache de build, lockfile non pris en compte côté plateforme).
+2. La cause n'est pas (ou pas seulement) la version de l'outil de build : un autre changement récent casse le démarrage du serveur en production alors que le preview fonctionne.
+3. Incident côté plateforme d'hébergement indépendant du code.
+
+## Plan d'action proposé
+
+1. Comparer le dernier déploiement production fonctionnel avec l'actuel : liste exacte des versions d'outils effectivement utilisées au build (pas seulement package.json).
+2. Vérifier que le lockfile publié correspond bien à 2.23.1 et qu'aucune autre dépendance de build n'a bougé entre le dernier déploiement sain et maintenant.
+3. Tester un build de production en local avec exactement les mêmes versions pour reproduire le crash de démarrage et obtenir la trace d'erreur complète.
+4. Si le crash est reproduit : identifier le module fautif et appliquer le correctif minimal (sans toucher aux correctifs métier jusqu'au commit CAZES).
+5. Si non reproduit en local : conclure à un problème plateforme et ouvrir un ticket support Lovable avec les horaires et codes d'erreur relevés.
+6. En dernier recours : republier la dernière version production connue comme fonctionnelle (avant le commit du 07/10), quitte à perdre temporairement les derniers correctifs métier, le temps de diagnostiquer.
+
+Aucune modification de code ou de base n'est faite sans votre accord.
