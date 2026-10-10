@@ -1,178 +1,120 @@
-# Cahier des charges technique — « DDA Assistant » (socle commun Messenger + voix)
+# DDA Assistant — Phase 1 : plan de réalisation par lots
 
-Document uniquement : aucun code, aucune migration, aucune connexion, aucune publication. L'approbation de ce plan ne déclenche rien ; chaque étape demandera un feu vert séparé.
+Plan uniquement. Rien n'est codé, migré, connecté ni publié tant que le lancement n'est pas validé explicitement, lot par lot. Socle commun Messenger + voix (un seul projet).
 
-## Décisions définitives
+## Décisions acquises (rappel)
 
-Un seul projet, un seul socle : Messenger et voix partagent le même moteur métier, la même fiche client/véhicule, le même historique, les mêmes notifications DDA + e-mail.
+- Messenger Castillon : offre nettoyage intérieur/extérieur + bilan hiver offert, 39 € TTC, 1 h. Créneaux lun-ven 8-12 / 14-18, au moins 4 jours ouvrés, fériés français et jours non ouvrés exclus. RDV promotionnel confirmé automatiquement ; fiche DDA + e-mail à Delphine, Marc, Frédéric uniquement. Modification/annulation dans la conversation avec nouveau récapitulatif, notification et e-mail. Question non résolue = alerte « Intervention nécessaire » suivie jusqu'à résolution. Garde-fou : un créneau déjà pris par l'IA n'est plus proposé.
+- Offre identifiée par le contexte de campagne Meta (ref / referral) ; sans contexte, question simple ; jamais déduite du texte ; campagne expirée jamais proposée.
+- Voix : appels uniquement renvoyés par le standard 2L ; scénario unique ; étiquette « débordement » (lun-ven 8-12 / 14-18 hors fériés) ou « hors ouverture / appel de nuit » (tout le reste, dont 12h-14h). Aucun transfert.
+- Identité appelant : accueil nominatif seulement si correspondance unique et fiable, sinon neutre ; confirmation toujours ; rien du dossier divulgué avant confirmation ; aucune fusion automatique.
 
-Messenger (Castillon) :
-1. Créneaux : lun-ven 8-12 / 14-18, 1 h, au moins 4 jours ouvrés à l'avance ; week-ends et jours fériés français exclus.
-2. L'IA confirme directement le RDV, sans validation humaine : fiche RDV dans DDA Connect + e-mail détaillé immédiat uniquement à Delphine, Marc et Frédéric. Pas d'agenda ni de capacité atelier. Garde-fou : un créneau déjà réservé par l'IA n'est plus proposé.
-3. Modification et annulation dans la conversation : même fiche + historique, nouveau récapitulatif client, nouvelle notification DDA + e-mail.
-4. Question non résolue : fiche « Intervention nécessaire » + alerte e-mail, suivie jusqu'à résolution.
-5. Offre : déterminée par le contexte de campagne Meta quand il est fourni, sinon question simple ; jamais déduite du seul texte du message.
+## Nouvelle règle : deux natures de demande
 
-Voix :
-6. Appels reçus uniquement par renvoi du standard existant (Paritel / 2L à confirmer) ; l'IA ne décide jamais quand décrocher.
-7. Scénario unique de messagerie évoluée, sans transfert. Le numéro appelé identifie le garage.
-8. Étiquette informative selon l'heure Europe/Paris et le calendrier du site : lun-ven 08:00-12:00 et 14:00-18:00 hors fériés = « débordement » ; tout le reste (dont pause 12-14, nuit, week-end, férié) = « hors ouverture / appel de nuit ».
-9. Reconnaissance de l'appelant prudente (voir §4).
-
-## 1. Existant constaté
-
-| Domaine | Constat | Où |
+| Nature | Exemples | Traitement |
 |---|---|---|
-| Sites | `sites`, site actif global, droits par site | src/lib/sites.ts, src/lib/site-context.tsx, src/lib/user-functions.ts |
-| Rôles / menus | `user_roles`, `user_module_access`, registre unique des modules | src/lib/access.ts, src/lib/module-access.tsx |
-| Clients | `customers` (+ `site_id`, `source_system` winmotor), `customer_contacts` (type, value, `normalized_value` indexé), `customer_addresses`, `customer_vehicle_relations`, `customer_consents` ; ancien `clients` | migration 20260815181822 ; src/lib/refbase.ts |
-| Véhicules | `vehicles`, `ref_vehicles`, kilométrages, `strictPlate` | src/lib/plate.ts, src/lib/vehicle-profile.ts |
-| Agent WinMotor | Agent local par site (serveur « Chantal ») piloté par file `winmotor_agent_jobs` + RPC `winmotor_agent_status` / `winmotor_enqueue_job` ; commandes actuelles PING et GET_OR, lecture seule, asynchrone | src/lib/winmotor-agent.ts, src/routes/winmotor.tsx |
-| Demandes | `crm_requests` + `crm_request_events` | src/lib/crm.ts |
-| Notifications | Destinataires e-mail par site + journal | src/lib/tour-notify*.ts, src/lib/email.server.ts |
-| Intégrations | `integration_credentials` chiffrées, Paramètres API | src/lib/crypto.server.ts, src/routes/parametrage.api.tsx |
-| IA | Budget quotidien partagé, `runPaidAi`, `ai_usage_log` | src/lib/ai-usage.server.ts |
-| Webhooks | Modèle `/api/public/*` vérifié | src/routes/api/public/ |
-| Absent | Planning/RDV, Meta, téléphonie, normalisation E.164, configuration de campagnes | recherche src/ + migrations |
+| RDV promotionnel auto-confirmable | Campagne active avec offre, prix, durée, conditions à jour (ex. nettoyage 39 €) | Confirmé par l'IA sur un créneau valide |
+| Demande technique / devis / carrosserie / dépannage / prix inconnu | Entretien, panne, sinistre, demande de prix, maintenance connectée | Fiche « Demande à valider » + alerte ; l'IA collecte et reformule, ne confirme ni date, ni prix, ni durée tant qu'aucun planning réel n'existe |
 
-## 2. Réutilisable
+Aucun ancien prix, forfait, promotion ou garantie n'est repris sans source à jour (campagne active versionnée ou réglage daté). Prix inconnu = « un conseiller vous envoie un devis ».
 
-Sites, droits (module `assistant`), `customers` / `customer_contacts.normalized_value` pour la recherche par téléphone, `vehicles` + `strictPlate`, `customer_consents`, destinataires + e-mail + journal, `integration_credentials`, `runPaidAi`, `dda-media`, file de l'agent WinMotor (nouvelle commande à ajouter côté agent), modèle webhook public.
+## Scripts de référence (7)
 
-## 3. Architecture commune
+Statut : **non reçus dans ce projet** (aucun des fichiers joints ne correspond aux scripts). Bloquant pour finaliser le lot B ; à fournir (PDF, photos ou texte) : prise de RDV standard, maintenance connectée (2 pages), sortie dépannage, EAD carrosserie, demande de prix par téléphone (2 versions), mémo objections MAEVA.
 
-```text
-Adaptateurs canal                 Socle DDA Assistant (commun)                    Sorties
-Messenger webhook ─┐   ┌─ identité : contact canal -> client proposé (score) ─┐
-  (ref / referral) │   │  contexte : campagne versionnée | étiquette horaire  │   fiche demande / RDV /
-Voix webhook ──────┼─► │  moteur d'états unique + IA d'extraction             ├─► intervention / rappel
-  (CLI, n° appelé) │   │  outils : slots, reserver, modifier, annuler,        │   notif DDA + e-mail site
-Futur SMS / IG ────┘   │  escalader, rappel, rechercher_client                │   réponse canal
-                       └─ réglages par site, calendrier fériés FR ────────────┘
-                                   ▲
-                 index contacts (copie minimale synchronisée depuis WinMotor)
-```
+Logiques à extraire dès réception, sous forme de blocs de dialogue réutilisables :
+1. Accueil et qualification de l'objet.
+2. Immatriculation (relue, `strictPlate`) et kilométrage (`measure.ts`).
+3. Coordonnées : nom, prénom, adresse, CP, ville, e-mail, téléphone.
+4. Disponibilités du client.
+5. Durée d'immobilisation annoncée seulement si connue par une source à jour.
+6. Mobilité (véhicule de prêt, navette) seulement si la disponibilité est vérifiable ; sinon « le garage vous confirmera ».
+7. Reformulation et confirmation.
+8. Demande de prix : prix connu et à jour, sinon renvoi devis.
+9. Carrosserie : sinistre ou non, assureur, n° de sinistre, expertise (EAD) prévue ou non, photos facultatives.
+10. Dépannage : sécurité d'abord, localisation, assistance du contrat, aucune promesse de délai.
+11. Objections (MAEVA) : réponses courtes autorisées, sinon escalade.
 
-Tables (toutes `site_id`, RLS par site) :
-- `assistant_channels` (site, type messenger | voice | sms, identifiant externe : page id ou numéro appelé).
-- `assistant_contacts` (identifiant canal : PSID ou E.164, numéro masqué, lien client proposé, score, provenance, statut vérifié/non).
-- `assistant_conversations` (canal, contexte : campagne + version ou étiquette horaire, priorité, état) et `assistant_messages` (id externe unique).
-- `assistant_calls` (id d'appel unique, CLI brut + E.164, numéro appelé, début/fin/durée, étiquette, issue, coût, interruption).
-- `assistant_appointments` + `_events`, `assistant_interventions` + `_events` (intervention, rappel, urgence).
-- `assistant_campaigns` (clé ref/ad id, version, offre, prix TTC, durée, période début/fin, conditions, site, actif) — saisie par paramétrage technique, pas d'écran créateur d'offres.
-- `assistant_identity_links` (journal : contact, client candidat, source, score, décision, auteur ; jamais de fusion).
-- `phone_index` (site, E.164, customer_id, source winmotor/dda, date de synchro).
-- `assistant_settings`, `assistant_notification_recipients`, `assistant_notifications`.
+## Lots
 
-Écran DDA minimal (module « Assistant ») : demandes et conversations (fiches RDV, interventions, rappels, appels), réglages (horaires, questions autorisées, destinataires, campagnes en lecture), connexions (Meta, téléphonie, IA). Aucun créateur d'offres.
+### A — Schéma commun et contrôle d'accès (réalisable maintenant)
+Tables `site_id` + RLS par site (via `user_can_access_site`) + GRANT : canaux, contacts canal, conversations, messages (id externe unique), demandes (nature promo/technique, statut), RDV + historique, alertes « Intervention nécessaire » + historique, campagnes versionnées, rattachements identité (journal), index téléphones, notifications + destinataires, réglages, journal d'appels (préparé, vide). Module `assistant` dans le registre des droits.
+Recette : un salarié Lalinde ne lit aucune ligne Castillon ; un non-titulaire du module ne voit pas l'écran ; id externe dupliqué refusé ; deux RDV IA actifs sur le même créneau refusés.
 
-## 4. Identité de l'appelant (voix)
+### B — Moteur de règles et scripts métier (réalisable maintenant ; finalisation après réception des scripts)
+Logique pure testée : calendrier (fériés FR dont Pâques, Ascension, Pentecôte ; 4 jours ouvrés ; étiquette horaire), créneaux, nature de demande, blocs de dialogue (liste ci-dessus), validation des champs, choix de l'offre selon campagne, règles « jamais d'ancien prix ».
+Recette : vendredi 10/10 → premier créneau mardi 16/10 ou plus tard selon le décompte confirmé ; 11/11 et samedi jamais proposés ; 12:30 = hors ouverture ; demande de prix sans prix à jour → renvoi devis ; demande carrosserie → fiche à valider avec assureur/sinistre.
 
-1. CLI présenté si disponible, normalisé E.164 (+33…) ; numéro masqué = inconnu.
-2. Recherche immédiate dans `phone_index` / `customer_contacts` du site appelé, latence plafonnée (ex. 300 ms) ; au-delà, accueil neutre sans attendre. WinMotor n'est jamais interrogé pendant l'appel.
-3. Accueil personnalisé « Bonjour Monsieur/Madame [Nom] » uniquement si : une seule correspondance, source fiable, civilité connue, numéro mobile non partagé. Sinon formule neutre (plusieurs clients, fixe d'entreprise, masqué, incohérence, tiers possible).
-4. Confirmation d'identité demandée dans tous les cas (« Je parle bien à … ? ») ; aucune donnée du dossier (véhicule, factures, RDV) énoncée avant confirmation, et même après seulement le strict nécessaire.
-5. Chaque rattachement est journalisé (provenance, score, confirmé ou non) ; aucune fusion automatique.
+### C — Moteur Messenger + campagne Meta (code faisable maintenant ; connexion réelle bloquée)
+Webhook signé, idempotent ; captation ref/referral ; conversation (consentement → offre → créneau → coordonnées → véhicule → récapitulatif) ; modification/annulation ; escalade ; notifications DDA + e-mails. IA via la passerelle Lovable pour extraire le texte libre ; prix/horaires injectés depuis les réglages.
+Bloqué par : app Meta, accès admin de la Page Castillon, revue `pages_messaging`, e-mails des trois destinataires.
+Recette : voir « Critères de recette » ci-dessous.
 
-Messenger : pas de CLI ; rattachement proposé à partir du nom + téléphone + plaque saisis, même règle de non-exposition.
+### D — Index de reconnaissance des numéros (partiel maintenant)
+Maintenant : normalisation E.164, index alimenté depuis les clients déjà importés (`customer_contacts.normalized_value`), score et règles d'accueil, repli neutre.
+Bloqué : nouvelle commande d'export contacts sur l'automate WinMotor (serveur Chantal) — faisabilité à confirmer.
+Recette : numéro unique fiable → nom proposé ; numéro partagé par 2 clients, fixe d'entreprise ou masqué → neutre ; index indisponible → neutre sans attente ; aucun nom faux annoncé sur les jeux de test.
 
-### Index WinMotor via l'automate existant
+### E — Interface DDA minimaliste (réalisable maintenant)
+Écran « Assistant » : demandes et conversations (filtres RDV / à valider / alertes / appels), fiche avec historique et suivi jusqu'à « résolue », réglages (horaires, destinataires, questions autorisées, campagnes en lecture), connexions (état Meta, téléphonie, IA). Aucun créateur d'offres.
+Recette : une alerte passe ouverte → en cours → résolue avec auteur et date ; un RDV annulé reste visible et barré.
 
-Pas d'accès synchrone direct à WinMotor. Principe : nouvelle commande d'agent (ex. EXPORT_CONTACTS) exécutée périodiquement par l'automate du serveur Chantal, qui pousse une copie minimale par site (identifiant client WinMotor, nom, civilité, téléphones normalisés) dans `phone_index`, en complément des clients déjà importés dans DDA. Mise à jour incrémentale (nuit + éventuellement toutes les heures). Faisabilité réelle (export possible depuis WinMotor, charge, fréquence) à vérifier avec l'agent.
+### F — Adaptateur vocal Twilio (bloqué)
+Préalables : numéro Twilio +33973921023 approuvé et acheté (dossier en revue) ; test de renvoi 2L vers ce numéro externe ; vérification par appels test que le numéro appelant et le numéro appelé arrivent bien ; capacité actuelle 1 appel renvoyé à la fois (devis 2L pour 2-3 en cours). SIP direct impossible.
+Contenu : webhook d'appel, voix temps réel, même moteur que Messenger, accueil conditionnel, collecte, demande de rappel, journal d'appel, pas d'audio stocké, coupure/reprise, durée max et budget.
+Recette : appel renvoyé à 12:30 → étiquette hors ouverture, même dialogue qu'à 10:30 ; second appel simultané → comportement du standard (occupé/messagerie) documenté ; numéro appelant absent → accueil neutre.
 
-## 5. Contexte campagne (Messenger)
+## Réalisable maintenant vs bloqué
 
-- Capter `ref` (lien m.me), `referral` (publicité Click-to-Messenger : ad_id, source, type) et paramètres de campagne quand Meta les fournit.
-- Associer à `assistant_campaigns` par clé + version ; la version est figée sur la conversation et la fiche RDV.
-- Pas de contexte : question simple (« Souhaitez-vous l'offre nettoyage intérieur/extérieur à 39 € ou autre chose ? »). Jamais de promo déduite du texte.
-- Campagne expirée ou inactive : non proposée ; message poli + alternative active si existante.
-- Plusieurs campagnes actives : celle du referral prime ; sinon choix proposé.
-- Recontact ultérieur : la campagne d'origine est rappelée seulement si encore valide.
-
-## 6. Phase voix — déroulé unique
-
-Annonce « assistant virtuel du garage » + information RGPD courte (pas d'enregistrement audio) → identité (§4) → objet → collecte prudente (prénom, nom, téléphone confirmé, plaque relue) → réponses aux seules questions autorisées → priorité (urgence sécurité/remorquage : consignes sûres, 112 si danger, assistance du contrat, aucune promesse) → demande de rappel + résumé relu → fiche + notifications du site appelé (Castillon : Delphine, Marc, Frédéric ; Lalinde plus tard). Réservation par téléphone plus tard via les mêmes outils.
-
-Exigences : idempotence par id d'appel ; coupure = fiche « appel interrompu », rappel du même numéro rattaché ; durée max et budget quotidien ; transcription/résumé texte seulement si autorisé.
-
-## 7. Risques
-
-- **Meta** : App Review `pages_messaging`, vérification entreprise, fenêtre 24 h, jeton de Page ; `referral` pas toujours fourni (dépend du type d'annonce).
-- **Téléphonie** : renvoi Paritel / 2L vers Twilio/SIP et transmission du CLI d'origine et du numéro appelé non garantis ; latence voix ; reconnaissance plaques/noms.
-- **Identité** : numéros partagés (famille, entreprise), numéros recyclés, index périmé → risque d'appeler quelqu'un par le mauvais nom ou de divulguer des données ; d'où seuil strict, confirmation et non-exposition.
-- **WinMotor** : export via l'automate peut être impossible ou lent ; index incomplet = accueil neutre (dégradation sans blocage).
-- **RGPD** : base légale de la copie des téléphones (intérêt légitime à documenter), minimisation, durée de conservation, information orale et Messenger, effacement, transfert IA.
-- **Doublons** : id externe unique (message, appel) ; rattachements proposés, jamais fusionnés.
-- **RDV** : confirmés sans humain ni capacité ; conflit possible avec RDV pris hors IA (réserve explicite).
-- **IA** : prix/offres/horaires tirés de la configuration versionnée, jamais générés.
-
-## 8. Étapes et crédits Lovable (fourchettes indicatives)
-
-Construction commune (socle + Messenger, voix préparée) :
-
-| # | Étape | Crédits |
+| Lot | Maintenant | Bloqué par |
 |---|---|---|
-| 1 | Tables communes, RLS par site, module `assistant`, réglages Castillon | 10 – 18 |
-| 2 | Calendrier (fériés FR, créneaux, étiquette horaire) + garde-fou doublon + tests | 5 – 10 |
-| 3 | Moteur commun : réservation, modification, annulation, escalade, rappel + tests | 16 – 30 |
-| 4 | Identité : E.164, `phone_index`, score, journal de rattachement + tests | 6 – 12 |
-| 5 | Campagnes versionnées + captation ref/referral + tests | 5 – 10 |
-| 6 | Webhook Meta (vérification, signature, idempotence) + envoi | 8 – 15 |
-| 7 | Notifications DDA + e-mails (tous événements) | 5 – 9 |
-| 8 | Écran minimal : demandes/conversations, réglages, connexions | 12 – 22 |
-| 9 | Consentement, RGPD, purge / export | 4 – 8 |
-| 10 | Recette Messenger réelle (mode test Meta) | 8 – 20 |
-| | **Sous-total socle + Messenger** | **≈ 79 – 154** |
+| A | Tout | — |
+| B | Calendrier, créneaux, nature, champs | Scripts (7) pour les blocs de dialogue définitifs |
+| C | Moteur, webhook, tests simulés | App Meta, Page, revue, e-mails destinataires, campagne active |
+| D | Index depuis données DDA, règles | Export automate WinMotor |
+| E | Tout | — |
+| F | Rien | Numéro Twilio, test 2L, caller ID |
 
-Voix (sur le même socle) :
-
-| # | Étape | Crédits |
-|---|---|---|
-| V1 | Étude raccordement Paritel / 2L (CLI, numéro appelé) + opérateur | 2 – 5 |
-| V2 | Adaptateur voix temps réel + webhook appel + idempotence | 15 – 30 |
-| V3 | Script unique, accueil personnalisé conditionnel, urgence, rappel + tests | 10 – 20 |
-| V4 | Coupure/reprise, limites durée/coût, fiches voix | 5 – 10 |
-| V5 | Recette appels réels | 8 – 20 |
-| | **Sous-total voix** | **≈ 40 – 85** |
-
-Synchronisation WinMotor (dépend de l'agent, hors app si l'agent est un programme séparé) : commande EXPORT_CONTACTS côté DDA + import incrémental : 5 – 12 crédits ; travaux sur l'automate lui-même non chiffrables ici.
-
-**Total indicatif : ≈ 124 – 251 crédits** (hausse liée à l'identité, aux campagnes et à la synchro ; le socle commun évite une double construction).
-
-Coût d'exploitation (hors Lovable, à confirmer) : Messenger gratuit ; IA texte quelques centimes par conversation ; numéro voix 1–3 €/mois ; minutes 0,01–0,03 €/min ; voix IA temps réel 0,05–0,30 €/min (ex. 300 appels × 3 min ≈ 50–300 €/mois) ; coût éventuel de renvoi chez Paritel / 2L ; serveur de l'agent déjà existant.
-
-## 9. Critères de recette communs
-
-Socle :
-- Même moteur et même fiche quel que soit le canal ; un événement = une fiche, une notification DDA, un e-mail aux seuls destinataires du site.
-- Calendrier : aucun créneau week-end, férié (11/11, 25/12, lundi de Pâques) ou < 4 jours ouvrés ; étiquette voix : mardi 10:30 = débordement ; mardi 12:30, 19:00, samedi, 11/11 = hors ouverture.
-- Message ou appel relivré : aucun doublon. Rattachements client toujours journalisés, jamais fusionnés.
-- Un utilisateur Lalinde ne voit rien de Castillon.
-
-Messenger :
-- Referral d'une campagne active : offre, prix, durée, conditions de la bonne version ; version figée sur la fiche.
-- Sans contexte : question simple, aucune promo supposée. Campagne expirée : non proposée.
-- Deux campagnes actives : referral prioritaire, sinon choix.
-- RDV confirmé, modifié, annulé, intervention : comportements des décisions 2 à 4.
+## Critères de recette Messenger (C)
+- Referral de la campagne nettoyage active → offre 39 € TTC, 1 h, bilan hiver offert ; version figée sur la fiche.
+- Sans contexte → question simple ; aucune promo supposée ; campagne expirée → non proposée.
+- Réservation complète → une fiche RDV, un e-mail aux trois destinataires, un récapitulatif client.
+- Message relivré → aucun doublon ; deux réservations simultanées du même créneau → une seule confirmée.
+- Modification → même fiche, historique, récapitulatif, notification + e-mail ; annulation → créneau libéré, idem.
+- Demande technique ou de prix inconnu → fiche « à valider », aucune date ni prix promis.
 - Aucune collecte avant consentement.
 
-Voix :
-- Un client unique fiable → « Bonjour Monsieur [Nom] » puis confirmation ; deux clients sur le numéro, numéro masqué, fixe partagé → accueil neutre.
-- Aucune donnée de dossier énoncée avant confirmation d'identité.
-- Index lent ou indisponible : décrochage sans attente, accueil neutre.
-- Dialogue identique quel que soit l'horaire ; aucun transfert ; urgence sans promesse.
-- Pas d'audio stocké par défaut ; coupure = fiche « appel interrompu » reprise au rappel.
+## Tests pilotes et ordre de mise en service
+1. A + B + E en interne (données de test, aucun canal).
+2. C en mode test Meta avec 2-3 comptes internes (Page non publique ou testeurs).
+3. Pilote Messenger réel Castillon 2 semaines, campagne unique, revue quotidienne des fiches.
+4. D : index depuis DDA, puis export automate si validé.
+5. F : après numéro approuvé et test 2L ; pilote sur plage hors ouverture (nuits/week-ends) d'abord, puis débordement.
+6. Lalinde : paramétrage des destinataires et activation séparée.
 
-## 10. À confirmer
+## Crédits Lovable (fourchettes indicatives)
 
-1. Page Facebook Castillon, Business Manager vérifié, type d'annonces (Click-to-Messenger ou lien m.me) ; Instagram plus tard ?
-2. Liste des campagnes actuelles (offre 39 € TTC, période, conditions) et qui les saisit.
-3. IA via Lovable plutôt qu'une clé OpenAI propre ?
-4. E-mails de Delphine, Marc, Frédéric ; numéro du garage pour les urgences.
-5. Fermetures exceptionnelles ; décompte des 4 jours ouvrés ; délai limite de modification/annulation.
-6. Téléphonie : Paritel ou 2L, renvoi vers numéro externe/SIP, transmission du CLI et du numéro appelé.
-7. Agent WinMotor (serveur Chantal) : export des contacts possible ? Fréquence acceptable ?
-8. Seuil d'accueil personnalisé : accepter le nom seul après correspondance unique, ou toujours neutre au départ ?
-9. Base légale et durée de conservation de l'index téléphones, conversations, transcriptions ; texte RGPD.
-10. Questions simples autorisées au téléphone ; transcription autorisée ou non ; durée max et budget voix.
-11. Destinataires Lalinde (plus tard).
+| Lot | Crédits |
+|---|---|
+| A — Schéma + droits | 10 – 18 |
+| B — Règles + blocs de scripts + tests | 12 – 24 |
+| C — Messenger + campagnes + notifications | 22 – 40 |
+| D — Index numéros (partie DDA) | 6 – 12 |
+| E — Interface minimaliste | 12 – 22 |
+| Consentement / RGPD / purge | 4 – 8 |
+| Recette pilote Messenger | 8 – 20 |
+| **Phase 1 (A-E)** | **≈ 74 – 144** |
+| D bis — export automate (côté DDA) | 5 – 12 |
+| F — Voix Twilio + recette | 40 – 85 |
+
+Exploitation (hors Lovable, à confirmer) : Messenger gratuit ; IA texte quelques centimes par conversation ; Twilio numéro FR ≈ 1–3 €/mois + minutes ≈ 0,01–0,03 €/min ; voix IA temps réel ≈ 0,05–0,30 €/min ; coût éventuel 2L pour renvois simultanés.
+
+## À confirmer
+1. Envoi des 7 scripts (bloquant pour B définitif).
+2. E-mails de Delphine, Marc, Frédéric.
+3. Accès Meta : app, admin Page Castillon, type d'annonce (Click-to-Messenger / lien m.me), dates de la campagne nettoyage.
+4. Décompte des 4 jours ouvrés (jour du message inclus ou non) ; fermetures exceptionnelles ; délai limite de modification/annulation.
+5. Automate WinMotor : export des contacts possible, fréquence.
+6. Twilio : date d'approbation du numéro ; 2L : date du test de renvoi et réponse sur les devis 2-3 appels.
+7. Textes RGPD et durées de conservation ; transcription voix autorisée ou non.
+8. Questions simples autorisées et réponses aux objections validées.
