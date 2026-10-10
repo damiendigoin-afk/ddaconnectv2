@@ -10,7 +10,7 @@ V1 Messenger Castillon :
 3. Modification et annulation dans la conversation : même fiche mise à jour avec historique, nouveau récapitulatif au client, nouvelle notification DDA + e-mail aux trois destinataires.
 4. Question non résolue : fiche « Intervention nécessaire » dans DDA Connect + alerte e-mail aux trois destinataires, avec historique et suivi jusqu'à résolution.
 
-Phase 2 (préparée dans l'architecture, non construite) : accueil téléphonique intelligent hors horaires et en débordement, sur le même socle.
+Phase 2 (préparée dans l'architecture, non construite) : messagerie vocale évoluée, scénario unique, appels uniquement renvoyés par le standard, sans transfert, étiquette « débordement » ou « hors ouverture / appel de nuit » selon l'heure de Paris.
 
 ## 1. Existant constaté
 
@@ -49,24 +49,24 @@ Préparation voix dès la V1 (sans téléphonie) : type de canal `voice` prévu,
 
 ## 4. Phase 2 — Accueil téléphonique hors horaires et débordement (spécification)
 
-Principe : messagerie évoluée. L'assistant décroche uniquement quand l'appel lui est renvoyé par la téléphonie existante (Paritel / 2L à confirmer) ; les conditions de bascule restent gérées par cette téléphonie.
-
-Deux modes :
-- **Hors horaires / nuit** : aucun transfert humain ; prise de message, fiche, notification à l'ouverture et e-mail immédiat.
-- **Débordement en journée** : même collecte ; transfert vers un humain seulement si un numéro est joignable et paramétré ; sinon demande de rappel prioritaire.
+Principe définitif : messagerie évoluée, scénario unique.
+- Les appels arrivent exclusivement par renvoi du standard existant (Paritel / 2L à confirmer). L'IA ne décide jamais quand décrocher ni combien de sonneries attendre.
+- Le numéro appelé identifie le garage (site).
+- Un seul dialogue, partout : même annonce, collecte, qualification, résumé, fiche, notifications et demande de rappel. Aucun transfert vers un humain, aucun scénario distinct.
+- Étiquette de contexte, purement informative sur la fiche, calculée selon l'heure locale Europe/Paris et le calendrier du site : lun-ven 08:00-12:00 et 14:00-18:00 hors jours fériés = « débordement » ; tout autre moment (pause déjeuner, nuit, week-end, férié) = « hors ouverture / appel de nuit ». Même fonction de calendrier que les créneaux Messenger.
 
 Déroulé :
 1. Annonce claire : « assistant virtuel du garage », information RGPD courte (finalité, pas d'enregistrement audio).
 2. Compréhension de l'objet, collecte prudente : prénom, nom, téléphone (pré-rempli par l'appelant si fourni, confirmé oralement), immatriculation (relue lettre par lettre, `strictPlate`).
 3. Réponses limitées aux questions simples autorisées dans les réglages (horaires, adresse, offre en cours).
-4. Priorité : normale / prioritaire / urgence. Urgence sécurité ou remorquage : consignes de sécurité génériques (se mettre en sécurité, gilet, triangle, 112 en cas de danger), renvoi vers l'assistance du contrat ou un humain si paramétré, aucune promesse de dépannage ni de délai.
+4. Priorité : normale / prioritaire / urgence. Urgence sécurité ou remorquage : consignes de sécurité génériques (se mettre en sécurité, gilet, triangle, 112 en cas de danger), invitation à contacter l'assistance de son contrat, aucune promesse de dépannage ni de délai, fiche marquée urgente.
 5. Demande de rappel + résumé relu à l'appelant.
 6. Fiche dans DDA Connect (conversation `voice`, résumé, priorité) et notifications au front office du site : Castillon = Delphine, Marc, Frédéric ; Lalinde à paramétrer plus tard.
 7. Réservation par téléphone : plus tard, via les mêmes fonctions que Messenger, une fois celles-ci fiabilisées.
 
-Exigences techniques : identifiant canal `voice` (numéro appelé → site) ; journal d'appel (début, fin, durée, mode, issue, coût) ; transcription et résumé texte seulement si autorisé, pas d'enregistrement audio par défaut ; coupure = fiche créée avec ce qui a été collecté et marquée « appel interrompu », rappel du même numéro dans un délai court = reprise de la même fiche ; durée maximale par appel et budget quotidien ; idempotence sur l'identifiant d'appel ; webhook signé.
+Exigences techniques : identifiant canal `voice` (numéro appelé → site) ; journal d'appel (début, fin, durée, étiquette de contexte, issue, coût) ; transcription et résumé texte seulement si autorisé, pas d'enregistrement audio par défaut ; coupure = fiche créée avec ce qui a été collecté et marquée « appel interrompu », rappel du même numéro dans un délai court = reprise de la même fiche ; durée maximale par appel et budget quotidien ; idempotence sur l'identifiant d'appel ; webhook signé.
 
-Pas de promesse d'orientation automatique tant que le raccordement Paritel / 2L n'est pas confirmé.
+Aucune promesse d'orientation ni de transfert : l'issue est toujours une fiche + une demande de rappel.
 
 ## 5. Risques
 
@@ -94,18 +94,19 @@ V1 Messenger Castillon :
 | 8 | Recette réelle Messenger (mode test Meta) et corrections | 8 – 20 |
 | | **Total V1** | **≈ 67 – 131** |
 
-Phase 2 voix hors horaires / débordement (séparée) :
+Phase 2 voix, scénario unique (séparée) :
 
 | # | Étape | Crédits |
 |---|---|---|
 | V1 | Étude raccordement Paritel / 2L + choix opérateur (Twilio ou SIP) | 2 – 5 |
-| V2 | Schéma `assistant_calls`, journal, numéro → site, réglages modes | 5 – 10 |
+| V2 | Schéma `assistant_calls`, journal, numéro → site, étiquette de contexte (réutilise le calendrier Messenger) | 4 – 8 |
 | V3 | Adaptateur voix temps réel + webhook appel + idempotence | 15 – 30 |
-| V4 | Script d'accueil, collecte, questions autorisées, priorité/urgence, rappel + tests | 12 – 25 |
-| V5 | Transfert humain conditionnel (débordement) | 5 – 12 |
-| V6 | Fiches et notifications voix, coupure/reprise, limites durée/coût | 6 – 12 |
-| V7 | Recette avec appels réels et corrections | 10 – 25 |
-| | **Total phase 2** | **≈ 55 – 119** |
+| V4 | Script unique : accueil, collecte, questions autorisées, priorité/urgence, rappel + tests | 10 – 20 |
+| V5 | Fiches et notifications voix, coupure/reprise, limites durée/coût | 6 – 12 |
+| V6 | Recette avec appels réels et corrections | 8 – 20 |
+| | **Total phase 2** | **≈ 45 – 95** (au lieu de 55 – 119) |
+
+La simplification réduit l'estimation d'environ 10 à 24 crédits : suppression du transfert humain conditionnel, d'un second scénario et de leurs tests ; l'étiquette réutilise la règle de calendrier déjà prévue pour Messenger.
 
 Coût d'exploitation (hors Lovable, à confirmer sur les grilles en vigueur) : Messenger API gratuite ; IA texte ≈ quelques centimes par conversation, plafonnable. Voix : numéro ≈ 1–3 €/mois ; minutes entrantes ≈ 0,01–0,03 €/min ; voix IA temps réel ≈ 0,05–0,30 €/min ; ex. 300 appels/mois × 3 min ≈ 50–300 €/mois ; éventuel coût de renvoi facturé par Paritel / 2L.
 
@@ -122,8 +123,10 @@ V1 Messenger :
 - Aucune collecte avant consentement ; un utilisateur Lalinde ne voit pas les fiches Castillon.
 
 Phase 2 voix :
-- L'assistant n'intervient que sur appel renvoyé ; il s'annonce comme assistant virtuel dès la première phrase.
-- Hors horaires : aucun transfert tenté ; débordement : transfert seulement si un humain est paramétré, sinon demande de rappel.
+- L'assistant n'intervient que sur appel renvoyé par le standard ; il s'annonce comme assistant virtuel dès la première phrase.
+- Dialogue identique quel que soit le moment ; aucun transfert tenté.
+- Étiquette (heure de Paris) : mardi 10:30 = « débordement » ; mardi 12:30, mardi 19:00, samedi 10:00, 11/11 à 10:00 = « hors ouverture / appel de nuit ».
+- Le numéro appelé détermine le site et donc les destinataires.
 - Fiche créée avec nom, téléphone, plaque relue, objet, priorité, résumé ; notification au front office du site appelé uniquement.
 - Urgence sécurité/remorquage : consignes sûres, aucune promesse de délai ou de dépannage.
 - Aucun enregistrement audio stocké par défaut ; transcription seulement si activée.
@@ -139,8 +142,8 @@ Phase 2 voix :
 5. Délai limite pour modifier/annuler via la conversation ?
 6. Rattachement au client WinMotor existant ou prospects séparés jusqu'à vérification ?
 7. Durées de conservation (conversations, photos, transcriptions) et texte RGPD.
-8. Téléphonie : opérateur exact (Paritel ou 2L), renvoi possible sur non-réponse/occupé/hors horaires vers un numéro externe ou SIP ?
-9. Débordement : numéros humains joignables, plages, ordre de transfert.
+8. Téléphonie : opérateur exact (Paritel ou 2L), renvoi possible vers un numéro externe ou SIP, et le numéro appelé d'origine est-il transmis lors du renvoi ?
+9. Numéros appelés de chaque garage (Castillon, Lalinde).
 10. Questions simples autorisées au téléphone ; transcription texte autorisée ou non.
 11. Assistance remorquage à indiquer (numéro garage, assisteurs) ; durée max d'appel et budget mensuel voix.
 12. Destinataires Lalinde (plus tard).
