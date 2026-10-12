@@ -693,11 +693,19 @@ export async function stopTime(sessionId: string, orId: string, siteId: string |
   await logEvent({ site_id: siteId, entity: "or", entity_id: orId, repair_order_id: orId, action: "time_stop" }, actor);
 }
 
+/** Vue pièces d'un OR : commandes liées + lignes reçues (dont réceptions directes sans commande). Lecture seule. */
 export async function orPartsOverview(orId: string) {
   await ensureOrSynced(orId);
   const orders = await listOrders({ siteId: null, orId });
-  const { data: rlines } = await supabase.from("part_receipt_lines").select("*, part_receipts!inner(received_at, site_id)").eq("repair_order_id", orId);
-  return { orders, receiptLines: rlines ?? [] };
+  const { data: rlines } = await supabase
+    .from("part_receipt_lines")
+    .select("*, part_receipts!inner(id, received_at, site_id, order_id, status, repair_order_id, source_document_id, suppliers(name))")
+    .eq("repair_order_id", orId);
+  const receiptLines = ((rlines ?? []) as unknown as Array<Record<string, unknown> & { part_receipts: Record<string, unknown> & { suppliers: { name: string } | null } }>).map((l) => ({
+    ...l,
+    part_receipts: l.part_receipts ? { ...l.part_receipts, supplier_name: l.part_receipts.suppliers?.name ?? null } : null,
+  }));
+  return { orders, receiptLines };
 }
 
 // ---------- Régularisations ----------
