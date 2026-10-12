@@ -128,7 +128,7 @@ function PartsStatus({ orId }: { orId: string }) {
         </Link>
       ))}
       {lines.map((l) => <div key={l.id} className="line-clamp-2 text-xs" title={[l.physical_reference, l.designation].filter(Boolean).join(" — ")}>{partLineLabel(l)}</div>)}
-      {(usage.data ?? []).length ? <p className="text-xs">Au garage / affectées : {(usage.data ?? []).filter((u) => u.qty_allocated > 0).length} · Montées / utilisées : {used}</p> : null}
+      {st.kind === "orders" && (usage.data ?? []).length ? <p className="text-xs">Au garage / affectées : {st.usage.atGarage} · Montées / utilisées : {used}</p> : null}
     </div>
   );
 }
