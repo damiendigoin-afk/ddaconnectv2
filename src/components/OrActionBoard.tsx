@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { PendingReceiptsForOr } from "@/components/parts/PendingReceiptsForOr";
 import { Badge, btnGhost, btnPrimary, inputCls, numOrNull, usePartsCtx } from "@/components/parts/PartsUi";
 import { addUnplannedUsage, confirmUsage, finishWork, resumeWork, getWorkState, listSessions, listUsage, myOpenSessions, orPartsOverview, returnUnusedToStock, startTime, stopTime } from "@/lib/parts";
-import { finishCheck, notUsedMotifError, partLineLabel, formatMinutes, partsCompleteness, sessionMinutes, usageNeedsMotif, USAGE_REASONS } from "@/lib/parts-rules";
+import { finishCheck, notUsedMotifError, partLineLabel, formatMinutes, sessionMinutes, usageNeedsMotif, USAGE_REASONS } from "@/lib/parts-rules";
+import { orPartsStatus } from "@/lib/or-parts-status";
 import { orderTrackLabel } from "@/lib/shipment-rules";
 
 /**
@@ -95,26 +96,39 @@ function PartsStatus({ orId }: { orId: string }) {
   const usage = useQuery({ queryKey: ["or-usage", orId], queryFn: () => listUsage(orId) });
   if (!ov.data) return null;
   const lines = ov.data.orders.filter((o) => o.status !== "cancelled").flatMap((o) => (o.part_order_lines ?? []).filter((l) => l.line_kind === "part"));
-  const simplified = ov.data.orders.filter((o) => o.status !== "cancelled" && !(o.part_order_lines ?? []).length).length;
-  const c = partsCompleteness({ simplifiedWithoutLines: simplified, lines });
-  const used = (usage.data ?? []).filter((u) => u.usage_status === "used").length;
+  const st = orPartsStatus(orId, ov.data.orders as never, ov.data.receiptLines as never, (usage.data ?? []) as never);
+  const c = st.completeness;
+  const used = st.usage.used;
   return (
     <div className="card-surface space-y-2 p-3">
       <span className="text-xs font-bold uppercase text-muted-foreground">Statut des pièces</span>
-      {c.kind === "none" ? <p className="text-sm text-muted-foreground">Aucune commande pour cet OR.</p> : c.kind === "unknown" ? (
-        <div className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-sm font-extrabold uppercase">Commande non détaillée — complétude inconnue</div>
-      ) : (
-        <div className={`rounded-lg border-2 p-2 text-lg font-extrabold uppercase ${c.kind === "complete" ? "border-status-ok bg-status-ok-soft" : "border-destructive bg-destructive/10"}`}>
-          Pièces {c.kind === "complete" ? "complètes" : "incomplètes"} {c.done}/{c.total}
+      {st.kind === "none" ? <p className="text-sm text-muted-foreground">Aucune commande pour cet OR.</p> : null}
+      {st.kind === "orders" || st.kind === "mixed" ? (
+        c.kind === "unknown" ? (
+          <div className="rounded-lg border-2 border-status-watch bg-status-watch-soft p-2 text-sm font-extrabold uppercase">Commande non détaillée — complétude inconnue</div>
+        ) : c.kind === "none" ? null : (
+          <div className={`rounded-lg border-2 p-2 text-lg font-extrabold uppercase ${c.kind === "complete" ? "border-status-ok bg-status-ok-soft" : "border-destructive bg-destructive/10"}`}>
+            Pièces {c.kind === "complete" ? "complètes" : "incomplètes"} {c.done}/{c.total}
+          </div>
+        )
+      ) : null}
+      {st.kind === "direct" || st.kind === "mixed" ? (
+        <div className="space-y-1 rounded-lg border-2 border-status-ok bg-status-ok-soft p-2">
+          <div className="text-sm font-extrabold uppercase">Réceptions directes — pièces au garage</div>
+          {st.direct.sources.map((s) => (
+            <div key={s.supplier} className="text-xs">{s.supplier} : {s.qty} reçue{s.qty > 1 ? "s" : ""}</div>
+          ))}
+          <div className="text-xs font-bold">Total : {st.usage.atGarage} au garage · {st.usage.toPoint} à pointer · {used} montée{used > 1 ? "s" : ""}/utilisée{used > 1 ? "s" : ""}</div>
+          {st.kind === "direct" ? <div className="text-[11px] text-muted-foreground">Aucune commande DDA préalable</div> : null}
         </div>
-      )}
+      ) : null}
       {ov.data.orders.map((o) => (
         <Link key={o.id} to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} className="block text-xs underline">
           Commande {(o.suppliers as { name: string } | null)?.name} · {orderTrackLabel(o as never)}
         </Link>
       ))}
       {lines.map((l) => <div key={l.id} className="line-clamp-2 text-xs" title={[l.physical_reference, l.designation].filter(Boolean).join(" — ")}>{partLineLabel(l)}</div>)}
-      {(usage.data ?? []).length ? <p className="text-xs">Au garage / affectées : {(usage.data ?? []).filter((u) => u.qty_allocated > 0).length} · Montées / utilisées : {used}</p> : null}
+      {st.kind === "orders" && (usage.data ?? []).length ? <p className="text-xs">Au garage / affectées : {st.usage.atGarage} · Montées / utilisées : {used}</p> : null}
     </div>
   );
 }
