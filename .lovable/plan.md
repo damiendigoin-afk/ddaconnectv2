@@ -1,31 +1,55 @@
-# Diagnostic « Too many connections issued to the database » — Réception pièces
+# Diagnostic devis pneus — marge par pneu
 
-## Cause probable (confirmée par les logs)
-Ce n'est pas la base de données ni une fuite de connexions dans le code : c'est le **service de stockage de fichiers** qui a refusé l'envoi du PDF AUTODOC (HTTP 429), et l'écran affiche tel quel son message d'erreur.
+## Conclusion
+La marge n'est PAS ignorée : ni dans le calcul, ni à l'enregistrement. Elle est bien ajoutée à chaque pneu dans le dernier devis. Je n'ai pas encore comparé l'écran et le PDF ligne par ligne.
 
-## Preuves
-- Journaux du stockage, 13/10/2026 10:54:07 UTC : `POST 429 /object/dda-media/fournisseurs/c12fd03d-e522-480b-b09d-3700a94ceebe.pdf` (Chrome Windows). C'est la **seule** erreur ≥ 429 des dernières 24 h sur toute l'API.
-- Le fichier n'existe pas dans le stockage : l'envoi n'a pas abouti, aucune fiche document créée derrière.
-- Journaux Postgres (6 h) : aucune erreur « too many connections ». Aucune réponse 5xx de l'API sur 3 h.
-- État actuel : 14/60 connexions (faible), pooler 1/200, aucune alerte de saturation sur 48 h. Connexions : 10 PostgREST inactives, services internes ; aucune connexion applicative directe.
-- Code : aucun `postgres(...)`, `new Pool`, `drizzle(...)` dans `src/` (les paquets `postgres`/`drizzle-orm` sont installés mais inutilisés ; `drizzle.config.ts` sert uniquement aux migrations). Seuls `createClient` serveur : `expertise-email.server.ts`, `report-email.server.ts` (e-mails, hors réception).
-- Changements récents (correctif SSR, statut réceptions directes, approvisionnement) : uniquement le client navigateur habituel, aucun accès base direct ajouté.
+## Paramétrage (commercial_settings, ligne unique, tous sites)
+- margin_pct = 20 %
+- min_margin_ht = 10 € HT par pneu
+- tire_mount_price_ht = 17 € HT par pneu
+- Lu dans `src/lib/tires.ts` (applyMargin, mountPriceFor), modifiable dans Paramétrage > Chiffrage.
 
-## Chemin concerné
-`/pieces-achats/reception` → lecture BL → `src/lib/receipt-docs.ts:42` → `uploadSupplierDoc` (`src/lib/supplier-docs.ts:160`) → `supabase.storage.upload("fournisseurs/<uuid>.pdf")` → 429 → `throw up.error` → toast brut.
+## Formule actuelle (`priceOffer`, src/lib/tires.ts l.713)
+```text
+base HT      = prix fournisseur ; si prix public TTC (CentralePneus) -> /1,2
+marge HT     = MAX(base HT x 20 % ; 10 €)
+PV HT/pneu   = base HT + marge
+pneus TTC    = PV HT x qté x 1,2
+montage TTC  = 17 x qté x 1,2
+total TTC    = pneus TTC + montage TTC
+```
+Levier de marge (adjustOfferMargin) : marge x (1 + levier %), montage inchangé.
 
-## Classification
-- Fuite de connexions dans le code : **non**.
-- Trop de requêtes concurrentes depuis l'écran : **non démontré** (une seule requête refusée).
-- Limite plateforme : **oui, ponctuelle** — le pool interne du service de stockage a été momentanément saturé côté plateforme.
-- Pooler mal configuré : **non**.
+## Dernier devis d'aujourd'hui
+3c5af2b5-cd03-4428-ae57-2a0dcf013fff — 13/10 15:04, Damien Digoin Automobile, 145/70R13, 2 pneus, levier 0
+| Case | Base HT | Marge | PV HT | Pneus TTC | Montage TTC | Total TTC |
+|---|---|---|---|---|---|---|
+| Imperial été | 40,13 | 10,00 | 50,13 | 120,31 | 40,80 | 161,11 |
+| Tracmax 4S | 35,69 | 10,00 | 45,69 | 109,66 | 40,80 | 150,46 |
+| Hankook été | 44,58 | 10,00 | 54,58 | 130,99 | 40,80 | 171,79 |
+| Hankook 4S | 42,08 | 10,00 | 52,08 | 124,99 | 40,80 | 165,79 |
+| Michelin (x2) | indisponible | | | | | |
 
-## Correctif minimal recommandé (non appliqué)
-1. Dans `uploadSupplierDoc` : si l'envoi renvoie 429/503 ou « Too many connections », réessayer 2 fois (pause ~1 s puis ~3 s), même chemin, `upsert: false`. Aucun effet de bord : rien n'est écrit avant un envoi réussi.
-2. En cas d'échec final, toast compréhensible : « Le serveur de fichiers est momentanément saturé, réessayez dans quelques secondes. Rien n'a été enregistré. »
-3. Test unitaire : 429 puis succès ⇒ document créé une seule fois ; 3 × 429 ⇒ erreur claire, aucune fiche `inbox_documents`.
-4. Facultatif : appliquer la même aide à `src/lib/photo.ts` et `src/lib/documents.ts`.
+Devis précédent 1d407f7f (levier +100 %) : la marge est bien doublée à 20 € (et 26,24 / 27,16 sur Michelin, avec 20 % > minimum).
 
-Action immédiate pour l'utilisateur : refaire simplement la réception avec le même PDF (anti-doublon par empreinte, aucun risque de double enregistrement).
+## Pourquoi on peut avoir l'impression qu'il n'y a « pas de marge »
+1. **La base n'est pas un vrai prix d'achat** : c'est le prix public TTC de CentralePneus, ramené au HT. Le prix de vente = prix public + 12 € TTC par pneu. Comparé à un tarif fournisseur ou à un site internet, l'écart paraît faible.
+2. **Pneus d'entrée/milieu de gamme** : 20 % de 35–45 € = 7–9 €, inférieur au minimum, donc c'est toujours le minimum de 10 € HT qui s'applique.
+3. **Pas d'écart selon le type de devis** : le même calcul sert pour le module Devis pneus et pour le Tour véhicule, quel que soit le nombre de pneus. Une seule source de prix est configurée (CentralePneus). Je n'ai donc pas pu vérifier si un autre fournisseur se comporte différemment.
 
-Attente de validation, aucune modification.
+## À confirmer avec l'utilisateur
+- Quelle valeur attendait-il : 20 % du prix ? une marge fixe plus élevée ? une marge calculée sur un vrai prix d'achat grossiste, et non sur le prix public ?
+- A-t-il vu le problème à l'écran, dans le PDF ou sur la page client ?
+
+## Correctif minimal selon la réponse
+- Si c'est le réglage : modifier margin_pct ou min_margin_ht dans Paramétrage, sans toucher au code.
+- Si on veut afficher le détail : ajouter « Base / Marge / PV HT » à côté de chaque offre, réservé au personnel (TireOfferGrid). Le PDF client reste inchangé.
+- Si l'écran ou le PDF affiche autre chose que les valeurs enregistrées : faire relire l'affichage depuis unitSellHt/tiresTtc (TireQuoteDocument.tsx, tire-quote-pdf.ts).
+
+## Tests à ajouter (tire-margin-lever / tire-provider)
+- Base 40,13 HT, 20 % / 10 € -> PV 50,13 HT ; 2 pneus -> pneus 120,31 TTC, montage 40,80, total 161,11.
+- Base 65,62 HT -> marge 13,12 (20 % > minimum).
+- Le PDF et l'écran affichent le même total TTC que l'offre enregistrée.
+
+## Fichiers concernés
+src/lib/tires.ts (applyMargin, sourceHtOf, priceOffer, adjustOfferMargin, mountPriceFor), src/routes/devis.pneus.index.tsx, src/lib/tire-quotes.ts, src/components/TireOfferGrid.tsx, src/components/TireQuoteDocument.tsx, src/lib/tire-quote-pdf.ts, src/routes/parametrage.chiffrage.tsx.
