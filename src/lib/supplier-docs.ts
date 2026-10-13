@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { extensionOf, rejectReason } from "@/lib/documents";
 import { dedupeDocs } from "@/lib/receipt-lines";
 import { resolveSupplier } from "@/lib/supplier-identify";
+import { uploadWithRetry } from "@/lib/storage-retry";
 
 export const SUPPLIER_DOC_TYPE = "facture_fournisseur";
 const BUCKET = "dda-media";
@@ -157,11 +158,10 @@ export async function uploadSupplierDoc(opts: {
   const reused = twin?.[0]?.storage_path ?? null;
   const path = reused ?? `fournisseurs/${crypto.randomUUID()}.${extensionOf(opts.file.name)}`;
   if (!reused) {
-    const up = await supabase.storage.from(BUCKET).upload(path, opts.file, {
+    await uploadWithRetry(supabase.storage.from(BUCKET) as never, path, opts.file, {
       contentType: opts.file.type || "application/octet-stream",
       upsert: false,
     });
-    if (up.error) throw up.error;
   }
 
   const { data, error } = await supabase

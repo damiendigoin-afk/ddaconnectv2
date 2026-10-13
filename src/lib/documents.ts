@@ -77,11 +77,10 @@ export async function uploadCaseDocument(opts: {
   if (reason) throw new Error(reason);
   const ext = extensionOf(opts.file.name);
   const path = `cases/${opts.caseId}/${crypto.randomUUID()}.${ext}`;
-  const up = await supabase.storage.from(BUCKET).upload(path, opts.file, {
+  await uploadWithRetry(supabase.storage.from(BUCKET) as never, path, opts.file, {
     contentType: opts.file.type || "application/octet-stream",
     upsert: false,
   });
-  if (up.error) throw up.error;
 
   const { data, error } = await supabase
     .from("bodyshop_documents")
