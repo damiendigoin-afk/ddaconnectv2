@@ -140,3 +140,4 @@ Reste à faire :
 # Incident 08/10
 
 - [x] Production 502 au démarrage : modules OCR/QR (tesseract.js, qrcode/pngjs) retirés du serveur construit
+- [ ] Retry stockage transitoire (429/503) sur uploads documents fournisseur
