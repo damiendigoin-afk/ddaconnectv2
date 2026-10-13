@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { BUCKET } from "./photo";
+import { uploadWithRetry } from "./storage-retry";
 
 /** Catégories documentaires d'une mission (dossier complet du véhicule / sinistre). */
 export const DOC_CATEGORIES = [
