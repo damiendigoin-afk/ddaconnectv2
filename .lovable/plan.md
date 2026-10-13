@@ -1,32 +1,31 @@
-# Diagnostic OR 17007 / BP-680-GW — « Aucune commande pour cet OR »
+# Diagnostic « Too many connections issued to the database » — Réception pièces
 
-Lecture seule : rien n'a été modifié ni publié.
+## Cause probable (confirmée par les logs)
+Ce n'est pas la base de données ni une fuite de connexions dans le code : c'est le **service de stockage de fichiers** qui a refusé l'envoi du PDF AUTODOC (HTTP 429), et l'écran affiche tel quel son message d'erreur.
 
-## Faits en base
-- OR 17007 : `repair_orders.id = 45b92d7a-53ee-4571-bba7-86ccf8f375ce`, site Lalinde `92f38b10-7444-44e1-8d86-84ce6b510a59`.
-- Réception OSKARBI du 01/10 : `part_receipts.id = 2276edbd-0a4a-495e-b1dd-544ff810ef78`, `repair_order_id = OR 17007`, **`order_id = null`**, statut validated.
-- Réception CAZES du 12/10 : `part_receipts.id = 2e3d343a-1548-42d9-89c6-24c94bae6d4a`, `repair_order_id = OR 17007`, **`order_id = null`**, statut validated.
-- `part_orders` : **aucune** commande pour la plaque BP-680-GW ni rattachée à l'OR 17007, ni liée à ces deux réceptions (ni CAZES, ni OSKARBI / Cde 2887974).
-- `or_part_usage` : 5 lignes `pending`, quantité 1 chacune (1ed57ad1…, 71de8b59…, 24451896…, ca02d899…, edfddf5c…), bien reliées aux lignes de réception.
+## Preuves
+- Journaux du stockage, 13/10/2026 10:54:07 UTC : `POST 429 /object/dda-media/fournisseurs/c12fd03d-e522-480b-b09d-3700a94ceebe.pdf` (Chrome Windows). C'est la **seule** erreur ≥ 429 des dernières 24 h sur toute l'API.
+- Le fichier n'existe pas dans le stockage : l'envoi n'a pas abouti, aucune fiche document créée derrière.
+- Journaux Postgres (6 h) : aucune erreur « too many connections ». Aucune réponse 5xx de l'API sur 3 h.
+- État actuel : 14/60 connexions (faible), pooler 1/200, aucune alerte de saturation sur 48 h. Connexions : 10 PostgREST inactives, services internes ; aucune connexion applicative directe.
+- Code : aucun `postgres(...)`, `new Pool`, `drizzle(...)` dans `src/` (les paquets `postgres`/`drizzle-orm` sont installés mais inutilisés ; `drizzle.config.ts` sert uniquement aux migrations). Seuls `createClient` serveur : `expertise-email.server.ts`, `report-email.server.ts` (e-mails, hors réception).
+- Changements récents (correctif SSR, statut réceptions directes, approvisionnement) : uniquement le client navigateur habituel, aucun accès base direct ajouté.
 
-## Cause
-1. Ces deux BL ont été réceptionnés **sans commande** : il n'existe pas de `part_orders` à relier, donc rien à « mettre à jour » côté commande.
-2. Le bouton « Rattacher cette réception à l'OR » (src/components/parts/PendingReceiptsForOr.tsx → `attachReceiptToOr` dans src/lib/parts.ts) fait correctement son travail : il renseigne `part_receipts.repair_order_id` et crée les affectations `or_part_usage` « à pointer ». Le rattachement est donc réel.
-3. Le bloc « Statut des pièces » (`PartsStatus` dans src/components/OrActionBoard.tsx, lignes 93-110) ne calcule la complétude qu'à partir des **commandes** (`orPartsOverview(orId).orders` → `partsCompleteness`). Sans commande, il affiche « Aucune commande pour cet OR. », sans regarder les réceptions rattachées ni les affectations. Le compteur juste en dessous (« Au garage / affectées : 5 ») provient lui de `or_part_usage`, d'où l'incohérence à l'écran.
+## Chemin concerné
+`/pieces-achats/reception` → lecture BL → `src/lib/receipt-docs.ts:42` → `uploadSupplierDoc` (`src/lib/supplier-docs.ts:160`) → `supabase.storage.upload("fournisseurs/<uuid>.pdf")` → 429 → `throw up.error` → toast brut.
 
-Le maillon qui manque se trouve dans l'affichage, pas dans les données : le statut ignore les réceptions rattachées sans commande.
+## Classification
+- Fuite de connexions dans le code : **non**.
+- Trop de requêtes concurrentes depuis l'écran : **non démontré** (une seule requête refusée).
+- Limite plateforme : **oui, ponctuelle** — le pool interne du service de stockage a été momentanément saturé côté plateforme.
+- Pooler mal configuré : **non**.
 
-## Correctif minimal proposé (affichage uniquement, aucune migration)
-Dans `PartsStatus` (src/components/OrActionBoard.tsx) :
-- Quand il n'y a aucune commande mais au moins une affectation `or_part_usage` active (ou une réception rattachée), afficher « Pièces reçues sans commande — N au garage, à pointer » (style « complet / au garage »), au lieu de « Aucune commande pour cet OR. ».
-- Garder « Aucune commande pour cet OR. » seulement s'il n'y a ni commande, ni affectation.
-- Avec des commandes, ne rien changer à la règle actuelle.
+## Correctif minimal recommandé (non appliqué)
+1. Dans `uploadSupplierDoc` : si l'envoi renvoie 429/503 ou « Too many connections », réessayer 2 fois (pause ~1 s puis ~3 s), même chemin, `upsert: false`. Aucun effet de bord : rien n'est écrit avant un envoi réussi.
+2. En cas d'échec final, toast compréhensible : « Le serveur de fichiers est momentanément saturé, réessayez dans quelques secondes. Rien n'a été enregistré. »
+3. Test unitaire : 429 puis succès ⇒ document créé une seule fois ; 3 × 429 ⇒ erreur claire, aucune fiche `inbox_documents`.
+4. Facultatif : appliquer la même aide à `src/lib/photo.ts` et `src/lib/documents.ts`.
 
-Ajouter un test pur (dans src/lib/parts-rules.ts : variante de `partsCompleteness` qui reçoit le nombre d'affectations) :
-- aucune commande + 5 affectations → « reçues sans commande, 5 » ;
-- aucune commande + 0 affectation → « aucune » ;
-- commandes présentes → comportement actuel inchangé.
+Action immédiate pour l'utilisateur : refaire simplement la réception avec le même PDF (anti-doublon par empreinte, aucun risque de double enregistrement).
 
-Non retenu : créer une commande fictive après coup, car cela fausserait le suivi des achats et du stock.
-
-En attente de votre validation, aucune modification.
+Attente de validation, aucune modification.
