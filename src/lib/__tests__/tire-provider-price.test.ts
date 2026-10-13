@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractItems } from "@/lib/tire-provider.server";
-import { publicItemsToOffers, sevenOffersFor } from "@/lib/tires";
+import { buildSevenOffers, publicItemsToOffers } from "@/lib/tires";
 
 /** Fixture au format réel CentralePneus (dataLayer = prix HT, carte = prix TTC affiché). */
 const card = (id: string, title: string, price: string, extra = "") =>
@@ -35,13 +35,14 @@ describe("CentralePneus : prix affiché rattaché au produit", () => {
 
   it("chiffrage Hankook : 50,74 HT + marge 10,15 => total 186,94 € TTC pour 2 pneus", () => {
     const offers = publicItemsToOffers(items, [{ brand: "Hankook", tier: "milieu", active: true } as never]);
-    const seven = sevenOffersFor({
+    const seven = buildSevenOffers({
       offers,
       quantity: 2,
       settings,
       required: { size: "145/70R13", load: "71", speed: "T" },
       brands: [{ brand: "Hankook", tier: "milieu", active: true } as never],
-    } as never);
+      mounted: { brand: null, model: null, size: "145/70R13", season: null },
+    });
     const h = seven.find((o) => o.slot === "milieu_quatre_saisons")!;
     expect(h.unitPublicTtc).toBe(60.89);
     expect(h.unitSourceHt).toBeCloseTo(50.74, 2);
