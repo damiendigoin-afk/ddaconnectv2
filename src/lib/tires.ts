@@ -655,6 +655,8 @@ export type SevenOffer = {
   speedIndex: string | null;
   quantity: number;
   unitSourceHt: number | null;
+  /** Prix public TTC affiché par la source (audit), si la source est publique. */
+  unitPublicTtc?: number | null;
   marginHt: number | null;
   unitSellHt: number | null;
   tiresHt: number | null;
@@ -739,6 +741,7 @@ function priceOffer(
     loadIndex: offer.load_index,
     speedIndex: offer.speed_index,
     unitSourceHt: sourceHt,
+    unitPublicTtc: offer.price_kind === "public_ttc" ? Number(offer.purchase_price_ht) : null,
     marginHt,
     unitSellHt: sellHt,
     tiresHt,
