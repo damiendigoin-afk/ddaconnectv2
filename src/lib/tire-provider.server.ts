@@ -63,8 +63,48 @@ type RawItem = {
   price?: number;
 };
 
-/** Lecture des blocs `view_item_list` publiés dans la page (données publiques). */
+/** Prix "60,59" / "1 060,59" → 60.59 ; null si illisible. */
+function frNumber(raw: string): number | null {
+  const v = Number(raw.replace(/[\s\u00a0\u202f]/g, "").replace(",", "."));
+  return Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : null;
+}
+
+function plainText(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/&#8202;|&nbsp;/g, " ").replace(/\s+/g, " ");
+}
+
+/**
+ * Cartes produit affichées : identifiant produit → prix unitaire TTC affiché et
+ * libellé visible. Le prix est lu DANS la carte du produit (bloc `price` →
+ * `price__amount--value`), jamais par position dans une autre liste. Un prix
+ * barré éventuel (`old`, `strike`, `crossed`) est ignoré.
+ */
+export function extractDisplayedCards(html: string): Map<string, { priceTtc: number; text: string }> {
+  const out = new Map<string, { priceTtc: number; text: string }>();
+  const parts = html.split(/<div class="product-list-item"(?=[\s>])/);
+  for (const card of parts.slice(1)) {
+    const id = /data-gtm--select-item-identifier-param="([\w-]+)"/.exec(card)?.[1];
+    if (!id || out.has(id)) continue;
+    const block = /class="price\s*"[\s\S]*?class="price__amount--value"\s*>\s*([\d\s\u00a0\u202f.,]+?)\s*</.exec(card);
+    const price = block ? frNumber(block[1]!) : null;
+    if (price == null) continue;
+    out.set(id, { priceTtc: price, text: plainText(card) });
+  }
+  return out;
+}
+
+/** Tolérance entre prix affiché TTC et prix HT du dataLayer × 1,2 (arrondis). */
+const PRICE_COHERENCE = 0.03;
+
+/**
+ * Lecture des offres publiques. Métadonnées (marque, libellé, saison) issues des
+ * blocs `view_item_list` ; PRIX = prix TTC affiché dans la carte du même
+ * identifiant produit. Le `price` du dataLayer est HT : il ne sert qu'au
+ * contrôle de cohérence. Sans carte, prix illisible, libellé discordant ou
+ * prix incohérent, l'article est écarté (jamais de prix voisin).
+ */
 export function extractItems(html: string, sourceUrl: string, consultedAt: string): PublicTireItem[] {
+  const cards = extractDisplayedCards(html);
   const byRef = new Map<string, PublicTireItem>();
   const re = /dataLayer\.push\((\{"event":"view_item_list"[\s\S]*?\})\);/g;
   let match: RegExpExecArray | null;
@@ -77,13 +117,26 @@ export function extractItems(html: string, sourceUrl: string, consultedAt: strin
     }
     const list = (parsed as { ecommerce?: { items?: RawItem[] } }).ecommerce?.items ?? [];
     for (const raw of list) {
-      const price = Number(raw.price);
       const name = (raw.item_name ?? "").trim();
       const ref = (raw.item_id ?? "").trim();
-      if (!ref || !name || !Number.isFinite(price) || price <= 0) continue;
+      if (!ref || !name || byRef.has(ref)) continue;
+      const card = cards.get(ref.replace(/^tyre/i, ""));
+      if (!card) continue;
 
       const dim = /(\d{3}\/\d{2})\s*R\s*(\d{2})(C?)/i.exec(name);
       const idx = /R\s*\d{2}C?\s+(\d{2,3}(?:\/\d{2,3})?)\s*([A-Z])\b/i.exec(name);
+      // La carte doit afficher la même dimension et les mêmes indices.
+      const norm = (v: string) => v.replace(/\s+/g, "").toUpperCase();
+      const cardText = norm(card.text);
+      if (dim && !cardText.includes(norm(`${dim[1]}R${dim[2]}${dim[3]}`))) continue;
+      if (idx && !cardText.includes(norm(`R${dim?.[2] ?? ""}${dim?.[3] ?? ""}${idx[1]}${idx[2]}`))) continue;
+
+      const dlHt = Number(raw.price);
+      if (Number.isFinite(dlHt) && dlHt > 0) {
+        const expected = dlHt * 1.2;
+        if (Math.abs(card.priceTtc - expected) / card.priceTtc > PRICE_COHERENCE) continue;
+      }
+
       const brand = (raw.item_brand ?? "").trim() || name.split(" ")[0]!;
       const model = name
         .replace(brand, "")
@@ -99,8 +152,7 @@ export function extractItems(html: string, sourceUrl: string, consultedAt: strin
         speedIndex: idx ? idx[2]!.toUpperCase() : null,
         season: seasonOf(raw.item_category4),
         is3pmsf: /3\s*pmsf/i.test(name),
-
-        publicPriceTtc: Math.round(price * 100) / 100,
+        publicPriceTtc: card.priceTtc,
         availability: null,
         sourceUrl,
         consultedAt,

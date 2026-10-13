@@ -57,7 +57,9 @@ describe("consultation fournisseur par marque et par saison", () => {
   it("lit le marquage 3PMSF dans le libellé fournisseur", () => {
     const html = `<script>dataLayer.push({"event":"view_item_list","ecommerce":{"items":[
 {"item_id":"t1","item_name":"Michelin CrossClimate 3 205/55 R16 91V 3PMSF","item_brand":"Michelin","item_category4":"G","price":79.82},
-{"item_id":"t2","item_name":"Sailun Atrezzo 4Seasons 205/55 R16 94V XL","item_brand":"Sailun","item_category4":"G","price":49.49}]}});</script>`;
+{"item_id":"t2","item_name":"Sailun Atrezzo 4Seasons 205/55 R16 94V XL","item_brand":"Sailun","item_category4":"G","price":49.49}]}});</script>
+<div class="product-list-item"><a data-gtm--select-item-identifier-param="t1">Michelin CrossClimate 3 205/55 R16 91V<div class="price "><span class="price__amount--value">95,78</span></div></a></div>
+<div class="product-list-item"><a data-gtm--select-item-identifier-param="t2">Sailun Atrezzo 4Seasons 205/55 R16 94V<div class="price "><span class="price__amount--value">59,39</span></div></a></div>`;
     const items = extractItems(html, "u", "2026-09-11T00:00:00.000Z");
     expect(items[0]!.is3pmsf).toBe(true);
     expect(items[1]!.is3pmsf).toBe(false);
