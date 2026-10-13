@@ -83,7 +83,7 @@ export function extractDisplayedCards(html: string): Map<string, { priceTtc: num
   const out = new Map<string, { priceTtc: number; text: string }>();
   const parts = html.split(/<div class="product-list-item"(?=[\s>])/);
   for (const card of parts.slice(1)) {
-    const id = /data-gtm--select-item-identifier-param="(\d+)"/.exec(card)?.[1];
+    const id = /data-gtm--select-item-identifier-param="([\w-]+)"/.exec(card)?.[1];
     if (!id || out.has(id)) continue;
     const block = /class="price\s*"[\s\S]*?class="price__amount--value"\s*>\s*([\d\s\u00a0\u202f.,]+?)\s*</.exec(card);
     const price = block ? frNumber(block[1]!) : null;
