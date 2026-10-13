@@ -17,3 +17,4 @@
 - Recette IA (banc A/B) isolée dans src/lib/bench-*.ts + bench.server.ts : écrit seulement ai_bench_*, dda-media/benchmark/ et ai_usage_log (feature ai_document_benchmark*, budget séparé, hors budget prod), jamais learnSupplierProfile ni tables métier. Why: mesurer les modèles sans effet de bord.
 - Domain rules (stock, parts, WinMotor, documents, tires) live in src/lib/AGENTS.md.
 - Browser-only CommonJS libs (tesseract.js, qrcode) are imported lazily behind `if (import.meta.env.SSR)` guards. Why: their presence in the server bundle emits a top-level createRequire that crashed the published server (502).
+- Storage uploads with upsert:false go through src/lib/storage-retry.ts (uploadWithRetry). Why: transient 429/503 from the file service must not surface raw to users or create duplicates.
