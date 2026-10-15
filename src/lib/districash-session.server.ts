@@ -167,3 +167,22 @@ export async function districashLoginAndSearch(
   if (!proven) return out("Session ouverte mais catalogue sans produit avec prix et EAN : non validé.", false, rows);
   return out(null, true, rows);
 }
+
+/** Corps exact de POST /search (format formulaire observé dans Chrome). */
+export function districashSearchBody(token: string, tyre: DistricashTyre, quantity: number): URLSearchParams {
+  return new URLSearchParams({
+    _token: token,
+    reference_input: "[]",
+    tyre_inputs: JSON.stringify({
+      pneu_larg: tyre.width,
+      pneu_haut: tyre.height,
+      pneu_diam: tyre.diameter,
+      pneu_indc: tyre.load ?? "",
+      pneu_indv: tyre.speed ?? "",
+    }),
+    quantite: String(quantity),
+    user_filters: JSON.stringify({ search_type: "recherche_standard" }),
+    searchTypeDefaut: "recherche_standard",
+    searchTypageCde: "",
+  });
+}
