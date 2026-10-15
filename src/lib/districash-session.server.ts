@@ -186,3 +186,18 @@ export function districashSearchBody(token: string, tyre: DistricashTyre, quanti
     searchTypageCde: "",
   });
 }
+
+/** Message honnête et précis d'un test (aucun « connecté » sur un simple 302). */
+export function summarizeDistricashTest(r: DistricashSessionResult): { ok: boolean | null; message: string } {
+  const loginOk = r.steps.some((s) => s.step === "GET /" && s.note === "page connectée");
+  const search = r.steps.find((s) => s.step === "POST /search");
+  const priced = r.rows.filter((x) => x.ean && x.purchaseHt != null).length;
+  if (r.authenticated)
+    return { ok: true, message: `Authentification et catalogue validés : ${priced} pneu(s) 245/45 R20 avec EAN et prix.` };
+  if (!loginOk) return { ok: false, message: `Authentification échouée : ${r.blocker ?? "raison inconnue"}` };
+  if (!search) return { ok: false, message: `Authentification confirmée ; recherche catalogue non effectuée.` };
+  return {
+    ok: false,
+    message: `Authentification confirmée ; recherche catalogue 245/45 R20 échouée (HTTP ${search.status ?? "?"}, ${r.rows.length} ligne(s) lue(s), ${priced} avec EAN et prix).`,
+  };
+}
