@@ -943,6 +943,31 @@ export function buildSevenOffers(args: {
         offer = cheapest(candidates);
         if (offer) break;
       }
+      // Repli : marques préférées absentes => marque équivalente de la même gamme
+      // (gamme vérifiée portant sur l'offre), jamais une marque paramétrée ailleurs.
+      if (!offer) {
+        offer = cheapest(
+          offers.filter(
+            (o) =>
+              o.active &&
+              sizeMatch(o) &&
+              !used.has(String(o.id)) &&
+              o.tier === tier &&
+              o.season === season &&
+              tierOfBrand(brands, o.brand) === null &&
+              sourceHtOf(o) > 0 &&
+              Number.isFinite(sourceHtOf(o)) &&
+              offerMeetsRequirement({
+                offerLoad: o.load_index,
+                offerSpeed: o.speed_index,
+                season,
+                is3pmsf: offerIs3pmsf(o),
+                requiredLoad: required.load,
+                requiredSpeed: required.speed,
+              }),
+          ),
+        );
+      }
       const title = `${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`;
       if (offer) {
         used.add(String(offer.id));

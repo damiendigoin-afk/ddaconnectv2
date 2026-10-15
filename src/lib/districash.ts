@@ -46,7 +46,21 @@ export type DistricashRow = {
   productUrl: string | null;
   /** Sous-famille portail (ex. « TOURISME ETE ») : saison déclarée par le distributeur. */
   family?: string | null;
+  /** Gamme déclarée par le portail (attribut BUDGET / MEDIUM / PREMIUM), sinon null. */
+  supplierTier?: "entree" | "milieu" | "haut" | null;
 };
+
+const SUPPLIER_TIER: Record<string, "entree" | "milieu" | "haut"> = { BUDGET: "entree", MEDIUM: "milieu", PREMIUM: "haut" };
+
+/** Gamme portail : seul un attribut data-* valant exactement BUDGET/MEDIUM/PREMIUM fait foi (jamais déduite). */
+export function districashSupplierTier(openTag: string): "entree" | "milieu" | "haut" | null {
+  const re = /\bdata-[\w-]+\s*=\s*"\s*(BUDGET|MEDIUM|PREMIUM)\s*"/gi;
+  const found = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(openTag))) found.add(m[1]!.toUpperCase());
+  // Valeurs contradictoires => non vérifiable.
+  return found.size === 1 ? SUPPLIER_TIER[[...found][0]!]! : null;
+}
 
 export const DISTRICASH_ORIGIN = "https://districashv2.inoshop.net";
 const DISTRICASH_HOST = "districashv2.inoshop.net";
@@ -141,6 +155,7 @@ export function parseDistricashSearch(html: string): DistricashRow[] {
       availability: availabilityOf(inner, attr(open, "data-dispo-type")),
       productUrl: productUrlOf(inner),
       family: attr(open, "data-filtresous-familles-lib"),
+      supplierTier: districashSupplierTier(open),
     });
   }
   return rows;
@@ -225,7 +240,8 @@ export function districashRowsToOffers(
     const brand = r.brand.trim().toUpperCase();
     return {
       id: `districash:${r.code || r.ean}`,
-      tier: tierOf(brand) ?? "",
+      // Marque paramétrée : sa gamme prime ; sinon gamme déclarée par le portail.
+      tier: tierOf(brand) ?? r.supplierTier ?? "",
       season: districashRowSeason(r) ?? "",
       is3pmsf: /3PMSF|\bM\+S\b.*\bSNOW/i.test(r.label),
       brand,
