@@ -937,9 +937,9 @@ export function buildSevenOffers(args: {
               requiredSpeed: required.speed,
             }),
         );
-        const exact = pool.filter((o) => o.season === season);
-        // Saison non publiée : proposée à défaut, jamais à la place d'une saison identifiée.
-        const candidates = exact.length ? exact : pool.filter((o) => !o.season);
+        // Saison identifiée obligatoire : un modèle de saison inconnue n'est jamais
+        // placé dans une case « Été » ou « 4 saisons » (pas de saison devinée).
+        const candidates = pool.filter((o) => o.season === season);
         offer = cheapest(candidates);
         if (offer) break;
       }
