@@ -162,6 +162,9 @@ function NewCase() {
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
         customer_email: customerEmail || null,
+        // Compte et adresse affichés dans le contrôle OCR : conservés pour la création guidée des fiches.
+        customer_account: check?.extract.customer_account || null,
+        customer_address: check?.extract.customer_address || null,
         or_number: orNumber || null,
         mission_origin: origin,
         mission_date: new Date().toISOString().slice(0, 10),

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { InvoiceTimeline } from "@/components/InvoiceTimeline";
 import { AppShell } from "@/components/AppShell";
+import { CustomerInlineEditor } from "@/components/CustomerInlineEditor";
 import { useAuth } from "@/lib/auth";
 import { customerName, fetchCustomer, vehicleLabel } from "@/lib/refbase";
 
@@ -58,6 +59,8 @@ function ClientPage() {
                 {c.source_customer_id ? ` · n° ${c.source_customer_id}` : ""}
               </p>
             </section>
+
+            <CustomerInlineEditor customer={c as never} contacts={data?.contacts ?? []} address={addr} />
 
             <section className="card-surface p-4">
               <h2 className="mb-2 text-xs font-bold uppercase text-muted-foreground">Contact</h2>
