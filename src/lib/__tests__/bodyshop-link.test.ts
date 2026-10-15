@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   attachExisting,
-  bodyshopCaseFilterForTest,
   createCustomerForCase,
   createVehicleForCase,
   customerDraftFromCase,
@@ -14,9 +13,9 @@ import {
   rankVehicleCandidates,
   vehicleDraftFromCase,
   type CaseLinkSource,
-} from "./bodyshop-link-test-exports";
+} from "../bodyshop-link";
 import { buildCustomerPatch, initialCustomerForm, planContactChanges } from "../customer-edit";
-import { caseMatchesTokens } from "../refbase";
+import { bodyshopCaseFilter as bodyshopCaseFilterForTest, caseMatchesTokens } from "../refbase";
 
 /** Dossier réel OR 17264 sans fiches liées (customer_id / ref_vehicle_id NULL). */
 const CASE_17264: CaseLinkSource = {
