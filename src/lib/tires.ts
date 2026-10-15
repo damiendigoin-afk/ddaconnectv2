@@ -8,7 +8,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import type { CommercialSettings, PricedItem, Priority, ServicePackage } from "./pricing-engine";
+import type { CommercialSettings, Priority, ServicePackage } from "./pricing-engine";
 import type { TireWheelAi } from "./tire-types";
 
 export type TireOffer = Database["public"]["Tables"]["tire_offers"]["Row"];
@@ -100,115 +100,6 @@ export const TIRE_SUPPLIERS: TireSupplier[] = [
 
 export function supplierByKey(key: string | null | undefined): TireSupplier {
   return TIRE_SUPPLIERS.find((s) => s.key === key) ?? localCatalogSupplier;
-}
-
-/* ------------------------------ Propositions ------------------------------ */
-
-export type TireProposal = {
-  tier: TireTier;
-  season: TireSeason;
-  brand: string;
-  model: string;
-  size: string | null;
-  quantity: number;
-  unitSellHt: number;
-  tiresTtc: number;
-  mountTtc: number;
-  totalTtc: number;
-  source: string;
-  priceDate: string;
-  identical: boolean;
-};
-
-export function proposalFromOffer(
-  offer: TireOffer,
-  quantity: number,
-  settings: CommercialSettings | null,
-  identical = false,
-): TireProposal {
-  const { sellHt } = applyMargin(sourceHtOf(offer), settings);
-  const tiresTtc = Math.round(sellHt * 1.2 * quantity * 100) / 100;
-  const mountTtc = Math.round(Number(offer.mount_price_ttc) * quantity * 100) / 100;
-  return {
-    tier: offer.tier as TireTier,
-    season: offer.season as TireSeason,
-    brand: offer.brand,
-    model: offer.model,
-    size: offer.size,
-    quantity,
-    unitSellHt: sellHt,
-    tiresTtc,
-    mountTtc,
-    totalTtc: Math.round((tiresTtc + mountTtc) * 100) / 100,
-    source: offer.source,
-    priceDate: offer.price_date,
-    identical,
-  };
-}
-
-/**
- * Proposition « monte identique / équivalent direct » + grille de 6 alternatives
- * (Été et 4 saisons × entrée / milieu / haut de gamme).
- */
-export function buildTireProposals(args: {
-  offers: TireOffer[];
-  quantity: number;
-  settings: CommercialSettings | null;
-  mountedBrand?: string | null;
-  mountedModel?: string | null;
-}): { identical: TireProposal | null; grid: TireProposal[] } {
-  const { offers, quantity, settings } = args;
-  const brand = (args.mountedBrand ?? "").toLowerCase();
-  const model = (args.mountedModel ?? "").toLowerCase();
-
-  const exact =
-    (brand &&
-      offers.find(
-        (o) =>
-          o.brand.toLowerCase() === brand &&
-          (!model || o.model.toLowerCase() === model),
-      )) ||
-    (brand && offers.find((o) => o.brand.toLowerCase() === brand)) ||
-    null;
-
-  const grid: TireProposal[] = [];
-  for (const season of ["ete", "quatre_saisons"] as TireSeason[]) {
-    for (const tier of ["entree", "milieu", "haut"] as TireTier[]) {
-      const offer = offers.find((o) => o.season === season && o.tier === tier);
-      if (offer) grid.push(proposalFromOffer(offer, quantity, settings));
-    }
-  }
-  return {
-    identical: exact ? proposalFromOffer(exact, quantity, settings, true) : null,
-    grid,
-  };
-}
-
-export function tireProposalToItem(p: TireProposal, priority: Priority = "a_remplacer"): PricedItem {
-  const totalHt = Math.round((p.totalTtc / 1.2) * 100) / 100;
-  return {
-    ok: true,
-    needsContact: false,
-    message: "",
-    label: `${p.quantity} pneu${p.quantity > 1 ? "s" : ""} ${p.brand} ${p.model}${p.size ? ` ${p.size}` : ""}`,
-    detail: `${SEASON_LABEL[p.season]} · ${TIER_LABEL[p.tier]} · montage inclus`,
-    block: "mecanique",
-    priority,
-    quantity: p.quantity,
-    hours: null,
-    unitHt: Math.round((p.unitSellHt) * 100) / 100,
-    totalHt,
-    totalTtc: p.totalTtc,
-    source: "prix_fournisseur_pneu",
-    confidence: "elevee",
-    computation: {
-      tires_ttc: p.tiresTtc,
-      mount_ttc: p.mountTtc,
-      source: p.source,
-      price_date: p.priceDate,
-      identical: p.identical,
-    },
-  };
 }
 
 /* ------------------------------ Analyse usure ----------------------------- */
