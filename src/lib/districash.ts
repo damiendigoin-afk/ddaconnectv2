@@ -44,6 +44,8 @@ export type DistricashRow = {
   availability: DistricashAvailability;
   /** Fiche produit exacte lue sur l'ancre de la ligne (jamais construite). */
   productUrl: string | null;
+  /** Sous-famille portail (ex. « TOURISME ETE ») : saison déclarée par le distributeur. */
+  family?: string | null;
 };
 
 export const DISTRICASH_ORIGIN = "https://districashv2.inoshop.net";
@@ -100,11 +102,22 @@ function parsePrice(v: string | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * Codes `data-dispo-type` relevés dans la légende du portail (15/10/2026) :
+ * ag = vert « En agence » (J) ; grp = pastille verte « Disponible Plateforme » (J+) ;
+ * agpart = orange partiel, agvirt = interrogation manufacturier, partner = non
+ * vérifié => inconnu (jamais proposé) ; nonecmd = rouge, noref = gris => indisponible.
+ */
 function availabilityOf(rowHtml: string, dispoType: string | null): DistricashAvailability {
   const t = (dispoType ?? "").trim().toUpperCase();
-  if (rowHtml.includes(DISTRICASH_JPLUS_IMAGE) || t === "J+") return "J+";
-  if (t === "J") return "J";
-  if (/rouge\.png/i.test(rowHtml)) return "indisponible";
+  if (t === "NONECMD" || t === "NOREF") return "indisponible";
+  if (t === "AG" || t === "J") return "J";
+  if (t === "GRP" || t === "J+") return "J+";
+  if (t) return "inconnu";
+  // Sans code : seule l'icône de dispo de la ligne fait foi.
+  if (/rouge\.png|gris\.png/i.test(rowHtml)) return "indisponible";
+  if (rowHtml.includes(DISTRICASH_JPLUS_IMAGE)) return "J+";
+  if (/\/stock\/vert\.png/i.test(rowHtml)) return "J";
   return "inconnu";
 }
 
@@ -127,6 +140,7 @@ export function parseDistricashSearch(html: string): DistricashRow[] {
       purchaseHt: parsePrice(attr(open, "data-filtreprixachat")),
       availability: availabilityOf(inner, attr(open, "data-dispo-type")),
       productUrl: productUrlOf(inner),
+      family: attr(open, "data-filtresous-familles-lib"),
     });
   }
   return rows;
@@ -162,6 +176,20 @@ const SUMMER_MODELS = [
 ];
 
 /** Saison uniquement si le libellé l'indique clairement ; sinon null (jamais devinée). */
+/** Saison déclarée par la sous-famille portail (« TOURISME ETE / HIVER / TOUTES SAIS »), sinon null. */
+export function districashFamilySeason(family: string | null | undefined): "ete" | "quatre_saisons" | "hiver" | null {
+  const f = (family ?? "").toUpperCase();
+  if (/TOUTES\s*SAIS|4\s*SAISONS|ALL\s*SEASON/.test(f)) return "quatre_saisons";
+  if (/HIVER|WINTER/.test(f)) return "hiver";
+  if (/\bETE\b|SUMMER/.test(f)) return "ete";
+  return null;
+}
+
+/** Saison d'une ligne : sous-famille portail en priorité, puis libellé explicite ; jamais devinée. */
+export function districashRowSeason(r: Pick<DistricashRow, "label" | "family">) {
+  return districashFamilySeason(r.family) ?? districashSeason(r.label);
+}
+
 export function districashSeason(label: string): "ete" | "quatre_saisons" | "hiver" | null {
   const l = ` ${label.toUpperCase()} `;
   const c = label.toUpperCase().replace(/[^A-Z0-9+]/g, "");
@@ -198,7 +226,7 @@ export function districashRowsToOffers(
     return {
       id: `districash:${r.code || r.ean}`,
       tier: tierOf(brand) ?? "",
-      season: districashSeason(r.label) ?? "",
+      season: districashRowSeason(r) ?? "",
       is3pmsf: /3PMSF|\bM\+S\b.*\bSNOW/i.test(r.label),
       brand,
       model: r.label,
