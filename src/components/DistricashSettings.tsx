@@ -39,7 +39,7 @@ export function DistricashSettings() {
           <div className="text-xs text-muted-foreground">Un compte portail indépendant par site.</div>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">« Tester la connexion » ouvre une session lecture seule et recherche des 245/45 R20 : « Connecté » seulement si des pneus avec EAN et prix sont lus. Aucune commande.</p>
+      <GeneralBanner rows={rows} />
       {error ? <p className="mt-3 rounded-lg bg-red-100 px-3 py-2 text-xs text-red-950">{error}</p> : null}
       <div className="mt-3 space-y-3">
         {(rows ?? []).map((r) => (
