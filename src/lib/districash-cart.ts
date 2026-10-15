@@ -14,18 +14,22 @@ export const CART_STORE_FIELDS = [
 ] as const;
 export type CartStoreField = (typeof CART_STORE_FIELDS)[number];
 
-/** Champs pouvant légitimement être vides côté portail. */
-const OPTIONAL = new Set<CartStoreField>(["platform_img", "consigne", "mode_modal", "c_fourn_cata"]);
+/**
+ * Champs qui doivent être présents ET non vides. Tous les autres doivent être
+ * présents dans le formulaire mais peuvent valoir "" ou " " (ex. devise,
+ * c_fourn, code_supplier, identifiant_administratif) : envoyés tels quels.
+ */
+export const CART_CRITICAL = new Set<CartStoreField>(["id", "code_article", "prix_achat", "type_erp", "code_agence"]);
 
 const decode = (s: string) => s.replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 
-/** Lit un champ par nom exact : <input name="x" value="…"> ou data-x="…". */
+/** Lit un champ par nom exact : <input name="x" value="…"> ou data-x="…". Présent sans valeur => "". Absent => null. */
 function readField(html: string, name: string): string | null {
   const esc = name.replace(/[-_]/g, (c) => `\\${c}`);
-  const input = new RegExp(`<input\\b[^>]*\\bname\\s*=\\s*"${esc}"[^>]*>`, "i").exec(html)?.[0];
+  const input = new RegExp(`<input\\b[^>]*\\bname\\s*=\\s*["']${esc}["'][^>]*>`, "i").exec(html)?.[0];
   if (input) {
-    const v = /\bvalue\s*=\s*"([^"]*)"/i.exec(input);
-    return v ? decode(v[1]!) : "";
+    const v = /\bvalue\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(input);
+    return v ? decode(v[1] ?? v[2] ?? "") : "";
   }
   const d = new RegExp(`\\bdata-${esc}\\s*=\\s*"([^"]*)"`, "i").exec(html);
   return d ? decode(d[1]!) : null;
@@ -45,7 +49,8 @@ export function buildCartStorePayload(
   for (const f of CART_STORE_FIELDS) {
     if (f === "quantite") { body.set(f, String(check.quantity)); continue; }
     const v = readField(rowHtml, f);
-    if (v == null || (v.trim() === "" && !OPTIONAL.has(f))) return { ok: false, reason: `Champ portail introuvable : ${f}.` };
+    if (v == null) return { ok: false, reason: `Champ portail introuvable : ${f}.` };
+    if (v.trim() === "" && CART_CRITICAL.has(f)) return { ok: false, reason: `Champ portail vide : ${f}.` };
     body.set(f, v);
   }
   const norm = (s: string | null | undefined) => (s ?? "").toUpperCase().replace(/\s+/g, "");
