@@ -146,19 +146,28 @@ export async function quoteManualTires(args: {
   requestedBrand: string | null;
   quantity: number;
   engine: TireEngineData;
+  /** Fournisseur choisi (défaut : comportement historique CentralePneus + catalogue). */
+  supplier?: QuoteTireSupplierKey;
 }): Promise<ManualQuoteResult> {
   const { engine } = args;
+  const supplier = args.supplier ?? "centralepneus";
   let warning = "";
   let items: PublicTireItem[] = [];
-  // Marques réellement nécessaires : gammes paramétrées + marque demandée.
-  const neededBrands = quoteBrandsOf(engine.brands, [args.requestedBrand]);
-  const res = await fetchPublicTireOffers({ data: { size: args.size, brands: neededBrands } });
-  if (res.ok) items = res.items as PublicTireItem[];
-  else warning = res.error;
-
+  let catalog = engine.catalog;
+  if (supplier === "centralepneus") {
+    // Marques réellement nécessaires : gammes paramétrées + marque demandée.
+    const neededBrands = quoteBrandsOf(engine.brands, [args.requestedBrand]);
+    const res = await fetchPublicTireOffers({ data: { size: args.size, brands: neededBrands } });
+    if (res.ok) items = res.items as PublicTireItem[];
+    else warning = res.error;
+  } else if (supplier === "districash") {
+    // Aucune donnée Districash n'est consultée : rien n'est présenté comme tel.
+    catalog = [];
+    warning = DISTRICASH_BLOCKED;
+  }
 
   const offers = buildSevenOffers({
-    offers: [...publicItemsToOffers(items, engine.brands), ...engine.catalog],
+    offers: [...publicItemsToOffers(items, engine.brands), ...catalog],
     brands: engine.brands,
     packages: engine.packages,
     settings: engine.settings,

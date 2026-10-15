@@ -102,6 +102,17 @@ export function supplierByKey(key: string | null | undefined): TireSupplier {
   return TIRE_SUPPLIERS.find((s) => s.key === key) ?? localCatalogSupplier;
 }
 
+/** Fournisseurs sélectionnables pour les devis pneus (défaut par site, modifiable au devis). */
+export type QuoteTireSupplierKey = "centralepneus" | "catalogue_local" | "districash";
+export const QUOTE_TIRE_SUPPLIERS: { key: QuoteTireSupplierKey; label: string; available: boolean }[] = [
+  { key: "centralepneus", label: "CentralePneus (prix publics) + catalogue local", available: true },
+  { key: "catalogue_local", label: "Catalogue local uniquement", available: true },
+  { key: "districash", label: "Districash (connexion non validée)", available: false },
+];
+export function quoteSupplierKey(v: string | null | undefined): QuoteTireSupplierKey {
+  return QUOTE_TIRE_SUPPLIERS.some((s) => s.key === v) ? (v as QuoteTireSupplierKey) : "centralepneus";
+}
+
 /* ------------------------------ Analyse usure ----------------------------- */
 
 export type TireCondition = "bon" | "a_surveiller" | "a_remplacer_prochainement" | "urgent";
