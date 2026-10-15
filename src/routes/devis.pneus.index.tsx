@@ -21,7 +21,6 @@ import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { prepareCapture } from "@/lib/photo-capture";
 import { useSite } from "@/lib/site-context";
 import { supabase } from "@/integrations/supabase/client";
-import { DISTRICASH_BLOCKED } from "@/lib/districash";
 import { QUOTE_TIRE_SUPPLIERS, quoteSupplierKey, type QuoteTireSupplierKey } from "@/lib/tires";
 import { suggestBrands } from "@/lib/tire-brands";
 import { analyzeTireLabelPhoto } from "@/lib/tire-ai.functions";
@@ -138,6 +137,19 @@ function TireQuotePage() {
       return quoteSupplierKey(data?.default_supplier);
     },
   });
+  // Statut Districash réel du site : dernier test de Paramètres API (jamais simulé).
+  const districashState = useQuery({
+    queryKey: ["districash-site-state", site?.id ?? null],
+    enabled: Boolean(site?.id),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("tire_supplier_site_settings")
+        .select("districash_account, districash_last_test_at, districash_last_test_ok, districash_last_test_message")
+        .eq("site_id", site!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
   const [supplier, setSupplier] = useState<QuoteTireSupplierKey | null>(null);
   const activeSupplier: QuoteTireSupplierKey = supplier ?? siteSupplier.data ?? "centralepneus";
 
@@ -163,6 +175,7 @@ function TireQuotePage() {
         quantity: form.quantity,
         engine: data,
         supplier: activeSupplier,
+        siteId: site?.id ?? null,
       });
     },
     onSuccess: (r) => {
@@ -310,7 +323,16 @@ function TireQuotePage() {
               ))}
             </select>
             {activeSupplier === "districash" ? (
-              <span className="mt-1 block text-amber-700">{DISTRICASH_BLOCKED}</span>
+              <span
+                className={`mt-1 block ${districashState.data?.districash_last_test_ok ? "text-muted-foreground" : "text-amber-700"}`}
+              >
+                {!site?.id
+                  ? "Aucun site sélectionné : Districash indisponible."
+                  : districashState.data?.districash_last_test_at
+                    ? `${site.name ?? "Site"}${districashState.data.districash_account ? ` (compte ${districashState.data.districash_account})` : ""} — dernier test ${new Date(districashState.data.districash_last_test_at).toLocaleString("fr-FR")} : ${districashState.data.districash_last_test_message ?? ""}`
+                    : "Connexion Districash jamais testée pour ce site (Paramètres API)."}
+                {" "}Consultation en direct au chiffrage ; seuls les pneus J/J+ avec prix sont proposés. Prix d'achat = prix affiché par le portail.
+              </span>
             ) : null}
           </label>
 
