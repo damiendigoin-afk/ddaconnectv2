@@ -14,7 +14,7 @@ const FORBIDDEN = /(xat2v2|\/rest\/|cart|panier|checkout|estimate|devis|order|co
 const ALLOWED_PATHS = new Set(["/", "/login", "/search"]);
 const UA = "DDA-Connect/1.0 (lecture tarifs, compte client)";
 
-type Jar = Map<string, string>;
+export type Jar = Map<string, string>;
 
 function assertSafe(path: string) {
   const u = new URL(path, BASE);
@@ -34,8 +34,8 @@ function storeCookies(jar: Jar, res: Response) {
 
 const cookieHeader = (jar: Jar) => [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
 
-async function req(jar: Jar, path: string, init: RequestInit = {}) {
-  const url = assertSafe(path);
+async function req(jar: Jar, path: string, init: RequestInit = {}, check: (p: string) => string = assertSafe) {
+  const url = check(path);
   const res = await fetch(url, {
     ...init,
     redirect: "manual",
@@ -71,21 +71,56 @@ export async function districashLoginAndSearch(
   tyre: DistricashTyre,
   quantity = 1,
 ): Promise<DistricashSessionResult> {
+  const s = await openDistricashSession(username, password);
+  const { jar, steps } = s;
+  const out = (blocker: string | null, authenticated = false, rows: DistricashRow[] = []) => ({ authenticated, steps, blocker, rows });
+  if (s.blocker || !s.token) return out(s.blocker ?? "Session non ouverte.");
+  const token2 = s.token;
+
+  // Protocole confirmé dans Chrome : formulaire urlencoded, champs imbriqués en JSON texte.
+  const search = await req(jar, "/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html",
+      "X-Requested-With": "XMLHttpRequest",
+      Origin: BASE,
+      Referer: `${BASE}/`,
+    },
+    body: districashSearchBody(token2, tyre, quantity),
+  });
+  let sHtml = await search.text();
+  if (/json/i.test(search.headers.get("content-type") ?? "")) {
+    try {
+      const j = JSON.parse(sHtml) as Record<string, unknown>;
+      const htmlField = Object.values(j).find((v) => typeof v === "string" && v.includes("ARTICLE_CONTENT"));
+      sHtml = typeof htmlField === "string" ? htmlField : sHtml;
+      steps.push({ step: "POST /search", status: search.status, note: `JSON clés=[${Object.keys(j).join(",")}]` });
+    } catch {
+      steps.push({ step: "POST /search", status: search.status, note: "JSON illisible" });
+    }
+  } else {
+    const title = /<title>([^<]{0,120})<\/title>/i.exec(sHtml)?.[1]?.trim() ?? "sans titre";
+    steps.push({ step: "POST /search", status: search.status, note: `HTML ${sHtml.length} car., titre « ${title} »` });
+  }
+  const rows = parseDistricashSearch(sHtml);
+  const proven = rows.some((r) => r.ean && r.purchaseHt != null);
+  if (!proven) return out("Session ouverte mais catalogue sans produit avec prix et EAN : non validé.", false, rows);
+  return out(null, true, rows);
+}
+
+
+/** Ouvre une session (tentative unique). Renvoie le jar en mémoire, jamais exposé au client. */
+export async function openDistricashSession(username: string, password: string): Promise<{ jar: Jar; steps: DistricashLoginStep[]; blocker: string | null; token: string | null }> {
   const jar: Jar = new Map();
   const steps: DistricashLoginStep[] = [];
-  const out = (blocker: string | null, authenticated = false, rows: DistricashRow[] = []) => ({
-    authenticated,
-    steps,
-    blocker,
-    rows,
-  });
-
+  const fail = (blocker: string) => ({ jar, steps, blocker, token: null });
   const page = await req(jar, "/login");
   const html = await page.text();
   steps.push({ step: "GET /login", status: page.status, note: "formulaire public" });
-  if (/recaptcha|hcaptcha|turnstile|captcha/i.test(html)) return out("Captcha présent : arrêt.");
+  if (/recaptcha|hcaptcha|turnstile|captcha/i.test(html)) return fail("Captcha présent : arrêt.");
   const token = csrf(html);
-  if (!token) return out("Jeton CSRF introuvable sur le formulaire.");
+  if (!token) return fail("Jeton CSRF introuvable sur le formulaire.");
 
   // Tentative unique.
   const body = new URLSearchParams({ _token: token, login: username, password });
@@ -120,12 +155,12 @@ export async function districashLoginAndSearch(
   }
   if (/otp|2fa|double authentification|code de vérification/i.test(loginText)) {
     steps.push({ step: "POST /login", status: login.status, note });
-    return out("Second facteur demandé : arrêt.");
+    return fail("Second facteur demandé : arrêt.");
   }
   steps.push({ step: "POST /login", status: login.status, note });
-  if (login.status === 419) return out("Jeton CSRF refusé (HTTP 419).");
-  if (login.status === 422 || login.status === 401) return out("Identifiants refusés par le portail.");
-  if (login.status === 429) return out("Limitation du portail (HTTP 429) : arrêt.");
+  if (login.status === 419) return fail("Jeton CSRF refusé (HTTP 419).");
+  if (login.status === 422 || login.status === 401) return fail("Identifiants refusés par le portail.");
+  if (login.status === 429) return fail("Limitation du portail (HTTP 429) : arrêt.");
 
   // Preuve de session : la page d'accueil ne doit plus renvoyer vers /login.
   const home = await req(jar, "/");
@@ -133,39 +168,9 @@ export async function districashLoginAndSearch(
   const homeLoc = home.headers.get("location");
   const loggedOut = (homeLoc && /\/login/.test(homeLoc)) || /name="password"/.test(homeHtml);
   steps.push({ step: "GET /", status: home.status, note: loggedOut ? "toujours déconnecté" : "page connectée" });
-  if (loggedOut) return out("Session non ouverte (le portail renvoie vers la connexion).");
-  const token2 = csrf(homeHtml) ?? token;
+  if (loggedOut) return fail("Session non ouverte (le portail renvoie vers la connexion).");
+  return { jar, steps, blocker: null, token: csrf(homeHtml) ?? token };
 
-  // Protocole confirmé dans Chrome : formulaire urlencoded, champs imbriqués en JSON texte.
-  const search = await req(jar, "/search", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "text/html",
-      "X-Requested-With": "XMLHttpRequest",
-      Origin: BASE,
-      Referer: `${BASE}/`,
-    },
-    body: districashSearchBody(token2, tyre, quantity),
-  });
-  let sHtml = await search.text();
-  if (/json/i.test(search.headers.get("content-type") ?? "")) {
-    try {
-      const j = JSON.parse(sHtml) as Record<string, unknown>;
-      const htmlField = Object.values(j).find((v) => typeof v === "string" && v.includes("ARTICLE_CONTENT"));
-      sHtml = typeof htmlField === "string" ? htmlField : sHtml;
-      steps.push({ step: "POST /search", status: search.status, note: `JSON clés=[${Object.keys(j).join(",")}]` });
-    } catch {
-      steps.push({ step: "POST /search", status: search.status, note: "JSON illisible" });
-    }
-  } else {
-    const title = /<title>([^<]{0,120})<\/title>/i.exec(sHtml)?.[1]?.trim() ?? "sans titre";
-    steps.push({ step: "POST /search", status: search.status, note: `HTML ${sHtml.length} car., titre « ${title} »` });
-  }
-  const rows = parseDistricashSearch(sHtml);
-  const proven = rows.some((r) => r.ean && r.purchaseHt != null);
-  if (!proven) return out("Session ouverte mais catalogue sans produit avec prix et EAN : non validé.", false, rows);
-  return out(null, true, rows);
 }
 
 /** Corps exact de POST /search (format formulaire observé dans Chrome). */
@@ -201,3 +206,30 @@ export function summarizeDistricashTest(r: DistricashSessionResult): { ok: boole
     message: `Authentification confirmée ; recherche catalogue 245/45 R20 échouée (HTTP ${search.status ?? "?"}, ${r.rows.length} ligne(s) lue(s), ${priced} avec EAN et prix).`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Ajout au panier (mutation de panier UNIQUEMENT, jamais de commande).
+// Seuls GET /cart, GET /catalog/product/... et POST /cart/store sont permis.
+const CART_FORBIDDEN = /(xat2v2|\/rest\/|\/cart\/order|\/cart\/payment|\/order|checkout|payment|validate)/i;
+export function assertCartPath(path: string, method: string): string {
+  const u = new URL(path, BASE);
+  if (u.protocol !== "https:" || u.host !== DISTRICASH_HOST) throw new Error("Hôte non autorisé.");
+  if (CART_FORBIDDEN.test(u.pathname)) throw new Error("Chemin interdit.");
+  const ok =
+    (method === "GET" && (u.pathname === "/cart" || /^\/catalog\/product\/[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/.test(u.pathname))) ||
+    (method === "POST" && u.pathname === "/cart/store");
+  if (!ok) throw new Error("Chemin non autorisé.");
+  return u.toString();
+}
+
+export async function cartRequest(jar: Jar, path: string, init: RequestInit & { timeoutMs?: number } = {}) {
+  const method = (init.method ?? "GET").toUpperCase();
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), init.timeoutMs ?? 20000);
+  try {
+    return await req(jar, path, { ...init, signal: ctrl.signal }, (p) => assertCartPath(p, method));
+  } finally {
+    clearTimeout(t);
+  }
+}
+export { csrf as districashCsrf };
