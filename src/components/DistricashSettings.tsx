@@ -50,6 +50,38 @@ export function DistricashSettings() {
   );
 }
 
+/** Bandeau général : reflète l'état réel de chaque site, jamais un message figé. */
+function GeneralBanner({ rows }: { rows: SiteStatus[] | null }) {
+  if (!rows) return null;
+  const statusOf = (r: SiteStatus) =>
+    districashStatus({
+      configured: r.configured,
+      lastCheckOk: r.lastTestOk,
+      lastCheckMessage: r.lastTestMessage,
+      lastCheckAt: r.lastTestAt,
+    });
+  const notConnected = rows.filter((r) => {
+    const s = statusOf(r);
+    return s !== "teste" && s !== "actif";
+  });
+  if (notConnected.length === 0) {
+    return (
+      <p className="mt-3 text-xs text-muted-foreground">
+        Tous les sites sont connectés. « Tester la connexion » ouvre une session lecture seule et recherche des
+        245/45 R20 : « Connecté » seulement si des pneus avec EAN et prix sont lus. Aucune commande.
+      </p>
+    );
+  }
+  return (
+    <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-950">
+      {notConnected
+        .map((r) => `${r.siteName} : ${DISTRICASH_STATUS_LABEL[statusOf(r)].toLowerCase()}`)
+        .join(" — ")}
+      . Seuls les sites « Connecté » alimentent les devis pneus.
+    </p>
+  );
+}
+
 function SiteBlock({ row, onChange }: { row: SiteStatus; onChange: () => void }) {
   const save = useServerFn(saveDistricashSettings);
   const remove = useServerFn(deleteDistricashSettings);
