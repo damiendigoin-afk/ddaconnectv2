@@ -15,7 +15,6 @@ import {
   SEASON_LABEL,
   SEVERITY_LABEL,
   TIER_LABEL,
-  TIRE_SUPPLIERS,
   QUOTE_TIRE_SUPPLIERS,
   quoteSupplierKey,
   applyMargin,
@@ -188,7 +187,6 @@ function PricingSettings() {
     margin_pct: Number(pct) || 0,
     min_margin_ht: Number(minHt) || 0,
   } as CommercialSettings);
-  const supplierDef = TIRE_SUPPLIERS.find((s) => s.key === supplier);
 
   return (
     <AppShell title="Chiffrage & pneumatiques" back={{ to: "/parametrage" }}>
