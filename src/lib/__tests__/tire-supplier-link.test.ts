@@ -49,3 +49,16 @@ describe("bouton interne", () => {
     expect(supplierProductLink({ ...base, supplier: "catalogue_local" })).toBeNull();
   });
 });
+
+import { districashPortalLink as dpl, DISTRICASH_PORTAL_URL } from "@/lib/tires";
+describe("districashPortalLink", () => {
+  it("ouvre seulement l'accueil du portail, sans jeton, avec la référence à copier", () => {
+    const l = dpl({ available: true, supplier: "districash", supplierRef: "8808563527390" });
+    expect(l).toEqual({ label: "Ouvrir Districash", url: "https://districashv2.inoshop.net/", reference: "8808563527390" });
+    expect(DISTRICASH_PORTAL_URL).not.toMatch(/[?#]/);
+  });
+  it("aucun lien pour une offre indisponible ou d'un autre fournisseur", () => {
+    expect(dpl({ available: false, supplier: "districash", supplierRef: "X" })).toBeNull();
+    expect(dpl({ available: true, supplier: "centralepneus", supplierRef: "X" })).toBeNull();
+  });
+});
