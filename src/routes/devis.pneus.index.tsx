@@ -376,6 +376,7 @@ function TireQuotePage() {
             <MarginLever value={adjust} onChange={setAdjust} />
 
             <TireQuoteSheet
+              internal
               header={{
                 site,
                 siteLabel,

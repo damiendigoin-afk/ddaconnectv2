@@ -22,6 +22,8 @@ export type PublicTireItem = {
   publicPriceTtc: number;
   availability: string | null;
   sourceUrl: string;
+  /** Fiche produit exacte lue dans la carte du produit (usage interne), sinon null. */
+  productUrl?: string | null;
   consultedAt: string;
 };
 
@@ -79,8 +81,25 @@ function plainText(html: string): string {
  * `price__amount--value`), jamais par position dans une autre liste. Un prix
  * barré éventuel (`old`, `strike`, `crossed`) est ignoré.
  */
-export function extractDisplayedCards(html: string): Map<string, { priceTtc: number; text: string }> {
-  const out = new Map<string, { priceTtc: number; text: string }>();
+/**
+ * Lien de la fiche produit tel qu'il figure dans la carte : chemin
+ * `/pneu-auto/...-<identifiant>` du même produit, paramètres retirés. Aucun lien
+ * n'est construit : sans lien conforme dans la carte, null.
+ */
+export function productUrlFromCard(card: string, id: string): string | null {
+  const re = /href="(\/pneu-auto\/[^"?#]+)(?:[?#][^"]*)?"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(card)) !== null) {
+    const path = m[1]!;
+    if (path.endsWith(`-${id}`)) return `${BASE}${path}`;
+  }
+  return null;
+}
+
+export function extractDisplayedCards(
+  html: string,
+): Map<string, { priceTtc: number; text: string; productUrl: string | null }> {
+  const out = new Map<string, { priceTtc: number; text: string; productUrl: string | null }>();
   const parts = html.split(/<div class="product-list-item"(?=[\s>])/);
   for (const card of parts.slice(1)) {
     const id = /data-gtm--select-item-identifier-param="([\w-]+)"/.exec(card)?.[1];
@@ -88,7 +107,7 @@ export function extractDisplayedCards(html: string): Map<string, { priceTtc: num
     const block = /class="price\s*"[\s\S]*?class="price__amount--value"\s*>\s*([\d\s\u00a0\u202f.,]+?)\s*</.exec(card);
     const price = block ? frNumber(block[1]!) : null;
     if (price == null) continue;
-    out.set(id, { priceTtc: price, text: plainText(card) });
+    out.set(id, { priceTtc: price, text: plainText(card), productUrl: productUrlFromCard(card, id) });
   }
   return out;
 }
@@ -155,6 +174,7 @@ export function extractItems(html: string, sourceUrl: string, consultedAt: strin
         publicPriceTtc: card.priceTtc,
         availability: null,
         sourceUrl,
+        productUrl: card.productUrl,
         consultedAt,
       });
     }
