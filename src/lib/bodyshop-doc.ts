@@ -6,7 +6,7 @@
  * - comparaison document / référentiel sans remplacement silencieux.
  * Fonctions pures : testées dans src/lib/__tests__/bodyshop-doc.test.ts.
  */
-import { isOrFreeTextForeign } from "./doc-rules";
+import { isOrFreeTextForeign, stripOrAdminLabels } from "./doc-rules";
 import { formatPlate, normalizePlate, strictPlate } from "./plate";
 
 export type DocExtract = {
