@@ -4475,9 +4475,14 @@ export type Database = {
           requested_or_number: string | null
           site_id: string
           source_document_id: string | null
+          source_quote: Json | null
           status: string
+          supplier_account: string | null
+          supplier_confirmed_at: string | null
+          supplier_confirmed_by_name: string | null
           supplier_id: string | null
           supplier_order_ref: string | null
+          transmission_mode: string
           updated_at: string
           vehicle_id: string | null
         }
@@ -4502,9 +4507,14 @@ export type Database = {
           requested_or_number?: string | null
           site_id: string
           source_document_id?: string | null
+          source_quote?: Json | null
           status?: string
+          supplier_account?: string | null
+          supplier_confirmed_at?: string | null
+          supplier_confirmed_by_name?: string | null
           supplier_id?: string | null
           supplier_order_ref?: string | null
+          transmission_mode?: string
           updated_at?: string
           vehicle_id?: string | null
         }
@@ -4529,9 +4539,14 @@ export type Database = {
           requested_or_number?: string | null
           site_id?: string
           source_document_id?: string | null
+          source_quote?: Json | null
           status?: string
+          supplier_account?: string | null
+          supplier_confirmed_at?: string | null
+          supplier_confirmed_by_name?: string | null
           supplier_id?: string | null
           supplier_order_ref?: string | null
+          transmission_mode?: string
           updated_at?: string
           vehicle_id?: string | null
         }

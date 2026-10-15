@@ -232,6 +232,7 @@ export function Badge({ tone = "muted", children }: { tone?: "ok" | "warn" | "ba
 }
 
 export const ORDER_STATUS: Record<string, { label: string; tone: "ok" | "warn" | "muted" | "bad" }> = {
+  to_transmit: { label: "À transmettre au fournisseur", tone: "warn" },
   ordered: { label: "Commandée", tone: "muted" },
   partial: { label: "Partielle — reliquat", tone: "warn" },
   received: { label: "Reçue", tone: "ok" },

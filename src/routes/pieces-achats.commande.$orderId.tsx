@@ -12,6 +12,7 @@ import { getOrder, setOrderDates } from "@/lib/parts";
 import { OrderSupplierFix } from "@/components/parts/OrderSupplierFix";
 import { SourceDocButton } from "@/components/parts/SourceDocButton";
 import { OrderEditForm } from "@/components/parts/OrderEditForm";
+import { SupplierConfirmBox } from "@/components/parts/SupplierConfirmBox";
 
 export const Route = createFileRoute("/pieces-achats/commande/$orderId")({
   head: () => ({
@@ -55,6 +56,7 @@ function OrderDetail() {
             </div>
             <OrderDatesEditor o={o} />
             {o.comment ? <p className="text-muted-foreground">{o.comment}</p> : null}
+            {o.status === "to_transmit" ? <SupplierConfirmBox o={o as never} /> : null}
             <SourceDocButton o={o} />
             <OrderSupplierFix o={o as never} />
             {o.status !== "cancelled" ? <button type="button" className="mt-2 h-10 w-full rounded-lg border-2 border-border text-sm font-bold uppercase" onClick={() => setEditing(true)}>Modifier la commande</button> : null}

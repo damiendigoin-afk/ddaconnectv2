@@ -73,7 +73,7 @@ type OrderLike = {
 
 /** Commandes en attente de réception : jamais les commandes totalement reçues ou annulées. */
 export function pendingReceptionOrders<T extends { status: string }>(orders: T[]): T[] {
-  return orders.filter((o) => o.status === "ordered" || o.status === "partial");
+  return orders.filter((o) => o.status === "to_transmit" || o.status === "ordered" || o.status === "partial");
 }
 
 export type DocExtractLite = {

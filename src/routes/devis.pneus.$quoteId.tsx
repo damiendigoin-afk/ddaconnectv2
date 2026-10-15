@@ -74,7 +74,7 @@ function QuoteDetail() {
             {marginAdjustmentLabel(Number(row.margin_adjustment_pct ?? 0))}
           </p>
           <TireQuoteSheet
-              internal header={headerOf(row, site ?? null)} offers={row.offers ?? []} />
+              internal quoteId={row.id} header={headerOf(row, site ?? null)} offers={row.offers ?? []} />
           <button
             type="button"
             disabled={printing}

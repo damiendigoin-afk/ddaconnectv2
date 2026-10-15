@@ -17,7 +17,7 @@ export function OrderRow({ o, siteName }: { o: any; siteName: (id: string) => st
   const lines = ((o.part_order_lines ?? []) as PendingOrderLine[]).filter((l) => l.line_kind === "part");
   const st = ORDER_STATUS[o.status as string] ?? ORDER_STATUS["ordered"]!;
   const received = lines.reduce((s, l) => s + Number(l.qty_received ?? 0), 0);
-  const cancellable = o.status === "ordered" || o.status === "partial";
+  const cancellable = o.status === "to_transmit" || o.status === "ordered" || o.status === "partial";
   return (
     <div className="rounded-xl border-2 border-border bg-card p-3">
       <Link to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} className="block">
