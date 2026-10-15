@@ -119,3 +119,13 @@ export function validateSupplierConfirmation(ref: string): string | null {
   if (r.length < 3 || r.length > 60) return "N° de commande Districash invalide.";
   return null;
 }
+
+/** Lien panier avec données pour l'extension DDA (fragment # : jamais envoyé au serveur Districash). */
+export function districashCartPrefillUrl(t: { orNumber: string; plate: string }): string {
+  const f = districashCartFields(t);
+  const h = new URLSearchParams();
+  if (f.reference) h.set("dda-ref", f.reference);
+  if (f.immatriculation) h.set("dda-immat", f.immatriculation);
+  const s = h.toString();
+  return s ? `${DISTRICASH_CART_URL}#${s}` : DISTRICASH_CART_URL;
+}
