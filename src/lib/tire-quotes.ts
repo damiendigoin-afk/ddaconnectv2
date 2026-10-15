@@ -9,7 +9,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";
 import { fetchPublicTireOffers } from "./tire-provider.functions";
-import { districashRowsToOffers } from "./districash";
+import { districashExclusions, districashRowsToOffers } from "./districash";
 import { fetchDistricashQuoteRows } from "./districash-quote.functions";
 import type { QuoteTireSupplierKey } from "./tires";
 import {
@@ -179,7 +179,15 @@ export async function quoteManualTires(args: {
       else {
         const tierOf = (b: string) => engine.brands.find((r) => r.active && r.brand.trim().toUpperCase() === b)?.tier ?? null;
         catalog = districashRowsToOffers(res.rows, tierOf, res.consultedAt) as unknown as TireOffer[];
+        const x = districashExclusions(res.rows);
+        const excluded = [
+          x.unavailable ? `${x.unavailable} indisponible(s)` : "",
+          x.unknown ? `${x.unknown} à disponibilité non reconnue` : "",
+          x.noPrice ? `${x.noPrice} sans prix` : "",
+          catalog.filter((o) => !o.season).length ? `${catalog.filter((o) => !o.season).length} de saison non identifiée` : "",
+        ].filter(Boolean);
         if (!catalog.length) warning = "Districash : aucun pneu disponible (J/J+) avec prix pour cette dimension.";
+        if (excluded.length) warning = [warning, `Districash : ${x.total} pneu(s) lus, écartés des gammes : ${excluded.join(", ")}.`].filter(Boolean).join(" ");
       }
     }
   }
