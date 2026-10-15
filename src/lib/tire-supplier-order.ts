@@ -97,6 +97,17 @@ export function findTireOrderDuplicate(
   );
 }
 
+/**
+ * Champs à saisir dans le panier Districash (onglet tiers : remplissage
+ * automatique impossible entre domaines, donc copie manuelle).
+ * Référence de commande = OR prioritaire, sinon immatriculation.
+ */
+export function districashCartFields(t: { orNumber: string; plate: string }): { reference: string; immatriculation: string } {
+  const or = t.orNumber.trim();
+  const plate = normPlate(t.plate);
+  return { reference: or ? `OR ${or}` : plate, immatriculation: plate };
+}
+
 /** Confirmation fournisseur : n° réel obligatoire pour passer « Commandée ». */
 export function validateSupplierConfirmation(ref: string): string | null {
   const r = ref.trim();

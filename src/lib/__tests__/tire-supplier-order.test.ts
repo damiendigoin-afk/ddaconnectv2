@@ -42,3 +42,13 @@ describe("commande pneus Districash (interne)", () => {
     expect(pendingReceptionOrders([{ status: "to_transmit" }, { status: "received" }])).toHaveLength(1);
   });
 });
+
+import { districashCartFields } from "../tire-supplier-order";
+describe("aide panier Districash", () => {
+  it("référence = OR prioritaire", () => {
+    expect(districashCartFields({ orNumber: " 17264 ", plate: "ab-123-cd" })).toEqual({ reference: "OR 17264", immatriculation: "AB123CD" });
+  });
+  it("référence = immatriculation sans OR", () => {
+    expect(districashCartFields({ orNumber: "", plate: "ab-123-cd" })).toEqual({ reference: "AB123CD", immatriculation: "AB123CD" });
+  });
+});
