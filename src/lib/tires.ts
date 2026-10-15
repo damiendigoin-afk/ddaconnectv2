@@ -742,11 +742,13 @@ export const DISTRICASH_PORTAL_URL = "https://districashv2.inoshop.net/";
  * EAN à copier pour la recherche manuelle.
  */
 export function districashPortalLink(
-  offer: Pick<SevenOffer, "available" | "supplier" | "supplierRef">,
-): { label: string; url: string; reference: string | null } | null {
+  offer: Pick<SevenOffer, "available" | "supplier" | "supplierRef"> & { productUrl?: string | null },
+): { label: string; url: string; reference: string | null; direct: boolean } | null {
   if (!offer.available || offer.supplier !== "districash") return null;
   const ref = (offer.supplierRef ?? "").trim();
-  return { label: "Ouvrir Districash", url: DISTRICASH_PORTAL_URL, reference: ref || null };
+  const direct = safeDistricashProductUrl(offer.productUrl ?? null);
+  if (direct) return { label: "Voir chez Districash", url: direct, reference: ref || null, direct: true };
+  return { label: "Ouvrir Districash", url: DISTRICASH_PORTAL_URL, reference: ref || null, direct: false };
 }
 
 /* ------------------------------ Levier de marge --------------------------- */
