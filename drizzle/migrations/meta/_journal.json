@@ -365,6 +365,13 @@
       "when": 1792069052718,
       "tag": "0051_bodyshop_case_customer_details",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792074852243,
+      "tag": "0052_site_contact_email",
+      "breakpoints": true
     }
   ]
 }
