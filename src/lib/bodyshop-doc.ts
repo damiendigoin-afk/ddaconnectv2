@@ -6,7 +6,7 @@
  * - comparaison document / référentiel sans remplacement silencieux.
  * Fonctions pures : testées dans src/lib/__tests__/bodyshop-doc.test.ts.
  */
-import { isOrFreeTextForeign } from "./doc-rules";
+import { isOrFreeTextForeign, stripOrAdminLabels } from "./doc-rules";
 import { formatPlate, normalizePlate, strictPlate } from "./plate";
 
 export type DocExtract = {
@@ -179,6 +179,7 @@ export function mapRepairOrderExtract(parsed: unknown, sourceText = ""): DocExtr
       .join("\n\n") || null;
 
   const address = [str(c["address"]), str(c["address_extra"]), [str(c["postal_code"]), str(c["city"])].filter(Boolean).join(" ")]
+    .map((x) => (x ? stripOrAdminLabels(x).replace(/\n+/g, ", ") : x))
     .filter(Boolean)
     .join(", ") || null;
 
