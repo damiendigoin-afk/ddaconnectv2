@@ -17,3 +17,15 @@ describe("e-mail du site émetteur sur les documents", () => {
     expect(l.lines.join(" ")).not.toContain("garagecastillon");
   });
 });
+
+import { QUOTE_TIRE_SUPPLIERS, quoteSupplierKey } from "../tires";
+describe("sélecteur fournisseur compact", () => {
+  it("libellés courts", () => expect(QUOTE_TIRE_SUPPLIERS.map((s) => s.shortLabel)).toEqual(["CentralePneus", "Catalogue local", "Districash"]));
+  it("défaut du site conservé (Lalinde = Districash)", () => {
+    expect(quoteSupplierKey("districash")).toBe("districash");
+    expect(quoteSupplierKey(null)).toBe("centralepneus");
+  });
+  it("Lalinde imprime contact@dda-lalinde.fr", () => {
+    expect(siteHeader({ ...lalinde, contact_email: "contact@dda-lalinde.fr" }).lines).toContain("contact@dda-lalinde.fr");
+  });
+});
