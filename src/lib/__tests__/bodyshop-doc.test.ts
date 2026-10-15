@@ -165,3 +165,34 @@ describe("7) formulaire et pièce jointe", () => {
     expect(docCategory(undefined)).toBe("autres");
   });
 });
+
+import { mergeDocumentValues, sameCustomer, type IdentityValues } from "../bodyshop-doc";
+describe("contrôle client nom + prénom", () => {
+  it("prénom différent = conflit", () => {
+    expect(sameCustomer("Mme VERNET ISABELLE", "VERNET", "MARIE")).toBe(false);
+    expect(compareWithRef({ customer_name: "Mme VERNET ISABELLE" }, { last_name: "VERNET", first_name: "MARIE" }).map((c) => c.field)).toEqual(["customer_name"]);
+  });
+  it("civilité, accents, ordre : pas de faux conflit", () => {
+    expect(sameCustomer("Mme VERNET ISABELLE", "Vernet", "Isabelle")).toBe(true);
+    expect(sameCustomer("Isabelle VERNET", "VERNET", "ISABELLE")).toBe(true);
+    expect(sameCustomer("M. HELENE DUPRÉ", "Dupre", "Hélène")).toBe(true);
+    expect(compareWithRef({ customer_name: "Mme VERNET ISABELLE" }, { last_name: "Vernet", first_name: "Isabelle" })).toEqual([]);
+  });
+});
+
+describe("second document", () => {
+  const empty: IdentityValues = { plate: "", vin: "", vehicleLabel: "", customerName: "", customerPhone: "", customerEmail: "", orNumber: "", claim: "" };
+  const doc1 = { ...empty, plate: "HF-023-QC", vin: "VR1URHPY4SW040557", customerName: "Mme VERNET ISABELLE", orNumber: "17264" };
+  const doc2 = { ...empty, plate: "AB-123-CD", claim: "S99" };
+  it("aucune valeur périmée du premier document", () => {
+    const r = mergeDocumentValues(doc1, doc1, doc2);
+    expect(r.values).toEqual(doc2);
+    expect(r.keptManual).toEqual([]);
+  });
+  it("saisie manuelle conservée et signalée", () => {
+    const r = mergeDocumentValues({ ...doc1, plate: "HF-024-QC" }, doc1, doc2);
+    expect(r.values.plate).toBe("HF-024-QC");
+    expect(r.values.vin).toBe("");
+    expect(r.keptManual).toEqual(["plate"]);
+  });
+});
