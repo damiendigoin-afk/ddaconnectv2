@@ -9,6 +9,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";
 import { fetchPublicTireOffers } from "./tire-provider.functions";
+import { DISTRICASH_BLOCKED } from "./districash";
+import type { QuoteTireSupplierKey } from "./tires";
 import {
   buildSevenOffers,
   quoteBrandsOf,
