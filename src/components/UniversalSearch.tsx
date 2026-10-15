@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Car, Loader2, Receipt, Search, User } from "lucide-react";
+import { Car, Loader2, Receipt, Search, User, Wrench } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useSite } from "@/lib/site-context";
@@ -39,7 +39,7 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
   }, [term]);
 
   const isEmpty = useMemo(
-    () => res && !res.customers.length && !res.vehicles.length && !res.orders.length && !invoices.length,
+    () => res && !res.customers.length && !res.vehicles.length && !res.orders.length && !res.cases?.length && !invoices.length,
     [res, invoices],
   );
 
@@ -145,6 +145,26 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
                 </div>
               ) : null}
             </div>
+          ))}
+        </section>
+      ) : null}
+
+      {res?.cases?.length ? (
+        <section className="space-y-2">
+          <h2 className="px-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Dossiers carrosserie</h2>
+          {res.cases.map((c) => (
+            <Link key={c.id} to="/carrosserie/$caseId" params={{ caseId: c.id }} className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-3">
+              <Wrench className="h-5 w-5 shrink-0 text-brand" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-base font-extrabold">Dossier carrosserie {c.plate ?? ""}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {[c.or_number ? `OR ${c.or_number}` : null, c.customer_name, c.vehicle_label].filter(Boolean).join(" · ")}
+                </div>
+                <div className="truncate text-[11px] font-bold uppercase text-brand">
+                  {[siteName(c.site_id), !c.customer_id || !c.ref_vehicle_id ? "Fiche client/véhicule à créer" : null].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+            </Link>
           ))}
         </section>
       ) : null}
