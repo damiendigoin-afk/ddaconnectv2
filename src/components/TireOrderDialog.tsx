@@ -1,14 +1,31 @@
 /** Modal « Commander chez DC » : commande INTERNE à transmettre + ouverture manuelle du portail. */
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { districashPortalLink, type SevenOffer } from "@/lib/tires";
-import { districashAccountForSite, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
+import { DISTRICASH_CART_URL, districashAccountForSite, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
+
+function CopyIcon({ label, value }: { label: string; value: string }) {
+  const [done, setDone] = useState(false);
+  const title = done ? `${label} copiée` : `Copier ${label.toLowerCase()}`;
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-muted focus-visible:outline focus-visible:outline-2"
+      onClick={() => void navigator.clipboard.writeText(value).then(() => { setDone(true); setTimeout(() => setDone(false), 1500); }, () => toast.error("Copie impossible"))}
+    >
+      {done ? <Check className="h-4 w-4 text-brand" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
+      <span className="sr-only" aria-live="polite">{done ? "Copié" : ""}</span>
+    </button>
+  );
+}
 import { createTireSupplierOrder, districashSupplierId, findDuplicateTireOrder, lookupKnownOr } from "@/lib/tire-supplier-order-db";
 
 const input = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm";
@@ -77,11 +94,15 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
               value ? (
                 <div key={label} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
                   <span className="text-xs"><b>{label}</b> : {value}</span>
-                  <button type="button" className="text-xs font-bold underline" onClick={() => void navigator.clipboard.writeText(value).then(() => toast.success(`${label} copiée`), () => toast.error("Copie impossible"))}>Copier</button>
+                  <CopyIcon label={label} value={value} />
                 </div>
               ) : null,
             )}
-            {link ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="block font-semibold underline">{link.label} ↗</a> : null}
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {link ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{link.label} ↗</a> : null}
+              <a href={DISTRICASH_CART_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Ouvrir le panier Districash ↗</a>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Les champs du panier ne sont pas remplis automatiquement : collez-les vous-même.</p>
             <p className="text-[11px] text-muted-foreground">Une fois la commande validée sur Districash, saisissez son n° sur la fiche commande pour passer en « Commandée ».</p>
             <Link to="/pieces-achats/commande/$orderId" params={{ orderId: created }} className="block h-10 rounded-lg bg-brand text-center font-bold leading-10 text-brand-foreground">Ouvrir la commande</Link>
           </div>

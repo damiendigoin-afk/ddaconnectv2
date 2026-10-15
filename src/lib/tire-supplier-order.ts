@@ -100,13 +100,17 @@ export function findTireOrderDuplicate(
 /**
  * Champs à saisir dans le panier Districash (onglet tiers : remplissage
  * automatique impossible entre domaines, donc copie manuelle).
- * Référence de commande = OR prioritaire, sinon immatriculation.
+ * Référence de commande = « OR: 17264 » prioritaire (sans doubler un préfixe
+ * OR déjà saisi), sinon immatriculation.
  */
 export function districashCartFields(t: { orNumber: string; plate: string }): { reference: string; immatriculation: string } {
-  const or = t.orNumber.trim();
+  const or = t.orNumber.trim().replace(/^OR\s*[:#-]?\s*/i, "").trim();
   const plate = normPlate(t.plate);
-  return { reference: or ? `OR ${or}` : plate, immatriculation: plate };
+  return { reference: or ? `OR: ${or}` : plate, immatriculation: plate };
 }
+
+/** Page panier du portail (lien direct, sans paramètre). */
+export const DISTRICASH_CART_URL = "https://districashv2.inoshop.net/cart";
 
 /** Confirmation fournisseur : n° réel obligatoire pour passer « Commandée ». */
 export function validateSupplierConfirmation(ref: string): string | null {
