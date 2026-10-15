@@ -1,55 +1,80 @@
-# Diagnostic devis pneus — marge par pneu
+# Étude de faisabilité — commande de pneus Districash depuis DDA Connect v2
 
-## Conclusion
-La marge n'est PAS ignorée : ni dans le calcul, ni à l'enregistrement. Elle est bien ajoutée à chaque pneu dans le dernier devis. Je n'ai pas encore comparé l'écran et le PDF ligne par ligne.
+Étude uniquement : aucune modification, aucune requête transactionnelle, aucune publication.
 
-## Paramétrage (commercial_settings, ligne unique, tous sites)
-- margin_pct = 20 %
-- min_margin_ht = 10 € HT par pneu
-- tire_mount_price_ht = 17 € HT par pneu
-- Lu dans `src/lib/tires.ts` (applyMargin, mountPriceFor), modifiable dans Paramétrage > Chiffrage.
+## Conclusion courte
 
-## Formule actuelle (`priceOffer`, src/lib/tires.ts l.713)
+- **Faisable techniquement en théorie, non faisable aujourd'hui en autonomie sûre.** Aucune API de commande Districash publique ou documentée n'a été trouvée ni prouvée. `/rest/xat2v2` est un endpoint non documenté, potentiellement transactionnel : il reste interdit.
+- **Ce qui existe** : connexion serveur par site, avec formulaire Laravel, CSRF et cookies en mémoire. Elle est complétée par la recherche `POST /search` en lecture seule, l'analyse des lignes J/J+, du prix d'achat portail, de l'EAN et du lien produit direct. Le connecteur bloque explicitement `cart`, `panier`, `checkout`, `order`, `commande`, `/rest/` et `xat2v2` (`districash-session.server.ts`).
+- **Recommandation par étapes** :
+  1. **Étape 0, sans risque, immédiate** : « commande assistée ». DDA prépare une commande interne et ouvre la fiche produit Districash exacte. L'humain commande sur le portail, puis saisit ou colle la référence de commande Districash dans DDA.
+  2. **Étape 1** : l'automatisation complète n'est envisagée qu'après une preuve écrite de Districash/Inoshop, c'est-à-dire une API ou une autorisation d'automatisation, avec un compte ou un environnement de test.
+
+## Code existant réutilisable
+
+- `part_orders` / `part_order_lines` (`src/lib/parts.ts`) : création de commande, fournisseur, rendez-vous, statut, réceptions, rattachement OR et cycle « À pointer ».
+- `src/lib/order-duplicate.ts` : détection des commandes similaires (avertissement).
+- Réceptions directes et statut OR agrégé (`or-parts-status.ts`).
+- Devis pneus : offre retenue avec `supplier_ref`, EAN, `product_url`, prix d'achat HT, disponibilité et date de consultation.
+- Identifiants Districash chiffrés par site (`integration_credentials`, `districash:<siteId>`).
+
+## Architecture proposée (étape 0 puis étape 1)
+
 ```text
-base HT      = prix fournisseur ; si prix public TTC (CentralePneus) -> /1,2
-marge HT     = MAX(base HT x 20 % ; 10 €)
-PV HT/pneu   = base HT + marge
-pneus TTC    = PV HT x qté x 1,2
-montage TTC  = 17 x qté x 1,2
-total TTC    = pneus TTC + montage TTC
+Devis pneus (offre choisie) / OR
+      |
+      v
+[Brouillon commande DDA]  part_orders (fournisseur Districash, site, OR, lignes EAN/réf/qté/PA consulté)
+      |
+      v
+[Revérification lecture seule]  POST /search juste avant -> prix + dispo J/J+ actuels
+      |   écart prix/dispo -> blocage + nouvelle validation
+      v
+[Confirmation humaine explicite]  récapitulatif : site/compte, dépôt, qté, PA, total, OR
+      |
+      +-- Étape 0 : ouverture fiche produit -> commande manuelle -> saisie n° commande Districash
+      +-- Étape 1 (si API prouvée) : envoi serveur unique, clé d'idempotence, journal
+      v
+[Suivi]  statut commandée -> réception (cycle existant) -> à pointer OR
 ```
-Levier de marge (adjustOfferMargin) : marge x (1 + levier %), montage inchangé.
 
-## Dernier devis d'aujourd'hui
-3c5af2b5-cd03-4428-ae57-2a0dcf013fff — 13/10 15:04, Damien Digoin Automobile, 145/70R13, 2 pneus, levier 0
-| Case | Base HT | Marge | PV HT | Pneus TTC | Montage TTC | Total TTC |
-|---|---|---|---|---|---|---|
-| Imperial été | 40,13 | 10,00 | 50,13 | 120,31 | 40,80 | 161,11 |
-| Tracmax 4S | 35,69 | 10,00 | 45,69 | 109,66 | 40,80 | 150,46 |
-| Hankook été | 44,58 | 10,00 | 54,58 | 130,99 | 40,80 | 171,79 |
-| Hankook 4S | 42,08 | 10,00 | 52,08 | 124,99 | 40,80 | 165,79 |
-| Michelin (x2) | indisponible | | | | | |
+## Prérequis techniques (étape 1 uniquement)
 
-Devis précédent 1d407f7f (levier +100 %) : la marge est bien doublée à 20 € (et 26,24 / 27,16 sur Michelin, avec 20 % > minimum).
+- Documentation officielle du flux panier/commande, avec ses champs, ses réponses et son numéro de commande renvoyé, plus une autorisation écrite d'automatisation.
+- Un compte ou un mode de test, ou au minimum une procédure d'annulation connue.
+- Une liste blanche de chemins séparée de la lecture seule. Le connecteur actuel reste strictement en lecture.
+- Un nouveau droit « commander chez fournisseur », distinct de l'accès au menu, à confirmer avec vous.
+- Une table de journal des envois : qui, quand, site, contenu, réponse résumée, sans cookies ni jetons.
 
-## Pourquoi on peut avoir l'impression qu'il n'y a « pas de marge »
-1. **La base n'est pas un vrai prix d'achat** : c'est le prix public TTC de CentralePneus, ramené au HT. Le prix de vente = prix public + 12 € TTC par pneu. Comparé à un tarif fournisseur ou à un site internet, l'écart paraît faible.
-2. **Pneus d'entrée/milieu de gamme** : 20 % de 35–45 € = 7–9 €, inférieur au minimum, donc c'est toujours le minimum de 10 € HT qui s'applique.
-3. **Pas d'écart selon le type de devis** : le même calcul sert pour le module Devis pneus et pour le Tour véhicule, quel que soit le nombre de pneus. Une seule source de prix est configurée (CentralePneus). Je n'ai donc pas pu vérifier si un autre fournisseur se comporte différemment.
+## Risques et parades
 
-## À confirmer avec l'utilisateur
-- Quelle valeur attendait-il : 20 % du prix ? une marge fixe plus élevée ? une marge calculée sur un vrai prix d'achat grossiste, et non sur le prix public ?
-- A-t-il vu le problème à l'écran, dans le PDF ou sur la page client ?
+| Sujet | Risque | Parade |
+|---|---|---|
+| Authentification | Session expirée, CAPTCHA/MFA futur, blocage du compte | Une tentative par action, arrêt si CAPTCHA/MFA, aucune relance automatique |
+| Confirmation humaine | Commande involontaire | Récapitulatif obligatoire et bouton unique de confirmation ; jamais d'envoi depuis le devis client |
+| Prix | Le prix à la commande diffère du prix consulté (remises nettes non vérifiées) | Revérification juste avant, blocage si écart, PA consulté conservé |
+| Stock / dépôt | J (agence) ou J+ (plateforme) change ; le dépôt de livraison n'est pas connu | Revérification, affichage du dépôt/délai si le portail le fournit, sinon mention « à confirmer » |
+| Doublons | Double clic, nouvel essai réseau, deux utilisateurs | Clé d'idempotence par brouillon, verrou de statut, `order-duplicate` existant |
+| Compte de site | Commande Lalinde passée sur le compte Castillon (ou l'inverse) | Compte déterminé par le site de l'OR/devis, affiché et vérifié avant envoi |
+| Association OR | Pneus non rattachés | OR obligatoire ou choix explicite « stock » ; pas d'OR DDA créé (WinMotor reste la source) |
+| Traçabilité | Pas de preuve de commande | N° de commande Districash obligatoire pour passer en « commandée », journal |
+| Réponse incertaine | Timeout après envoi : commandé ou non ? | Statut « à vérifier », aucun nouvel envoi automatique, contrôle manuel sur le portail |
+| Juridique | Conditions d'utilisation du portail | Accord écrit Districash avant l'étape 1 |
 
-## Correctif minimal selon la réponse
-- Si c'est le réglage : modifier margin_pct ou min_margin_ht dans Paramétrage, sans toucher au code.
-- Si on veut afficher le détail : ajouter « Base / Marge / PV HT » à côté de chaque offre, réservé au personnel (TireOfferGrid). Le PDF client reste inchangé.
-- Si l'écran ou le PDF affiche autre chose que les valeurs enregistrées : faire relire l'affichage depuis unitSellHt/tiresTtc (TireQuoteDocument.tsx, tire-quote-pdf.ts).
+## À vérifier sur le portail, en lecture seule, par un humain dans Chrome
 
-## Tests à ajouter (tire-margin-lever / tire-provider)
-- Base 40,13 HT, 20 % / 10 € -> PV 50,13 HT ; 2 pneus -> pneus 120,31 TTC, montage 40,80, total 161,11.
-- Base 65,62 HT -> marge 13,12 (20 % > minimum).
-- Le PDF et l'écran affichent le même total TTC que l'offre enregistrée.
+- Les conditions générales et les mentions d'automatisation/API, ainsi qu'un contact technique Inoshop.
+- Sur une fiche produit : présence d'un bouton panier, des champs (quantité, dépôt, mode de livraison) et du prix net ou remisé, en observant sans cliquer.
+- La page « mes commandes / historique » : format du numéro de commande et statuts visibles. Elle servirait au rapprochement en lecture.
+- Le rôle de `/rest/xat2v2`, à demander à Districash. Il ne doit pas être testé.
+- La différence de prix entre la liste et la fiche, et la présence d'éventuels frais de port.
+- Les dépôts associés aux comptes 19025 (Castillon) et 60669 (Lalinde).
 
-## Fichiers concernés
-src/lib/tires.ts (applyMargin, sourceHtOf, priceOffer, adjustOfferMargin, mountPriceFor), src/routes/devis.pneus.index.tsx, src/lib/tire-quotes.ts, src/components/TireOfferGrid.tsx, src/components/TireQuoteDocument.tsx, src/lib/tire-quote-pdf.ts, src/routes/parametrage.chiffrage.tsx.
+## Estimation indicative
+
+- Étape 0 (commande assistée, réutilisant `part_orders`) : faible à moyenne.
+- Étape 1 (envoi automatique) : non estimable sans documentation, car elle dépend entièrement de la réponse de Districash.
+
+## Limites de l'étude
+
+Aucune requête panier ou commande n'a été envoyée et le serveur de Chantal n'a pas été touché. La disponibilité d'une API de commande n'est pas établie.
