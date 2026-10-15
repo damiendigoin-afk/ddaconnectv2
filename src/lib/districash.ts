@@ -19,10 +19,6 @@ export const DISTRICASH_ACCOUNTS: Record<string, string> = {
 export const DISTRICASH_PROVIDER_PREFIX = "districash:";
 export const districashProvider = (siteId: string) => `${DISTRICASH_PROVIDER_PREFIX}${siteId}`;
 
-/** Message affiché tant que la connexion automatique n'est pas démontrée. */
-export const DISTRICASH_BLOCKED =
-  "Connexion automatique non validée : le mode d'authentification du portail Districash n'est pas documenté. Aucune donnée Districash n'est consultée en temps réel.";
-
 export const DISTRICASH_STATUS_LABEL: Record<IntegrationStatus, string> = {
   non_configure: "Non configuré",
   configure: "Identifiants enregistrés — connexion non validée",
