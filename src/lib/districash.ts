@@ -1,12 +1,12 @@
 /**
  * Districash — éléments purs (sans réseau) partagés client/serveur.
  *
- * État réel (15/10/2026) : la recherche Districash n'a été observée que dans une
- * session Chrome authentifiée (POST https://districashv2.inoshop.net/search).
- * L'authentification automatique n'est ni documentée ni autorisée : aucun
- * connecteur n'interroge Districash. Le parseur ci-dessous est prêt pour le jour
- * où un accès serveur sera validé, et n'est appelé que par les tests.
- * Jamais d'appel à /rest/xat2v2 (endpoint non documenté, potentiellement transactionnel).
+ * État réel (15/10/2026) : connexion serveur validée pour les deux comptes
+ * (Castillon 19025, Lalinde 60669) — authentification formulaire + recherche
+ * POST https://districashv2.inoshop.net/search en lecture seule, 20 pneus
+ * 245/45 R20 lus avec EAN et prix. Le parseur ci-dessous alimente les devis
+ * (lignes J/J+ avec prix uniquement). Lecture seule : jamais de commande,
+ * jamais d'appel à /rest/xat2v2 (endpoint non documenté, potentiellement transactionnel).
  */
 import { computeStatus, type IntegrationStatus, type StatusInput } from "./integration-status";
 
