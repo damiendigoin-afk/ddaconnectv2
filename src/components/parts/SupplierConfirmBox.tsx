@@ -15,7 +15,7 @@ export function SupplierConfirmBox({ o }: { o: { id: string; site_id: string; su
   const url = o.source_quote?.product_url ?? null;
   async function save() {
     const err = validateSupplierConfirmation(ref);
-    if (err) return toast.error(err);
+    if (err) { toast.error(err); return; }
     setBusy(true);
     try {
       await confirmSupplierOrder(o.id, o.site_id, ref, { userId: user?.id ?? null, name: displayName ?? "" });

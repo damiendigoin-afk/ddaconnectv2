@@ -141,3 +141,5 @@ Reste à faire :
 
 - [x] Production 502 au démarrage : modules OCR/QR (tesseract.js, qrcode/pngjs) retirés du serveur construit
 - [x] Retry stockage transitoire (429/503) sur uploads documents fournisseur
+
+- [x] Commander chez DC : commande interne à transmettre + validation manuelle portail
