@@ -1,15 +1,11 @@
 /**
  * Ajout au panier Districash (POST /cart/store) — PRÉPARATION UNIQUEMENT.
  *
- * DÉSACTIVÉ : la provenance exacte des champs du formulaire (id, scenario,
- * identifiant_administratif, code_agence, type_erp…) dans le HTML /search
- * n'est pas confirmée. On n'extrait que des valeurs lues littéralement dans la
+ * Valeurs lues dans le formulaire de la fiche produit réelle. On n'extrait que des valeurs lues littéralement dans la
  * ligne produit (input name= / data-*), jamais de valeur par défaut ni d'exemple
  * codé en dur ; si un champ manque ou contredit l'offre → refus.
  * Aucun appel réseau ici. /cart/order, /cart/payment, /order/registered interdits.
  */
-export const DISTRICASH_CART_ENABLED = false;
-
 export const CART_STORE_FIELDS = [
   "quantite", "mode_modal", "origin", "id", "gencode", "c_fourn_cata", "c_fourn", "code_article",
   "code_article_fournisseur", "code_marque", "platform_img", "platform_libdispo", "platform_libdispobtn",

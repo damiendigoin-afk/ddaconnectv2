@@ -20,3 +20,5 @@
 - Storage uploads with upsert:false go through src/lib/storage-retry.ts (uploadWithRetry). Why: transient 429/503 from the file service must not surface raw to users or create duplicates.
 - Districash: per-site credentials in integration_credentials (provider `districash:<siteId>`), per-site default tire supplier in tire_supplier_site_settings; no network connector until portal auth is documented (parser in src/lib/districash.ts is test-only). Never call /rest/xat2v2. Why: no validated autonomous API.
 - Bodyshop case ↔ customer/vehicle records are created or linked only on user click via src/lib/bodyshop-link.ts (duplicate check by plate/VIN/WinMotor account/name+contacts, link only when the case field is still NULL). Why: avoid duplicate records and silent case mutations.
+
+- Districash cart: only GET /cart, GET /catalog/product/*, POST /cart/store via assertCartPath (districash-session.server.ts), one send without retry after explicit user confirmation; /cart/order, /cart/payment, /order/* forbidden. Cart page prefill only through the opt-in extension in extension/districash-prefill (URL fragment). Why: cart help without ever placing a supplier order.

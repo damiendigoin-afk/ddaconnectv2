@@ -8,7 +8,34 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { districashPortalLink, type SevenOffer } from "@/lib/tires";
-import { DISTRICASH_CART_URL, districashAccountForSite, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
+import { districashAccountForSite, districashCartPrefillUrl, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
+
+function CartAdd({ orderId, account, qty, price }: { orderId: string; account: string | null; qty: number; price: string }) {
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<{ status: string; message: string } | null>(null);
+  async function run(allowExistingInCart: boolean) {
+    setBusy(true);
+    try { setRes(await addOrderToDistricashCart({ data: { orderId, confirmed: true, allowExistingInCart } })); }
+    catch { setRes({ status: "uncertain", message: "Erreur réseau : vérifiez le panier Districash, sans relancer." }); }
+    finally { setBusy(false); }
+  }
+  if (res && res.status !== "already_in_cart")
+    return <p className={`rounded-lg border p-2 text-xs ${res.status === "added" ? "border-brand" : "border-destructive"}`}>{res.message} La commande reste « À transmettre ».</p>;
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3 text-xs">
+      <label className="flex items-start gap-2">
+        <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5" />
+        J'autorise l'ajout de {qty} pneu(s) à {price} HT au panier du compte Districash {account}. Aucune commande ne sera validée.
+      </label>
+      {res?.status === "already_in_cart" ? <p className="text-destructive">{res.message}</p> : null}
+      <button type="button" disabled={!ok || busy} onClick={() => void run(res?.status === "already_in_cart")} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border font-bold disabled:opacity-50">
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {res?.status === "already_in_cart" ? "Ajouter quand même" : "Ajouter au panier Districash"}
+      </button>
+    </div>
+  );
+}
 
 function CopyIcon({ label, value }: { label: string; value: string }) {
   const [done, setDone] = useState(false);
@@ -26,6 +53,7 @@ function CopyIcon({ label, value }: { label: string; value: string }) {
     </button>
   );
 }
+import { addOrderToDistricashCart } from "@/lib/districash-cart.functions";
 import { createTireSupplierOrder, districashSupplierId, findDuplicateTireOrder, lookupKnownOr } from "@/lib/tire-supplier-order-db";
 
 const input = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm";
@@ -85,6 +113,7 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
         {created ? (
           <div className="space-y-3 text-sm">
             <p>Commande interne <b>« À transmettre »</b>, non envoyée à Districash. Sur le portail : ajoutez l'article au panier, vérifiez-le, puis collez les champs ci-dessous.</p>
+            <CartAdd orderId={created} account={account} qty={line.qty_ordered} price={eur(line.expected_unit_cost_ht)} />
             <div className="rounded-lg border border-border p-3 text-xs space-y-1">
               <div className="font-bold">À vérifier dans le panier</div>
               <div>Compte {account} · {line.physical_reference}</div>
@@ -100,9 +129,9 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {link ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{link.label} ↗</a> : null}
-              <a href={DISTRICASH_CART_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Ouvrir le panier Districash ↗</a>
+              <a href={districashCartPrefillUrl({ orNumber, plate })} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Ouvrir le panier Districash ↗</a>
             </div>
-            <p className="text-[11px] text-muted-foreground">Les champs du panier ne sont pas remplis automatiquement : collez-les vous-même.</p>
+            <p className="text-[11px] text-muted-foreground">Sans l'extension DDA, collez les deux champs vous-même. <a href="/dda-districash-prefill.zip" download className="underline">Extension Chrome de préremplissage</a> (décompresser, puis chrome://extensions → mode développeur → Charger l'extension non empaquetée).</p>
             <p className="text-[11px] text-muted-foreground">Une fois la commande validée sur Districash, saisissez son n° sur la fiche commande pour passer en « Commandée ».</p>
             <Link to="/pieces-achats/commande/$orderId" params={{ orderId: created }} className="block h-10 rounded-lg bg-brand text-center font-bold leading-10 text-brand-foreground">Ouvrir la commande</Link>
           </div>
