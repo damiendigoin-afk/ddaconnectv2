@@ -5,6 +5,9 @@
 import type { SevenOffer } from "@/lib/tires";
 import { MOUNT_LABEL, districashPortalLink, supplierProductLink } from "@/lib/tires";
 import { siteHeader, type Site } from "@/lib/sites";
+import { useState } from "react";
+import { TireOrderDialog } from "@/components/TireOrderDialog";
+import { canOrderOffer } from "@/lib/tire-supplier-order";
 
 
 export type TireQuoteHeader = {
@@ -35,10 +38,13 @@ export function TireQuoteSheet({
   header,
   offers,
   internal = false,
+  quoteId = null,
 }: {
   header: TireQuoteHeader;
   offers: SevenOffer[];
   internal?: boolean;
+  /** Devis enregistré source (traçabilité de la commande interne). */
+  quoteId?: string | null;
 }) {
   const h = siteHeader(header.site);
   const date = new Date(header.createdAt).toLocaleDateString("fr-FR", {
@@ -126,7 +132,7 @@ export function TireQuoteSheet({
                 {o.mountTtc != null ? ` · ${MOUNT_LABEL} ${euro(o.mountTtc)}` : " · montage non paramétré"}
               </div>
             ) : null}
-            {internal && o.available ? <SupplierLink offer={o} /> : null}
+            {internal && o.available ? <SupplierLink offer={o} order={{ size: header.size, plate: header.plate, quoteId }} /> : null}
           </div>
         ))}
       </div>
@@ -144,11 +150,18 @@ export function TireQuoteSheet({
  * fournisseur (`supplierRef`) reste une donnée interne de traçabilité : elle
  * n'est jamais affichée ni copiable dans l'interface.
  */
-function SupplierLink({ offer }: { offer: SevenOffer }) {
+function SupplierLink({ offer, order }: { offer: SevenOffer; order?: { size: string; plate: string | null; quoteId: string | null } }) {
   const link = supplierProductLink(offer);
   const portal = link ? null : districashPortalLink(offer);
+  const [open, setOpen] = useState(false);
   return (
-    <div data-internal-only className="mt-1 text-right text-[11px] print:hidden">
+    <div data-internal-only className="mt-1 flex items-center justify-end gap-3 text-[11px] print:hidden">
+      {order && canOrderOffer(offer) ? (
+        <button type="button" onClick={() => setOpen(true)} className="rounded-md border border-border px-2 py-0.5 font-bold hover:bg-secondary">
+          Commander chez DC
+        </button>
+      ) : null}
+      {open && order ? <TireOrderDialog offer={offer} size={order.size} quoteId={order.quoteId} defaultPlate={order.plate} onClose={() => setOpen(false)} /> : null}
       {portal ? (
         <a
           href={portal.url}
