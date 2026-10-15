@@ -37,7 +37,10 @@ export const REFERENCE_BRANDS: Record<TireTier, string> = {
 
 /* --------------------------- Politique commerciale ------------------------ */
 
-/** Marge appliquée = MAX(prix d'achat × pourcentage ; marge minimale fixe HT). */
+/**
+ * Marge appliquée = MAX(base HT × pourcentage ; marge minimale fixe HT).
+ * Taux de MARGE (sur la base), pas taux de marque : 100 € HT à 20 % => 120 € HT.
+ */
 export function applyMargin(
   purchaseHt: number,
   settings: Pick<CommercialSettings, "margin_pct" | "min_margin_ht"> | null,
@@ -712,6 +715,41 @@ export function mountPriceFor(
   };
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Calcul UNIQUE d'une ligne pneus (écran, levier de marge, historique, PDF) :
+ *   prix de vente unitaire HT = base HT + marge HT
+ *   pneus HT  = prix de vente unitaire HT × quantité
+ *   pneus TTC = pneus HT × 1,20
+ *   total TTC = pneus TTC + montage TTC (montage déjà multiplié par la quantité)
+ *   total HT / TVA déduits du total TTC.
+ * La marge est un TAUX DE MARGE sur la base HT (pas un taux de marque) :
+ * voir applyMargin.
+ */
+export function priceTireLine(args: {
+  unitSourceHt: number;
+  marginHt: number;
+  quantity: number;
+  mountTtc: number | null;
+}): {
+  unitSellHt: number;
+  tiresHt: number;
+  tiresTtc: number;
+  mountTtc: number | null;
+  totalHt: number;
+  totalVat: number;
+  totalTtc: number;
+} {
+  const unitSellHt = round2(args.unitSourceHt + args.marginHt);
+  const tiresHt = round2(unitSellHt * args.quantity);
+  const tiresTtc = round2(tiresHt * (1 + VAT));
+  const mountTtc = args.mountTtc;
+  const totalTtc = mountTtc == null ? tiresTtc : round2(tiresTtc + mountTtc);
+  const totalHt = round2(totalTtc / (1 + VAT));
+  return { unitSellHt, tiresHt, tiresTtc, mountTtc, totalHt, totalVat: round2(totalTtc - totalHt), totalTtc };
+}
+
 function priceOffer(
   offer: TireOffer,
   quantity: number,
@@ -719,13 +757,14 @@ function priceOffer(
   required: { size: string | null; load: string | null; speed: string | null },
 ) {
   const sourceHt = sourceHtOf(offer);
-  const { sellHt, marginHt } = applyMargin(sourceHt, settings);
-  const tiresHt = Math.round(sellHt * quantity * 100) / 100;
-  const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;
+  const { marginHt } = applyMargin(sourceHt, settings);
   const mount = mountPriceFor(settings, quantity);
-  const mountTtc = mount?.totalTtc ?? null;
-  const totalTtc = mountTtc == null ? tiresTtc : Math.round((tiresTtc + mountTtc) * 100) / 100;
-  const totalHt = Math.round((totalTtc / (1 + VAT)) * 100) / 100;
+  const { unitSellHt: sellHt, tiresHt, tiresTtc, mountTtc, totalHt, totalVat, totalTtc } = priceTireLine({
+    unitSourceHt: sourceHt,
+    marginHt,
+    quantity,
+    mountTtc: mount?.totalTtc ?? null,
+  });
   const compat = checkCompatibility({
     offerSize: offer.size,
     offerLoad: offer.load_index,
@@ -749,7 +788,7 @@ function priceOffer(
     mountLabel: mount?.label ?? null,
     mountTtc,
     totalHt,
-    totalVat: Math.round((totalTtc - totalHt) * 100) / 100,
+    totalVat,
     totalTtc,
     availability: offer.availability,
     compatibility: compat.status,
@@ -788,24 +827,14 @@ export function adjustOfferMargin(offer: SevenOffer, adjustmentPct: number): Sev
   if (!offer.available || offer.unitSourceHt == null || offer.marginHt == null) return offer;
   if (pct === 0) return offer;
   const factor = 1 + pct / 100;
-  const marginHt = Math.round(offer.marginHt * factor * 100) / 100;
-  const unitSellHt = Math.round((offer.unitSourceHt + marginHt) * 100) / 100;
-  const tiresHt = Math.round(unitSellHt * offer.quantity * 100) / 100;
-  const tiresTtc = Math.round(tiresHt * (1 + VAT) * 100) / 100;
-  const mountTtc = offer.mountTtc;
-  const totalTtc =
-    mountTtc == null ? tiresTtc : Math.round((tiresTtc + mountTtc) * 100) / 100;
-  const totalHt = Math.round((totalTtc / (1 + VAT)) * 100) / 100;
-  return {
-    ...offer,
+  const marginHt = round2(offer.marginHt * factor);
+  const line = priceTireLine({
+    unitSourceHt: offer.unitSourceHt,
     marginHt,
-    unitSellHt,
-    tiresHt,
-    tiresTtc,
-    totalHt,
-    totalVat: Math.round((totalTtc - totalHt) * 100) / 100,
-    totalTtc,
-  };
+    quantity: offer.quantity,
+    mountTtc: offer.mountTtc,
+  });
+  return { ...offer, marginHt, ...line };
 }
 
 /** Applique le levier à une liste d'offres standard. */
