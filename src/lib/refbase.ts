@@ -63,7 +63,54 @@ export type SearchResult = {
   customers: (RefCustomer & { vehicles: RefVehicle[]; city: string | null; phone: string | null })[];
   vehicles: (RefVehicle & { customer: RefCustomer | null })[];
   orders: { id: string; or_number: string | null; or_date: string | null; plate: string | null; site_id: string | null }[];
+  cases?: BodyshopCaseHit[];
 };
+
+export type BodyshopCaseHit = {
+  id: string;
+  plate: string | null;
+  vin: string | null;
+  or_number: string | null;
+  customer_name: string | null;
+  vehicle_label: string | null;
+  site_id: string | null;
+  customer_id: string | null;
+  ref_vehicle_id: string | null;
+};
+
+/** Filtre PostgREST des dossiers carrosserie (immat, VIN, nom client, n° OR) pour chaque token. */
+export function bodyshopCaseFilter(raw: string): string {
+  const safe = (v: string) => v.replace(/[,()*%\\]/g, "");
+  const parts: string[] = [];
+  for (const tok of searchTokens(raw)) {
+    const t = safe(tok);
+    parts.push(`plate.ilike.%${t}%`, `vin.ilike.%${t}%`, `or_number.ilike.%${t}%`, `customer_name.ilike.%${t}%`, `vehicle_label.ilike.%${t}%`);
+  }
+  const reg = safe(normalizeRegistration(raw));
+  if (reg.length >= 2) parts.push(`plate.ilike.%${reg}%`, `vin.ilike.%${reg}%`);
+  return [...new Set(parts)].join(",");
+}
+
+/** Tous les tokens doivent se retrouver dans le dossier (immat, VIN, OR, client, véhicule). */
+export function caseMatchesTokens(c: BodyshopCaseHit, raw: string): boolean {
+  const tokens = searchTokens(raw);
+  const text = entityText([c.plate, c.vin, c.or_number, c.customer_name, c.vehicle_label]);
+  if (coversAll(tokens, [text])) return true;
+  const reg = normalizeRegistration(raw);
+  return reg.length >= 2 && [normalizeName(c.plate ?? ""), normalizeName(c.vin ?? "")].some((x) => x.includes(reg));
+}
+
+async function searchBodyshopCases(raw: string, limit: number): Promise<BodyshopCaseHit[]> {
+  const filter = bodyshopCaseFilter(raw);
+  if (!filter) return [];
+  const { data } = await supabase
+    .from("bodyshop_cases")
+    .select("id, plate, vin, or_number, customer_name, vehicle_label, site_id, customer_id, ref_vehicle_id")
+    .or(filter)
+    .order("created_at", { ascending: false })
+    .limit(limit * 2);
+  return ((data ?? []) as BodyshopCaseHit[]).filter((c) => caseMatchesTokens(c, raw)).slice(0, limit);
+}
 
 /** Propriétaire courant de chaque véhicule : relation OWNER active la plus récente.
  *  Retourne une map vehicle_id -> customer_id (jamais de relation inactive ou arbitraire). */
@@ -187,7 +234,7 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
 
   const contactValue = phone || (email.includes("@") ? email : "");
 
-  const [vehRes, custRes, contactRes, orderRes] = await Promise.all([
+  const [vehRes, custRes, contactRes, orderRes, caseHits] = await Promise.all([
     supabase.from("ref_vehicles").select(VEH_SELECT).or(vehFilters).limit(limit),
     supabase.from("customers").select(CUST_SELECT).or(custFilters).limit(limit),
     contactValue
@@ -198,6 +245,7 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
       .select("id, or_number, or_date, site_id, vehicle:vehicles(plate)")
       .ilike("or_number", `%${raw}%`)
       .limit(5),
+    searchBodyshopCases(raw, 5).catch(() => [] as BodyshopCaseHit[]),
   ]);
 
   let custBase = (custRes.data ?? []) as RefCustomer[];
@@ -300,6 +348,7 @@ export async function universalSearch(term: string, limit = 20): Promise<SearchR
       site_id: (o as { site_id?: string | null }).site_id ?? null,
       plate: (o.vehicle as { plate?: string } | null)?.plate ?? null,
     })),
+    cases: caseHits,
   };
 }
 
