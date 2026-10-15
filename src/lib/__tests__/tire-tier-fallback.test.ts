@@ -35,16 +35,16 @@ const run = () => {
 describe("6 cases : préférence puis repli marque équivalente", () => {
   const s = run();
   it("marques préférées prioritaires", () => {
-    expect(s.haut_ete).toBe("MICHELIN");
-    expect(s.milieu_ete).toBe("KLEBER");
-    expect(s.entree_ete).toBe("SAILUN"); // paramétrée en entrée malgré attribut PREMIUM
+    expect(s["haut_ete"]).toBe("MICHELIN");
+    expect(s["milieu_ete"]).toBe("KLEBER");
+    expect(s["entree_ete"]).toBe("SAILUN"); // paramétrée en entrée malgré attribut PREMIUM
   });
   it("repli BUDGET/MEDIUM pour 4 saisons", () => {
-    expect(s.entree_quatre_saisons).toBe("TAURUS");
-    expect(s.milieu_quatre_saisons).toBe("BFGOODRICH");
+    expect(s["entree_quatre_saisons"]).toBe("TAURUS");
+    expect(s["milieu_quatre_saisons"]).toBe("BFGOODRICH");
   });
-  it("case vide sans équivalent vérifié", () => expect(s.haut_quatre_saisons).toBeNull());
-  it("Pirelli PREMIUM non paramétré ne remplace pas Michelin préféré", () => expect(s.haut_ete).not.toBe("PIRELLI"));
+  it("case vide sans équivalent vérifié", () => expect(s["haut_quatre_saisons"]).toBeNull());
+  it("Pirelli PREMIUM non paramétré ne remplace pas Michelin préféré", () => expect(s["haut_ete"]).not.toBe("PIRELLI"));
   it("indisponible et sans gamme jamais placés", () => {
     expect(Object.values(s)).not.toContain("KORMORAN");
     expect(Object.values(s)).not.toContain("NOGAMME");
