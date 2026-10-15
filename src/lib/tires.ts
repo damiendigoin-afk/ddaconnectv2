@@ -567,6 +567,8 @@ export type SevenOffer = {
   supplierRef: string | null;
   consultedAt: string | null;
   offerId: string | null;
+  /** Fiche produit fournisseur exacte — INTERNE uniquement, jamais dans un document client. */
+  productUrl?: string | null;
 };
 
 const VAT = 0.2;
@@ -688,7 +690,35 @@ function priceOffer(
     supplierRef: offer.supplier_ref,
     consultedAt: offer.price_date,
     offerId: offer.id,
+    productUrl: (offer as { product_url?: string | null }).product_url ?? null,
   };
+}
+
+const SUPPLIER_HOSTS: Record<string, { label: string; host: string }> = {
+  centralepneus: { label: "CentralePneus", host: "www.centralepneus.fr" },
+};
+
+/**
+ * Lien interne « Commander chez le fournisseur » : uniquement la fiche produit
+ * réellement lue lors de la consultation (même fournisseur, même identifiant
+ * produit). Jamais de lien de recherche ni d'URL reconstruite : sinon null.
+ */
+export function supplierProductLink(
+  offer: Pick<SevenOffer, "available" | "supplier" | "supplierRef" | "productUrl">,
+): { label: string; url: string } | null {
+  if (!offer.available || !offer.productUrl || !offer.supplier) return null;
+  const sup = SUPPLIER_HOSTS[offer.supplier];
+  if (!sup) return null;
+  let u: URL;
+  try {
+    u = new URL(offer.productUrl);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" || u.host !== sup.host) return null;
+  const id = (offer.supplierRef ?? "").replace(/^tyre/i, "");
+  if (!id || !u.pathname.endsWith(`-${id}`)) return null;
+  return { label: sup.label, url: u.toString() };
 }
 
 /* ------------------------------ Levier de marge --------------------------- */
@@ -969,6 +999,7 @@ export type PublicTireItem = {
   publicPriceTtc: number;
   availability: string | null;
   sourceUrl: string;
+  productUrl?: string | null;
   consultedAt: string;
 };
 
@@ -999,6 +1030,7 @@ export function publicItemsToOffers(items: PublicTireItem[], brands: BrandTierRo
     mount_price_ttc: 0,
     source: "CentralePneus (prix public TTC)",
     source_url: it.sourceUrl,
+    product_url: it.productUrl ?? null,
     price_date: it.consultedAt.slice(0, 10),
     active: true,
     created_at: it.consultedAt,
