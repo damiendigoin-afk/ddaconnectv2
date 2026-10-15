@@ -147,13 +147,39 @@ export function parseDistricashLabel(label: string): { size: string | null; load
   return { size: s ? `${s[1]}/${s[2]}R${s[3]}` : null, load: null, speed: null };
 }
 
+/** Gammes connues (libellé compacté sans espaces/tirets). Modèle inconnu => null. */
+const ALL_SEASON_MODELS = [
+  "ALLSEASONCONTACT", "CROSSCLIMATE", "QUATRAC", "4SEASON", "ALLSEASON", "MULTISEASON",
+  "VECTOR4SEASON", "KINERGY4S", "ADVANTAGEAS", "ADVANTAGEALLSEASON", "ACTIVEDRIVE4S",
+  "QUADRAXER", "CINTURATOALLSEASON", "TURANZAALLSEASON", "WEATHERCONTROL",
+];
+const WINTER_MODELS = ["WINTER", "HIVER", "ALPIN", "WINTRAC", "SNOW", "NORDIC", "TS8", "TS850", "TS860", "TS870", "KRISALP", "ICECONTACT", "BLIZZAK", "ULTRAGRIPICE", "ULTRAGRIP"];
+const SUMMER_MODELS = [
+  "SUMMER", "PREMIUMCONTACT", "ECOCONTACT", "SPORTCONTACT", "PRIMACY", "PILOTSPORT", "ENERGYSAVER",
+  "DYNAXERHP", "DYNAXERUHP", "ATREZZOELITE", "ELITESH32", "SH32", "VENTUS", "TURANZAT", "POTENZA",
+  "EAGLEF1", "EFFICIENTGRIP", "CINTURATOP", "PZERO", "KINERGYECO", "SPORTMAXX", "BLURESPONSE",
+  "FIREHAWK", "ROADHAWK", "ZIEX", "ECSTA", "SOLUS", "RAINSPORT", "RAINEXPERT", "NBLUEHD",
+];
+
 /** Saison uniquement si le libellé l'indique clairement ; sinon null (jamais devinée). */
 export function districashSeason(label: string): "ete" | "quatre_saisons" | "hiver" | null {
   const l = ` ${label.toUpperCase()} `;
-  if (/\b(4S\d?|4 ?SEASONS?|ALL ?SEASONS?|CROSSCLIMATE|QUATRAC|4X4 ?SEASON|ALLSEASON|MULTISEASON)\b/.test(l)) return "quatre_saisons";
-  if (/\b(WINTER|HIVER|ALPIN|WINTRAC|SNOW|ICE|NORDIC|W\d{3})\b/.test(l)) return "hiver";
-  if (/\b(SUMMER|ETE|PRIMACY|PILOT SPORT|ECOCONTACT|PREMIUMCONTACT|SPORTCONTACT|VENTUS|TURANZA|POTENZA|EAGLE F1|EFFICIENTGRIP)\b/.test(l)) return "ete";
+  const c = label.toUpperCase().replace(/[^A-Z0-9+]/g, "");
+  // Ordre : 4 saisons d'abord (« PRIMACY ALL SEASON », « ADVANTAGE AS »), puis hiver, puis été.
+  if (/\b4S\d?\b/.test(l) || ALL_SEASON_MODELS.some((m) => c.includes(m))) return "quatre_saisons";
+  if (/\b(ICE|W\d{3})\b/.test(l) || WINTER_MODELS.some((m) => c.includes(m))) return "hiver";
+  if (/\bETE\b/.test(l) || /\bPC\s?[67]\b/.test(l) || SUMMER_MODELS.some((m) => c.includes(m))) return "ete";
   return null;
+}
+
+/** Comptage des lignes écartées (diagnostic interne : jamais confondu avec un stock). */
+export function districashExclusions(rows: DistricashRow[]) {
+  return {
+    total: rows.length,
+    unavailable: rows.filter((r) => r.availability === "indisponible").length,
+    unknown: rows.filter((r) => r.availability === "inconnu").length,
+    noPrice: rows.filter((r) => (r.availability === "J" || r.availability === "J+") && r.purchaseHt == null).length,
+  };
 }
 
 /**
