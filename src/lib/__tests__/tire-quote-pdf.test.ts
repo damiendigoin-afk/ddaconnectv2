@@ -145,3 +145,24 @@ describe("maquette PDF devis pneus", () => {
     expect(text).toContain("Indisponible");
   });
 });
+
+describe("PDF client : aucune donnée fournisseur interne", () => {
+  it("n'imprime ni fournisseur, ni lien fiche produit, ni prix d'achat", async () => {
+    mockLogoFetch();
+    const withLinks = six.map((o) => ({
+      ...o,
+      supplier: "centralepneus",
+      supplierRef: "tyre1154310",
+      productUrl: "https://www.centralepneus.fr/pneu-auto/hankook/kinergy/245-45-r20-103v-1154310",
+    }));
+    const blob = await buildTireQuotePdf(header, withLinks);
+    const text = (await pdfText(await blob.arrayBuffer())).toLowerCase();
+    expect(text).not.toContain("centralepneus");
+    expect(text).not.toContain("fournisseur");
+    expect(text).not.toContain("http");
+    expect(text).not.toContain("99,99");
+    // Pas de lien cliquable non plus.
+    const doc = await PDFDocument.load(await blob.arrayBuffer());
+    expect(doc.getPage(0).node.Annots()).toBeUndefined();
+  });
+});
