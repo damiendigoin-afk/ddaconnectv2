@@ -106,7 +106,14 @@ export async function districashLoginAndSearch(
   if (/json/i.test(login.headers.get("content-type") ?? "")) {
     try {
       const j = JSON.parse(loginText) as Record<string, unknown>;
-      note += ` ; réponse JSON clés=[${Object.keys(j).join(",")}]`;
+      note += ` ; réponse JSON clés=[${Object.keys(j).join(",")}], type=${String(j.type ?? "")}`;
+      if (typeof j.redirection === "string" && j.redirection) {
+        try {
+          note += `, redirection=${new URL(j.redirection, BASE).pathname}`;
+        } catch {
+          /* ignore */
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -152,7 +159,8 @@ export async function districashLoginAndSearch(
       steps.push({ step: "POST /search", status: search.status, note: "JSON illisible" });
     }
   } else {
-    steps.push({ step: "POST /search", status: search.status, note: `HTML ${sHtml.length} car.` });
+    const title = /<title>([^<]{0,120})<\/title>/i.exec(sHtml)?.[1]?.trim() ?? "sans titre";
+    steps.push({ step: "POST /search", status: search.status, note: `HTML ${sHtml.length} car., titre « ${title} »` });
   }
   const rows = parseDistricashSearch(sHtml);
   const proven = rows.some((r) => r.ean && r.purchaseHt != null);
