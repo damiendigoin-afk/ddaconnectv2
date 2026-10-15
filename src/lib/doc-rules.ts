@@ -1190,6 +1190,21 @@ export function cleanOrFreeText(v: string, names: unknown[] = []): string {
 }
 
 
+/**
+ * Retire d'une ligne d'adresse client les étiquettes administratives de la colonne
+ * garage amalgamées par l'OCR (« restitution prévue le 15/10/2026 », « date d'entrée … »,
+ * « votre conseiller … »). Ne touche ni au numéro de rue ni au code postal.
+ */
+const OR_ADMIN_LABEL =
+  /(?:\b(?:date\s+de\s+)?(?:restitution|livraison|entr[ée]e|r[ée]ception|sortie|d[ée]p[ôo]t)(?:\s+(?:pr[ée]vue?|souhait[ée]e?|v[ée]hicule))?(?:\s+(?:le|du|au))?\s*:?\s*(?:\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}(?:\s*(?:[àa]\s*)?\d{1,2}\s*[h:]\s*\d{0,2})?)?|\b(?:votre\s+conseiller|accueilli\s+par)\b\s*:?[^\n,]*)/gi;
+export function stripOrAdminLabels(v: string): string {
+  return v
+    .split(/\n/)
+    .map((line) => line.replace(OR_ADMIN_LABEL, " ").replace(/^\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\s+/, "").replace(/\s{2,}/g, " ").replace(/^[\s,;:-]+|[\s,;:-]+$/g, ""))
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: string[] } {
   const rejected: string[] = [];
   const obj = (v: unknown): Fields => (v && typeof v === "object" && !Array.isArray(v) ? { ...(v as Fields) } : {});
@@ -1243,6 +1258,13 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
   const names = [client["last_name"], client["first_name"]];
   for (const k of ["client_remarks", "requested_work"]) {
     if (typeof order[k] === "string") { const c = cleanOrFreeText(order[k] as string, names); order[k] = c || null; }
+  }
+  for (const k of ["address", "address_extra", "city"]) {
+    if (typeof client[k] === "string") {
+      const c = stripOrAdminLabels(client[k] as string);
+      if (c !== client[k]) suspect.add("client.address");
+      client[k] = c || null;
+    }
   }
   if (client["address"] != null && (isOrParasiteValue(client["address"]) || isGarageAddress(client["address"]))) {
     rejected.push("client.address");

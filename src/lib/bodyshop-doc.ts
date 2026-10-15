@@ -179,6 +179,7 @@ export function mapRepairOrderExtract(parsed: unknown, sourceText = ""): DocExtr
       .join("\n\n") || null;
 
   const address = [str(c["address"]), str(c["address_extra"]), [str(c["postal_code"]), str(c["city"])].filter(Boolean).join(" ")]
+    .map((x) => (x ? stripOrAdminLabels(x).replace(/\n+/g, ", ") : x))
     .filter(Boolean)
     .join(", ") || null;
 
