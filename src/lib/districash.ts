@@ -42,7 +42,40 @@ export type DistricashRow = {
   ean: string | null;
   purchaseHt: number | null;
   availability: DistricashAvailability;
+  /** Fiche produit exacte lue sur l'ancre de la ligne (jamais construite). */
+  productUrl: string | null;
 };
+
+export const DISTRICASH_ORIGIN = "https://districashv2.inoshop.net";
+const DISTRICASH_HOST = "districashv2.inoshop.net";
+
+/** Valide une URL de fiche Districash : HTTPS, hôte exact, /catalog/product/, sans query/fragment. */
+export function safeDistricashProductUrl(href: string | null | undefined): string | null {
+  if (!href) return null;
+  const raw = decode(href).trim();
+  if (!raw || /^\s*(javascript|data|vbscript):/i.test(raw)) return null;
+  let u: URL;
+  try {
+    u = new URL(raw, DISTRICASH_ORIGIN + "/");
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" || u.host !== DISTRICASH_HOST) return null;
+  if (u.username || u.password || u.search || u.hash) return null;
+  if (!/^\/catalog\/product\/[^/]+(\/[^/]+)*\/?$/.test(u.pathname)) return null;
+  return u.toString();
+}
+
+function productUrlOf(rowHtml: string): string | null {
+  const re = /<a\b[^>]*\bhref\s*=\s*"([^"]*)"/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(rowHtml))) {
+    if (!decode(m[1] ?? "").includes("/catalog/product/")) continue;
+    const ok = safeDistricashProductUrl(m[1]);
+    if (ok) return ok;
+  }
+  return null;
+}
 
 /** Nom d'image de la pastille verte J+ observée. */
 export const DISTRICASH_JPLUS_IMAGE = "H0kz82D2C3jk4sZV6zzvPWCWa8xHYoa7J9xixKPQ.png";
@@ -93,6 +126,7 @@ export function parseDistricashSearch(html: string): DistricashRow[] {
       ean: attr(open, "data-ean"),
       purchaseHt: parsePrice(attr(open, "data-filtreprixachat")),
       availability: availabilityOf(inner, attr(open, "data-dispo-type")),
+      productUrl: productUrlOf(inner),
     });
   }
   return rows;
@@ -148,7 +182,7 @@ export function districashRowsToOffers(
       mount_price_ttc: 0,
       source: "Districash (prix d'achat portail)",
       source_url: null,
-      product_url: null,
+      product_url: r.productUrl ?? null,
       price_date: consultedAt.slice(0, 10),
       active: true,
       created_at: consultedAt,
