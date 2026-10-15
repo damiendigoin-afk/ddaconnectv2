@@ -7438,6 +7438,44 @@ export type Database = {
           },
         ]
       }
+      tire_supplier_site_settings: {
+        Row: {
+          default_supplier: string
+          districash_account: string | null
+          districash_last_test_at: string | null
+          districash_last_test_message: string | null
+          districash_last_test_ok: boolean | null
+          site_id: string
+          updated_at: string
+        }
+        Insert: {
+          default_supplier?: string
+          districash_account?: string | null
+          districash_last_test_at?: string | null
+          districash_last_test_message?: string | null
+          districash_last_test_ok?: boolean | null
+          site_id: string
+          updated_at?: string
+        }
+        Update: {
+          default_supplier?: string
+          districash_account?: string | null
+          districash_last_test_at?: string | null
+          districash_last_test_message?: string | null
+          districash_last_test_ok?: boolean | null
+          site_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_supplier_site_settings_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tour_notification_recipients: {
         Row: {
           active: boolean
