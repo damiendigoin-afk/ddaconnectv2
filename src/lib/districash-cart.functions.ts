@@ -46,7 +46,7 @@ export const addOrderToDistricashCart = createServerFn({ method: "POST" })
 
     const sess = await import("./districash-session.server");
     const { addToDistricashCart } = await import("./districash-cart-flow");
-    let jar: sess.Jar | null = null;
+    let jar: import("./districash-session.server").Jar | null = null;
     const r = await addToDistricashCart(
       {
         open: async () => {

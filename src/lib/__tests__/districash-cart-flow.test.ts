@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { addToDistricashCart, type CartFlowDeps } from "../districash-cart-flow";
 import { CART_STORE_FIELDS } from "../districash-cart";
 import { assertCartPath } from "../districash-session.server";
@@ -13,7 +13,7 @@ const product = `<meta name="csrf-token" content="P"><span data-dispo-type="ag">
 const cart = `<input id="command-reference-77"><input id="command-immatriculation-77">`;
 const input = { productUrl: "https://districashv2.inoshop.net/catalog/product/REFX1/X/STD", code: "REFX1", quantity: 2, purchaseHt: 50, allowExistingInCart: false };
 function deps(over: Partial<CartFlowDeps> = {}, cartHtml = cart, productHtml = product) {
-  const post = vi.fn(async () => ({ status: 200, contentType: "application/json", text: JSON.stringify({ cart_content: { nb_added: 2, data_ref: "D1", price_total: "100" } }) }));
+  const post = vi.fn(async (..._a: unknown[]) => ({ status: 200, contentType: "application/json", text: JSON.stringify({ cart_content: { nb_added: 2, data_ref: "D1", price_total: "100" } }) }));
   return { post, d: { open: async () => ({ token: "T", blocker: null }), get: async (p: string) => ({ status: 200, text: p === "/cart" ? cartHtml : productHtml }), post, ...over } as CartFlowDeps };
 }
 
@@ -22,7 +22,7 @@ describe("ajout panier Districash (mocks)", () => {
     const { d, post } = deps();
     const r = await addToDistricashCart(d, input);
     expect(r).toMatchObject({ status: "added", cartId: "77", dataRef: "D1" });
-    const body = post.mock.calls[0]![1] as URLSearchParams;
+    const body = (post.mock.calls[0] as unknown[])[1] as URLSearchParams;
     expect(body.get("quantite")).toBe("2");
     expect(body.get("_token")).toBe("P");
   });
@@ -42,7 +42,7 @@ describe("ajout panier Districash (mocks)", () => {
     expect(post).not.toHaveBeenCalled();
   });
   it("timeout = incertain, un seul envoi", async () => {
-    const post = vi.fn(async () => { throw new Error("abort"); });
+    const post = vi.fn(async (..._a: unknown[]) => { throw new Error("abort"); });
     const { d } = deps({ post });
     expect((await addToDistricashCart(d, input)).status).toBe("uncertain");
     expect(post).toHaveBeenCalledTimes(1);
@@ -60,7 +60,9 @@ describe("ajout panier Districash (mocks)", () => {
 });
 
 describe("extension de préremplissage", () => {
-  const ddaPrefill = createRequire(import.meta.url)("../../../extension/districash-prefill/prefill.js");
+  const mod: { exports: unknown } = { exports: null };
+  new Function("module", readFileSync("extension/districash-prefill/prefill.js", "utf8"))(mod);
+  const ddaPrefill = mod.exports as (w: Window) => { filled: number };
   it("remplit les deux champs depuis le lien DDA", () => {
     document.body.innerHTML = cart;
     window.location.hash = new URL(districashCartPrefillUrl({ orNumber: "17264", plate: "ab-123-cd" })).hash;
