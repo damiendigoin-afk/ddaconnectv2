@@ -144,4 +144,4 @@ Reste à faire :
 
 - [x] Commander chez DC : commande interne à transmettre + validation manuelle portail
 
-- [ ] Commander chez DC : aide panier Districash (réf. commande OR>immat, copie, ouverture fiche), sans achat
+- [x] Commander chez DC : aide panier Districash (réf. commande OR>immat, copie, ouverture fiche), sans achat
