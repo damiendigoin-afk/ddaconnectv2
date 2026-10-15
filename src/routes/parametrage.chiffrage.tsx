@@ -16,6 +16,8 @@ import {
   SEVERITY_LABEL,
   TIER_LABEL,
   TIRE_SUPPLIERS,
+  QUOTE_TIRE_SUPPLIERS,
+  quoteSupplierKey,
   applyMargin,
   fetchBrandTiers,
   type BrandTierRow,
@@ -224,25 +226,9 @@ function PricingSettings() {
           </p>
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Source tarifaire pneumatiques
+              Fournisseur pneumatiques par défaut
             </label>
-            <select
-              value={supplier}
-              onChange={(e) => setSupplier(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-3 text-sm"
-            >
-              {TIRE_SUPPLIERS.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            {supplierDef && !supplierDef.configured ? (
-              <p className="mt-1 text-xs text-amber-700">
-                Source non configurée : aucun tarif n'est récupéré tant que l'accès technique n'est
-                pas confirmé. Le catalogue local reste utilisé.
-              </p>
-            ) : null}
+            <SiteTireSuppliers />
           </div>
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
@@ -470,5 +456,56 @@ function PricingSettings() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+/** Fournisseur pneumatiques par défaut, propre à chaque site (enregistré immédiatement). */
+function SiteTireSuppliers() {
+  const q = useQuery({
+    queryKey: ["tire-supplier-sites"],
+    queryFn: async () => {
+      const [sites, settings] = await Promise.all([
+        supabase.from("sites").select("id, name, code").eq("active", true).order("name"),
+        supabase.from("tire_supplier_site_settings").select("site_id, default_supplier"),
+      ]);
+      if (sites.error) throw sites.error;
+      return (sites.data ?? []).map((s) => ({
+        id: s.id,
+        name: s.code === "dda" ? "Lalinde" : s.name,
+        supplier: quoteSupplierKey(settings.data?.find((x) => x.site_id === s.id)?.default_supplier),
+      }));
+    },
+  });
+  async function change(siteId: string, value: string) {
+    const { error } = await supabase
+      .from("tire_supplier_site_settings")
+      .upsert({ site_id: siteId, default_supplier: value, updated_at: new Date().toISOString() }, { onConflict: "site_id" });
+    if (error) toast.error("Enregistrement impossible.");
+    else toast.success("Fournisseur par défaut enregistré");
+    await q.refetch();
+  }
+  return (
+    <div className="mt-1 space-y-2">
+      {(q.data ?? []).map((s) => (
+        <div key={s.id} className="grid grid-cols-[7rem_1fr] items-center gap-2">
+          <span className="text-sm font-semibold">{s.name}</span>
+          <select
+            value={s.supplier}
+            onChange={(e) => void change(s.id, e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            {QUOTE_TIRE_SUPPLIERS.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground">
+        Prépositionné dans Devis pneus, modifiable à chaque devis. Districash reste indisponible
+        tant que la connexion automatique n&apos;est pas validée (Paramètres API).
+      </p>
+    </div>
   );
 }
