@@ -19,10 +19,6 @@ export const DISTRICASH_ACCOUNTS: Record<string, string> = {
 export const DISTRICASH_PROVIDER_PREFIX = "districash:";
 export const districashProvider = (siteId: string) => `${DISTRICASH_PROVIDER_PREFIX}${siteId}`;
 
-/** Message affiché tant que la connexion automatique n'est pas démontrée. */
-export const DISTRICASH_BLOCKED =
-  "Connexion automatique non validée : le mode d'authentification du portail Districash n'est pas documenté. Aucune donnée Districash n'est consultée en temps réel.";
-
 export const DISTRICASH_STATUS_LABEL: Record<IntegrationStatus, string> = {
   non_configure: "Non configuré",
   configure: "Identifiants enregistrés — connexion non validée",
@@ -105,4 +101,63 @@ export function parseDistricashSearch(html: string): DistricashRow[] {
 /** Seuls les pneus à statut positif (J ou J+, pastille verte) et avec prix sont proposables. */
 export function quotableDistricashRows(rows: DistricashRow[]): DistricashRow[] {
   return rows.filter((r) => (r.availability === "J" || r.availability === "J+") && r.purchaseHt != null);
+}
+
+/* --------------------------- Offres pour le devis -------------------------- */
+
+/** Dimension et indices lus dans le libellé (ex. « … 245/45R20 103V XL »). */
+export function parseDistricashLabel(label: string): { size: string | null; load: string | null; speed: string | null } {
+  const m = /(\d{3})\s*\/\s*(\d{2})\s*Z?R\s*(\d{2})(?:C)?\s+(\d{2,3}(?:\/\d{2,3})?)\s*([A-Z])\b/i.exec(label);
+  if (m) return { size: `${m[1]}/${m[2]}R${m[3]}`, load: m[4]!, speed: m[5]!.toUpperCase() };
+  const s = /(\d{3})\s*\/\s*(\d{2})\s*Z?R\s*(\d{2})/i.exec(label);
+  return { size: s ? `${s[1]}/${s[2]}R${s[3]}` : null, load: null, speed: null };
+}
+
+/** Saison uniquement si le libellé l'indique clairement ; sinon null (jamais devinée). */
+export function districashSeason(label: string): "ete" | "quatre_saisons" | "hiver" | null {
+  const l = ` ${label.toUpperCase()} `;
+  if (/\b(4S\d?|4 ?SEASONS?|ALL ?SEASONS?|CROSSCLIMATE|QUATRAC|4X4 ?SEASON|ALLSEASON|MULTISEASON)\b/.test(l)) return "quatre_saisons";
+  if (/\b(WINTER|HIVER|ALPIN|WINTRAC|SNOW|ICE|NORDIC|W\d{3})\b/.test(l)) return "hiver";
+  if (/\b(SUMMER|ETE|PRIMACY|PILOT SPORT|ECOCONTACT|PREMIUMCONTACT|SPORTCONTACT|VENTUS|TURANZA|POTENZA|EAGLE F1|EFFICIENTGRIP)\b/.test(l)) return "ete";
+  return null;
+}
+
+/**
+ * Lignes Districash J/J+ -> offres du moteur existant. Le prix d'achat est
+ * `data-filtreprixachat` (prix d'achat HT affiché par le portail), traité
+ * comme tel : la marge MAX(PA × %, minimum) et le montage sont appliqués par le moteur.
+ */
+export function districashRowsToOffers(
+  rows: DistricashRow[],
+  tierOf: (brand: string) => string | null,
+  consultedAt: string,
+) {
+  return quotableDistricashRows(rows).map((r) => {
+    const d = parseDistricashLabel(r.label);
+    const brand = r.brand.trim().toUpperCase();
+    return {
+      id: `districash:${r.code || r.ean}`,
+      tier: tierOf(brand) ?? "",
+      season: districashSeason(r.label) ?? "",
+      is3pmsf: /3PMSF|\bM\+S\b.*\bSNOW/i.test(r.label),
+      brand,
+      model: r.label,
+      size: d.size,
+      purchase_price_ht: r.purchaseHt,
+      price_kind: "purchase_ht",
+      mount_price_ttc: 0,
+      source: "Districash (prix d'achat portail)",
+      source_url: null,
+      product_url: null,
+      price_date: consultedAt.slice(0, 10),
+      active: true,
+      created_at: consultedAt,
+      updated_at: consultedAt,
+      load_index: d.load,
+      speed_index: d.speed,
+      availability: r.availability === "J+" ? "Disponible J+" : "Disponible J",
+      supplier_ref: r.code || r.ean,
+      supplier_key: "districash",
+    };
+  });
 }
