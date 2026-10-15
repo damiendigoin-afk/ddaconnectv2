@@ -20,7 +20,7 @@ function CartAdd({ orderId, account, qty, price }: { orderId: string; account: s
     catch { setRes({ status: "uncertain", message: "Erreur réseau : vérifiez le panier Districash, sans relancer." }); }
     finally { setBusy(false); }
   }
-  if (res && res.status !== "already_in_cart")
+  if (res && (res.status === "added" || res.status === "uncertain"))
     return <p className={`rounded-lg border p-2 text-xs ${res.status === "added" ? "border-brand" : "border-destructive"}`}>{res.message} La commande reste « À transmettre ».</p>;
   return (
     <div className="space-y-2 rounded-lg border border-border p-3 text-xs">
@@ -28,7 +28,7 @@ function CartAdd({ orderId, account, qty, price }: { orderId: string; account: s
         <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5" />
         J'autorise l'ajout de {qty} pneu(s) à {price} HT au panier du compte Districash {account}. Aucune commande ne sera validée.
       </label>
-      {res?.status === "already_in_cart" ? <p className="text-destructive">{res.message}</p> : null}
+      {res ? <p className="text-destructive">{res.message}{res.status === "refused" ? " Rien n'a été envoyé : vous pouvez réessayer." : ""}</p> : null}
       <button type="button" disabled={!ok || busy} onClick={() => void run(res?.status === "already_in_cart")} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border font-bold disabled:opacity-50">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         {res?.status === "already_in_cart" ? "Ajouter quand même" : "Ajouter au panier Districash"}
