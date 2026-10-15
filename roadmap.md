@@ -143,3 +143,5 @@ Reste à faire :
 - [x] Retry stockage transitoire (429/503) sur uploads documents fournisseur
 
 - [x] Commander chez DC : commande interne à transmettre + validation manuelle portail
+
+- [ ] Commander chez DC : aide panier Districash (réf. commande OR>immat, copie, ouverture fiche), sans achat
