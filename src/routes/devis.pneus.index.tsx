@@ -137,19 +137,6 @@ function TireQuotePage() {
       return quoteSupplierKey(data?.default_supplier);
     },
   });
-  // Statut Districash réel du site : dernier test de Paramètres API (jamais simulé).
-  const districashState = useQuery({
-    queryKey: ["districash-site-state", site?.id ?? null],
-    enabled: Boolean(site?.id),
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("tire_supplier_site_settings")
-        .select("districash_account, districash_last_test_at, districash_last_test_ok, districash_last_test_message")
-        .eq("site_id", site!.id)
-        .maybeSingle();
-      return data;
-    },
-  });
   const [supplier, setSupplier] = useState<QuoteTireSupplierKey | null>(null);
   const activeSupplier: QuoteTireSupplierKey = supplier ?? siteSupplier.data ?? "centralepneus";
 
@@ -303,9 +290,10 @@ function TireQuotePage() {
             </button>
           </div>
 
-          <label className="block text-xs">
-            <span className="font-bold uppercase tracking-widest text-muted-foreground">Fournisseur</span>
+          <label className="flex items-center gap-3 text-xs">
+            <span className="shrink-0 font-bold uppercase tracking-widest text-muted-foreground">Fournisseur</span>
             <select
+              aria-label="Fournisseur"
               value={activeSupplier}
               onChange={(e) => {
                 setSupplier(quoteSupplierKey(e.target.value));
@@ -313,27 +301,14 @@ function TireQuotePage() {
                 setSavedId(null);
                 setAdjust(0);
               }}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              className="w-full max-w-56 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold"
             >
               {QUOTE_TIRE_SUPPLIERS.map((s) => (
                 <option key={s.key} value={s.key}>
-                  {s.label}
-                  {s.key === siteSupplier.data ? " — défaut du site" : ""}
+                  {s.shortLabel}
                 </option>
               ))}
             </select>
-            {activeSupplier === "districash" ? (
-              <span
-                className={`mt-1 block ${districashState.data?.districash_last_test_ok ? "text-muted-foreground" : "text-amber-700"}`}
-              >
-                {!site?.id
-                  ? "Aucun site sélectionné : Districash indisponible."
-                  : districashState.data?.districash_last_test_at
-                    ? `${site.name ?? "Site"}${districashState.data.districash_account ? ` (compte ${districashState.data.districash_account})` : ""} — dernier test ${new Date(districashState.data.districash_last_test_at).toLocaleString("fr-FR")} : ${districashState.data.districash_last_test_message ?? ""}`
-                    : "Connexion Districash jamais testée pour ce site (Paramètres API)."}
-                {" "}Consultation en direct au chiffrage ; seuls les pneus J/J+ avec prix sont proposés. Prix d'achat = prix affiché par le portail.
-              </span>
-            ) : null}
           </label>
 
           <div className="grid grid-cols-3 gap-2">
