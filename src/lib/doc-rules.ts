@@ -1196,7 +1196,7 @@ export function cleanOrFreeText(v: string, names: unknown[] = []): string {
  * « votre conseiller … »). Ne touche ni au numéro de rue ni au code postal.
  */
 const OR_ADMIN_LABEL =
-  /(?:\b(?:date\s+de\s+)?(?:restitution|livraison|entr[ée]e|r[ée]ception|sortie|d[ée]p[ôo]t)(?=\\s*(?:pr[ée]vu|souhait|v[ée]hicule|le\\b|du\\b|au\\b|:|\\d))(?:\s+(?:pr[ée]vue?|souhait[ée]e?|v[ée]hicule))?(?:\s+(?:le|du|au))?\s*:?\s*(?:\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}(?:\s*(?:[àa]\s*)?\d{1,2}\s*[h:]\s*\d{0,2})?)?|\b(?:votre\s+conseiller|accueilli\s+par)\b\s*:?[^\n,]*)/gi;
+  /(?:\b(?:date\s+de\s+)?(?:restitution|livraison|entr[ée]e|r[ée]ception|sortie|d[ée]p[ôo]t)(?=\s*(?:pr[ée]vu|souhait|v[ée]hicule|le\b|du\b|au\b|:|\d))(?:\s+(?:pr[ée]vue?|souhait[ée]e?|v[ée]hicule))?(?:\s+(?:le|du|au))?\s*:?\s*(?:\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}(?:\s*(?:[àa]\s*)?\d{1,2}\s*[h:]\s*\d{0,2})?)?|\b(?:votre\s+conseiller|accueilli\s+par)\b\s*:?[^\n,]*)/gi;
 export function stripOrAdminLabels(v: string): string {
   return v
     .split(/\n/)
