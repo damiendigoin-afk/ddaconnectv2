@@ -106,7 +106,14 @@ export async function districashLoginAndSearch(
   if (/json/i.test(login.headers.get("content-type") ?? "")) {
     try {
       const j = JSON.parse(loginText) as Record<string, unknown>;
-      note += ` ; réponse JSON clés=[${Object.keys(j).join(",")}]`;
+      note += ` ; réponse JSON clés=[${Object.keys(j).join(",")}], type=${String(j["type"] ?? "")}`;
+      if (typeof j["redirection"] === "string" && j["redirection"]) {
+        try {
+          note += `, redirection=${new URL(j["redirection"], BASE).pathname}`;
+        } catch {
+          /* ignore */
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -129,30 +136,17 @@ export async function districashLoginAndSearch(
   if (loggedOut) return out("Session non ouverte (le portail renvoie vers la connexion).");
   const token2 = csrf(homeHtml) ?? token;
 
+  // Protocole confirmé dans Chrome : formulaire urlencoded, champs imbriqués en JSON texte.
   const search = await req(jar, "/search", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      Accept: "text/html, application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html",
       "X-Requested-With": "XMLHttpRequest",
-      "X-CSRF-TOKEN": token2,
       Origin: BASE,
       Referer: `${BASE}/`,
     },
-    body: JSON.stringify({
-      reference_input: [],
-      tyre_inputs: {
-        pneu_larg: tyre.width,
-        pneu_haut: tyre.height,
-        pneu_diam: tyre.diameter,
-        pneu_indc: tyre.load ?? "",
-        pneu_indv: tyre.speed ?? "",
-      },
-      quantite: quantity,
-      user_filters: { search_type: "recherche_standard" },
-      searchTypeDefaut: "recherche_standard",
-      searchTypageCde: "",
-    }),
+    body: districashSearchBody(token2, tyre, quantity),
   });
   let sHtml = await search.text();
   if (/json/i.test(search.headers.get("content-type") ?? "")) {
@@ -165,10 +159,30 @@ export async function districashLoginAndSearch(
       steps.push({ step: "POST /search", status: search.status, note: "JSON illisible" });
     }
   } else {
-    steps.push({ step: "POST /search", status: search.status, note: `HTML ${sHtml.length} car.` });
+    const title = /<title>([^<]{0,120})<\/title>/i.exec(sHtml)?.[1]?.trim() ?? "sans titre";
+    steps.push({ step: "POST /search", status: search.status, note: `HTML ${sHtml.length} car., titre « ${title} »` });
   }
   const rows = parseDistricashSearch(sHtml);
   const proven = rows.some((r) => r.ean && r.purchaseHt != null);
   if (!proven) return out("Session ouverte mais catalogue sans produit avec prix et EAN : non validé.", false, rows);
   return out(null, true, rows);
+}
+
+/** Corps exact de POST /search (format formulaire observé dans Chrome). */
+export function districashSearchBody(token: string, tyre: DistricashTyre, quantity: number): URLSearchParams {
+  return new URLSearchParams({
+    _token: token,
+    reference_input: "[]",
+    tyre_inputs: JSON.stringify({
+      pneu_larg: tyre.width,
+      pneu_haut: tyre.height,
+      pneu_diam: tyre.diameter,
+      pneu_indc: tyre.load ?? "",
+      pneu_indv: tyre.speed ?? "",
+    }),
+    quantite: String(quantity),
+    user_filters: JSON.stringify({ search_type: "recherche_standard" }),
+    searchTypeDefaut: "recherche_standard",
+    searchTypageCde: "",
+  });
 }
