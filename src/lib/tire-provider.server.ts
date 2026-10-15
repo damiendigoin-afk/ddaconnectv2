@@ -23,7 +23,7 @@ export type PublicTireItem = {
   availability: string | null;
   sourceUrl: string;
   /** Fiche produit exacte lue dans la carte du produit (usage interne), sinon null. */
-  productUrl: string | null;
+  productUrl?: string | null;
   consultedAt: string;
 };
 

@@ -162,7 +162,7 @@ describe("PDF client : aucune donnée fournisseur interne", () => {
     expect(text).not.toContain("http");
     expect(text).not.toContain("99,99");
     // Pas de lien cliquable non plus.
-    const doc = await PDFDocument.load(await blob.arrayBuffer());
-    expect(doc.getPage(0).node.Annots()).toBeUndefined();
+    const raw = new TextDecoder("latin1").decode(await blob.arrayBuffer());
+    expect(raw).not.toContain("/URI");
   });
 });
