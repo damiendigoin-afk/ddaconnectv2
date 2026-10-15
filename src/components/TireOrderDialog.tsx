@@ -28,9 +28,9 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
   const link = districashPortalLink(offer);
 
   async function submit() {
-    if (!site) return toast.error("Choisissez un site.");
+    if (!site) { toast.error("Choisissez un site."); return; }
     const err = validateTireOrderTarget({ orNumber, plate });
-    if (err) return toast.error(err);
+    if (err) { toast.error(err); return; }
     setBusy(true);
     try {
       const supplierId = await districashSupplierId();

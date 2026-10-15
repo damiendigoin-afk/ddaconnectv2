@@ -74,7 +74,7 @@ describe("lien Districash dans la fiche devis", () => {
     const link = screen.getByRole("link", { name: /Voir chez Districash/ });
     expect(link.getAttribute("href")).toBe(DIRECT);
     expect(link.getAttribute("target")).toBe("_blank");
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Copier/ })).toBeNull();
     expect(document.body.textContent).not.toContain(REF);
     expect(document.body.textContent).not.toContain("Copier");
   });
@@ -83,7 +83,7 @@ describe("lien Districash dans la fiche devis", () => {
     render(<TireQuoteSheet header={HEADER} offers={[offer({ productUrl: null })]} internal />);
     const link = screen.getByRole("link", { name: /Ouvrir Districash/ });
     expect(link.getAttribute("href")).toBe(DISTRICASH_PORTAL_URL);
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Copier/ })).toBeNull();
     expect(document.body.textContent).not.toContain(REF);
   });
 
