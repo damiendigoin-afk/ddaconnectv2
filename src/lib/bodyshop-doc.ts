@@ -215,6 +215,18 @@ export type FieldConflict = { field: "plate" | "vin" | "customer_name" | "custom
 
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9@.]/g, "");
 
+const CIVILITIES = new Set(["M", "MR", "MME", "MLLE", "MONSIEUR", "MADAME", "MADEMOISELLE"]);
+const nameTokens = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().split(/[^A-Z]+/).filter((t) => t && !CIVILITIES.has(t));
+
+/** Nom ET prénom comparés (civilité, accents, ordre et tirets ignorés). */
+export function sameCustomer(docName: string, lastName: string, firstName: string): boolean {
+  const doc = new Set(nameTokens(docName));
+  const base = [...nameTokens(lastName), ...nameTokens(firstName)];
+  if (!base.length) return true;
+  return base.every((t) => doc.has(t)) && nameTokens(docName).every((t) => base.includes(t));
+}
+
 /** Divergences document / référentiel — affichées, jamais résolues en silence. */
 export function compareWithRef(e: DocExtract, ref: RefFields | null | undefined): FieldConflict[] {
   if (!ref) return [];
@@ -225,10 +237,7 @@ export function compareWithRef(e: DocExtract, ref: RefFields | null | undefined)
   push("plate", "Immatriculation", e.plate, ref["plate"], (a, b) => normalizePlate(a) === normalizePlate(b));
   push("vin", "VIN", e.vin, ref["vin"], (a, b) => norm(a) === norm(b));
   const baseName = [ref["last_name"], ref["first_name"]].filter(Boolean).join(" ");
-  push("customer_name", "Client", e.customer_name, baseName, (a, b) => {
-    const A = norm(a);
-    return norm(b).length > 0 && (A.includes(norm(ref["last_name"] ?? "")) || A.includes(norm(b)));
-  });
+  push("customer_name", "Client", e.customer_name, baseName, () => sameCustomer(e.customer_name ?? "", ref["last_name"] ?? "", ref["first_name"] ?? ""));
   push("customer_phone", "Téléphone", e.customer_phone, ref["mobile"] || ref["phone"], (a, b) => digits(a) === digits(b) || digits(a) === digits(ref["phone"] ?? ""));
   push("customer_email", "E-mail", e.customer_email, ref["email"], (a, b) => a.toLowerCase() === b.toLowerCase());
   return out;
@@ -293,4 +302,35 @@ export function buildCaseFormPrefill(e: DocExtract, ref: RefFields | null | unde
     fromBase,
     docCategory: docCategory(e.doc_kind),
   };
+}
+
+export type IdentityValues = {
+  plate: string; vin: string; vehicleLabel: string; customerName: string;
+  customerPhone: string; customerEmail: string; orNumber: string; claim: string;
+};
+export const IDENTITY_LABELS: Record<keyof IdentityValues, string> = {
+  plate: "Immatriculation", vin: "VIN", vehicleLabel: "Véhicule", customerName: "Client",
+  customerPhone: "Téléphone", customerEmail: "E-mail", orNumber: "N° OR", claim: "N° de sinistre",
+};
+
+/**
+ * Nouveau document : remplace les valeurs venues du document précédent (y compris par du vide,
+ * pas de valeur périmée) ; une saisie manuelle (différente du document précédent) est conservée
+ * et signalée si le nouveau document propose autre chose.
+ */
+export function mergeDocumentValues(
+  current: IdentityValues,
+  previousDoc: IdentityValues | null,
+  next: IdentityValues,
+): { values: IdentityValues; keptManual: (keyof IdentityValues)[] } {
+  const values = { ...current };
+  const keptManual: (keyof IdentityValues)[] = [];
+  for (const k of Object.keys(IDENTITY_LABELS) as (keyof IdentityValues)[]) {
+    const cur = current[k].trim();
+    const fromPrev = previousDoc ? previousDoc[k].trim() : "";
+    const manual = cur !== "" && cur !== fromPrev;
+    if (!manual) values[k] = next[k];
+    else if (next[k] && next[k].trim() !== cur) keptManual.push(k);
+  }
+  return { values, keptManual };
 }
