@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { districashPortalLink, type SevenOffer } from "@/lib/tires";
-import { districashAccountForSite, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
+import { districashAccountForSite, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
 import { createTireSupplierOrder, districashSupplierId, findDuplicateTireOrder, lookupKnownOr } from "@/lib/tire-supplier-order-db";
 
 const input = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm";
@@ -26,6 +26,7 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
   const line = tireOrderLine(offer);
   const account = districashAccountForSite(site?.code);
   const link = districashPortalLink(offer);
+  const cart = districashCartFields({ orNumber, plate });
 
   async function submit() {
     if (!site) { toast.error("Choisissez un site."); return; }
@@ -66,8 +67,22 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
         </DialogHeader>
         {created ? (
           <div className="space-y-3 text-sm">
-            <p>Commande enregistrée au statut <b>« À transmettre »</b>. Validez-la sur Districash, puis saisissez le n° de commande Districash sur la fiche commande pour la passer en « Commandée ».</p>
+            <p>Commande interne <b>« À transmettre »</b>, non envoyée à Districash. Sur le portail : ajoutez l'article au panier, vérifiez-le, puis collez les champs ci-dessous.</p>
+            <div className="rounded-lg border border-border p-3 text-xs space-y-1">
+              <div className="font-bold">À vérifier dans le panier</div>
+              <div>Compte {account} · {line.physical_reference}</div>
+              <div>Qté {line.qty_ordered} · PA HT attendu {eur(line.expected_unit_cost_ht)} / pneu</div>
+            </div>
+            {([["Référence de commande", cart.reference], ["Immatriculation", cart.immatriculation]] as const).map(([label, value]) =>
+              value ? (
+                <div key={label} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+                  <span className="text-xs"><b>{label}</b> : {value}</span>
+                  <button type="button" className="text-xs font-bold underline" onClick={() => void navigator.clipboard.writeText(value).then(() => toast.success(`${label} copiée`), () => toast.error("Copie impossible"))}>Copier</button>
+                </div>
+              ) : null,
+            )}
             {link ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="block font-semibold underline">{link.label} ↗</a> : null}
+            <p className="text-[11px] text-muted-foreground">Une fois la commande validée sur Districash, saisissez son n° sur la fiche commande pour passer en « Commandée ».</p>
             <Link to="/pieces-achats/commande/$orderId" params={{ orderId: created }} className="block h-10 rounded-lg bg-brand text-center font-bold leading-10 text-brand-foreground">Ouvrir la commande</Link>
           </div>
         ) : (
