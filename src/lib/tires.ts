@@ -107,7 +107,7 @@ export type QuoteTireSupplierKey = "centralepneus" | "catalogue_local" | "distri
 export const QUOTE_TIRE_SUPPLIERS: { key: QuoteTireSupplierKey; label: string; available: boolean }[] = [
   { key: "centralepneus", label: "CentralePneus (prix publics) + catalogue local", available: true },
   { key: "catalogue_local", label: "Catalogue local uniquement", available: true },
-  { key: "districash", label: "Districash (connexion non validée)", available: false },
+  { key: "districash", label: "Districash (prix d'achat portail, compte du site)", available: true },
 ];
 export function quoteSupplierKey(v: string | null | undefined): QuoteTireSupplierKey {
   return QUOTE_TIRE_SUPPLIERS.some((s) => s.key === v) ? (v as QuoteTireSupplierKey) : "centralepneus";

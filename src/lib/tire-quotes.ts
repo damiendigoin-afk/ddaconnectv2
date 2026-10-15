@@ -9,7 +9,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";
 import { fetchPublicTireOffers } from "./tire-provider.functions";
-import { DISTRICASH_BLOCKED } from "./districash";
+import { districashRowsToOffers } from "./districash";
+import { fetchDistricashQuoteRows } from "./districash-quote.functions";
 import type { QuoteTireSupplierKey } from "./tires";
 import {
   buildSevenOffers,
@@ -150,6 +151,8 @@ export async function quoteManualTires(args: {
   engine: TireEngineData;
   /** Fournisseur choisi (défaut : comportement historique CentralePneus + catalogue). */
   supplier?: QuoteTireSupplierKey;
+  /** Site du devis : identifiants Districash propres au site. */
+  siteId?: string | null;
 }): Promise<ManualQuoteResult> {
   const { engine } = args;
   const supplier = args.supplier ?? "centralepneus";
@@ -163,9 +166,22 @@ export async function quoteManualTires(args: {
     if (res.ok) items = res.items as PublicTireItem[];
     else warning = res.error;
   } else if (supplier === "districash") {
-    // Aucune donnée Districash n'est consultée : rien n'est présenté comme tel.
+    // Uniquement des offres Districash réelles (J/J+ avec prix), jamais le catalogue local.
     catalog = [];
-    warning = DISTRICASH_BLOCKED;
+    const m = /^(\d{3})\/(\d{2})R(\d{2})$/.exec(normalizeTireSize(args.size));
+    if (!args.siteId) warning = "Districash : aucun site sélectionné.";
+    else if (!m) warning = "Districash : dimension non reconnue.";
+    else {
+      const res = await fetchDistricashQuoteRows({
+        data: { siteId: args.siteId, width: m[1]!, height: m[2]!, diameter: m[3]!, load: args.load, speed: args.speed, quantity: args.quantity },
+      });
+      if (!res.ok) warning = res.error;
+      else {
+        const tierOf = (b: string) => engine.brands.find((r) => r.active && r.brand.trim().toUpperCase() === b)?.tier ?? null;
+        catalog = districashRowsToOffers(res.rows, tierOf, res.consultedAt) as unknown as TireOffer[];
+        if (!catalog.length) warning = "Districash : aucun pneu disponible (J/J+) avec prix pour cette dimension.";
+      }
+    }
   }
 
   const offers = buildSevenOffers({
