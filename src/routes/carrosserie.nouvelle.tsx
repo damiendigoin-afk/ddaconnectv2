@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { Area, Field, Select } from "@/components/bits";
@@ -10,7 +10,7 @@ import { createCase, MISSION_ORIGINS } from "@/lib/bodyshop";
 import { uploadCaseDocument } from "@/lib/documents";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 import { refPrefill, type RefPrefill } from "@/lib/refbase";
-import { buildCaseFormPrefill, type CaseFormPrefill, type DocExtract } from "@/lib/bodyshop-doc";
+import { buildCaseFormPrefill, IDENTITY_LABELS, mergeDocumentValues, type CaseFormPrefill, type DocExtract, type IdentityValues } from "@/lib/bodyshop-doc";
 import { listAgreements, listExperts, listFirms, listInsurers } from "@/lib/referentials";
 
 export const Route = createFileRoute("/carrosserie/nouvelle")({
@@ -69,10 +69,44 @@ function NewCase() {
   const firms = useQuery({ queryKey: ["firms"], queryFn: listFirms });
   const experts = useQuery({ queryKey: ["experts"], queryFn: listExperts });
 
+  const current = (): IdentityValues => ({
+    plate, vin, vehicleLabel: vehicleLabelText, customerName, customerPhone, customerEmail, orNumber, claim,
+  });
+  const setIdentity = (v: IdentityValues) => {
+    setPlate(v.plate); setVin(v.vin); setVehicleLabelText(v.vehicleLabel); setCustomerName(v.customerName);
+    setCustomerPhone(v.customerPhone); setCustomerEmail(v.customerEmail); setOrNumber(v.orNumber); setClaim(v.claim);
+  };
+  /** Valeurs posées par le dernier document : distinguent une saisie manuelle d'une valeur de document. */
+  const lastDocValues = useRef<IdentityValues | null>(null);
+
+  const linkFrom = (ref: RefPrefill | null, f: CaseFormPrefill) => {
+    setFound(ref ? ref.label : "");
+    setRefVehicleId(ref && f.linkRef ? ref.vehicleId : null);
+    setCustomerId(ref && f.linkRef && !f.conflicts.some((c) => c.field === "customer_name") ? ref.customerId : null);
+  };
+
   async function applyPlate(raw: string) {
     const p = normalizePlate(raw);
     if (p.length < 5) return;
     const ref = await refPrefill(p);
+    if (check) {
+      // Document déjà lu : rapprochement contrôlé, aucune valeur de l'OR écrasée, liaison seulement sans conflit immat/VIN.
+      const cur = current();
+      const extract: DocExtract = { ...check.extract, plate: cur.plate || check.extract.plate, vin: cur.vin || check.extract.vin, customer_name: cur.customerName || check.extract.customer_name, customer_phone: cur.customerPhone || check.extract.customer_phone, customer_email: cur.customerEmail || check.extract.customer_email };
+      const f = buildCaseFormPrefill(extract, ref?.fields);
+      setIdentity({
+        ...cur,
+        vin: cur.vin || f.vin,
+        vehicleLabel: cur.vehicleLabel || f.vehicleLabel,
+        customerName: cur.customerName || f.customerName,
+        customerPhone: cur.customerPhone || f.customerPhone,
+        customerEmail: cur.customerEmail || f.customerEmail,
+      });
+      linkFrom(ref, f);
+      setCheck({ extract: check.extract, prefill: f, ref });
+      if (!ref) setMsg("Aucune fiche trouvée en base pour cette immatriculation.");
+      return;
+    }
     if (!ref) {
       setFound("");
       return;
@@ -97,21 +131,21 @@ function NewCase() {
     const f = buildCaseFormPrefill(e, ref?.fields);
     setPendingDoc({ file: r.file, kind: r.kind, category: f.docCategory });
     // Le document prime ; la base ne complète que les vides. Grêle, VGE, payeur, origine : jamais déduits.
-    if (f.plate) setPlate(f.plate);
-    if (f.vin) setVin(f.vin);
-    if (f.vehicleLabel) setVehicleLabelText(f.vehicleLabel);
-    if (f.customerName) setCustomerName(f.customerName);
-    if (f.customerPhone) setCustomerPhone(f.customerPhone);
-    if (f.customerEmail) setCustomerEmail(f.customerEmail);
-    if (f.orNumber) setOrNumber(f.orNumber);
-    if (f.claim) setClaim(f.claim);
+    const next: IdentityValues = {
+      plate: f.plate, vin: f.vin, vehicleLabel: f.vehicleLabel, customerName: f.customerName,
+      customerPhone: f.customerPhone, customerEmail: f.customerEmail, orNumber: f.orNumber, claim: f.claim,
+    };
+    const { values, keptManual } = mergeDocumentValues(current(), lastDocValues.current, next);
+    setIdentity(values);
+    lastDocValues.current = next;
     if (f.comments) setComments((c) => (c ? `${c}\n\n${f.comments}` : f.comments));
-    setFound(ref ? ref.label : "");
-    setRefVehicleId(ref && f.linkRef ? ref.vehicleId : null);
-    setCustomerId(ref && f.linkRef && !f.conflicts.some((c) => c.field === "customer_name") ? ref.customerId : null);
+    linkFrom(ref, f);
     setCheck({ extract: e, prefill: f, ref });
-    if (!f.plate)
-      setMsg("Immatriculation non détectée : saisis-la à la main, le document reste joint au dossier.");
+    const notes: string[] = [];
+    if (keptManual.length)
+      notes.push(`Saisie manuelle conservée (le document indique autre chose) : ${keptManual.map((k) => IDENTITY_LABELS[k]).join(", ")}.`);
+    if (!values.plate) notes.push("Immatriculation non détectée : saisis-la à la main, le document reste joint au dossier.");
+    setMsg(notes.join(" "));
   }
 
   async function submit() {
