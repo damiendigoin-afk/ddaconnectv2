@@ -732,6 +732,23 @@ export function supplierProductLink(
   return { label: sup.label, url: u.toString() };
 }
 
+/** Accueil du portail Districash (connexion puis recherche manuelle). */
+export const DISTRICASH_PORTAL_URL = "https://districashv2.inoshop.net/";
+
+/**
+ * Lien interne Districash : le HTML catalogue n'expose aucune URL de fiche
+ * produit et aucune recherche GET n'est vérifiée. On renvoie donc uniquement
+ * l'accueil du portail (aucun identifiant, cookie ni jeton) + la référence /
+ * EAN à copier pour la recherche manuelle.
+ */
+export function districashPortalLink(
+  offer: Pick<SevenOffer, "available" | "supplier" | "supplierRef">,
+): { label: string; url: string; reference: string | null } | null {
+  if (!offer.available || offer.supplier !== "districash") return null;
+  const ref = (offer.supplierRef ?? "").trim();
+  return { label: "Ouvrir Districash", url: DISTRICASH_PORTAL_URL, reference: ref || null };
+}
+
 /* ------------------------------ Levier de marge --------------------------- */
 
 /** Bornes du levier commercial : −50 % à +100 % de la marge STANDARD. */

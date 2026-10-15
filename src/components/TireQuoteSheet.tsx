@@ -3,7 +3,8 @@
  * exactement celles produites par le moteur de chiffrage existant.
  */
 import type { SevenOffer } from "@/lib/tires";
-import { MOUNT_LABEL, supplierProductLink } from "@/lib/tires";
+import { MOUNT_LABEL, districashPortalLink, supplierProductLink } from "@/lib/tires";
+import { toast } from "sonner";
 import { siteHeader, type Site } from "@/lib/sites";
 
 
@@ -142,9 +143,35 @@ export function TireQuoteSheet({
 /** Lien interne vers la fiche produit fournisseur réellement consultée. */
 function SupplierLink({ offer }: { offer: SevenOffer }) {
   const link = supplierProductLink(offer);
+  const portal = link ? null : districashPortalLink(offer);
   return (
     <div data-internal-only className="mt-1 text-right text-[11px] print:hidden">
-      {link ? (
+      {portal ? (
+        <span className="inline-flex flex-wrap items-center justify-end gap-2">
+          <a
+            href={portal.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            {portal.label} ↗
+          </a>
+          {portal.reference ? (
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard
+                  ?.writeText(portal.reference!)
+                  .then(() => toast.success(`Référence ${portal.reference} copiée`))
+                  .catch(() => toast.error("Copie impossible"));
+              }}
+              className="rounded border border-border px-1.5 py-0.5 font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Copier réf. {portal.reference}
+            </button>
+          ) : null}
+        </span>
+      ) : link ? (
         <a
           href={link.url}
           target="_blank"
