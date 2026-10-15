@@ -196,3 +196,28 @@ describe("second document", () => {
     expect(r.keptManual).toEqual(["plate"]);
   });
 });
+
+import { mapRepairOrderExtract as mapOr } from "../bodyshop-doc";
+import { sanitizeRepairOrder as sanOr, stripOrAdminLabels } from "../doc-rules";
+describe("adresse client sans étiquette restitution (OR 17264)", () => {
+  const base = (address: string, extra: string | null = null) => ({
+    client: { last_name: "VERNET", first_name: "ISABELLE", address, address_extra: extra, postal_code: "24540", city: "MONTPAZIER" },
+    vehicle: { plate: "HF-023-QC" },
+    order: { or_number: "17264", delivery_at: "2026-10-15" },
+  });
+  it("texte réel amalgamé sur une ligne", () => {
+    const s = sanOr(base("restitution prévue le 15/10/2026 3 RUE PORTE CAMPAN")).fields as any;
+    expect(s.client.address).toBe("3 RUE PORTE CAMPAN");
+    expect(s.order.delivery_at).toBe("2026-10-15");
+    expect(mapOr(s).customer_address).toBe("3 RUE PORTE CAMPAN, 24540 MONTPAZIER");
+  });
+  it("variante sur deux lignes", () => {
+    expect(mapOr(base("restitution prévue le\n15/10/2026\n3 RUE PORTE CAMPAN")).customer_address).toBe("3 RUE PORTE CAMPAN, 24540 MONTPAZIER");
+  });
+  it("conserve numéros de rue et CP, pas de faux positif", () => {
+    expect(stripOrAdminLabels("12 BIS AVENUE DE LA GARE")).toBe("12 BIS AVENUE DE LA GARE");
+    expect(stripOrAdminLabels("LIEU-DIT LA RESTITUTION")).toBe("LIEU-DIT LA RESTITUTION");
+    expect(stripOrAdminLabels("3 RUE PORTE CAMPAN 24540 MONTPAZIER")).toBe("3 RUE PORTE CAMPAN 24540 MONTPAZIER");
+    expect(mapOr(base("45 ROUTE DE BERGERAC")).customer_address).toBe("45 ROUTE DE BERGERAC, 24540 MONTPAZIER");
+  });
+});
