@@ -53,7 +53,7 @@ export const DISTRICASH_JPLUS_IMAGE = "H0kz82D2C3jk4sZV6zzvPWCWa8xHYoa7J9xixKPQ.
 
 function attr(tag: string, name: string): string | null {
   const m = new RegExp(`${name}\\s*=\\s*"([^"]*)"`, "i").exec(tag);
-  return m ? decode(m[1]).trim() : null;
+  return m ? decode(m[1] ?? "").trim() : null;
 }
 
 function decode(s: string): string {
@@ -85,8 +85,8 @@ export function parseDistricashSearch(html: string): DistricashRow[] {
   const re = /<tr\b([^>]*)>([\s\S]*?)<\/tr>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html))) {
-    const open = m[1];
-    const inner = m[2];
+    const open = m[1] ?? "";
+    const inner = m[2] ?? "";
     const cls = attr(open, "class") ?? "";
     if (!/\bARTICLE\b/.test(cls) || !/\bARTICLE_CONTENT\b/.test(cls)) continue;
     if ((inner.match(/<td\b/gi) ?? []).length <= 1) continue;
