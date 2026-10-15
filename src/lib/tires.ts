@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { CommercialSettings, Priority, ServicePackage } from "./pricing-engine";
 import type { TireWheelAi } from "./tire-types";
+import { safeDistricashProductUrl } from "./districash";
 
 export type TireOffer = Database["public"]["Tables"]["tire_offers"]["Row"];
 

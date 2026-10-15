@@ -54,11 +54,35 @@ import { districashPortalLink as dpl, DISTRICASH_PORTAL_URL } from "@/lib/tires"
 describe("districashPortalLink", () => {
   it("ouvre seulement l'accueil du portail, sans jeton, avec la référence à copier", () => {
     const l = dpl({ available: true, supplier: "districash", supplierRef: "8808563527390" });
-    expect(l).toEqual({ label: "Ouvrir Districash", url: "https://districashv2.inoshop.net/", reference: "8808563527390" });
+    expect(l).toEqual({ label: "Ouvrir Districash", url: "https://districashv2.inoshop.net/", reference: "8808563527390", direct: false });
     expect(DISTRICASH_PORTAL_URL).not.toMatch(/[?#]/);
   });
   it("aucun lien pour une offre indisponible ou d'un autre fournisseur", () => {
     expect(dpl({ available: false, supplier: "districash", supplierRef: "X" })).toBeNull();
     expect(dpl({ available: true, supplier: "centralepneus", supplierRef: "X" })).toBeNull();
+  });
+});
+
+import { parseDistricashSearch, districashRowsToOffers, safeDistricashProductUrl } from "@/lib/districash";
+const ROW = (href: string) => `<table><tr class="ARTICLE ARTICLE_CONTENT" data-filtremarques="HANKOOK" data-filtrelibelle="245/45R20 103V KINERGY 4S2" data-filtrecodearticle="2454520HK" data-filtreprixachat="208.00" data-ean="8808563527390" data-dispo-type="J+"><td><a href="${href}">2454520HK</a></td><td><a href="${href}">KINERGY</a></td></tr><tr class="ARTICLE ARTICLE_CONTENT" data-ean="8808563527390"><td>aux</td></tr></table>`;
+describe("lien fiche Districash", () => {
+  it("lit l'URL réelle de l'ancre (relative normalisée) et ignore la ligne secondaire", () => {
+    const rows = parseDistricashSearch(ROW("/catalog/product/2055516HALPIN791/4808/STD"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.productUrl).toBe("https://districashv2.inoshop.net/catalog/product/2055516HALPIN791/4808/STD");
+    const offer = districashRowsToOffers(rows, () => "premium", "2026-10-15T12:00:00Z")[0]!;
+    expect(offer.product_url).toBe(rows[0]!.productUrl);
+    expect(dpl({ available: true, supplier: "districash", supplierRef: "2454520HK", productUrl: offer.product_url }))
+      .toMatchObject({ label: "Voir chez Districash", url: rows[0]!.productUrl, direct: true });
+  });
+  it("rejette les URL malveillantes ou sensibles", () => {
+    for (const bad of ["javascript:alert(1)", "https://evil.com/catalog/product/X/1/STD", "http://districashv2.inoshop.net/catalog/product/X/1/STD",
+      "https://districashv2.inoshop.net/catalog/product/X/1/STD?_token=abc", "https://districashv2.inoshop.net/cart/add", "https://u:p@districashv2.inoshop.net/catalog/product/X"])
+      expect(safeDistricashProductUrl(bad)).toBeNull();
+    expect(parseDistricashSearch(ROW("https://evil.com/catalog/product/X/1/STD"))[0]!.productUrl).toBeNull();
+  });
+  it("sans URL sûre : repli portail + référence", () => {
+    expect(dpl({ available: true, supplier: "districash", supplierRef: "R1", productUrl: "javascript:x" }))
+      .toMatchObject({ url: "https://districashv2.inoshop.net/", direct: false, reference: "R1" });
   });
 });
