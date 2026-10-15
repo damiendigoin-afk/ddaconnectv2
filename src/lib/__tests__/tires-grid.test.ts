@@ -90,7 +90,7 @@ describe("prix pneus", () => {
     expect(mountPriceFor(null, 2)).toBeNull();
   });
 
-  it("chiffre réellement chaque gamme avec son produit, saison inconnue à défaut", () => {
+  it("chiffre réellement chaque gamme avec son produit, saison inconnue jamais placée", () => {
     const offers = [
       tire("s1", "Sailun", "ete", 60),
       tire("k1", "Kleber", "", 90),
@@ -108,7 +108,7 @@ describe("prix pneus", () => {
     expect(grid).toHaveLength(6);
     const byBrand = grid.filter((o) => o.available).map((o) => o.brand);
     expect(byBrand).toContain("Sailun");
-    expect(byBrand).toContain("Kleber");
+    expect(byBrand).not.toContain("Kleber");
     expect(byBrand).toContain("Michelin");
     // 2 × 60 € TTC de pneus + 2 × 17 € HT de montage (20,40 € TTC).
     const sailun = grid.find((o) => o.brand === "Sailun")!;
