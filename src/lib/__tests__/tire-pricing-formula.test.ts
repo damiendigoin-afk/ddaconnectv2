@@ -132,9 +132,13 @@ describe("petit pneu : le minimum de 10 € HT s'applique (cas 145/70 R13)", () 
 });
 
 describe("montage paramétré", () => {
+  it("17 € HT par pneu = 20,40 € TTC par pneu, multiplié par la quantité", () => {
+    expect(quoteHankook(176.69, 1, settingsOf(20, 10, 17)).mountTtc).toBe(20.4);
+    expect(quoteHankook(176.69, 4, settingsOf(20, 10, 17)).mountTtc).toBe(81.6);
+  });
   it("20 € TTC par pneu si le réglage est 16,67 € HT", () => {
-    const o = quoteHankook(176.69, 4, settingsOf(20, 10, 16.67));
-    expect(o.mountTtc).toBe(80);
+    const o = quoteHankook(176.69, 1, settingsOf(20, 10, 16.67));
+    expect(o.mountTtc).toBe(20);
   });
   it("aucun montage si le réglage est vide", () => {
     const o = quoteHankook(176.69, 2, settingsOf(20, 10, 0));
@@ -146,9 +150,9 @@ describe("montage paramétré", () => {
 describe("priceTireLine = calcul unique écran / levier / PDF", () => {
   it("le levier de marge passe par le même calcul", () => {
     const o = quoteHankook(176.69, 2, settingsOf(20, 10, 17));
-    const adj = adjustOfferMargin(o, 50);
-    const direct = priceTireLine({ unitSourceHt: 147.24, marginHt: 44.18, quantity: 2, mountTtc: 40.8 });
-    expect(adj.marginHt).toBe(44.18);
+    const adj = adjustOfferMargin(o, 100);
+    const direct = priceTireLine({ unitSourceHt: 147.24, marginHt: 58.9, quantity: 2, mountTtc: 40.8 });
+    expect(adj.marginHt).toBe(58.9);
     expect(adj).toMatchObject(direct);
   });
 });
