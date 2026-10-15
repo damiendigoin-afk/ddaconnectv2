@@ -30,9 +30,9 @@ import { districashRowsToOffers, districashSeason, parseDistricashLabel } from "
 import { sourceHtOf } from "../tires";
 describe("offres Districash pour le devis", () => {
   const rows = [
-    { brand: "Hankook", label: "KINERGY 4S2 X H750A 245/45R20 103V XL", code: "H1", ean: "8808563527390", purchaseHt: 208, availability: "J+" as const },
-    { brand: "Michelin", label: "PILOT SPORT 5 245/45ZR20 103Y", code: "M1", ean: "1", purchaseHt: 250, availability: "indisponible" as const },
-    { brand: "X", label: "FOO 245/45R20 103V", code: "X1", ean: "2", purchaseHt: 90, availability: "inconnu" as const },
+    { brand: "Hankook", label: "KINERGY 4S2 X H750A 245/45R20 103V XL", code: "H1", ean: "8808563527390", purchaseHt: 208, availability: "J+" as const, productUrl: null },
+    { brand: "Michelin", label: "PILOT SPORT 5 245/45ZR20 103Y", code: "M1", ean: "1", purchaseHt: 250, availability: "indisponible" as const, productUrl: null },
+    { brand: "X", label: "FOO 245/45R20 103V", code: "X1", ean: "2", purchaseHt: 90, availability: "inconnu" as const, productUrl: null },
   ];
   it("ne garde que J/J+ et prend data-filtreprixachat comme prix d'achat HT", () => {
     const o = districashRowsToOffers(rows, (b) => (b === "HANKOOK" ? "milieu" : null), "2026-10-15T12:00:00Z");
