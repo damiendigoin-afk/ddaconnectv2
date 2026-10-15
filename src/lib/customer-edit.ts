@@ -102,7 +102,9 @@ export async function saveCustomer(db: Db, customerId: string, contacts: Contact
   for (const o of ops) {
     const q =
       o.op === "insert"
-        ? db.from("customer_contacts").insert({ customer_id: customerId, type: o.type, value: o.value, normalized_value: o.normalized_value, source: "DDA", is_primary: false })
+        ? db
+            .from("customer_contacts")
+            .upsert({ customer_id: customerId, type: o.type, value: o.value, normalized_value: o.normalized_value, source: "DDA", active: true }, { onConflict: "customer_id,type,normalized_value" })
         : o.op === "update"
           ? db.from("customer_contacts").update({ value: o.value, normalized_value: o.normalized_value, active: true }).eq("id", o.id)
           : o.op === "deactivate"
