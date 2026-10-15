@@ -120,14 +120,22 @@ describe("devis Hankook 4 saisons 245/45 R20 (dernier devis réel, 15/10/2026)",
   });
 });
 
-describe("petit pneu : le minimum de 10 € HT s'applique (cas 145/70 R13)", () => {
-  it("60,89 € TTC public → 50,74 € HT + 10 € = 60,74 € HT par pneu", () => {
+describe("petits pneus : 20 % ou minimum 10 € HT", () => {
+  it("45 € TTC public → 37,50 € HT : le minimum de 10 € HT s'applique", () => {
+    const o = quoteHankook(45, 2, settingsOf(20, 10, 17));
+    expect(o.unitSourceHt).toBe(37.5);
+    expect(o.marginHt).toBe(10);
+    expect(o.unitSellHt).toBe(47.5);
+    expect(o.tiresTtc).toBe(114);
+    expect(o.totalTtc).toBe(154.8);
+  });
+  it("60,89 € TTC public (H740 145/70 R13) → 50,74 € HT : 20 % = 10,15 € dépasse le minimum", () => {
     const o = quoteHankook(60.89, 2, settingsOf(20, 10, 17));
     expect(o.unitSourceHt).toBe(50.74);
-    expect(o.marginHt).toBe(10);
-    expect(o.unitSellHt).toBe(60.74);
-    expect(o.tiresTtc).toBe(145.78);
-    expect(o.totalTtc).toBe(186.58);
+    expect(o.marginHt).toBe(10.15);
+    expect(o.unitSellHt).toBe(60.89);
+    expect(o.tiresTtc).toBe(146.14);
+    expect(o.totalTtc).toBe(186.94);
   });
 });
 
