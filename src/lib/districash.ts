@@ -176,6 +176,20 @@ const SUMMER_MODELS = [
 ];
 
 /** Saison uniquement si le libellé l'indique clairement ; sinon null (jamais devinée). */
+/** Saison déclarée par la sous-famille portail (« TOURISME ETE / HIVER / TOUTES SAIS »), sinon null. */
+export function districashFamilySeason(family: string | null | undefined): "ete" | "quatre_saisons" | "hiver" | null {
+  const f = (family ?? "").toUpperCase();
+  if (/TOUTES\s*SAIS|4\s*SAISONS|ALL\s*SEASON/.test(f)) return "quatre_saisons";
+  if (/HIVER|WINTER/.test(f)) return "hiver";
+  if (/\bETE\b|SUMMER/.test(f)) return "ete";
+  return null;
+}
+
+/** Saison d'une ligne : sous-famille portail en priorité, puis libellé explicite ; jamais devinée. */
+export function districashRowSeason(r: Pick<DistricashRow, "label" | "family">) {
+  return districashFamilySeason(r.family) ?? districashSeason(r.label);
+}
+
 export function districashSeason(label: string): "ete" | "quatre_saisons" | "hiver" | null {
   const l = ` ${label.toUpperCase()} `;
   const c = label.toUpperCase().replace(/[^A-Z0-9+]/g, "");
@@ -212,7 +226,7 @@ export function districashRowsToOffers(
     return {
       id: `districash:${r.code || r.ean}`,
       tier: tierOf(brand) ?? "",
-      season: districashSeason(r.label) ?? "",
+      season: districashRowSeason(r) ?? "",
       is3pmsf: /3PMSF|\bM\+S\b.*\bSNOW/i.test(r.label),
       brand,
       model: r.label,
