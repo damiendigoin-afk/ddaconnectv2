@@ -4,8 +4,9 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-import { encryptSecret } from "./crypto.server";
-import { DISTRICASH_BLOCKED, districashProvider } from "./districash";
+import { decryptSecret, encryptSecret } from "./crypto.server";
+import { districashLoginAndSearch, summarizeDistricashTest } from "./districash-session.server";
+import { districashProvider } from "./districash";
 
 export type DistricashSiteStatus = {
   siteId: string;
@@ -77,26 +78,27 @@ export async function clearDistricashCredentials(siteId: string) {
 }
 
 /**
- * Test : les identifiants ne sont envoyés nulle part (endpoint d'authentification
- * non documenté). On vérifie seulement que le portail répond (GET public sans
- * identifiants) et on conserve l'état « connexion non validée ». Aucun succès inventé.
+ * Test réel lecture seule : UNE tentative de connexion puis recherche 245/45 R20
+ * (POST /search uniquement ; jamais /rest/xat2v2, panier ni commande).
  */
 export async function testDistricash(siteId: string): Promise<{ ok: boolean | null; message: string }> {
   const { data: c } = await supabaseAdmin
     .from("integration_credentials")
-    .select("provider")
+    .select("username_enc, password_enc")
     .eq("provider", districashProvider(siteId))
     .maybeSingle();
-  if (!c) return { ok: null, message: "Aucun identifiant enregistré pour ce site." };
-  let message: string;
-  let ok: boolean | null = null;
+  if (!c?.username_enc || !c?.password_enc) return { ok: null, message: "Aucun identifiant enregistré pour ce site." };
+  let res: { ok: boolean | null; message: string };
   try {
-    const res = await fetch("https://districashv2.inoshop.net/", { method: "GET", redirect: "manual" });
-    message = `Portail joignable (HTTP ${res.status}). ${DISTRICASH_BLOCKED}`;
+    const r = await districashLoginAndSearch(decryptSecret(c.username_enc), decryptSecret(c.password_enc), {
+      width: "245",
+      height: "45",
+      diameter: "20",
+    });
+    res = summarizeDistricashTest(r);
   } catch {
-    ok = false;
-    message = "Portail Districash injoignable depuis le serveur.";
+    res = { ok: false, message: "Portail Districash injoignable ou réponse inattendue depuis le serveur." };
   }
-  await recordTest(siteId, ok, message);
-  return { ok, message };
+  await recordTest(siteId, res.ok, res.message);
+  return res;
 }

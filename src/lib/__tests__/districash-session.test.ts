@@ -13,3 +13,18 @@ describe("districashSearchBody", () => {
     expect(b.get("searchTypageCde")).toBe("");
   });
 });
+
+import { summarizeDistricashTest } from "../districash-session.server";
+describe("summarizeDistricashTest", () => {
+  const login = [{ step: "GET /", status: 200, note: "page connectée" }];
+  it("authentification OK mais recherche en échec : message précis avec HTTP", () => {
+    const r = summarizeDistricashTest({ authenticated: false, blocker: "x", rows: [], steps: [...login, { step: "POST /search", status: 500, note: "" }] });
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain("Authentification confirmée");
+    expect(r.message).toContain("HTTP 500");
+  });
+  it("un 302 sans page connectée n'est jamais un succès", () => {
+    const r = summarizeDistricashTest({ authenticated: false, blocker: "Session non ouverte", rows: [], steps: [{ step: "GET /", status: 302, note: "toujours déconnecté" }] });
+    expect(r.ok).toBe(false);
+  });
+});
