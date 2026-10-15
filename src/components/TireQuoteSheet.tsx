@@ -3,7 +3,7 @@
  * exactement celles produites par le moteur de chiffrage existant.
  */
 import type { SevenOffer } from "@/lib/tires";
-import { MOUNT_LABEL } from "@/lib/tires";
+import { MOUNT_LABEL, supplierProductLink } from "@/lib/tires";
 import { siteHeader, type Site } from "@/lib/sites";
 
 
@@ -27,7 +27,19 @@ function euro(v: number | null | undefined): string {
   return `${Number(v).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
-export function TireQuoteSheet({ header, offers }: { header: TireQuoteHeader; offers: SevenOffer[] }) {
+/**
+ * `internal` : affiche, à l'écran seulement, le lien fournisseur de chaque offre.
+ * Ce bloc est masqué à l'impression et n'existe jamais dans les documents client.
+ */
+export function TireQuoteSheet({
+  header,
+  offers,
+  internal = false,
+}: {
+  header: TireQuoteHeader;
+  offers: SevenOffer[];
+  internal?: boolean;
+}) {
   const h = siteHeader(header.site);
   const date = new Date(header.createdAt).toLocaleDateString("fr-FR", {
     day: "2-digit",
@@ -114,7 +126,7 @@ export function TireQuoteSheet({ header, offers }: { header: TireQuoteHeader; of
                 {o.mountTtc != null ? ` · ${MOUNT_LABEL} ${euro(o.mountTtc)}` : " · montage non paramétré"}
               </div>
             ) : null}
-
+            {internal && o.available ? <SupplierLink offer={o} /> : null}
           </div>
         ))}
       </div>
@@ -124,5 +136,26 @@ export function TireQuoteSheet({ header, offers }: { header: TireQuoteHeader; of
         prestations associées selon le forfait indiqué. Devis valable 15 jours.
       </p>
     </section>
+  );
+}
+
+/** Lien interne vers la fiche produit fournisseur réellement consultée. */
+function SupplierLink({ offer }: { offer: SevenOffer }) {
+  const link = supplierProductLink(offer);
+  return (
+    <div data-internal-only className="mt-1 text-right text-[11px] print:hidden">
+      {link ? (
+        <a
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          Commander chez le fournisseur ({link.label}) ↗
+        </a>
+      ) : (
+        <span className="text-muted-foreground/70">Lien fournisseur indisponible</span>
+      )}
+    </div>
   );
 }
