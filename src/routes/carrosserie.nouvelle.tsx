@@ -92,7 +92,7 @@ function NewCase() {
     if (check) {
       // Document déjà lu : rapprochement contrôlé, aucune valeur de l'OR écrasée, liaison seulement sans conflit immat/VIN.
       const cur = current();
-      const extract: DocExtract = { ...check.extract, plate: cur.plate || check.extract.plate, vin: cur.vin || check.extract.vin, customer_name: cur.customerName || check.extract.customer_name, customer_phone: cur.customerPhone || check.extract.customer_phone, customer_email: cur.customerEmail || check.extract.customer_email };
+      const extract: DocExtract = { ...check.extract, plate: cur.plate || check.extract.plate || null, vin: cur.vin || check.extract.vin || null, customer_name: cur.customerName || check.extract.customer_name || null, customer_phone: cur.customerPhone || check.extract.customer_phone || null, customer_email: cur.customerEmail || check.extract.customer_email || null };
       const f = buildCaseFormPrefill(extract, ref?.fields);
       setIdentity({
         ...cur,
