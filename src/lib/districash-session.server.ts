@@ -129,30 +129,17 @@ export async function districashLoginAndSearch(
   if (loggedOut) return out("Session non ouverte (le portail renvoie vers la connexion).");
   const token2 = csrf(homeHtml) ?? token;
 
+  // Protocole confirmé dans Chrome : formulaire urlencoded, champs imbriqués en JSON texte.
   const search = await req(jar, "/search", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      Accept: "text/html, application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "text/html",
       "X-Requested-With": "XMLHttpRequest",
-      "X-CSRF-TOKEN": token2,
       Origin: BASE,
       Referer: `${BASE}/`,
     },
-    body: JSON.stringify({
-      reference_input: [],
-      tyre_inputs: {
-        pneu_larg: tyre.width,
-        pneu_haut: tyre.height,
-        pneu_diam: tyre.diameter,
-        pneu_indc: tyre.load ?? "",
-        pneu_indv: tyre.speed ?? "",
-      },
-      quantite: quantity,
-      user_filters: { search_type: "recherche_standard" },
-      searchTypeDefaut: "recherche_standard",
-      searchTypageCde: "",
-    }),
+    body: districashSearchBody(token2, tyre, quantity),
   });
   let sHtml = await search.text();
   if (/json/i.test(search.headers.get("content-type") ?? "")) {
