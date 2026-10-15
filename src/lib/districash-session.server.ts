@@ -106,10 +106,10 @@ export async function districashLoginAndSearch(
   if (/json/i.test(login.headers.get("content-type") ?? "")) {
     try {
       const j = JSON.parse(loginText) as Record<string, unknown>;
-      note += ` ; réponse JSON clés=[${Object.keys(j).join(",")}], type=${String(j.type ?? "")}`;
-      if (typeof j.redirection === "string" && j.redirection) {
+      note += ` ; réponse JSON clés=[${Object.keys(j).join(",")}], type=${String(j["type"] ?? "")}`;
+      if (typeof j["redirection"] === "string" && j["redirection"]) {
         try {
-          note += `, redirection=${new URL(j.redirection, BASE).pathname}`;
+          note += `, redirection=${new URL(j["redirection"], BASE).pathname}`;
         } catch {
           /* ignore */
         }
