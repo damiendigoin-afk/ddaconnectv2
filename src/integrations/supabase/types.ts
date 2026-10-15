@@ -6537,6 +6537,7 @@ export type Database = {
           address: string | null
           city: string | null
           code: string | null
+          contact_email: string | null
           created_at: string
           email_from_address: string
           email_from_name: string
@@ -6554,6 +6555,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           code?: string | null
+          contact_email?: string | null
           created_at?: string
           email_from_address?: string
           email_from_name?: string
@@ -6571,6 +6573,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           code?: string | null
+          contact_email?: string | null
           created_at?: string
           email_from_address?: string
           email_from_name?: string

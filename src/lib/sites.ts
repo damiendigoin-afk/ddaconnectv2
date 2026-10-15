@@ -14,6 +14,8 @@ export type Site = {
   phone: string | null;
   logo_url: string | null;
   email_from_address: string;
+  /** E-mail de contact imprimé sur les documents client ; jamais remplacé par l'expéditeur technique. */
+  contact_email?: string | null;
   email_from_name: string;
   active: boolean;
   is_default: boolean;
@@ -30,7 +32,7 @@ export async function fetchSites(): Promise<Site[]> {
   const { data, error } = await supabase
     .from("sites")
     .select(
-      "id, code, name, legal_name, address, postal_code, city, phone, logo_url, email_from_address, email_from_name, active, is_default",
+      "id, code, name, legal_name, address, postal_code, city, phone, logo_url, email_from_address, contact_email, email_from_name, active, is_default",
     )
     .order("name");
   if (error) throw error;
@@ -53,7 +55,17 @@ export function siteHeader(site: Site | null): { title: string; lines: string[] 
     lines: [
       [site.address, [site.postal_code, site.city].filter(Boolean).join(" ")].filter(Boolean).join(" — "),
       site.phone ?? "",
-      site.email_from_address ?? "",
+      siteContactEmail(site) ?? "",
     ].filter(Boolean),
   };
+}
+
+/**
+ * E-mail de contact du site émetteur. Uniquement `contact_email` du site :
+ * jamais `email_from_address` (expéditeur technique partagé, domaine Castillon),
+ * pour éviter d'imprimer l'adresse d'un autre site.
+ */
+export function siteContactEmail(site: Pick<Site, "contact_email"> | null | undefined): string | null {
+  const e = (site?.contact_email ?? "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
 }
