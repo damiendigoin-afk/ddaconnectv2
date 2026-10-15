@@ -737,10 +737,10 @@ export function supplierProductLink(
 export const DISTRICASH_PORTAL_URL = "https://districashv2.inoshop.net/";
 
 /**
- * Lien interne Districash : le HTML catalogue n'expose aucune URL de fiche
- * produit et aucune recherche GET n'est vérifiée. On renvoie donc uniquement
- * l'accueil du portail (aucun identifiant, cookie ni jeton) + la référence /
- * EAN à copier pour la recherche manuelle.
+ * Lien interne Districash : l'URL directe de la fiche produit est lue dans le
+ * HTML catalogue (src/lib/districash.ts) ; à défaut on ouvre l'accueil du
+ * portail (aucun identifiant, cookie ni jeton). La référence n'est renvoyée ici
+ * que comme donnée interne de traçabilité : l'interface ne l'affiche pas.
  */
 export function districashPortalLink(
   offer: Pick<SevenOffer, "available" | "supplier" | "supplierRef"> & { productUrl?: string | null },
