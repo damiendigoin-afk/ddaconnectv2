@@ -4,28 +4,26 @@ import { Camera, Paperclip, Loader2 } from "lucide-react";
 
 import { DOC_ACCEPT, isImage, rejectReason } from "@/lib/documents";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
-import { ocrAnyDocument } from "@/lib/ocr.functions";
-import { refPrefill, type RefPrefill } from "@/lib/refbase";
+import { ocrAnyDocument, ocrRepairOrder } from "@/lib/ocr.functions";
+import { refPrefill, refPrefillByVehicle, type RefPrefill } from "@/lib/refbase";
 import { formatPlate, normalizePlate } from "@/lib/plate";
+import { looksLikeRepairOrder, mapRepairOrderExtract, stripGeneralConditions, type DocExtract } from "@/lib/bodyshop-doc";
+import { orScanNeedsRetry } from "@/lib/doc-rules";
+import { supabase } from "@/integrations/supabase/client";
 
-export type DocExtract = {
-  doc_kind?: string | null;
-  plate?: string | null;
-  vin?: string | null;
-  or_number?: string | null;
-  claim_number?: string | null;
-  mission_number?: string | null;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-  customer_email?: string | null;
-  brand?: string | null;
-  model?: string | null;
-  first_registration?: string | null;
-  mileage?: number | null;
-  insurer?: string | null;
-  document_date?: string | null;
-  summary?: string | null;
-};
+/** Ordre de réparation : moteur OR atelier (même contrôle que l'atelier). */
+async function readRepairOrder(text: string, dataUrl: string, filename: string): Promise<DocExtract | null> {
+  const clean = stripGeneralConditions(text);
+  const res = await ocrRepairOrder({ data: { text: clean.slice(0, 40000), dataUrl, filename } });
+  return res.ok ? mapRepairOrderExtract(JSON.parse(res.json), clean) : null;
+}
+
+async function findVehicleByVin(vin: string): Promise<RefPrefill | null> {
+  const { data } = await supabase.from("ref_vehicles").select("id").eq("vin", vin).limit(2);
+  return data && data.length === 1 ? refPrefillByVehicle(data[0]!.id) : null;
+}
+
+export type { DocExtract } from "@/lib/bodyshop-doc";
 
 export type DocIdentifyResult = {
   /** Le document reste disponible pour être rattaché au dossier : jamais jeté après analyse. */
@@ -76,9 +74,17 @@ export function DocIdentify({
       if (analysable) {
         const blob = isImage(file) ? await compressImage(file, 1600, 0.82) : file;
         const dataUrl = await blobToDataUrl(blob);
-        const res = await ocrAnyDocument({ data: { text: await localDocText(dataUrl), dataUrl, filename: file.name } });
-        if (res.ok) extracted = JSON.parse(res.json) as DocExtract;
-        else onError?.(res.error);
+        const text = await localDocText(dataUrl, file.name, isImage(file) ? orScanNeedsRetry : undefined);
+        let or = looksLikeRepairOrder(text, file.name) ? await readRepairOrder(text, dataUrl, file.name) : null;
+        if (!or) {
+          const res = await ocrAnyDocument({ data: { text: text.slice(0, 40000), dataUrl, filename: file.name } });
+          if (res.ok) {
+            extracted = { ...(JSON.parse(res.json) as DocExtract), engine: "any_document" };
+            // Le générique reconnaît un OR non détecté par les indices : relecture par le moteur OR.
+            if (extracted.doc_kind === "or") or = await readRepairOrder(text, dataUrl, file.name);
+          } else onError?.(res.error);
+        }
+        if (or) extracted = or;
       } else {
         onError?.(
           "Ce format n'est pas analysable automatiquement : le document est conservé, complète les informations à la main.",
@@ -89,6 +95,7 @@ export function DocIdentify({
         prefill = await refPrefill(normalizePlate(extracted.plate));
         extracted.plate = formatPlate(extracted.plate);
       }
+      if (!prefill && extracted.vin) prefill = await findVehicleByVin(extracted.vin);
       onResult({ file, kind: extracted.doc_kind || "autre", extracted, prefill });
     } catch {
       onError?.(

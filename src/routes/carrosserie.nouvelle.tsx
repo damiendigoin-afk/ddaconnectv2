@@ -9,7 +9,8 @@ import { useAuth } from "@/lib/auth";
 import { createCase, MISSION_ORIGINS } from "@/lib/bodyshop";
 import { uploadCaseDocument } from "@/lib/documents";
 import { formatPlate, normalizePlate } from "@/lib/plate";
-import { refPrefill } from "@/lib/refbase";
+import { refPrefill, type RefPrefill } from "@/lib/refbase";
+import { buildCaseFormPrefill, type CaseFormPrefill, type DocExtract } from "@/lib/bodyshop-doc";
 import { listAgreements, listExperts, listFirms, listInsurers } from "@/lib/referentials";
 
 export const Route = createFileRoute("/carrosserie/nouvelle")({
@@ -60,7 +61,8 @@ function NewCase() {
   const [refVehicleId, setRefVehicleId] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   /** Le document d'identification est conservé et rattaché au dossier dès sa création. */
-  const [pendingDoc, setPendingDoc] = useState<{ file: File; kind: string } | null>(null);
+  const [pendingDoc, setPendingDoc] = useState<{ file: File; kind: string; category: string } | null>(null);
+  const [check, setCheck] = useState<{ extract: DocExtract; prefill: CaseFormPrefill; ref: RefPrefill | null } | null>(null);
 
   const insurers = useQuery({ queryKey: ["insurers"], queryFn: listInsurers });
   const agreements = useQuery({ queryKey: ["agreements"], queryFn: listAgreements });
@@ -87,36 +89,29 @@ function NewCase() {
     setCustomerEmail((v) => v || f["email"] || "");
   }
 
-  const DOC_CATEGORY: Record<string, string> = {
-    plaque: "vehicule",
-    carte_grise: "vehicule",
-    or: "or",
-    avis_sinistre: "sinistre",
-    rapport_expertise: "expertise",
-    autre: "autres",
-  };
-
-  /** Identification unique par document : plaque, carte grise, OR, avis de sinistre… */
+  /** Identification unique par document : OR (moteur atelier), plaque, carte grise, sinistre… */
   async function onDocument(r: DocIdentifyResult) {
     setMsg("");
-    setPendingDoc({ file: r.file, kind: r.kind });
     const e = r.extracted;
-    if (e.or_number) setOrNumber(e.or_number);
-    if (e.claim_number) setClaim(e.claim_number);
-    if (e.customer_name) setCustomerName((v) => v || e.customer_name!);
-    if (e.customer_phone) setCustomerPhone((v) => v || e.customer_phone!);
-    if (e.customer_email) setCustomerEmail((v) => v || e.customer_email!);
-    if (e.vin) setVin((v) => v || e.vin!);
-    if (e.brand || e.model)
-      setVehicleLabelText((v) => v || [e.brand, e.model].filter(Boolean).join(" "));
-    if (e.plate) {
-      setPlate(formatPlate(e.plate));
-      await applyPlate(e.plate);
-    } else {
-      setMsg(
-        "Immatriculation non détectée : saisis-la à la main, le document reste joint au dossier.",
-      );
-    }
+    const ref = r.prefill;
+    const f = buildCaseFormPrefill(e, ref?.fields);
+    setPendingDoc({ file: r.file, kind: r.kind, category: f.docCategory });
+    // Le document prime ; la base ne complète que les vides. Grêle, VGE, payeur, origine : jamais déduits.
+    if (f.plate) setPlate(f.plate);
+    if (f.vin) setVin(f.vin);
+    if (f.vehicleLabel) setVehicleLabelText(f.vehicleLabel);
+    if (f.customerName) setCustomerName(f.customerName);
+    if (f.customerPhone) setCustomerPhone(f.customerPhone);
+    if (f.customerEmail) setCustomerEmail(f.customerEmail);
+    if (f.orNumber) setOrNumber(f.orNumber);
+    if (f.claim) setClaim(f.claim);
+    if (f.comments) setComments((c) => (c ? `${c}\n\n${f.comments}` : f.comments));
+    setFound(ref ? ref.label : "");
+    setRefVehicleId(ref && f.linkRef ? ref.vehicleId : null);
+    setCustomerId(ref && f.linkRef && !f.conflicts.some((c) => c.field === "customer_name") ? ref.customerId : null);
+    setCheck({ extract: e, prefill: f, ref });
+    if (!f.plate)
+      setMsg("Immatriculation non détectée : saisis-la à la main, le document reste joint au dossier.");
   }
 
   async function submit() {
@@ -154,7 +149,7 @@ function NewCase() {
         await uploadCaseDocument({
           caseId: row.id,
           file: pendingDoc.file,
-          category: DOC_CATEGORY[pendingDoc.kind] ?? "autres",
+          category: pendingDoc.category,
           docType: pendingDoc.kind,
           origin: "identification",
           author: { userId: user?.id ?? null, userName: displayName },
@@ -176,6 +171,12 @@ function NewCase() {
             Document joint au dossier à la création : {pendingDoc.file.name}
           </p>
         ) : null}
+
+        {check ? <DocCheck check={check} onLink={() => {
+          setRefVehicleId(check.ref?.vehicleId ?? null);
+          setCustomerId(check.ref?.customerId ?? null);
+          setCheck({ ...check, prefill: { ...check.prefill, linkRef: true } });
+        }} /> : null}
 
         {msg ? (
           <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">{msg}</p>
@@ -276,5 +277,66 @@ function NewCase() {
         </button>
       </div>
     </AppShell>
+  );
+}
+
+/** Contrôle avant validation : champs détectés, à vérifier, divergences avec la base. */
+function DocCheck({
+  check,
+  onLink,
+}: {
+  check: { extract: DocExtract; prefill: CaseFormPrefill; ref: RefPrefill | null };
+  onLink: () => void;
+}) {
+  const { extract: e, prefill: f, ref } = check;
+  const rows: [string, string | null | undefined][] = [
+    ["N° OR", e.or_number],
+    ["Immatriculation", e.plate],
+    ["VIN", e.vin],
+    ["Véhicule", e.vehicle_label ?? ([e.brand, e.model].filter(Boolean).join(" ") || null)],
+    ["Client", e.customer_name],
+    ["N° compte", e.customer_account],
+    ["Téléphone", e.customer_phone],
+    ["E-mail", e.customer_email],
+    ["Adresse", e.customer_address],
+  ];
+  return (
+    <section className="space-y-2 rounded-lg border-2 border-border bg-card p-3 text-xs">
+      <div className="font-extrabold uppercase">
+        Contrôle du document {e.engine === "repair_order" ? "— lu comme ordre de réparation WinMotor" : ""}
+      </div>
+      <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className={v ? "font-semibold" : "text-muted-foreground"}>{v || "non détecté — à saisir"}</dd>
+          </div>
+        ))}
+      </dl>
+      {e.uncertain?.length ? (
+        <p className="rounded bg-amber-100 px-2 py-1 text-amber-950">À vérifier (illisible ou douteux, laissé vide) : {e.uncertain.join(", ")}</p>
+      ) : null}
+      {f.fromBase.length ? (
+        <p className="text-muted-foreground">Complété depuis la base (absent du document) : {f.fromBase.join(", ")}</p>
+      ) : null}
+      {f.conflicts.length ? (
+        <div className="space-y-1 rounded bg-red-100 px-2 py-1 text-red-950">
+          <p className="font-bold">Divergences avec la base — valeurs du document conservées :</p>
+          {f.conflicts.map((c) => (
+            <p key={c.field}>
+              {c.label} : document « {c.doc} » / base « {c.base} »
+            </p>
+          ))}
+          {ref && !f.linkRef ? (
+            <button type="button" onClick={onLink} className="rounded border-2 border-border bg-card px-2 py-1 font-bold">
+              Lier quand même à la fiche {ref.label}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {e.engine === "repair_order" ? (
+        <p className="text-muted-foreground">Assurance, expert, sinistre, grêle et VGE ne sont pas lus sur un OR : à renseigner si besoin.</p>
+      ) : null}
+    </section>
   );
 }
