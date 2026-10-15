@@ -36,7 +36,7 @@ export function validateTireOrderTarget(t: { orNumber: string; plate: string }):
 
 /** L'offre doit être une offre Districash disponible, avec référence et prix d'achat. */
 export function canOrderOffer(o: SevenOffer): boolean {
-  return Boolean(o.available && o.supplierKey === "districash" && o.supplierRef && o.unitSourceHt != null && o.quantity > 0);
+  return Boolean(o.available && o.supplier === "districash" && o.supplierRef && o.unitSourceHt != null && o.quantity > 0);
 }
 
 export type TireOrderLine = { physical_reference: string; designation: string; qty_ordered: number; expected_unit_cost_ht: number };
@@ -60,7 +60,6 @@ export function tireOrderSource(o: SevenOffer, q: { quoteId: string | null; size
     size: q.size,
     brand: o.brand,
     model: o.model,
-    ean: o.supplierEan ?? null,
     supplier_ref: o.supplierRef,
     product_url: o.productUrl ?? null,
     availability: o.availability,
