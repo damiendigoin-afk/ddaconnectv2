@@ -20,6 +20,9 @@ import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { prepareCapture } from "@/lib/photo-capture";
 import { useSite } from "@/lib/site-context";
+import { supabase } from "@/integrations/supabase/client";
+import { DISTRICASH_BLOCKED } from "@/lib/districash";
+import { QUOTE_TIRE_SUPPLIERS, quoteSupplierKey, type QuoteTireSupplierKey } from "@/lib/tires";
 import { suggestBrands } from "@/lib/tire-brands";
 import { analyzeTireLabelPhoto } from "@/lib/tire-ai.functions";
 import { ocrTirePhoto } from "@/lib/tire-ocr.browser";
@@ -122,6 +125,22 @@ function TireQuotePage() {
 
   const engine = useQuery({ queryKey: ["tire-engine"], queryFn: fetchTireEngine, staleTime: 60_000 });
 
+  // Fournisseur : prépositionné sur le défaut du site, modifiable sans perdre la saisie.
+  const siteSupplier = useQuery({
+    queryKey: ["tire-supplier-site", site?.id ?? null],
+    enabled: Boolean(site?.id),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("tire_supplier_site_settings")
+        .select("default_supplier")
+        .eq("site_id", site!.id)
+        .maybeSingle();
+      return quoteSupplierKey(data?.default_supplier);
+    },
+  });
+  const [supplier, setSupplier] = useState<QuoteTireSupplierKey | null>(null);
+  const activeSupplier: QuoteTireSupplierKey = supplier ?? siteSupplier.data ?? "centralepneus";
+
 
   const set = (patch: Partial<TireQuoteForm>) => {
     setForm((f) => ({ ...f, ...patch }));
@@ -143,6 +162,7 @@ function TireQuotePage() {
         requestedBrand: form.brand.trim() || null,
         quantity: form.quantity,
         engine: data,
+        supplier: activeSupplier,
       });
     },
     onSuccess: (r) => {
@@ -269,6 +289,30 @@ function TireQuotePage() {
               <Camera className="h-4 w-4 text-brand" /> Photo
             </button>
           </div>
+
+          <label className="block text-xs">
+            <span className="font-bold uppercase tracking-widest text-muted-foreground">Fournisseur</span>
+            <select
+              value={activeSupplier}
+              onChange={(e) => {
+                setSupplier(quoteSupplierKey(e.target.value));
+                setResult(null);
+                setSavedId(null);
+                setAdjust(0);
+              }}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              {QUOTE_TIRE_SUPPLIERS.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                  {s.key === siteSupplier.data ? " — défaut du site" : ""}
+                </option>
+              ))}
+            </select>
+            {activeSupplier === "districash" ? (
+              <span className="mt-1 block text-amber-700">{DISTRICASH_BLOCKED}</span>
+            ) : null}
+          </label>
 
           <div className="grid grid-cols-3 gap-2">
             <Field
