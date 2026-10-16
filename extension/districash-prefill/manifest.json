@@ -1,7 +1,10 @@
 {
   "manifest_version": 3,
   "name": "DDA Connect – Préremplissage panier Districash",
-  "version": "1.0.0",
-  "description": "Remplit uniquement Référence de commande et Immatriculation du panier Districash ouvert depuis DDA Connect. Ne valide jamais de commande.",
-  "content_scripts": [{ "matches": ["https://districashv2.inoshop.net/cart*"], "js": ["prefill.js"], "run_at": "document_idle" }]
+  "version": "1.2.0",
+  "description": "Remplit uniquement Référence de commande et Immatriculation du panier Districash ouvert depuis DDA Connect. N'ajoute rien et ne valide jamais de commande.",
+  "content_scripts": [
+    { "matches": ["https://districashv2.inoshop.net/cart*"], "js": ["prefill.js"], "run_at": "document_idle" },
+    { "matches": ["https://ddaconnectv2.lovable.app/*", "https://id-preview--fb7b13a3-0362-4023-ab5a-40c0904e11b3.lovable.app/*", "http://localhost/*"], "js": ["detect.js"], "run_at": "document_start" }
+  ]
 }
