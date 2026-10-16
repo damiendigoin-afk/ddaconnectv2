@@ -8,31 +8,35 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { districashPortalLink, type SevenOffer } from "@/lib/tires";
-import { districashAccountForSite, districashBrowserAddUrl, districashCartPrefillUrl, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
+import { districashAccountForSite, districashCartLabel, districashCartPrefillUrl, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
 
-/**
- * Ajout au panier dans la session du NAVIGATEUR via l'extension DDA (volontaire).
- * Le panier Districash est propre à chaque session : un ajout fait par le serveur DDA n'apparaît pas
- * dans le panier de l'utilisateur (constaté le 16/10/2026). Le serveur n'ajoute donc plus rien.
- */
-function BrowserCartAdd({ orderId, siteId, account, url, qty, price }: { orderId: string; siteId: string; account: string | null; url: string | null; qty: number; price: string }) {
-  const [opened, setOpened] = useState(false);
-  if (!url) return <p className="rounded-lg border border-border p-2 text-xs">Fiche produit Districash non fiable : ajoutez l'article manuellement sur le portail.</p>;
-  function open() {
-    window.open(url!, "_blank", "noopener,noreferrer");
-    setOpened(true);
-    // Trace d'intention uniquement (jamais une preuve d'ajout).
-    void supabase.from("parts_events").insert({ site_id: siteId, entity: "part_order", entity_id: orderId, action: "cart_browser_handoff", detail: { supplier: "districash", account } as never });
+function CartAdd({ orderId, orderSiteId, activeSiteId, label, qty, price }: { orderId: string; orderSiteId: string; activeSiteId: string | null; label: string | null; qty: number; price: string }) {
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<{ status: string; message: string } | null>(null);
+  // Le site actif a changé (autre onglet / bascule) : on ne bascule jamais en silence.
+  const mismatch = activeSiteId !== orderSiteId;
+  async function run(allowExistingInCart: boolean) {
+    setBusy(true);
+    try { setRes(await addOrderToDistricashCart({ data: { orderId, siteId: orderSiteId, confirmed: true, allowExistingInCart } })); }
+    catch { setRes({ status: "uncertain", message: "Erreur réseau : vérifiez le panier Districash, sans relancer." }); }
+    finally { setBusy(false); }
   }
+  if (res && (res.status === "added" || res.status === "uncertain"))
+    return <p className={`rounded-lg border p-2 text-xs ${res.status === "added" ? "border-brand" : "border-destructive"}`}>{res.message} La commande reste « À transmettre ».</p>;
   return (
     <div className="space-y-2 rounded-lg border border-border p-3 text-xs">
-      <div className="font-bold">Ajouter au panier dans votre navigateur</div>
-      <p>Ouvre votre panier Districash (compte {account}). L'extension DDA affiche un encadré : cochez l'accord, puis « Ajouter au panier » ({qty} pneu(s) à {price} HT). Elle relit le panier et remplit la référence et l'immatriculation. Aucune commande n'est validée.</p>
-      <button type="button" onClick={open} className="flex h-10 w-full items-center justify-center rounded-lg border border-border font-bold">
-        Ouvrir et ajouter au panier ↗
+      <div className="font-bold">Panier Districash : {label ?? "compte non défini"}</div>
+      {mismatch ? <p className="text-destructive">Le site actif n'est plus celui de cette commande. L'ajout se fera uniquement sur le panier {label}.</p> : null}
+      <label className="flex items-start gap-2">
+        <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-0.5" />
+        J'autorise l'ajout de {qty} pneu(s) à {price} HT au panier Districash {label}. Aucune commande ne sera validée.
+      </label>
+      {res ? <p className="text-destructive">{res.message}{res.status === "refused" ? " Vous pouvez réessayer." : ""}</p> : null}
+      <button type="button" disabled={!ok || busy || !label} onClick={() => void run(res?.status === "already_in_cart")} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border font-bold disabled:opacity-50">
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {res?.status === "already_in_cart" ? "Ajouter quand même" : "Ajouter au panier Districash"}
       </button>
-      {opened ? <p className="text-muted-foreground">Vérifiez le résultat affiché dans l'onglet Districash. La commande reste « À transmettre ».</p> : null}
-      <p className="text-[11px] text-muted-foreground">Nécessite l'extension DDA (v1.1) et d'être connecté à Districash dans ce navigateur. Sans extension, rien n'est ajouté : ajoutez l'article depuis la fiche produit.</p>
     </div>
   );
 }
@@ -53,7 +57,7 @@ function CopyIcon({ label, value }: { label: string; value: string }) {
     </button>
   );
 }
-import { supabase } from "@/integrations/supabase/client";
+import { addOrderToDistricashCart } from "@/lib/districash-cart.functions";
 import { createTireSupplierOrder, districashSupplierId, findDuplicateTireOrder, lookupKnownOr } from "@/lib/tire-supplier-order-db";
 
 const input = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm";
@@ -68,6 +72,7 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
   const [dup, setDup] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
+  const [createdSite, setCreatedSite] = useState<{ id: string; label: string | null } | null>(null);
   const line = tireOrderLine(offer);
   const account = districashAccountForSite(site?.code);
   const link = districashPortalLink(offer);
@@ -92,6 +97,7 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
       }
       const id = await createTireSupplierOrder({ siteId: site.id, supplierId, account, orNumber, plate, or, line, source: tireOrderSource(offer, { quoteId, size, consultedAt: offer.consultedAt }) }, { userId: user?.id ?? null, name: displayName ?? "" });
       setCreated(id);
+      setCreatedSite({ id: site.id, label: districashCartLabel(site.code) });
       if (link) window.open(link.url, "_blank", "noopener,noreferrer");
       toast.success("Commande interne enregistrée — à valider sur Districash.");
     } catch (e) {
@@ -112,8 +118,8 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
         </DialogHeader>
         {created ? (
           <div className="space-y-3 text-sm">
-            <p>Commande interne <b>« À transmettre »</b>, non envoyée à Districash. Ajoutez l'article au panier depuis votre navigateur (ci-dessous), vérifiez-le, puis contrôlez les champs.</p>
-            {site ? <BrowserCartAdd orderId={created} siteId={site.id} account={account} url={districashBrowserAddUrl({ orNumber, plate, productUrl: offer.productUrl ?? null, code: line.physical_reference, quantity: line.qty_ordered, purchaseHt: line.expected_unit_cost_ht, account })} qty={line.qty_ordered} price={eur(line.expected_unit_cost_ht)} /> : null}
+            <p>Commande interne <b>« À transmettre »</b>, non envoyée à Districash. Ajoutez l'article au panier ci-dessous, vérifiez-le sur le portail, puis collez les champs.</p>
+            {createdSite ? <CartAdd orderId={created} orderSiteId={createdSite.id} activeSiteId={site?.id ?? null} label={createdSite.label} qty={line.qty_ordered} price={eur(line.expected_unit_cost_ht)} /> : null}
             <div className="rounded-lg border border-border p-3 text-xs space-y-1">
               <div className="font-bold">À vérifier dans le panier</div>
               <div>Compte {account} · {line.physical_reference}</div>
@@ -129,9 +135,9 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {link ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{link.label} ↗</a> : null}
-              <a href={districashCartPrefillUrl({ orNumber, plate })} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Ouvrir le panier Districash ↗</a>
+              <a href={districashCartPrefillUrl({ orNumber, plate })} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Ouvrir le panier Districash {createdSite?.label ?? ""} ↗</a>
             </div>
-            <p className="text-[11px] text-muted-foreground">Sans l'extension DDA, collez les deux champs vous-même. <a href="/dda-districash-prefill.zip" download className="underline">Extension Chrome DDA (panier + préremplissage)</a> (décompresser, puis chrome://extensions → mode développeur → Charger l'extension non empaquetée).</p>
+            <p className="text-[11px] text-muted-foreground">Dans Chrome, soyez connecté au compte Districash {createdSite?.label ?? ""} (DDA ne peut pas changer la session de votre navigateur). Sans l'extension, collez les deux champs vous-même. <a href="/dda-districash-prefill.zip" download className="underline">Extension Chrome facultative de préremplissage</a> (décompresser, puis chrome://extensions → mode développeur → Charger l'extension non empaquetée).</p>
             <p className="text-[11px] text-muted-foreground">Une fois la commande validée sur Districash, saisissez son n° sur la fiche commande pour passer en « Commandée ».</p>
             <Link to="/pieces-achats/commande/$orderId" params={{ orderId: created }} className="block h-10 rounded-lg bg-brand text-center font-bold leading-10 text-brand-foreground">Ouvrir la commande</Link>
           </div>

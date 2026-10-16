@@ -6,6 +6,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const input = z.object({
   orderId: z.string().uuid(),
+  /** Site sur lequel l'utilisateur a créé / voit la commande (jamais déduit côté serveur d'un autre onglet). */
+  siteId: z.string().uuid(),
   confirmed: z.literal(true),
   allowExistingInCart: z.boolean().default(false),
 });
@@ -24,10 +26,12 @@ export const addOrderToDistricashCart = createServerFn({ method: "POST" })
     if (!o) return { status: "refused" as const, message: "Commande introuvable ou non autorisée." };
     if (o.status !== "to_transmit") return { status: "refused" as const, message: "Seule une commande « À transmettre » peut être ajoutée au panier." };
 
-    const { districashAccountForSite } = await import("./tire-supplier-order");
+    const { checkCartSiteBinding } = await import("./tire-supplier-order");
     const site = (o as unknown as { sites: { code: string } | null }).sites;
-    const account = districashAccountForSite(site?.code);
-    if (!account || account !== o.supplier_account) return { status: "refused" as const, message: "Compte Districash du site incohérent avec la commande." };
+    const { data: canAccess } = await sb.rpc("user_can_access_site", { _user_id: context.userId, _site_id: o.site_id });
+    const bind = checkCartSiteBinding({ orderSiteId: o.site_id, orderSiteCode: site?.code, requestedSiteId: data.siteId, userCanAccess: canAccess === true, orderAccount: o.supplier_account });
+    if (!bind.ok) return { status: "refused" as const, message: bind.message };
+    const account = bind.account;
 
     const line = (o.part_order_lines ?? [])[0];
     const { safeDistricashProductUrl, districashProvider } = await import("./districash");
@@ -77,5 +81,5 @@ export const addOrderToDistricashCart = createServerFn({ method: "POST" })
       created_by_name: (context.claims as { email?: string }).email ?? "",
     });
     // Le statut de la commande reste « to_transmit » : seul un n° de commande réel la fait passer « Commandée ».
-    return r;
+    return { ...r, message: `Panier ${bind.label} : ${r.message}` };
   });
