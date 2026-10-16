@@ -42,7 +42,7 @@ export function parseOrderTarget(raw: string): { orNumber: string; plate: string
   const s = (raw ?? "").trim();
   if (!s) return { error: "Renseignez un n° d'OR ou une immatriculation." };
   const or = /^(?:OR\s*(?:n°|no|#|:|-)?\s*)?(\d{3,10})$/i.exec(s);
-  if (or) return { orNumber: or[1], plate: "" };
+  if (or) return { orNumber: or[1] ?? "", plate: "" };
   const p = normPlate(s);
   if (/^[A-Z]{2}\d{3}[A-Z]{2}$/.test(p) || /^\d{1,4}[A-Z]{1,3}\d{2}$/.test(p)) return { orNumber: "", plate: p };
   return { error: "Format non reconnu : n° d'OR (ex. 78546) ou immatriculation (ex. EE-111-EE)." };
