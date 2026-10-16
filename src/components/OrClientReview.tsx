@@ -83,7 +83,7 @@ export function OrClientReview({ orId, client, userName }: { orId: string; clien
           <button
             className="rounded-lg bg-brand px-3 py-2 text-brand-foreground disabled:opacity-50"
             disabled={!!busy}
-            onClick={() => run(c.customer_id, () => supabase.rpc("link_or_client_from_referential", { _or: orId, _customer: c.customer_id, _user_name: userName ?? undefined }), "Client rattaché à l'OR")}
+            onClick={() => run(c.customer_id, () => supabase.rpc("link_or_client_from_referential", { _or: orId, _customer: c.customer_id, ...(userName ? { _user_name: userName } : {}) }), "Client rattaché à l'OR")}
           >
             {busy === c.customer_id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Rattacher ce client"}
           </button>
@@ -102,14 +102,14 @@ export function OrClientReview({ orId, client, userName }: { orId: string; clien
             <button
               className="rounded-lg bg-secondary px-3 py-2 text-sm font-semibold disabled:opacity-50"
               disabled={!!busy || !ln.trim()}
-              onClick={() => run("create", () => supabase.rpc("create_or_client_from_capture", { _capture: cap.id, _last_name: ln.trim(), _first_name: fn.trim() || undefined, _user_name: userName ?? undefined }), "Fiche client créée")}
+              onClick={() => run("create", () => supabase.rpc("create_or_client_from_capture", { _capture: cap.id, _last_name: ln.trim(), ...(fn.trim() ? { _first_name: fn.trim() } : {}), ...(userName ? { _user_name: userName } : {}) }), "Fiche client créée")}
             >
               Créer la fiche avec ces coordonnées
             </button>
             <button
               className="rounded-lg px-3 py-2 text-sm text-muted-foreground disabled:opacity-50"
               disabled={!!busy}
-              onClick={() => run("dismiss", () => supabase.rpc("dismiss_or_client_capture", { _capture: cap.id, _user_name: userName ?? undefined }), "Brouillon ignoré")}
+              onClick={() => run("dismiss", () => supabase.rpc("dismiss_or_client_capture", { _capture: cap.id, ...(userName ? { _user_name: userName } : {}) }), "Brouillon ignoré")}
             >
               Ignorer ces coordonnées
             </button>

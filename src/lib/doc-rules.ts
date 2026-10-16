@@ -1211,7 +1211,9 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
   const rejected: string[] = [];
   const obj = (v: unknown): Fields => (v && typeof v === "object" && !Array.isArray(v) ? { ...(v as Fields) } : {});
   const client = obj(f["client"]), vehicle = obj(f["vehicle"]), order = obj(f["order"]);
-  if (isOrParasiteValue(client["last_name"]) || isOrParasiteValue(client["first_name"])) {
+  // Valeur parasite hors en-tête garage (l'en-tête, même tronqué, est coupé champ par champ plus bas).
+  const parasite = (v: unknown) => isOrParasiteValue(v) && !cutGarageTail(v).cut;
+  if (parasite(client["last_name"]) || parasite(client["first_name"])) {
     if (client["last_name"] != null) rejected.push("client.last_name");
     client["last_name"] = null;
     client["first_name"] = null;

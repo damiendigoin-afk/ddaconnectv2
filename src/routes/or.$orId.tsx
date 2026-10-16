@@ -142,7 +142,7 @@ function OrderPage() {
           </section>
 
           {order.data?.or_number ? (
-            <LocalErrorBoundary>
+            <LocalErrorBoundary label="Fiche client à vérifier">
               <OrClientReview orId={orId} client={c} userName={displayName} />
             </LocalErrorBoundary>
           ) : null}
