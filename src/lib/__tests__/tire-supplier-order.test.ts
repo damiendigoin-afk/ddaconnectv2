@@ -56,3 +56,18 @@ describe("aide panier Districash", () => {
     expect(districashCartFields({ orNumber: "", plate: "ab-123-cd" })).toEqual({ reference: "AB123CD", immatriculation: "AB123CD" });
   });
 });
+
+import { parseOrderTarget } from "../tire-supplier-order";
+describe("parseOrderTarget (champ unique OR ou immat)", () => {
+  it("reconnaît les OR", () => {
+    for (const v of ["78546", "OR: 78546", "or 78546", " OR:78546 "]) expect(parseOrderTarget(v)).toEqual({ orNumber: "78546", plate: "" });
+  });
+  it("reconnaît les plaques", () => {
+    expect(parseOrderTarget("EE111EE")).toEqual({ orNumber: "", plate: "EE111EE" });
+    expect(parseOrderTarget("ee-111-ee")).toEqual({ orNumber: "", plate: "EE111EE" });
+    expect(parseOrderTarget("123 AB 24")).toEqual({ orNumber: "", plate: "123AB24" });
+  });
+  it("refuse le reste", () => {
+    for (const v of ["", "AB", "OR: abc", "12"]) expect("error" in parseOrderTarget(v)).toBe(true);
+  });
+});

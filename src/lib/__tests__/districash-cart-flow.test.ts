@@ -87,19 +87,29 @@ describe("panier du garage de la commande (multi-site)", () => {
 });
 
 describe("extension de préremplissage", () => {
-  const mod: { exports: unknown } = { exports: null };
+  const mod: { exports: { readHash: (h: string) => { ref: string; immat: string } | null; ddaPrefill: (w: Window, v: unknown, t?: number) => Promise<{ filled: number }> } } = { exports: null as never };
   new Function("module", readFileSync("extension/districash-prefill/prefill.js", "utf8"))(mod);
-  const ddaPrefill = mod.exports as (w: Window) => { filled: number };
-  it("remplit les deux champs depuis le lien DDA", () => {
+  const { readHash, ddaPrefill } = mod.exports;
+  it("décode le lien DDA ('+' = espace, %3A)", () => {
+    expect(readHash("#dda-ref=OR%3A+78546&dda-immat=EE111EE")).toEqual({ ref: "OR: 78546", immat: "EE111EE" });
+    expect(readHash(new URL(districashCartPrefillUrl({ orNumber: "78546", plate: "EE-111-EE" })).hash)).toEqual({ ref: "OR: 78546", immat: "EE111EE" });
+    expect(readHash("#autre=1")).toBeNull();
+  });
+  it("remplit les deux champs présents", async () => {
     document.body.innerHTML = cart;
-    window.location.hash = new URL(districashCartPrefillUrl({ orNumber: "17264", plate: "ab-123-cd" })).hash;
-    expect(ddaPrefill(window).filled).toBe(2);
+    expect((await ddaPrefill(window, { ref: "OR: 17264", immat: "AB123CD" }, 0)).filled).toBe(2);
     expect((document.getElementById("command-reference-77") as HTMLInputElement).value).toBe("OR: 17264");
     expect((document.getElementById("command-immatriculation-77") as HTMLInputElement).value).toBe("AB123CD");
   });
-  it("n'écrase pas une saisie existante", () => {
+  it("remplit un panier rendu tardivement (ajax)", async () => {
+    document.body.innerHTML = "";
+    const p = ddaPrefill(window, { ref: "OR: 78546", immat: "" }, 50);
+    document.body.innerHTML = `<div><input id="command-reference-8747596" value=""></div>`;
+    expect((await p).filled).toBe(1);
+    expect((document.getElementById("command-reference-8747596") as HTMLInputElement).value).toBe("OR: 78546");
+  });
+  it("n'écrase pas une saisie existante", async () => {
     document.body.innerHTML = `<input id="command-reference-9" value="AUTRE">`;
-    window.location.hash = "dda-ref=OR%3A%201";
-    expect(ddaPrefill(window).filled).toBe(0);
+    expect((await ddaPrefill(window, { ref: "OR: 1", immat: "" }, 0)).filled).toBe(0);
   });
 });

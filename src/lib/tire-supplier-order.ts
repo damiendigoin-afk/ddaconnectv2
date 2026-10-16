@@ -34,6 +34,20 @@ export function validateTireOrderTarget(t: { orNumber: string; plate: string }):
   return null;
 }
 
+/**
+ * Champ unique « N° OR ou immatriculation » : « 78546 », « OR: 78546 », « OR 78546 »
+ * → OR ; « EE111EE », « EE-111-EE » (SIV) ou « 123 AB 24 » (FNI) → immatriculation.
+ */
+export function parseOrderTarget(raw: string): { orNumber: string; plate: string } | { error: string } {
+  const s = (raw ?? "").trim();
+  if (!s) return { error: "Renseignez un n° d'OR ou une immatriculation." };
+  const or = /^(?:OR\s*(?:n°|no|#|:|-)?\s*)?(\d{3,10})$/i.exec(s);
+  if (or) return { orNumber: or[1], plate: "" };
+  const p = normPlate(s);
+  if (/^[A-Z]{2}\d{3}[A-Z]{2}$/.test(p) || /^\d{1,4}[A-Z]{1,3}\d{2}$/.test(p)) return { orNumber: "", plate: p };
+  return { error: "Format non reconnu : n° d'OR (ex. 78546) ou immatriculation (ex. EE-111-EE)." };
+}
+
 /** L'offre doit être une offre Districash disponible, avec référence et prix d'achat. */
 export function canOrderOffer(o: SevenOffer): boolean {
   return Boolean(o.available && o.supplier === "districash" && o.supplierRef && o.unitSourceHt != null && o.quantity > 0);
