@@ -10,6 +10,7 @@ import { MileageCard } from "@/components/MileageCard";
 import { LocalErrorBoundary } from "@/components/LocalErrorBoundary";
 import { InfoEditForm } from "@/components/InfoEditForm";
 import { OrActionBoard } from "@/components/OrActionBoard";
+import { OrClientReview } from "@/components/OrClientReview";
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { fetchInspections, fetchOrder } from "@/lib/queries";
@@ -139,6 +140,12 @@ function OrderPage() {
               </div>
             ) : null}
           </section>
+
+          {order.data?.or_number ? (
+            <LocalErrorBoundary label="Fiche client à vérifier">
+              <OrClientReview orId={orId} client={c} userName={displayName} />
+            </LocalErrorBoundary>
+          ) : null}
 
           {/* Deux actions principales du dossier OR (même OR, aucun dossier parallèle). */}
           <div className="grid gap-3 sm:grid-cols-2">

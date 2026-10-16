@@ -5,7 +5,7 @@
  */
 import { findFrenchPlate, formatPlate, strictPlate } from "./plate";
 import { normSupplierName } from "./supplier-identify";
-import { isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
+import { cutGarageTail, dedupeFirstNameInLastName, isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
 
 export type Fields = Record<string, unknown>;
 export type DocKind =
@@ -1200,7 +1200,9 @@ const OR_ADMIN_LABEL =
 export function stripOrAdminLabels(v: string): string {
   return v
     .split(/\n/)
-    .map((line) => line.replace(OR_ADMIN_LABEL, " ").replace(/^\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}(?:\s+|$)/, "").replace(/\s{2,}/g, " ").replace(/^[\s,;:-]+|[\s,;:-]+$/g, ""))
+    // Date (même tronquée « 05/08/2 ») en tête de ligne : fragment de « restitution prévue le… ».
+    // « 12/14 rue… » (deux segments) n'est pas une date et reste intact.
+    .map((line) => line.replace(OR_ADMIN_LABEL, " ").replace(/^\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{1,4}(?:\s+|$)/, "").replace(/\s{2,}/g, " ").replace(/^[\s,;:-]+|[\s,;:-]+$/g, ""))
     .filter(Boolean)
     .join("\n");
 }
@@ -1209,7 +1211,9 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
   const rejected: string[] = [];
   const obj = (v: unknown): Fields => (v && typeof v === "object" && !Array.isArray(v) ? { ...(v as Fields) } : {});
   const client = obj(f["client"]), vehicle = obj(f["vehicle"]), order = obj(f["order"]);
-  if (isOrParasiteValue(client["last_name"]) || isOrParasiteValue(client["first_name"])) {
+  // Valeur parasite hors en-tête garage (l'en-tête, même tronqué, est coupé champ par champ plus bas).
+  const parasite = (v: unknown) => isOrParasiteValue(v) && !cutGarageTail(v).cut;
+  if (parasite(client["last_name"]) || parasite(client["first_name"])) {
     if (client["last_name"] != null) rejected.push("client.last_name");
     client["last_name"] = null;
     client["first_name"] = null;
@@ -1223,6 +1227,19 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
       client[k] = m[1]!.trim();
       suspect.add("client.last_name"); suspect.add("client.first_name");
     }
+  }
+  // En-tête garage même tronqué (« SAS DAMIEN », « SAS DAMIEN DIGOIN A ») : retiré, jamais un nom client.
+  for (const k of ["last_name", "first_name"]) {
+    if (typeof client[k] !== "string") continue;
+    const r = cutGarageTail(client[k]);
+    if (!r.cut) continue;
+    client[k] = r.value;
+    if (!r.value) rejected.push(`client.${k}`);
+    suspect.add("client.last_name"); suspect.add("client.first_name");
+  }
+  if (typeof client["last_name"] === "string" && typeof client["first_name"] === "string") {
+    const d = dedupeFirstNameInLastName(client["last_name"], client["first_name"]);
+    if (d !== client["last_name"].trim()) { client["last_name"] = d; suspect.add("client.last_name"); }
   }
   const ln = typeof client["last_name"] === "string" ? client["last_name"].trim() : "";
   const fn = typeof client["first_name"] === "string" ? client["first_name"].trim() : "";
