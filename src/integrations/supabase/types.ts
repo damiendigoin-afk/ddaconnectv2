@@ -4115,6 +4115,65 @@ export type Database = {
           },
         ]
       }
+      or_client_captures: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          data: Json
+          id: string
+          reason: string
+          repair_order_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_by_name: string | null
+          resolved_client_id: string | null
+          resolved_customer_id: string | null
+          site_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          data?: Json
+          id?: string
+          reason?: string
+          repair_order_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_name?: string | null
+          resolved_client_id?: string | null
+          resolved_customer_id?: string | null
+          site_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          data?: Json
+          id?: string
+          reason?: string
+          repair_order_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_name?: string | null
+          resolved_client_id?: string | null
+          resolved_customer_id?: string | null
+          site_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "or_client_captures_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       or_part_usage: {
         Row: {
           article_id: string | null
@@ -9263,6 +9322,7 @@ export type Database = {
         Args: { _or: string; _plate: string; _ro: string }
         Returns: string
       }
+      phone_near: { Args: { _a: string; _b: string }; Returns: boolean }
       platform_storage_stats: {
         Args: never
         Returns: {
