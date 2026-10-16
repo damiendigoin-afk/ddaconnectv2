@@ -9213,6 +9213,19 @@ export type Database = {
         Args: { _data: Json; _or: string }
         Returns: undefined
       }
+      create_or_client_from_capture: {
+        Args: {
+          _capture: string
+          _first_name?: string
+          _last_name: string
+          _user_name?: string
+        }
+        Returns: Json
+      }
+      dismiss_or_client_capture: {
+        Args: { _capture: string; _user_name?: string }
+        Returns: undefined
+      }
       ensure_winmotor_dossier: {
         Args: {
           _or_number: string
@@ -9311,6 +9324,21 @@ export type Database = {
         Args: { _id: string; _site?: string }
         Returns: boolean
       }
+      link_or_client_from_referential: {
+        Args: { _customer: string; _or: string; _user_name?: string }
+        Returns: Json
+      }
+      list_suspect_or_clients: {
+        Args: { _limit?: number; _site: string }
+        Returns: {
+          client_name: string
+          or_id: string
+          or_number: string
+          plate: string
+          reasons: string[]
+        }[]
+      }
+      name_tokens: { Args: { _v: string }; Returns: string[] }
       next_dda_order_ref: { Args: never; Returns: string }
       next_part_return_ref: { Args: never; Returns: string }
       norm_contact: { Args: { _v: string }; Returns: string }
@@ -9318,6 +9346,7 @@ export type Database = {
       norm_person: { Args: { _v: string }; Returns: string }
       norm_plate_key: { Args: { _v: string }; Returns: string }
       norm_text: { Args: { _v: string }; Returns: string }
+      or_client_candidates: { Args: { _or: string }; Returns: Json }
       part_order_target: {
         Args: { _or: string; _plate: string; _ro: string }
         Returns: string
