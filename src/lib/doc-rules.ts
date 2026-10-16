@@ -1200,7 +1200,9 @@ const OR_ADMIN_LABEL =
 export function stripOrAdminLabels(v: string): string {
   return v
     .split(/\n/)
-    .map((line) => line.replace(OR_ADMIN_LABEL, " ").replace(/^\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}(?:\s+|$)/, "").replace(/\s{2,}/g, " ").replace(/^[\s,;:-]+|[\s,;:-]+$/g, ""))
+    // Date (même tronquée « 05/08/2 ») en tête de ligne : fragment de « restitution prévue le… ».
+    // « 12/14 rue… » (deux segments) n'est pas une date et reste intact.
+    .map((line) => line.replace(OR_ADMIN_LABEL, " ").replace(/^\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{1,4}(?:\s+|$)/, "").replace(/\s{2,}/g, " ").replace(/^[\s,;:-]+|[\s,;:-]+$/g, ""))
     .filter(Boolean)
     .join("\n");
 }
