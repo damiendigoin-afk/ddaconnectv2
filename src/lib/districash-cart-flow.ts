@@ -67,8 +67,12 @@ export async function addToDistricashCart(deps: CartFlowDeps, i: CartFlowInput):
   try { json = JSON.parse(res.text); } catch { /* illisible */ }
   const p = parseCartStoreResponse(json);
   if (p.status === "added") {
+    // nb_added ne suffit pas : relecture immédiate du panier dans la MÊME session.
+    const after = await deps.get("/cart").catch(() => null);
+    if (!after || after.status !== 200 || !norm(after.text).includes(norm(i.code)))
+      return { status: "uncertain", message: "Districash a répondu « ajouté » mais l'article est absent du panier relu : ajout non prouvé." };
     const dataRef = (json as { cart_content?: { data_ref?: unknown } }).cart_content?.data_ref;
-    return { status: "added", message: `${p.added} pneu(s) ajouté(s) au panier Districash.`, cartId, dataRef: dataRef != null ? String(dataRef) : null, total: p.total };
+    return { status: "added", message: `${p.added} pneu(s) ajouté(s) au panier de la session serveur DDA (non visible dans votre navigateur).`, cartId, dataRef: dataRef != null ? String(dataRef) : null, total: p.total };
   }
   return p.status === "refused" ? { status: "refused", message: `Districash a refusé : ${p.message}` } : { status: "uncertain", message: p.message };
 }
