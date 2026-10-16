@@ -8,7 +8,7 @@
  * `guard_part_order_transmit`). `transmission_mode` réserve la place d'un futur
  * connecteur documenté ; aucun envoi automatique n'existe ici.
  */
-import { DISTRICASH_ACCOUNTS } from "./districash";
+import { DISTRICASH_ACCOUNTS, safeDistricashProductUrl } from "./districash";
 import type { SevenOffer } from "./tires";
 
 export const TIRE_ORDER_STATUS_PENDING = "to_transmit" as const;
@@ -128,4 +128,25 @@ export function districashCartPrefillUrl(t: { orNumber: string; plate: string })
   if (f.immatriculation) h.set("dda-immat", f.immatriculation);
   const s = h.toString();
   return s ? `${DISTRICASH_CART_URL}#${s}` : DISTRICASH_CART_URL;
+}
+
+/**
+ * Lien « ajout au panier dans MON navigateur » (extension DDA volontaire).
+ * Le panier Districash est lié à la session du navigateur : un ajout fait par le serveur DDA
+ * (autre session) n'apparaît pas dans le panier de l'utilisateur. Le fragment (#…) n'est jamais
+ * envoyé au serveur ; il ne contient ni identifiant ni cookie. null si la fiche produit n'est pas sûre.
+ */
+export function districashBrowserAddUrl(t: { orNumber: string; plate: string; productUrl: string | null; code: string; quantity: number; purchaseHt: number; account: string | null }): string | null {
+  const safe = safeDistricashProductUrl(t.productUrl);
+  if (!safe || !t.account || !t.code || !Number.isInteger(t.quantity) || t.quantity < 1) return null;
+  const f = districashCartFields(t);
+  const h = new URLSearchParams();
+  if (f.reference) h.set("dda-ref", f.reference);
+  if (f.immatriculation) h.set("dda-immat", f.immatriculation);
+  h.set("dda-add", new URL(safe).pathname);
+  h.set("dda-code", t.code);
+  h.set("dda-qty", String(t.quantity));
+  h.set("dda-pa", t.purchaseHt.toFixed(2));
+  h.set("dda-account", t.account);
+  return `${DISTRICASH_CART_URL}#${h.toString()}`;
 }
