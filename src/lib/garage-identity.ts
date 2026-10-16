@@ -74,11 +74,15 @@ export function isGarageName(v: unknown, g: GarageIdentity = GARAGE_ALIASES): bo
 export function cutGarageTail(v: unknown, g: GarageIdentity = GARAGE_ALIASES): { value: string | null; cut: boolean } {
   const s = String(v ?? "").trim();
   if (!s) return { value: null, cut: false };
-  if (isGarageName(s, g)) return { value: null, cut: true };
+  const starts = (t: string) => {
+    const n = normText(t);
+    return !!n && (GARAGE_NAME_STEMS.some((x) => n.startsWith(x)) || g.names.some((x) => x.length >= 6 && n.startsWith(x)) || g.names.includes(n));
+  };
   const toks = s.split(/\s+/);
-  for (let i = 1; i < toks.length; i++) {
-    if (isGarageName(toks.slice(i).join(" "), g)) return { value: toks.slice(0, i).join(" "), cut: true };
+  for (let i = 0; i < toks.length; i++) {
+    if (starts(toks.slice(i).join(" "))) return { value: i ? toks.slice(0, i).join(" ") : null, cut: true };
   }
+  if (isGarageName(s, g)) return { value: null, cut: true };
   return { value: s, cut: false };
 }
 
