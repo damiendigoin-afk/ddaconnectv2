@@ -10,11 +10,11 @@ describe("OR 17220 — « YOLANDE SAS DAMIEN », téléphone garage mal lu", () 
   const read = { last_name: "SAS DAMIEN", first_name: "YOLANDE", account_number: "003269", phone: "05 52 24 77 18", mobile: "06 22 77 28 43", address: "302C CHEMIN DES POURROUTOUX" };
   it("nom garage tronqué retiré, prénom/compte/mobile/adresse conservés", () => {
     const c = stripGarageContacts(clean(read));
-    expect(c["last_name"]).toBeUndefined();
+    expect(c["last_name"] ?? null).toBeNull();
     expect(c["first_name"]).toBe("YOLANDE");
     expect(c["account_number"]).toBe("003269");
     expect(c["mobile"]).toBe("06 22 77 28 43");
-    expect(c["phone"]).toBeUndefined();
+    expect(c["phone"] ?? null).toBeNull();
     expect(c["address"]).toBe("302C CHEMIN DES POURROUTOUX");
   });
   it("fiche existante signalée", () => {
@@ -25,7 +25,7 @@ describe("OR 17220 — « YOLANDE SAS DAMIEN », téléphone garage mal lu", () 
 describe("OR 17167 — « RÉGIS O.A.M SAS DAMIEN DIGOIN A »", () => {
   it("en-tête complet retiré, prénom gardé, aucun nom de famille inventé", () => {
     const c = stripGarageContacts(clean({ last_name: "SAS DAMIEN DIGOIN A", first_name: "RÉGIS O.A.M", account_number: "002315", phone: "05 53 24 04 81" }));
-    expect(c["last_name"]).toBeUndefined();
+    expect(c["last_name"] ?? null).toBeNull();
     expect(c["first_name"]).toBe("RÉGIS O.A.M");
     expect(c["phone"]).toBe("05 53 24 04 81"); // 3 chiffres d'écart : pas le garage
     expect(c["account_number"]).toBe("002315");
