@@ -14,7 +14,7 @@ import { CancelAction } from "@/components/parts/CancelAction";
 import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
 import { listReceiptDocs } from "@/lib/receipt-docs";
 import { receiptDocState } from "@/lib/receipt-docs-rules";
-import { guessDocumentSite, isBareSimplified, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
+import { compareDocToOrder, guessDocumentSite, isBareSimplified, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
@@ -192,6 +192,8 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const unread = [!x.supplier && !sup ? "fournisseur" : null, !(x.invoice_number || x.delivery_note_number || x.document_number) ? "n° document" : null, !x.document_date ? "date" : null, !docLines.length ? "lignes pièces" : null].filter(Boolean);
   const [manual, setManual] = useState(false);
   const [q, setQ] = useState("");
+  // Association jamais directe : un clic « Rapprocher » ouvre la confirmation explicite avec le détail des écarts.
+  const [pending, setPending] = useState<string | null>(null);
   const found = manual ? searchPendingOrders(orders.data ?? [], q, writeSite, 20, xm) : [];
   const orderBtn = (o: (typeof sugg.certain)[number]["order"], tone: "ok" | "warn" | null, reasons?: string[]) => {
     const meta = o as unknown as { comment?: string | null; created_by_name?: string | null; requested_or_number?: string | null; plate?: string | null; supplier_order_ref?: string | null; order_mode?: string | null };
@@ -210,8 +212,9 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
         </span>
         {meta.comment ? <span className="block font-semibold">Commentaire : {meta.comment}</span> : null}
         <OrderLinesCompact lines={o.part_order_lines ?? []} order={(o.part_order_lines ?? []).length ? (o as never) : null} />
+        {pending === o.id ? <MatchConfirm doc={xm} order={o as never} onConfirm={() => onOrder(o.id)} onCancel={() => setPending(null)} /> : null}
         <div className="mt-2 flex gap-2">
-          <button type="button" className={`${btnPrimary} flex-1`} onClick={() => onOrder(o.id)}>Rapprocher</button>
+          <button type="button" className={`${btnPrimary} flex-1`} onClick={() => setPending(o.id)}>Rapprocher…</button>
           <Link to="/pieces-achats/commande/$orderId" params={{ orderId: o.id }} target="_blank" className={`${btnGhost} flex-1 text-center`}>Voir la commande</Link>
         </div>
       </div>
@@ -274,6 +277,41 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
 
       {x.plate ? <PlateInfo plate={x.plate} /> : null}
       <button className="w-full text-xs underline" onClick={onCancel}>Annuler</button>
+    </div>
+  );
+}
+
+const GAP_LABEL: Record<string, string> = {
+  ok: "conforme au reliquat", partial: "réception partielle", over: "au-delà du reliquat", qty_unknown: "quantité à vérifier",
+  not_ordered: "absente de la commande", not_in_doc: "non livrée sur ce BL (reliquat)", already_received: "déjà totalement reçue",
+};
+
+/** Confirmation explicite avant association BL ↔ commande : références, quantités, reliquats et écarts. */
+function MatchConfirm({ doc, order, onConfirm, onCancel }: { doc: Parameters<typeof compareDocToOrder>[0]; order: Parameters<typeof compareDocToOrder>[1] & { supplier_order_ref?: string | null }; onConfirm: () => void; onCancel: () => void }) {
+  const { rows, gaps } = compareDocToOrder(doc, order);
+  const refGap = order.supplier_order_ref && doc.order_reference && order.supplier_order_ref.replace(/\W/g, "").toUpperCase() !== doc.order_reference.replace(/\W/g, "").toUpperCase();
+  return (
+    <div className="mt-2 space-y-2 rounded-lg border-2 border-brand p-2" role="dialog" aria-label="Confirmer le rapprochement">
+      <p className="text-sm font-extrabold">Associer ce document à cette commande ?</p>
+      {rows.length ? (
+        <table className="w-full text-xs">
+          <thead><tr className="text-left text-muted-foreground"><th>Réf.</th><th>BL</th><th>Cdé</th><th>Déjà reçu</th><th>Reliquat</th><th>État</th></tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className={r.status === "ok" ? "" : "text-status-warn font-semibold"}>
+                <td>{r.reference}{r.designation ? <span className="block font-normal text-muted-foreground">{r.designation}</span> : null}</td>
+                <td>{r.qty_doc ?? "—"}</td><td>{r.qty_ordered ?? "—"}</td><td>{r.qty_already}</td><td>{r.remaining ?? "—"}</td><td>{GAP_LABEL[r.status]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className="text-xs text-muted-foreground">Aucune référence comparable (commande simplifiée ou BL sans référence lisible) : vérifiez les pièces à l'étape suivante.</p>}
+      {refGap ? <p className="text-xs font-semibold text-status-warn">N° commande fournisseur différent : BL {doc.order_reference} / commande {order.supplier_order_ref}</p> : null}
+      <p className="text-xs text-muted-foreground">{gaps ? `${gaps} écart(s) signalé(s). ` : ""}Les quantités restent modifiables à l'étape suivante ; rien n'est enregistré avant la validation de la réception.</p>
+      <div className="flex gap-2">
+        <button type="button" className={`${btnPrimary} flex-1`} onClick={onConfirm}>Confirmer l'association</button>
+        <button type="button" className={`${btnGhost} flex-1`} onClick={onCancel}>Annuler</button>
+      </div>
     </div>
   );
 }

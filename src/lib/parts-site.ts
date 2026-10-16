@@ -354,3 +354,52 @@ export function groupLinesByOr<L extends { or?: string | null }>(ors: string[], 
     .map((or, i) => ({ or, lines: lines.filter((l) => (l.or && ors.includes(l.or) ? l.or === or : i === 0)) }))
     .filter((g) => g.lines.length);
 }
+
+export type DocOrderGap = {
+  reference: string;
+  designation: string | null;
+  /** Quantité lue sur le BL (null si absente de ce BL ou illisible). */
+  qty_doc: number | null;
+  qty_ordered: number | null;
+  qty_already: number;
+  /** Reliquat avant ce BL (null si ligne absente de la commande). */
+  remaining: number | null;
+  status: "ok" | "partial" | "over" | "qty_unknown" | "not_ordered" | "not_in_doc" | "already_received";
+};
+
+/**
+ * Détail lecture seule BL ↔ commande candidate (réf. normalisée, quantités, reliquat) pour la confirmation.
+ * Tient compte des réceptions précédentes (multi-BL) via qty_received ; ne modifie rien.
+ */
+export function compareDocToOrder(doc: DocExtractLite, order: Pick<OrderLike, "part_order_lines">): { rows: DocOrderGap[]; gaps: number } {
+  const lines = ((order.part_order_lines ?? []) as LineLite[]).filter((l) => l.line_kind !== "labor" && l.status !== "cancelled");
+  const byRef = new Map<string, LineLite>();
+  for (const l of lines) { const k = normalizeRef(l.physical_reference ?? ""); if (k && !byRef.has(k)) byRef.set(k, l); }
+  const docQty = new Map<string, { ref: string; qty: number | null; label: string | null }>();
+  for (const l of doc.lines ?? []) {
+    const k = normalizeRef(l.reference ?? "");
+    if (!k) continue;
+    const prev = docQty.get(k);
+    const q = l.quantity != null && Number.isFinite(Number(l.quantity)) ? Number(l.quantity) : null;
+    docQty.set(k, { ref: l.reference!, label: l.label ?? null, qty: prev ? (prev.qty == null || q == null ? null : prev.qty + q) : q });
+  }
+  const rows: DocOrderGap[] = [];
+  for (const [k, d] of docQty) {
+    const ol = byRef.get(k);
+    if (!ol) { rows.push({ reference: d.ref, designation: d.label, qty_doc: d.qty, qty_ordered: null, qty_already: 0, remaining: null, status: "not_ordered" }); continue; }
+    const ordered = ol.qty_ordered != null ? Number(ol.qty_ordered) : null;
+    const already = Number(ol.qty_received ?? 0);
+    const remaining = ordered != null ? Math.max(0, ordered - already) : null;
+    const status: DocOrderGap["status"] = remaining === 0 ? "already_received" : d.qty == null || remaining == null ? "qty_unknown" : d.qty > remaining ? "over" : d.qty < remaining ? "partial" : "ok";
+    rows.push({ reference: ol.physical_reference ?? d.ref, designation: ol.designation ?? d.label, qty_doc: d.qty, qty_ordered: ordered, qty_already: already, remaining, status });
+  }
+  for (const [k, ol] of byRef) {
+    if (docQty.has(k)) continue;
+    const ordered = ol.qty_ordered != null ? Number(ol.qty_ordered) : null;
+    const already = Number(ol.qty_received ?? 0);
+    const remaining = ordered != null ? Math.max(0, ordered - already) : null;
+    if (remaining === 0) continue;
+    rows.push({ reference: ol.physical_reference ?? "?", designation: ol.designation ?? null, qty_doc: null, qty_ordered: ordered, qty_already: already, remaining, status: "not_in_doc" });
+  }
+  return { rows, gaps: rows.filter((r) => r.status !== "ok").length };
+}
