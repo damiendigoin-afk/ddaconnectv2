@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from "@/lib/auth";
 import { useSite } from "@/lib/site-context";
 import { districashPortalLink, type SevenOffer } from "@/lib/tires";
-import { districashAccountForSite, districashCartPrefillUrl, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
+import { districashAccountForSite, districashBrowserAddUrl, districashCartPrefillUrl, districashCartFields, tireOrderLine, tireOrderSource, validateTireOrderTarget } from "@/lib/tire-supplier-order";
 
 /**
  * Ajout au panier dans la session du NAVIGATEUR via l'extension DDA (volontaire).
@@ -53,7 +53,7 @@ function CopyIcon({ label, value }: { label: string; value: string }) {
     </button>
   );
 }
-import { addOrderToDistricashCart } from "@/lib/districash-cart.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { createTireSupplierOrder, districashSupplierId, findDuplicateTireOrder, lookupKnownOr } from "@/lib/tire-supplier-order-db";
 
 const input = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm";
@@ -112,8 +112,8 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
         </DialogHeader>
         {created ? (
           <div className="space-y-3 text-sm">
-            <p>Commande interne <b>« À transmettre »</b>, non envoyée à Districash. Sur le portail : ajoutez l'article au panier, vérifiez-le, puis collez les champs ci-dessous.</p>
-            <CartAdd orderId={created} account={account} qty={line.qty_ordered} price={eur(line.expected_unit_cost_ht)} />
+            <p>Commande interne <b>« À transmettre »</b>, non envoyée à Districash. Ajoutez l'article au panier depuis votre navigateur (ci-dessous), vérifiez-le, puis contrôlez les champs.</p>
+            {site ? <BrowserCartAdd orderId={created} siteId={site.id} account={account} url={districashBrowserAddUrl({ orNumber, plate, productUrl: offer.productUrl ?? null, code: line.physical_reference, quantity: line.qty_ordered, purchaseHt: line.expected_unit_cost_ht, account })} qty={line.qty_ordered} price={eur(line.expected_unit_cost_ht)} /> : null}
             <div className="rounded-lg border border-border p-3 text-xs space-y-1">
               <div className="font-bold">À vérifier dans le panier</div>
               <div>Compte {account} · {line.physical_reference}</div>
@@ -131,7 +131,7 @@ export function TireOrderDialog({ offer, size, quoteId, defaultPlate, onClose }:
               {link ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline">{link.label} ↗</a> : null}
               <a href={districashCartPrefillUrl({ orNumber, plate })} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Ouvrir le panier Districash ↗</a>
             </div>
-            <p className="text-[11px] text-muted-foreground">Sans l'extension DDA, collez les deux champs vous-même. <a href="/dda-districash-prefill.zip" download className="underline">Extension Chrome de préremplissage</a> (décompresser, puis chrome://extensions → mode développeur → Charger l'extension non empaquetée).</p>
+            <p className="text-[11px] text-muted-foreground">Sans l'extension DDA, collez les deux champs vous-même. <a href="/dda-districash-prefill.zip" download className="underline">Extension Chrome DDA (panier + préremplissage)</a> (décompresser, puis chrome://extensions → mode développeur → Charger l'extension non empaquetée).</p>
             <p className="text-[11px] text-muted-foreground">Une fois la commande validée sur Districash, saisissez son n° sur la fiche commande pour passer en « Commandée ».</p>
             <Link to="/pieces-achats/commande/$orderId" params={{ orderId: created }} className="block h-10 rounded-lg bg-brand text-center font-bold leading-10 text-brand-foreground">Ouvrir la commande</Link>
           </div>
