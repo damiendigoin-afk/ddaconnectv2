@@ -39,6 +39,10 @@ export type InvoiceLine = {
   /** Taux de TVA de la ligne (jamais une quantité). */
   vat_pct?: number | null;
   amount_ttc?: number | null;
+  /** part = pièce ; fee = frais (port, emballage) inclus dans les totaux mais jamais rapprochés ; info = ligne d'information. */
+  line_kind?: "part" | "fee" | "info" | null;
+  /** Code complément / variante imprimé à côté de la référence (ex. MX3), sans altérer la référence. */
+  variant_code?: string | null;
 };
 
 export type SupplierInfo = { address?: string | null; postal_code?: string | null; city?: string | null; phone?: string | null; email?: string | null; website?: string | null; siret?: string | null; vat_number?: string | null };
@@ -86,7 +90,10 @@ export type InvoiceExtract = {
   /** Références BL source / documents liés lus dans le tableau (jamais le n° principal). */
   secondary_refs?: string[];
   /** Provenance de la lecture (vision d'abord, champs complétés par les règles, divergences). */
-  read_provenance?: { source: string; completed?: string[]; conflicts?: string[] } | null;
+  read_provenance?: { source: string; completed?: string[]; conflicts?: string[]; vision_initial?: "ok" | "failed"; recheck_used?: boolean; fallback_rules_fields?: string[]; requires_review?: boolean } | null;
+  /** Lecture photo non fiable (vision en échec / contrôles en échec) : aucun rattachement ni rapprochement automatique. */
+  requires_review?: boolean;
+  review_reasons?: string[];
 };
 
 export type SupplierDoc = {
@@ -159,9 +166,10 @@ export async function uploadSupplierDoc(opts: {
   const { data: same } = await dq;
   if (same?.[0]) return { ...same[0], extracted: toExtract(same[0].extracted) };
   // Identification du fournisseur dès l'import : fiche existante sûre => rattachement immédiat.
-  if (!opts.extracted.supplier_id && opts.extracted.supplier) {
-    const { data: sups } = await supabase.from("suppliers").select("id,name,active");
-    const r = resolveSupplier(opts.extracted.supplier, sups ?? []);
+  // Lecture à vérifier : jamais de rattachement automatique (confirmation utilisateur obligatoire).
+  if (!opts.extracted.supplier_id && opts.extracted.supplier && !opts.extracted.requires_review) {
+    const { data: sups } = await supabase.from("suppliers").select("id,name,active,notes");
+    const r = resolveSupplier(opts.extracted.supplier, sups ?? [], docSupplierSignals(opts.extracted.supplier_info));
     if (r.kind === "found") opts = { ...opts, extracted: { ...opts.extracted, supplier_id: r.supplier.id } };
   }
   // Même contenu déjà stocké (autre type/site visible) : un seul original en stockage, nouveau rattachement seulement.

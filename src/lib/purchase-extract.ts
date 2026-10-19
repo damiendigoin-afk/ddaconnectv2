@@ -4,7 +4,7 @@
  */
 import { findFrenchPlate } from "@/lib/plate";
 import type { InvoiceExtract, InvoiceLine, SupplierInfo } from "@/lib/supplier-docs";
-import { validatePurchase } from "@/lib/purchase-validate";
+import { classifyLineKind, isDateLikeNumber, validatePurchase } from "@/lib/purchase-validate";
 
 type Raw = Record<string, unknown> & Partial<Record<"doc_kind"|"document_number"|"document_date"|"delivery_note_number"|"invoice_number"|"invoice_date"|"plate"|"plate_printed"|"customer_or_site"|"total_ht"|"vat_amount"|"total_ttc"|"handwritten_notes"|"lines"|"quantity"|"qty"|"qte"|"qty_ordered"|"amount"|"net_amount"|"line_total_ht"|"montant_net"|"net_unit_price"|"unit_net_price"|"client_price"|"public_price"|"list_price"|"unit_price"|"price"|"expected_unit_cost_ht"|"discount_pct", unknown>>;
 
@@ -89,7 +89,8 @@ function normLine(l: Raw): NormLine {
   if (unit != null && clientPrice != null && close(unit, clientPrice) && amount != null && !close(clientPrice * q, amount)) {
     unit = Math.round((amount / q) * 100) / 100;
   }
-  return {
+  const variant = str(l["variant_code"] ?? l["variant"] ?? l["complement"]);
+  const base = {
     reference: pick(l, ["reference", "physical_reference", "ref", "part_number", "reference_article", "code_article", "cod_article", "article_code", "code", "sku"]),
     label: pick(l, ["label", "designation", "description", "libelle", "name"]),
     quantity,
@@ -103,6 +104,8 @@ function normLine(l: Raw): NormLine {
     isolated_number: str(l["isolated_number"]),
     client_price: clientPrice,
   };
+  const kind = classifyLineKind({ ...base, line_kind: str(l["line_kind"]) });
+  return { ...base, line_kind: kind, ...(variant ? { variant_code: variant } : {}) };
 }
 
 function supplierInfo(v: unknown): SupplierInfo | null {
@@ -153,7 +156,9 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     orRaw ??= v;
   }
   let orNumber = digits(orRaw);
-  const docNumber = str(o.document_number);
+  // Un n° en forme de date (« 10/2026 ») n'est jamais un n° de document.
+  const docNum = (v: unknown) => { const x = str(v); return x && !isDateLikeNumber(x) ? x : null; };
+  const docNumber = docNum(o.document_number);
   if (!orNumber) {
     orNumber = isolatedOrNumber(lines, [docNumber, str(o.delivery_note_number), str(o.invoice_number), str(o["order_reference"]), str(o["order_number"])]);
   }
@@ -197,8 +202,8 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     order_date: str(o["order_date"]),
     order_reference: orderRef,
     ref_candidates: Array.isArray(o["ref_candidates"]) ? [...new Set((o["ref_candidates"] as unknown[]).map((v) => str(v)).filter((v): v is string => !!v))].slice(0, 12) : [],
-    delivery_note_number: str(o.delivery_note_number),
-    invoice_number: str(o.invoice_number),
+    delivery_note_number: docNum(o.delivery_note_number),
+    invoice_number: docNum(o.invoice_number),
     invoice_date: str(o.invoice_date),
     or_number: orNumber,
     or_numbers: orNumbers,
@@ -213,6 +218,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     shipping_label: str(o["shipping_label"]),
     total_ttc: num(o.total_ttc),
     handwritten_notes: str(o.handwritten_notes),
+    ...(o["requires_review"] === true ? { requires_review: true, review_reasons: Array.isArray(o["review_reasons"]) ? (o["review_reasons"] as unknown[]).map(String) : [] } : {}),
     ...(str(o["expected_delivery_date"]) ? { expected_delivery_date: str(o["expected_delivery_date"]) } : {}),
     ...(str(o["vehicle_label"]) ? { vehicle_label: str(o["vehicle_label"]) } : {}),
     ...(str(o["template"]) ? { template: str(o["template"]) } : {}),
