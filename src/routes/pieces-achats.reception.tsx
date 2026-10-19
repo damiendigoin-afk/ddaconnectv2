@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { orderMarker } from "@/lib/receipt-lines";
+import { partLinesOnly } from "@/lib/purchase-validate";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { completeSimplifiedOrder, receiveAllShipped, recordShipment } from "@/lib/parts";
 import { filterBySupplier, hasPendingShipment, SHIPMENT_BANNER, shipmentQtyFromDoc, supplierFilterOptions, type ShipLine } from "@/lib/shipment-rules";
@@ -190,7 +191,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const sugg = receptionSuggestions(xm, needSupplier ? [] : orders.data ?? [], writeSite);
   const docLines = x.lines ?? [];
   // BL regroupant plusieurs commandes : répartition ligne par ligne (fournisseur identique d'abord).
-  const multi = needSupplier ? null : dispatchDocLines(xm, (orders.data ?? []) as unknown as MoOrder[], writeSite);
+  const multi = needSupplier ? null : dispatchDocLines({ ...xm, lines: partLinesOnly(xm.lines) }, (orders.data ?? []) as unknown as MoOrder[], writeSite);
   const showMulti = !!multi && (multi.groups.length >= 2 || (multi.groups.length >= 1 && multi.ambiguous.length > 0));
   const unread = [!x.supplier && !sup ? "fournisseur" : null, !(x.invoice_number || x.delivery_note_number || x.document_number) ? "n° document" : null, !x.document_date ? "date" : null, !docLines.length ? "lignes pièces" : null].filter(Boolean);
   const [manual, setManual] = useState(false);
