@@ -8,7 +8,7 @@ import { hardAliasSupplier } from "@/lib/supplier-aliases";
 export const normSupplierName = (s: string | null | undefined) =>
   (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 
-const STOP = new Set(["sa", "sas", "sarl", "eurl", "snc", "ste", "societe", "ets", "etablissements", "et", "de", "des", "du", "la", "le", "les", "groupe", "sasu"]);
+const STOP = new Set(["sa", "sas", "sarl", "eurl", "snc", "ste", "societe", "ets", "etablissements", "et", "de", "des", "du", "la", "le", "les", "groupe", "sasu", "gmbh", "ltd", "sl", "srl", "spa", "bv", "inc", "cedex"]);
 const sig = (s: string) => normSupplierName(s).split(" ").filter((w) => w.length >= 3 && !STOP.has(w));
 
 const GENERIC = new Set(["auto", "autos", "automobile", "automobiles", "pieces", "piece", "distribution", "renault", "dacia", "garage", "concession", "agence", "service", "services"]);
@@ -81,7 +81,8 @@ export function resolveSupplier<T extends S>(name: string | null | undefined, su
   // (« FAURIE AXESS PREMIUM BRIVE » ≠ « FAURIE AUTO SARLAT »).
   const readSig = sig(clean).filter((w) => !GENERIC.has(w));
   const distinct = (sn: string) => { const w = sig(sn).filter((x) => !GENERIC.has(x)); return w.some((x) => !readSig.includes(x)) && readSig.some((x) => !w.includes(x)); };
-  const contains = active.filter((s) => names(s).some((sn) => sn.length >= 3 && sig(sn).filter((w) => !GENERIC.has(w)).length >= 2 && (n.includes(sn) || sn.includes(n)) && !distinct(sn)));
+  const groupOnly = (sn: string) => { const w = sig(sn).filter((x) => !GENERIC.has(x)); return w.length === 1 && readSig.filter((x) => !w.includes(x)).length >= 2; };
+  const contains = active.filter((s) => names(s).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n)) && !distinct(sn) && !groupOnly(sn)));
   if (contains.length === 1) return { kind: "found", supplier: contains[0]! };
   if (contains.length > 1) return { kind: "ambiguous", candidates: contains };
   // Mots significatifs : tous ceux de la fiche présents dans le nom lu (ordre indifférent).
