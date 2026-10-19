@@ -297,6 +297,26 @@ export function labelledDeliveryNote(text: string): { number: string; date: stri
   return { number: m[1]!, date: m[2] ? isoDate(m[2]) : null };
 }
 
+/** « (Duplicata) Facture n° X du JJ/MM/AAAA » : n° et date liés au document (prioritaires sur toute autre date). */
+export function labelledInvoice(text: string): { number: string; date: string | null } | null {
+  const re = /(?:duplicata\s+(?:de\s+)?)?facture\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*([A-Z]{0,3}\d[\dA-Z\-/]{3,})(?:\s*(?:du|le)\s*:?\s*(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}))?/gi;
+  for (const m of cleanText(text).matchAll(re)) {
+    if (/^\d{1,2}[/.\-]\d{1,4}([/.\-]\d{2,4})?$/.test(m[1]!)) continue;
+    return { number: m[1]!, date: m[2] ? isoDate(m[2]) : null };
+  }
+  return null;
+}
+
+/** Première date du document hors lignes de paiement / échéance / règlement / LCR. */
+export function documentDate(text: string): string | null {
+  for (const line of cleanText(text).split("\n")) {
+    if (/paiement|[ée]ch[ée]ance|r[èe]glement|\bl\.?\s?c\.?\s?r\b|payable|exigible/i.test(line)) continue;
+    const d = isoDate(line);
+    if (d) return d;
+  }
+  return null;
+}
+
 /**
  * Lecture OCR incohérente à faire relire par la vision : référence = chiffres d'un montant
  * (« 7117 » pour 71,17), PU = taux de remise imprimé, ou annotation « Commande … // … » sans OR ni immat.
@@ -816,10 +836,11 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
         ? "commande"
         : null;
   const secondary_refs = secondaryBlRefs(text);
-  const labelledBl = doc_kind === "bl" ? labelledDeliveryNote(text) : null;
-  const docNumber = labelledBl?.number ?? firstMatch(text.replace(/\*{1,3}\s*B\.?L\.?[^\n]*\*{0,3}/gi, " "), [
+  const labelledBl = doc_kind === "bl" ? labelledDeliveryNote(text) : doc_kind === "facture" ? labelledInvoice(text) : null;
+  const rawDocNumber = labelledBl?.number ?? firstMatch(text.replace(/\*{1,3}\s*B\.?L\.?[^\n]*\*{0,3}/gi, " "), [
     /(?:facture|bon de livraison|\bB\.?L\.?|n°\s*(?:de\s*)?(?:document|pi[eè]ce))\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*([A-Z]{0,3}\d[A-Z0-9\-/]{3,})/i,
   ]);
+  const docNumber = rawDocNumber && !/^\d{1,2}[/.\-]\d{1,4}([/.\-]\d{2,4})?$/.test(rawDocNumber) ? rawDocNumber : null;
   const order_reference = firstMatch(text, [/commande\s*(?:web|internet|en ligne|client|fournisseur)?\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
   const plate = findFrenchPlate(text);
   const orRaw = firstMatch(text, [OR_LABEL, /\bO\.?R\.?(?:\s*n[°o])?\s*[:#.]\s*(\d{4,7})\b/i]);
@@ -843,12 +864,12 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     supplier,
     supplier_info: headerSupplierInfo(text),
     document_number: docNumber,
-    document_date: labelledBl?.date ?? isoDate(text),
+    document_date: labelledBl?.date ?? documentDate(text),
     order_date: parsedOrderDate,
     delivery_note_number: doc_kind === "bl" ? docNumber : null,
     ...(secondary_refs.length ? { secondary_refs } : {}),
     invoice_number: doc_kind === "facture" ? docNumber : null,
-    invoice_date: doc_kind === "facture" ? isoDate(text) : null,
+    invoice_date: doc_kind === "facture" ? labelledBl?.date ?? documentDate(text) : null,
     order_reference: orderRef,
     or_number: orSingle ?? or_numbers[0] ?? null,
     plate,

@@ -155,3 +155,10 @@ Reste à faire :
 - [x] Rapprochement : réf. exactes prioritaires, autres commandes repliées
 - [ ] Renseigner TVA / site dans la fiche FAURIE AUTO SARLAT (donnée utilisateur)
 - [ ] Essai réel avec photos des BL 916076 / 916084 après publication
+
+# BL / factures photo — fail-closed (19/10)
+- [x] Vision en échec / contrôles en échec après relecture => « Lecture à vérifier », sans rattachement ni suggestion auto
+- [x] N° / date facture liés au libellé, dates de paiement/échéance/LCR exclues, n° en forme de date rejeté
+- [x] Fournisseur : SIRET/TVA d'abord, établissements d'un groupe distincts, nom de groupe seul insuffisant
+- [x] Lignes part/fee + code variante ; frais exclus du rapprochement ; filtre fournisseur sur recherche manuelle
+- [ ] Rescanner la facture Faurie Brive 02-5018641 après publication

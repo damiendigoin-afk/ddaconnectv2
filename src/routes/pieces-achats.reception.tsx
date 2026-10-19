@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { DocDropZone } from "@/components/parts/DocDropZone";
 import { orderMarker } from "@/lib/receipt-lines";
+import { partLinesOnly } from "@/lib/purchase-validate";
 import { ActiveSiteNote, Badge, btnGhost, btnPrimary, inputCls, numOrNull, OrPicker, SiteMismatchAlert, SupplierSelect, usePartsCtx, useSuppliers } from "@/components/parts/PartsUi";
 import { completeSimplifiedOrder, receiveAllShipped, recordShipment } from "@/lib/parts";
 import { filterBySupplier, hasPendingShipment, SHIPMENT_BANNER, shipmentQtyFromDoc, supplierFilterOptions, type ShipLine } from "@/lib/shipment-rules";
@@ -165,7 +166,10 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const x0 = doc.extracted;
   const x0p = x0.plate ?? findFrenchPlate([x0.handwritten_notes, ...(x0.lines ?? []).map((l) => l.label)].filter(Boolean).join(" | ")); const x = { ...x0, plate: x0p ? formatPlate(x0p) : null };
   const orders = useQuery({ queryKey: ["open-orders-match", writeSite], queryFn: () => listOrders({ siteId: writeSite }) });
-  const sup = matchSupplier(x.supplier, suppliers.data ?? []) ?? (suppliers.data ?? []).find((s) => s.id === docSupplierId(x, suppliers.data ?? [])) ?? null;
+  // Lecture à vérifier : seule une fiche rattachée explicitement compte, jamais une reconnaissance automatique par le nom.
+  const sup = x.requires_review
+    ? (suppliers.data ?? []).find((s) => s.id === x.supplier_id) ?? null
+    : matchSupplier(x.supplier, suppliers.data ?? []) ?? (suppliers.data ?? []).find((s) => s.id === docSupplierId(x, suppliers.data ?? [])) ?? null;
   // Immat lue : OR ouverts du site rattachés au véhicule (signal immat pour une commande simplifiée sans plaque).
   const plateKeyDoc = x.plate ? normalizePlate(x.plate) : "";
   const plateOrs = useQuery({
@@ -187,7 +191,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
   const sugg = receptionSuggestions(xm, needSupplier ? [] : orders.data ?? [], writeSite);
   const docLines = x.lines ?? [];
   // BL regroupant plusieurs commandes : répartition ligne par ligne (fournisseur identique d'abord).
-  const multi = needSupplier ? null : dispatchDocLines(xm, (orders.data ?? []) as unknown as MoOrder[], writeSite);
+  const multi = needSupplier ? null : dispatchDocLines({ ...xm, lines: partLinesOnly(xm.lines) }, (orders.data ?? []) as unknown as MoOrder[], writeSite);
   const showMulti = !!multi && (multi.groups.length >= 2 || (multi.groups.length >= 1 && multi.ambiguous.length > 0));
   const unread = [!x.supplier && !sup ? "fournisseur" : null, !(x.invoice_number || x.delivery_note_number || x.document_number) ? "n° document" : null, !x.document_date ? "date" : null, !docLines.length ? "lignes pièces" : null].filter(Boolean);
   const [manual, setManual] = useState(false);
@@ -232,11 +236,19 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
           <ul className="rounded border border-border p-1">
             {docLines.map((l, i) => {
               const bad = (x.suspect_lines ?? []).includes(i);
-              return <li key={i} className={bad ? "text-status-warn" : undefined}><b>{l.quantity ?? "?"} ×</b> {l.reference ?? "réf ?"} — {l.label ?? "—"}{l.unit_price != null ? ` · PU ${l.unit_price.toFixed(2)} €` : ""}{bad ? " · à vérifier" : ""}</li>;
+              const fee = l.line_kind === "fee";
+              return <li key={i} className={bad ? "text-status-warn" : undefined}>{fee ? <><Badge tone="muted">Frais</Badge>{" "}</> : null}<b>{l.quantity ?? "?"} ×</b> {fee && !l.reference ? "" : l.reference ?? "réf ?"}{l.variant_code ? ` [${l.variant_code}]` : ""} — {l.label ?? "—"}{l.amount != null ? ` · HT ${l.amount.toFixed(2)} €` : ""}{l.unit_price != null ? ` · PU ${l.unit_price.toFixed(2)} €` : ""}{bad ? " · à vérifier" : ""}</li>;
             })}
           </ul>
         ) : null}
         {x.secondary_refs?.length ? <p className="text-muted-foreground">Réf. BL source : {x.secondary_refs.join(", ")}</p> : null}
+        {x.requires_review ? (
+          <div className="rounded border-2 border-status-warn p-2 text-status-warn">
+            <p className="font-extrabold">Lecture à vérifier — aucun rattachement ni rapprochement automatique</p>
+            {x.review_reasons?.length ? <ul className="list-disc pl-4">{x.review_reasons.map((a, i) => <li key={i}>{a}</li>)}</ul> : null}
+            <p>Contrôlez le fournisseur, le n° et la date du document, puis confirmez le fournisseur avant de rapprocher.</p>
+          </div>
+        ) : null}
         {x.control_alerts?.length ? (
           <div role="alert" className="rounded border-2 border-status-warn p-2">
             <p className="font-extrabold">Lecture à vérifier</p>

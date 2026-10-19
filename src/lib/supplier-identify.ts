@@ -8,7 +8,7 @@ import { hardAliasSupplier } from "@/lib/supplier-aliases";
 export const normSupplierName = (s: string | null | undefined) =>
   (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 
-const STOP = new Set(["sa", "sas", "sarl", "eurl", "snc", "ste", "societe", "ets", "etablissements", "et", "de", "des", "du", "la", "le", "les", "groupe", "sasu"]);
+const STOP = new Set(["sa", "sas", "sarl", "eurl", "snc", "ste", "societe", "ets", "etablissements", "et", "de", "des", "du", "la", "le", "les", "groupe", "sasu", "gmbh", "ltd", "sl", "srl", "spa", "bv", "inc", "cedex"]);
 const sig = (s: string) => normSupplierName(s).split(" ").filter((w) => w.length >= 3 && !STOP.has(w));
 
 const GENERIC = new Set(["auto", "autos", "automobile", "automobiles", "pieces", "piece", "distribution", "renault", "dacia", "garage", "concession", "agence", "service", "services"]);
@@ -63,26 +63,31 @@ export type SupplierResolution<T extends S = S> =
 export function resolveSupplier<T extends S>(name: string | null | undefined, suppliers: T[], ids: (string | null | undefined)[] = []): SupplierResolution<T> {
   const clean = (name ?? "").replace(/\s+/g, " ").trim();
   const n = normSupplierName(clean);
-  const hard = hardAliasSupplier(clean, suppliers);
-  if (hard) return { kind: "found", supplier: hard };
-  // Identifiant fiscal lu = fiche portant ce même identifiant (le plus sûr).
+  // Identifiant fiscal lu (SIRET > TVA > site) = fiche portant ce même identifiant : prioritaire sur tout nom.
   const idKeys = ids.map((v) => (v ?? "").replace(/\s/g, "").toUpperCase()).filter((v) => v.length >= 6);
   if (idKeys.length) {
     const byId = suppliers.filter((s) => supplierIds(s.notes).some((k) => idKeys.includes(k)));
     if (byId.length === 1) return { kind: "found", supplier: byId[0]! };
   }
+  const hard = hardAliasSupplier(clean, suppliers);
+  if (hard) return { kind: "found", supplier: hard };
   if (n.length < 3) return { kind: "none" };
   const pool = suppliers.filter((s) => normSupplierName(s.name).length >= 3);
   const names = (s: T) => supplierNames(s).map(normSupplierName);
   const exact = pool.filter((s) => names(s).includes(n));
   if (exact.length) return { kind: "found", supplier: exact.find((s) => s.active !== false) ?? exact[0]! };
   const active = pool.filter((s) => s.active !== false);
-  const contains = active.filter((s) => names(s).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n))));
+  // Inclusion de nom : jamais sur un nom de groupe seul (« FAURIE ») ni entre deux établissements aux mots distinctifs différents
+  // (« FAURIE AXESS PREMIUM BRIVE » ≠ « FAURIE AUTO SARLAT »).
+  const readSig = sig(clean).filter((w) => !GENERIC.has(w));
+  const distinct = (sn: string) => { const w = sig(sn).filter((x) => !GENERIC.has(x)); return w.some((x) => !readSig.includes(x)) && readSig.some((x) => !w.includes(x)); };
+  const groupOnly = (sn: string) => { const w = sig(sn).filter((x) => !GENERIC.has(x)); return w.length === 1 && readSig.filter((x) => !w.includes(x)).length >= 2; };
+  const contains = active.filter((s) => names(s).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n)) && !distinct(sn) && !groupOnly(sn)));
   if (contains.length === 1) return { kind: "found", supplier: contains[0]! };
   if (contains.length > 1) return { kind: "ambiguous", candidates: contains };
   // Mots significatifs : tous ceux de la fiche présents dans le nom lu (ordre indifférent).
   const words = new Set(sig(clean));
-  const full = active.filter((s) => { const sw = sig(s.name); return sw.length > 0 && sw.every((w) => words.has(w)); });
+  const full = active.filter((s) => { const sw = sig(s.name); return sw.length > 0 && sw.every((w) => words.has(w)) && !groupOnly(s.name); });
   if (full.length === 1) return { kind: "found", supplier: full[0]! };
   if (full.length > 1) return { kind: "ambiguous", candidates: full };
   // Enseigne / groupe : « RENAULT SARLAT - GROUPE FAURIE » = « FAURIE AUTO SARLAT » (mots génériques ignorés).
@@ -125,6 +130,8 @@ export function draftToSupplierRow(d: SupplierDraft) {
 /** Fournisseur effectif d'un document : rattachement explicite d'abord, sinon correspondance sûre. */
 export function docSupplierId<T extends S>(x: InvoiceExtract, suppliers: T[]): string | null {
   // Alias codé en dur sur le nom lu (Distributeur) : prime sur un rattachement automatique erroné.
+  // Lecture à vérifier : seul un rattachement explicite (confirmé) compte.
+  if (x.requires_review) return x.supplier_id && suppliers.some((s) => s.id === x.supplier_id) ? x.supplier_id : null;
   const hard = hardAliasSupplier(x.supplier, suppliers);
   if (hard) return hard.id;
   if (x.supplier_id && suppliers.some((s) => s.id === x.supplier_id)) return x.supplier_id;

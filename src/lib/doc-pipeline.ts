@@ -48,7 +48,7 @@ export type PipelineDeps = {
   aiRenault?: () => Promise<Fields | null>;
 };
 
-export type PipelineResult = { fields: Fields; route: DocRoute; missing: string[]; aiCalls: number; visionFirst?: boolean };
+export type PipelineResult = { fields: Fields; route: DocRoute; missing: string[]; aiCalls: number; visionFirst?: boolean; visionFailed?: boolean };
 
 /** Texte OCR jugé exploitable pour un repli texte (sinon on passe directement à la vision). */
 export const MIN_TEXT_FOR_AI = 60;
@@ -92,9 +92,14 @@ export async function runDocPipeline(
     if (r) {
       const v = stripMeta(clean(r).fields);
       const m = mergeVisionFirst(v, fields, [...suspect, ...first.rejected]);
-      const out: Fields = { ...m.fields, read_provenance: { source: "vision", completed: m.completed, conflicts: m.conflicts } };
+      const out: Fields = { ...m.fields, read_provenance: { source: "vision", vision_initial: "ok", completed: m.completed, fallback_rules_fields: m.completed, conflicts: m.conflicts } };
       return { fields: out, route: "ai_vision_fallback", missing: missingFields(spec, out), aiCalls: 1, visionFirst: true };
     }
+    // Fail-closed : vision en échec sur une photo => jamais de lecture règles seule présentée comme fiable.
+    // Les règles ne gardent que les champs non suspects, sans fournisseur ni n° en forme de date ; « Lecture à vérifier ».
+    const m = mergeVisionFirst({}, fields, [...suspect, ...first.rejected]);
+    const out: Fields = { ...m.fields, read_provenance: { source: "ocr_rules", vision_initial: "failed", fallback_rules_fields: m.completed } };
+    return { fields: out, route: "manual", missing: missingFields(spec, out), aiCalls: 1, visionFirst: true, visionFailed: true };
   }
   // Lecture suspecte (valeur parasite rejetée) = champ manquant : le repli texte / vision peut le compléter.
   // Gabarit Renault fréquent : lecture complète => 0 IA ; incomplète => une seule passe vision dédiée.

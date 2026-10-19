@@ -3,6 +3,7 @@
  * site actif global, détection de site sur un document, commandes en attente,
  * rapprochement document ↔ commande. Aucune écriture ici.
  */
+import { partLinesOnly } from "@/lib/purchase-validate";
 import { normalizeRef } from "@/lib/parts-rules";
 import { supplierNames } from "@/lib/supplier-identify";
 import { hardAliasSupplier } from "@/lib/supplier-aliases";
@@ -88,7 +89,9 @@ export type DocExtractLite = {
   document_number?: string | null;
   delivery_note_number?: string | null;
   invoice_number?: string | null;
-  lines?: { reference: string | null; quantity?: number | null; label?: string | null; unit_price?: number | null }[] | null;
+  lines?: { reference: string | null; quantity?: number | null; label?: string | null; unit_price?: number | null; line_kind?: string | null }[] | null;
+  /** Lecture photo non fiable : aucune correspondance automatique. */
+  requires_review?: boolean | null;
   /** OR ouverts du site rattachés au véhicule de l'immat lue (repair_orders ↔ vehicles) : signal immat pour une commande sans plaque. */
   plate_or_numbers?: string[] | null;
 };
@@ -154,7 +157,7 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
   const lines = (order.part_order_lines ?? []) as LineLite[];
   const byRef = new Map(lines.map((l) => [normalizeRef(l.physical_reference ?? ""), l] as const).filter(([k]) => k));
   let common = 0;
-  for (const l of doc.lines ?? []) {
+  for (const l of partLinesOnly(doc.lines)) {
     const ol = l.reference ? byRef.get(normalizeRef(l.reference)) : undefined;
     if (!ol) continue;
     common++;
@@ -171,7 +174,7 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
     const price = diff == null || diff === 0 ? "" : diff <= 0.01 ? " (écart prix arrondi 0,01 €)" : ` (écart prix ${diff.toFixed(2).replace(".", ",")} €)`;
     reasons.push(`réf ${l.reference} exacte${qtyOk ? ` + qté ${l.quantity}` : ""}${price}`);
   }
-  const docRefs = new Set((doc.lines ?? []).map((l) => normalizeRef(l.reference ?? "")).filter(Boolean));
+  const docRefs = new Set(partLinesOnly(doc.lines).map((l) => normalizeRef(l.reference ?? "")).filter(Boolean));
   if (docRefs.size >= 2 && common >= docRefs.size) { score += 3; strong += 3; reasons.push("toutes les réf. du document présentes"); }
   // Une désignation proche seule ne compte jamais comme indice de rapprochement.
   return { score, strong, idMatch, refMatch: common > 0, orMatch, plateMatch, reasons };
@@ -190,7 +193,7 @@ export function matchOrders<T extends OrderLike>(doc: DocExtractLite, orders: T[
   const hasMark = !!((doc.or_number ?? "").replace(/\D/g, "") || plateKey(doc.plate));
   // Références pièces lisibles sur le BL : au moins une réf exacte commune est alors exigée,
   // même si fournisseur + OR/immat correspondent. Sans réf lisible, fournisseur + OR/immat suffit.
-  const hasReadableRefs = (doc.lines ?? []).some((l) => normalizeRef(l.reference ?? ""));
+  const hasReadableRefs = partLinesOnly(doc.lines).some((l) => normalizeRef(l.reference ?? ""));
   return pendingReceptionOrders(orders)
     .filter((o) => !siteId || o.site_id === siteId)
     // Plaques différentes = autre véhicule : jamais candidate.
@@ -232,7 +235,8 @@ export function otherReadNumbers(doc: DocExtractLite & { or_numbers?: string[] |
  * Deux « certaines » à égalité => ambiguïté : rétrogradées en probables (confirmation obligatoire).
  */
 export function receptionSuggestions<T extends OrderLike>(doc: DocExtractLite, orders: T[], siteId: string | null, max = 3) {
-  const all = matchOrders(doc, orders, siteId);
+  // Lecture à vérifier : aucune correspondance automatique (recherche manuelle seulement).
+  const all = doc.requires_review ? [] : matchOrders(doc, orders, siteId);
   let certain = all.filter((m) => m.level === "certain");
   if (certain.length > 1 && certain[0]!.score === certain[1]!.score) certain = [];
   const probable = all.filter((m) => !certain.includes(m)).slice(0, Math.max(0, max - Math.min(certain.length, max)));
@@ -265,6 +269,8 @@ export function searchPendingOrders<T extends OrderLike & { requested_or_number?
   const rel = (o: T) => (doc ? explainOrderMatch(doc, o) : null);
   const pending = pendingReceptionOrders(orders)
     .filter((o) => !siteId || o.site_id === siteId)
+    // Fournisseur du document identifié / confirmé : jamais les commandes d'un autre fournisseur.
+    .filter((o) => !doc?.supplier_id || o.supplier_id === doc.supplier_id)
     .map((o) => ({ o, s: rel(o)?.strong ? rel(o)!.score : 0 }))
     .sort((a, b) => b.s - a.s || (b.o.created_at ?? "").localeCompare(a.o.created_at ?? ""))
     .map((x) => x.o);
@@ -285,7 +291,7 @@ export function searchPendingOrders<T extends OrderLike & { requested_or_number?
  * fournisseur) sont repliées par l'écran : elles ne doivent pas concurrencer visuellement les références exactes.
  */
 export function splitByExactRef<T extends OrderLike>(orders: T[], doc: DocExtractLite | null | undefined): { exact: T[]; others: T[] } {
-  if (!doc || !(doc.lines ?? []).some((l) => normalizeRef(l.reference ?? ""))) return { exact: [], others: orders };
+  if (!doc || !partLinesOnly(doc.lines).some((l) => normalizeRef(l.reference ?? ""))) return { exact: [], others: orders };
   const exact: T[] = [], others: T[] = [];
   for (const o of orders) (explainOrderMatch(doc, o).refMatch ? exact : others).push(o);
   return { exact, others };
@@ -322,7 +328,10 @@ export function matchSupplier<T extends { id: string; name: string; active?: boo
   const pool = suppliers.filter((s) => s.active !== false && norm(s.name).length >= 3);
   // Nom ou enseigne/alias déclaré sur la fiche.
   const nc = n.replace(/ /g, "");
-  const hits = pool.filter((s) => supplierNames(s).map(norm).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n) || nc.includes(sn.replace(/ /g, "")))));
+  // Jamais un nom de groupe seul (« FAURIE ») ni deux établissements aux mots distinctifs différents.
+  const rw = sigWords(n);
+  const estOk = (sn: string) => { const w = sigWords(sn); const extraRead = rw.filter((x) => !w.includes(x)); const extraSup = w.filter((x) => !rw.includes(x)); return !(extraRead.length && extraSup.length) && !(w.length === 1 && extraRead.length >= 2); };
+  const hits = pool.filter((s) => supplierNames(s).map(norm).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n) || nc.includes(sn.replace(/ /g, ""))) && estOk(sn)));
   if (hits.length === 1) return hits[0]!;
   if (hits.length > 1) return null;
   // Mots significatifs communs, ordre indifférent (« X SARLAT - GROUPE FAURIE » ↔ « FAURIE AUTO SARLAT »).
@@ -333,7 +342,8 @@ export function matchSupplier<T extends { id: string; name: string; active?: boo
       const shared = sw.filter((w) => words.has(w)).length;
       // Mots distinctifs de part et d'autre (ex. SARLAT ≠ BERGERAC sur un groupe commun) : jamais la même fiche.
       const conflict = sw.some((w) => !words.has(w)) && [...words].some((w) => !sw.includes(w));
-      return { s, shared, ok: sw.length > 0 && !conflict && (shared >= 2 || (shared === sw.length && shared >= 1)) };
+      const groupOnly = sw.length === 1 && [...words].filter((w) => !sw.includes(w)).length >= 2;
+      return { s, shared, ok: sw.length > 0 && !conflict && !groupOnly && (shared >= 2 || (shared === sw.length && shared >= 1)) };
     })
     .filter((x) => x.ok)
     .sort((a, b) => b.shared - a.shared);
@@ -391,7 +401,7 @@ export function compareDocToOrder(doc: DocExtractLite, order: Pick<OrderLike, "p
   const byRef = new Map<string, LineLite>();
   for (const l of lines) { const k = normalizeRef(l.physical_reference ?? ""); if (k && !byRef.has(k)) byRef.set(k, l); }
   const docQty = new Map<string, { ref: string; qty: number | null; label: string | null }>();
-  for (const l of doc.lines ?? []) {
+  for (const l of partLinesOnly(doc.lines)) {
     const k = normalizeRef(l.reference ?? "");
     if (!k) continue;
     const prev = docQty.get(k);
