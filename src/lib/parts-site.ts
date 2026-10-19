@@ -322,7 +322,10 @@ export function matchSupplier<T extends { id: string; name: string; active?: boo
   const pool = suppliers.filter((s) => s.active !== false && norm(s.name).length >= 3);
   // Nom ou enseigne/alias déclaré sur la fiche.
   const nc = n.replace(/ /g, "");
-  const hits = pool.filter((s) => supplierNames(s).map(norm).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n) || nc.includes(sn.replace(/ /g, "")))));
+  // Jamais un nom de groupe seul (« FAURIE ») ni deux établissements aux mots distinctifs différents.
+  const rw = sigWords(n);
+  const estOk = (sn: string) => { const w = sigWords(sn); const extraRead = rw.filter((x) => !w.includes(x)); const extraSup = w.filter((x) => !rw.includes(x)); return !(extraRead.length && extraSup.length) && !(w.length === 1 && extraRead.length >= 2); };
+  const hits = pool.filter((s) => supplierNames(s).map(norm).some((sn) => sn.length >= 3 && (n.includes(sn) || sn.includes(n) || nc.includes(sn.replace(/ /g, ""))) && estOk(sn)));
   if (hits.length === 1) return hits[0]!;
   if (hits.length > 1) return null;
   // Mots significatifs communs, ordre indifférent (« X SARLAT - GROUPE FAURIE » ↔ « FAURIE AUTO SARLAT »).
