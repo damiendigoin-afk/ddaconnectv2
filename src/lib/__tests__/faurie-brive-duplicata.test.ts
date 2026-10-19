@@ -128,7 +128,7 @@ describe("pipeline photo : vision nulle => jamais de lecture règles seule fiabl
 
 describe("rapprochement", () => {
   const order = (id: string, supplier_id: string, name: string, lines: { physical_reference: string; designation: string }[]) => ({
-    id, status: "ordered", site_id: "s1", supplier_id, plate: "AC-598-XM", supplier_order_ref: null, created_at: "2026-10-10",
+    id, status: "ordered", site_id: "s1", supplier_id, plate: supplier_id === "oskarbi" ? "AC-598-XM" : null, supplier_order_ref: null, created_at: "2026-10-10",
     suppliers: { name }, part_order_lines: lines.map((l) => ({ ...l, line_kind: "part", status: "ordered", qty_ordered: 1, qty_received: 0 })),
   });
   const osk = order("o1", "oskarbi", "OSKARBI AUTO SL", [{ physical_reference: "PORT", designation: "Frais de port et emballage" }]);

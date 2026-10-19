@@ -342,7 +342,8 @@ export function matchSupplier<T extends { id: string; name: string; active?: boo
       const shared = sw.filter((w) => words.has(w)).length;
       // Mots distinctifs de part et d'autre (ex. SARLAT ≠ BERGERAC sur un groupe commun) : jamais la même fiche.
       const conflict = sw.some((w) => !words.has(w)) && [...words].some((w) => !sw.includes(w));
-      return { s, shared, ok: sw.length > 0 && !conflict && (shared >= 2 || (shared === sw.length && shared >= 1)) };
+      const groupOnly = sw.length === 1 && [...words].filter((w) => !sw.includes(w)).length >= 2;
+      return { s, shared, ok: sw.length > 0 && !conflict && !groupOnly && (shared >= 2 || (shared === sw.length && shared >= 1)) };
     })
     .filter((x) => x.ok)
     .sort((a, b) => b.shared - a.shared);
