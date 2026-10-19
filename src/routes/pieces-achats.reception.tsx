@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -293,7 +293,7 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
 }
 
 /** Liste manuelle : commandes à référence exacte d'abord ; les autres repliées quand il en existe. */
-function ManualOrderList<T extends Parameters<typeof splitByExactRef>[0][number]>({ found, doc, render }: { found: T[]; doc: Parameters<typeof splitByExactRef>[1]; render: (o: T) => React.ReactNode }) {
+function ManualOrderList<T extends Parameters<typeof splitByExactRef>[0][number]>({ found, doc, render }: { found: T[]; doc: Parameters<typeof splitByExactRef>[1]; render: (o: T) => ReactNode }) {
   const { exact, others } = splitByExactRef(found, doc);
   if (!exact.length) return <>{others.map(render)}</>;
   return (
