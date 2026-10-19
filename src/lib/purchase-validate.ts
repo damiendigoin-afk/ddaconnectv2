@@ -12,6 +12,7 @@ type L = {
   discount_pct?: number | null;
   gross_unit_price?: number | null;
   vat_pct?: number | null;
+  line_kind?: string | null;
 };
 type X = { lines?: L[] | null; total_ht?: number | null; vat_amount?: number | null; total_ttc?: number | null; shipping_ht?: number | null };
 
@@ -61,12 +62,53 @@ export function validatePurchase(x: X): PurchaseCheck {
       lines.forEach((_, i) => suspect.add(i));
     }
   }
+  // Totaux de pied lus (TVA / TTC) mais total HT absent : lecture incomplète, jamais fiable.
+  if (ht == null && (isNum(x.vat_amount) || ttc != null) && lines.length) {
+    fields.add("total_ht");
+    alerts.push("Total HT non lu alors que TVA / TTC sont présents");
+  }
   if (ht != null && isNum(x.vat_amount) && ttc != null && !near(ht + x.vat_amount, ttc, 0.05)) {
     fields.add("total_ttc");
     alerts.push(`Total HT ${eur(ht)} + TVA ${eur(x.vat_amount)} ≠ TTC ${eur(ttc)}`);
   }
   if (suspect.size) fields.add("lines");
   return { ok: !alerts.length, alerts: [...new Set(alerts)], suspectLines: [...suspect].sort((a, b) => a - b), suspectFields: [...fields] };
+}
+
+/** Ligne de frais (port, emballage, transport…) : comptée dans les totaux, jamais rapprochée comme une pièce. */
+const FEE_RE = /^(?:frais\s+(?:de\s+)?(?:port|transport|livraison|envoi|emballage|expedition|exp[ée]dition)|port(?:\s+(?:et|&)\s+emballage)?|port\s+ht|transport|emballage|participation\s+(?:aux\s+)?frais.*|frais\s+fixes?.*)$/i;
+export function classifyLineKind(l: { reference?: string | null; label?: string | null; line_kind?: string | null; amount?: number | null; quantity?: number | null; unit_price?: number | null }): "part" | "fee" | "info" {
+  const k = (l.line_kind ?? "").toLowerCase();
+  if (k === "fee" || k === "info") return k;
+  const t = (s: string | null | undefined) => (s ?? "").trim().replace(/\s+/g, " ").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (FEE_RE.test(t(l.label)) || FEE_RE.test(t(l.reference))) return "fee";
+  if (/^\*+\s*B\.?L\b/i.test(t(l.label)) || /^\*+\s*B\.?L\b/i.test(t(l.reference))) return "info";
+  return "part";
+}
+export const isFeeLine = (l: Parameters<typeof classifyLineKind>[0]) => classifyLineKind(l) === "fee";
+/** Lignes à rapprocher des commandes : pièces uniquement (frais et lignes d'information exclus). */
+export const partLinesOnly = <T extends Parameters<typeof classifyLineKind>[0]>(lines: T[] | null | undefined): T[] => (lines ?? []).filter((l) => classifyLineKind(l) === "part");
+
+/** N° de document en forme de date (« 10/2026 », « 16/10/2026 ») : jamais un n° de facture / BL. */
+export function isDateLikeNumber(v: string | null | undefined): boolean {
+  const s = (v ?? "").trim();
+  return /^\d{1,2}[/.\-]\d{2,4}$/.test(s) || /^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}$/.test(s);
+}
+
+/**
+ * Lecture à vérifier (fail-closed) pour une photo / un scan image : vision en échec, contrôles chiffrés en échec
+ * après relecture, aucune ligne, ou n° / date de document absents.
+ */
+export function reviewReasons(x: X & { invoice_number?: string | null; delivery_note_number?: string | null; document_number?: string | null; document_date?: string | null; supplier?: string | null }, opts: { visionFailed: boolean }): string[] {
+  const out: string[] = [];
+  if (opts.visionFailed) out.push("Lecture IA impossible : données issues de l'OCR seul");
+  const c = validatePurchase(x);
+  if (!c.ok) out.push("Contrôles chiffrés en échec");
+  if (!(x.lines ?? []).length) out.push("Aucune ligne lue");
+  if (!(x.invoice_number || x.delivery_note_number || x.document_number)) out.push("N° de document non lu");
+  if (!x.document_date) out.push("Date du document non lue");
+  if (!x.supplier) out.push("Fournisseur non lu");
+  return out;
 }
 
 const blank = (v: unknown) => v == null || v === "" || (Array.isArray(v) && !v.length);
@@ -84,8 +126,11 @@ export function mergeVisionFirst(vision: Record<string, unknown>, rules: Record<
   for (const [k, v] of Object.entries(rules)) {
     if (k.startsWith("_") || blank(v)) continue;
     if (rulesSuspect.includes(k)) continue;
+    // Les règles ne fournissent jamais le fournisseur d'une photo (en-tête lu par la vision) ni un n° en forme de date.
+    if (k === "supplier" || k === "supplier_info") { if (!blank(out[k]) && typeof v !== "object" && norm(v) !== norm(out[k])) conflicts.push(k); continue; }
+    if (["invoice_number", "delivery_note_number", "document_number"].includes(k) && isDateLikeNumber(String(v))) continue;
     if (blank(out[k])) { out[k] = v; completed.push(k); continue; }
-    if (["supplier", "delivery_note_number", "document_date", "total_ht"].includes(k) && typeof v !== "object" && norm(v) !== norm(out[k])) conflicts.push(k);
+    if (["delivery_note_number", "invoice_number", "document_date", "total_ht"].includes(k) && typeof v !== "object" && norm(v) !== norm(out[k])) conflicts.push(k);
   }
   return { fields: out, completed, conflicts };
 }
@@ -95,7 +140,7 @@ export function mergeVisionFirst(vision: Record<string, unknown>, rules: Record<
  * Sinon la première lecture reste, avec ses alertes « Lecture à vérifier ».
  */
 export function pickRecheck<T extends X & { control_alerts?: string[]; suspect_lines?: number[] }>(first: T, recheck: X | null): { value: T; used: boolean } {
-  if (!recheck || !(recheck.lines ?? []).length) return { value: first, used: false };
+  if (!recheck || !(recheck.lines ?? []).length || recheck.total_ht == null) return { value: first, used: false };
   const c = validatePurchase(recheck);
   if (!c.ok) return { value: first, used: false };
   const { control_alerts: _a, suspect_lines: _s, ...rest } = first;
