@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { btnPrimary, inputCls, useSuppliers } from "@/components/parts/PartsUi";
 import { linkDocSupplier, type InvoiceExtract } from "@/lib/supplier-docs";
-import { resolveSupplier, supplierDraftFromExtract, type SupplierDraft } from "@/lib/supplier-identify";
+import { docSupplierSignals, resolveSupplier, supplierDraftFromExtract, type SupplierDraft } from "@/lib/supplier-identify";
 import { addSupplierAlias, createSupplierFromDraft } from "@/lib/suppliers";
 
 const FIELDS: { k: keyof SupplierDraft; label: string; wide?: boolean }[] = [
@@ -41,7 +41,7 @@ export function DocSupplierLink({ extracted, docId, onLinked }: { extracted: Inv
   }
 
   const linked = linkedId ? list.find((s) => s.id === linkedId) : null;
-  const res = suppliers.data ? resolveSupplier(extracted.supplier, list, [extracted.supplier_info?.vat_number, extracted.supplier_info?.siret]) : null;
+  const res = suppliers.data ? resolveSupplier(extracted.supplier, list, docSupplierSignals(extracted.supplier_info)) : null;
 
   // Fiche existante sûre : rattachement automatique, une seule fois.
   useEffect(() => {
@@ -95,6 +95,9 @@ export function DocSupplierLink({ extracted, docId, onLinked }: { extracted: Inv
 
   return (
     <div className="space-y-2 rounded-lg border-2 border-brand p-2 text-xs">
+      {extracted.read_provenance?.conflicts?.includes("supplier") ? (
+        <p className="font-bold text-status-warn">Nom du fournisseur incertain (deux lectures différentes) : choisissez d'abord une fiche existante ci-dessous ; ne créez une fiche que si le fournisseur est vraiment nouveau.</p>
+      ) : null}
       <p><b>Nouveau fournisseur</b> : « {extracted.supplier} » n'existe pas encore. Vérifiez la fiche préremplie puis créez-la.</p>
       <div className="grid grid-cols-2 gap-2">
         {FIELDS.map((f) => (
