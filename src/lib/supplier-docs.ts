@@ -34,6 +34,11 @@ export type InvoiceLine = {
   discount_pct: number | null;
   amount: number | null;
   delay?: string | null;
+  /** Tarif brut HT unitaire avant remise (si lu). */
+  gross_unit_price?: number | null;
+  /** Taux de TVA de la ligne (jamais une quantité). */
+  vat_pct?: number | null;
+  amount_ttc?: number | null;
 };
 
 export type SupplierInfo = { address?: string | null; postal_code?: string | null; city?: string | null; phone?: string | null; email?: string | null; website?: string | null; siret?: string | null; vat_number?: string | null };
@@ -76,6 +81,12 @@ export type InvoiceExtract = {
   template?: string | null;
   /** Alertes de contrôle (ligne incomplète, écart de total) : à corriger, jamais validées silencieusement. */
   control_alerts?: string[];
+  /** Index des lignes dont les contrôles numériques échouent : « Lecture à vérifier ». */
+  suspect_lines?: number[];
+  /** Références BL source / documents liés lus dans le tableau (jamais le n° principal). */
+  secondary_refs?: string[];
+  /** Provenance de la lecture (vision d'abord, champs complétés par les règles, divergences). */
+  read_provenance?: { source: string; completed?: string[]; conflicts?: string[] } | null;
 };
 
 export type SupplierDoc = {
