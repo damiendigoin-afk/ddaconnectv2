@@ -270,7 +270,7 @@ export function searchPendingOrders<T extends OrderLike & { requested_or_number?
   const pending = pendingReceptionOrders(orders)
     .filter((o) => !siteId || o.site_id === siteId)
     // Fournisseur du document identifié / confirmé : jamais les commandes d'un autre fournisseur.
-    .filter((o) => !doc?.supplier_id || !o.supplier_id || o.supplier_id === doc.supplier_id)
+    .filter((o) => !doc?.supplier_id || o.supplier_id === doc.supplier_id)
     .map((o) => ({ o, s: rel(o)?.strong ? rel(o)!.score : 0 }))
     .sort((a, b) => b.s - a.s || (b.o.created_at ?? "").localeCompare(a.o.created_at ?? ""))
     .map((x) => x.o);
