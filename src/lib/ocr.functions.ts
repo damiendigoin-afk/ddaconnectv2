@@ -294,11 +294,24 @@ Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
       const p2 = second.ok ? parseJsonBlock(second.content) : null;
       if (p2) norm = mergeIdentifierPass(norm, parseIdentifierPass(p2));
     }
+    // Relecture ciblée unique (lignes + totaux) seulement si la vision d'abord échoue aux contrôles chiffrés.
+    if (result.visionFirst && norm.control_alerts?.length) {
+      const { pickRecheck } = await import("./purchase-validate");
+      const re = await askVision(LINES_RECHECK_PROMPT, data.dataUrl, data.filename, "supplier_invoice_recheck", { reasoning_effort: "low", max_tokens: 2500 });
+      const p3 = re.ok ? parseJsonBlock(re.content) : null;
+      const picked = pickRecheck(norm, p3 ? normalizePurchaseExtract({ ...norm, ...p3, control_alerts: [] }) : null);
+      if (picked.used) norm = normalizePurchaseExtract({ ...picked.value, read_provenance: { ...(norm.read_provenance ?? { source: "vision" }), completed: [...(norm.read_provenance?.completed ?? []), "lines_recheck"] } });
+    }
     if (result.missing.length) {
       return { ok: false as const, error: `Lecture incomplète (${result.missing.join(", ")}).`, json: JSON.stringify(norm) };
     }
     return { ok: true as const, error: "", json: JSON.stringify(norm) };
   });
+
+const LINES_RECHECK_PROMPT = `Relis UNIQUEMENT le tableau des articles et le bloc des montants de ce document d'achat (France).
+Réponds STRICTEMENT en JSON compact : {"lines":[{"reference":null,"label":null,"quantity":null,"gross_unit_price":null,"discount_pct":null,"amount":null,"unit_price":null,"vat_pct":null,"amount_ttc":null}],"total_ht":null,"vat_amount":null,"total_ttc":null}
+Lis colonne par colonne : Qté, tarif HT, remise %, montant HT, TVA %, TTC. La TVA n'est JAMAIS la quantité ; ne concatène jamais remise et montant ;
+référence et désignation séparées sans perdre de lettre. Les lignes « ** BL … DU … ** » ne sont pas des articles. null si illisible.`;
 
 const IDENT_PROMPT = `Document d'achat de pièces automobiles (France). Lis UNIQUEMENT les identifiants atelier dans les zones
 « Mes références », « Repère », « Repère commande », « Votre référence », « Réf client », « Véhicule », et les petites lignes

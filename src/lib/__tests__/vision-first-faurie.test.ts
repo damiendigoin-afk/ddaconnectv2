@@ -186,3 +186,18 @@ describe("H — rapprochement : réf. exactes >>> désignation proche ; partiel 
     expect(bougie.qty_doc).toBeNull();
   });
 });
+
+import { pickRecheck } from "../purchase-validate";
+describe("Relecture ciblée seulement si contrôles en échec", () => {
+  const bad = normalizePurchaseExtract({ ...VISION_916076, lines: [{ reference: "7717297600", label: "KIT", quantity: 20, unit_price: 4500109.88, vat_pct: 20 }, VISION_916076.lines[1]] });
+  it("relecture cohérente retenue, alertes levées", () => {
+    const r = pickRecheck(bad, { lines: VISION_916076.lines, total_ht: 125.29, vat_amount: 25.06, total_ttc: 150.35 });
+    expect(r.used).toBe(true);
+    expect(normalizePurchaseExtract(r.value).control_alerts ?? []).toEqual([]);
+  });
+  it("relecture elle aussi incohérente : première lecture et alertes conservées", () => {
+    const r = pickRecheck(bad, { lines: [{ reference: "X", quantity: 20, unit_price: 1, amount: 3 }], total_ht: 125.29 });
+    expect(r.used).toBe(false);
+    expect(r.value.control_alerts?.length).toBeGreaterThan(0);
+  });
+});
