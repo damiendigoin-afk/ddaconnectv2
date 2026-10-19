@@ -135,6 +135,14 @@ export function mergeVisionFirst(vision: Record<string, unknown>, rules: Record<
   return { fields: out, completed, conflicts };
 }
 
+/** Relecture ciblée nécessaire : vision nulle, contrôles en échec, aucune ligne, ou TVA/TTC lus sans total HT. */
+export function needsLinesRecheck(x: X & { control_alerts?: string[] }, visionFailed: boolean): boolean {
+  if (visionFailed) return true;
+  if (!(x.lines ?? []).length) return true;
+  if (x.total_ht == null && (isNum(x.vat_amount) || isNum(x.total_ttc))) return true;
+  return !!x.control_alerts?.length || !validatePurchase(x).ok;
+}
+
 /**
  * Relecture ciblée (lignes + totaux) après échec des contrôles : retenue seulement si ELLE passe les contrôles.
  * Sinon la première lecture reste, avec ses alertes « Lecture à vérifier ».

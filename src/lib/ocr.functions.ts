@@ -4,6 +4,7 @@ import { z } from "zod";
 import { askVision, parseJsonBlock } from "./ocr.server";
 import { OR_SCAN_MODEL } from "./or-scan-model";
 import { learnSupplierProfile, readDocument } from "./doc-pipeline.server";
+import { needsLinesRecheck, pickRecheck, reviewReasons } from "./purchase-validate";
 import { plausibleMileage, type DocKind } from "./doc-rules";
 import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
 
@@ -28,10 +29,11 @@ async function viaPipeline(
 ) {
   const r = await readDocument({ feature, kind, prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename, visionExtra, model });
   const any = Object.values(r.fields).some((v) => v != null && v !== "" && !(Array.isArray(v) && !v.length) && !(typeof v === "object" && !Array.isArray(v) && !Object.keys(v as object).length));
-  if (!any) {
+  // Photo dont la vision a échoué : on continue quand même (relecture ciblée puis « Lecture à vérifier »).
+  if (!any && !r.visionFailed) {
     return { ok: false as const, error: "Lecture automatique sans résultat : complétez les informations manuellement.", route: r.route, content: "", missing: r.missing };
   }
-  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "", missing: r.missing, visionFirst: !!r.visionFirst };
+  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "", missing: r.missing, visionFirst: !!r.visionFirst, visionFailed: !!r.visionFailed };
 }
 
 /**
@@ -47,6 +49,11 @@ const PURCHASE_VISION_RULES = `LECTURE VISUELLE DES COLONNES (obligatoire) :
 - La colonne TVA (ex. 20) n'est JAMAIS la quantité. Ne concatène JAMAIS la remise et un montant (45,00 % puis 109,88 => discount_pct 45, amount 109.88).
 - total_ht, vat_amount, total_ttc : bloc des montants en bas (« Montant HT », « TVA », « Net à payer / TTC »), jamais le total hors remise.
 - or_number / plate : uniquement s'ils sont imprimés ; n'invente jamais d'OR ni d'immatriculation.
+- FACTURE : invoice_number = numéro qui suit « (Duplicata) Facture n° X du JJ/MM/AAAA » ; document_date = la date de CE libellé.
+  Jamais une date de paiement, d'échéance, de règlement ni « L.C.R. » comme document_date ; jamais une date (ex. 10/2026) comme numéro.
+- supplier = nom COMPLET de l'établissement émetteur tel qu'imprimé (ex. enseigne + ville), jamais réduit au nom du groupe.
+- Chaque ligne porte line_kind : "part" (pièce), "fee" (PORT, frais de port, emballage, transport : garde-la avec son montant, elle compte dans les totaux), "info" (ligne d'information).
+  variant_code = code complément imprimé à côté de la référence (ex. « MX3 ») ; il n'est JAMAIS collé à la référence.
 - Ajoute "secondary_refs":[] au JSON. null pour tout champ illisible.`;
 
 export const ocrRepairOrder = createServerFn({ method: "POST" })
@@ -294,13 +301,24 @@ Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
       const p2 = second.ok ? parseJsonBlock(second.content) : null;
       if (p2) norm = mergeIdentifierPass(norm, parseIdentifierPass(p2));
     }
-    // Relecture ciblée unique (lignes + totaux) seulement si la vision d'abord échoue aux contrôles chiffrés.
-    if (result.visionFirst && norm.control_alerts?.length) {
-      const { pickRecheck } = await import("./purchase-validate");
+    // Relecture ciblée unique (lignes + totaux) : vision nulle, contrôles en échec, total HT absent ou lignes insuffisantes.
+    let recheckUsed = false;
+    if (result.visionFirst && data.dataUrl && needsLinesRecheck(norm, !!result.visionFailed)) {
       const re = await askVision(LINES_RECHECK_PROMPT, data.dataUrl, data.filename, "supplier_invoice_recheck", { reasoning_effort: "low", max_tokens: 2500 });
       const p3 = re.ok ? parseJsonBlock(re.content) : null;
       const picked = pickRecheck(norm, p3 ? normalizePurchaseExtract({ ...norm, ...p3, control_alerts: [] }) : null);
-      if (picked.used) norm = normalizePurchaseExtract({ ...picked.value, read_provenance: { ...(norm.read_provenance ?? { source: "vision" }), completed: [...(norm.read_provenance?.completed ?? []), "lines_recheck"] } });
+      if (picked.used) { recheckUsed = true; norm = normalizePurchaseExtract(picked.value); }
+    }
+    // Fail-closed sur photo : vision en échec ou contrôles toujours en échec => « Lecture à vérifier », sans rattachement auto.
+    if (result.visionFirst) {
+      const reasons = reviewReasons(norm, { visionFailed: !!result.visionFailed });
+      const prov = norm.read_provenance ?? { source: result.visionFailed ? "ocr_rules" : "vision" };
+      norm = normalizePurchaseExtract({
+        ...norm,
+        ...(reasons.length ? { requires_review: true, review_reasons: reasons, supplier_id: null } : {}),
+        read_provenance: { ...prov, vision_initial: result.visionFailed ? "failed" : "ok", recheck_used: recheckUsed, fallback_rules_fields: prov.fallback_rules_fields ?? prov.completed ?? [], requires_review: reasons.length > 0 },
+      });
+      if (reasons.length) return { ok: true as const, error: "", json: JSON.stringify(norm) };
     }
     if (result.missing.length) {
       return { ok: false as const, error: `Lecture incomplète (${result.missing.join(", ")}).`, json: JSON.stringify(norm) };
@@ -309,9 +327,9 @@ Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
   });
 
 const LINES_RECHECK_PROMPT = `Relis UNIQUEMENT le tableau des articles et le bloc des montants de ce document d'achat (France).
-Réponds STRICTEMENT en JSON compact : {"lines":[{"reference":null,"label":null,"quantity":null,"gross_unit_price":null,"discount_pct":null,"amount":null,"unit_price":null,"vat_pct":null,"amount_ttc":null}],"total_ht":null,"vat_amount":null,"total_ttc":null}
+Réponds STRICTEMENT en JSON compact : {"lines":[{"line_kind":"part","reference":null,"variant_code":null,"label":null,"quantity":null,"gross_unit_price":null,"discount_pct":null,"amount":null,"unit_price":null,"vat_pct":null,"amount_ttc":null}],"total_ht":null,"vat_amount":null,"total_ttc":null}
 Lis colonne par colonne : Qté, tarif HT, remise %, montant HT, TVA %, TTC. La TVA n'est JAMAIS la quantité ; ne concatène jamais remise et montant ;
-référence et désignation séparées sans perdre de lettre. Les lignes « ** BL … DU … ** » ne sont pas des articles. null si illisible.`;
+référence et désignation séparées sans perdre de lettre. Les lignes « ** BL … DU … ** » ne sont pas des articles. PORT / frais de port = line_kind "fee" (avec son montant). null si illisible.`;
 
 const IDENT_PROMPT = `Document d'achat de pièces automobiles (France). Lis UNIQUEMENT les identifiants atelier dans les zones
 « Mes références », « Repère », « Repère commande », « Votre référence », « Réf client », « Véhicule », et les petites lignes
