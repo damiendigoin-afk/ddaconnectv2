@@ -49,7 +49,7 @@ const close = (a: number, b: number) => Math.abs(a - b) <= Math.max(0.02, Math.a
  * PA unitaire attendu : le montant net de ligne (÷ quantité) prime sur un « prix client / public ».
  * Si la somme des montants nets est cohérente avec le total HT, elle fait foi.
  */
-type NormLine = InvoiceLine & { client_price?: number | null; isolated_number?: string | null };
+type NormLine = InvoiceLine & { client_price?: number | null; isolated_number?: string | null; _info?: boolean };
 
 /**
  * Dossier atelier imprimé seul sous la désignation (BL Renault/Faurie…) : retenu seulement
@@ -105,7 +105,7 @@ function normLine(l: Raw): NormLine {
     client_price: clientPrice,
   };
   const kind = classifyLineKind({ ...base, line_kind: str(l["line_kind"]) });
-  return { ...base, line_kind: kind, ...(variant ? { variant_code: variant } : {}) };
+  return { ...base, line_kind: kind === "fee" ? "fee" : "part", ...(kind === "info" ? { _info: true } : {}), ...(variant ? { variant_code: variant } : {}) };
 }
 
 function supplierInfo(v: unknown): SupplierInfo | null {
@@ -122,7 +122,8 @@ function supplierInfo(v: unknown): SupplierInfo | null {
 export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   const o = (input && typeof input === "object" ? input : {}) as Raw;
   const rawLines = rows(o);
-  let lines = rawLines.map(normLine).filter((l) => l.reference || l.label);
+  // Lignes d'information (« ** BL … DU … ** ») : jamais des articles.
+  let lines = rawLines.map(normLine).filter((l) => (l.reference || l.label) && !(l as { _info?: boolean })._info);
   const totalHt = num(o.total_ht);
 
   // Cohérence globale : si les montants nets somment au total HT, ils fixent le PA unitaire.
@@ -187,7 +188,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   const orNumbers = [...new Set([orNumber, ...(Array.isArray(o["or_numbers"]) ? (o["or_numbers"] as unknown[]).map((v) => digits(str(v))) : [])]
     .filter((v): v is string => !!v && /^\d{5,6}$/.test(v) && !notOr.has(v) && (v === orNumber || !embedded(v))))].slice(0, 8);
   if (!orNumber && orNumbers.length) orNumber = orNumbers[0]!;
-  const outLines = lines.map(({ client_price: _c, isolated_number: _i, ...l }) => l);
+  const outLines = lines.map(({ client_price: _c, isolated_number: _i, _info: _f, ...l }) => l);
   const check = validatePurchase({ lines: outLines, total_ht: totalHt, vat_amount: num(o.vat_amount), total_ttc: num(o.total_ttc), shipping_ht: num(o["shipping_ht"]) });
   const prevAlerts = Array.isArray(o["control_alerts"]) ? (o["control_alerts"] as unknown[]).map((v) => String(v)) : [];
   const alerts = [...new Set([...prevAlerts, ...check.alerts])];

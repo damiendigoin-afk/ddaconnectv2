@@ -39,8 +39,8 @@ export type InvoiceLine = {
   /** Taux de TVA de la ligne (jamais une quantité). */
   vat_pct?: number | null;
   amount_ttc?: number | null;
-  /** part = pièce ; fee = frais (port, emballage) inclus dans les totaux mais jamais rapprochés ; info = ligne d'information. */
-  line_kind?: "part" | "fee" | "info" | null;
+  /** part = pièce ; fee = frais (port, emballage) inclus dans les totaux mais jamais rapprochés comme pièce. */
+  line_kind?: "part" | "fee";
   /** Code complément / variante imprimé à côté de la référence (ex. MX3), sans altérer la référence. */
   variant_code?: string | null;
 };
