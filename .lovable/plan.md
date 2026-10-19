@@ -1,56 +1,39 @@
-# Diagnostic BL FAURIE AUTO SARLAT 916076 (et 916084)
+# Diagnostic — duplicata facture FAURIE AXESS PREMIUM BRIVE (lecture seule)
 
-Lecture seule : aucun code ni aucune donnée modifiés. Ce qui est « confirmé » ci-dessous vient du code. Ce qui est « probable » reste à vérifier sur le texte OCR brut, qui n'est pas enregistré.
+## Ce qui est confirmé par le code et les journaux
+- La lecture « vision d'abord » est bien en production : les appels IA d'aujourd'hui (ex. 15:19 UTC, `01a154bf-…`) utilisent le nouveau prompt (`secondary_refs`, règle « ** BL … ** »). Je n'ai **pas** retrouvé l'appel correspondant à cette photo Brive parmi les traces de 12:00 à 15:35 UTC (les corps sont tronqués) : la sortie brute de la vision pour ce document **n'est pas confirmée**.
+- Tous les symptômes (n° « 10/2026 », date = date de paiement, une seule ligne « FRAIS DE PORT » sans réf/qté, fournisseur Sarlat) correspondent à la sortie des **règles OCR**, pas à une lecture vision correcte. Deux chemins y mènent :
+  1. La vision échoue ou renvoie un JSON illisible → `runDocPipeline` retombe sur l'ancien chemin règles d'abord (`doc-pipeline.ts` l.88-98 : aucun garde-fou si `r` est nul).
+  2. La vision laisse des champs vides → `mergeVisionFirst` (`purchase-validate.ts` l.79) les remplit avec les règles sans contrôle de plausibilité ; `invoice_number` n'est même pas comparé.
 
-## 1. Bloc « Repères atelier / N° lus / 20 × … PU … »
-- **Où il est construit** : `pieces-achats.reception.tsx:230-233`. Il affiche tel quel `x.lines` (`docLines = x.lines`, ligne 188), donc les lignes déjà lues par `purchaseRules` (`doc-rules.ts`) puis passées par `normalizePurchaseExtract` (`purchase-extract.ts`).
-- **Pourquoi c'est faux** : le format FAURIE n'a pas de gabarit dédié. Les règles génériques (`parseItemLines` / lecteur tolérant, `doc-rules.ts:~270`) découpent mal ses colonnes (réf · désignation · qté · tarif HT · remise % · montant HT · TVA % · TTC). Origine probable de chaque valeur fausse :
-  - **qty 20** : la quantité est cherchée dans un petit entier isolé en fin de zone (`tailInt` / `afterPrice`). C'est la colonne « TVA 20 % » qui est prise.
-  - **PU 4500109.88** : le motif de montant accepte les séparateurs de milliers par espace ou point (`\d{1,6}(?:[ .]\d{3})*[.,]\d{2}`). Ainsi « 45,00 % 109,88 » se lit comme un seul nombre, ou « 4500 » s'accole devant 109,88.
-  - **7M945852 et 0.77** : l'OCR lit « 11 » comme « M ». La référence dégradée fait décaler les montants. Ensuite `normLine` recalcule PU = montant ÷ qté avec qté = 20, soit 15,41 ÷ 20 = 0,77. C'est cohérent avec la quantité fausse.
-- **Pourquoi la vision n'a pas corrigé** : des lignes existent, donc le champ requis « lines » est rempli. Aucun contrôle du type somme des lignes = total HT, ou tarif × (1 − remise) = montant, ne les marque comme douteuses.
+## Causes par point
+1. **Sortie brute / passage à SARLAT** : non tracé pour ce document. Le nom ne vient pas de la résolution des fiches : `resolveSupplier` ne relierait pas « FAURIE AXESS PREMIUM BRIVE » à SARLAT (la règle par mots-clés exige « sarlat »). Le nom erroné est donc **lu** ainsi en amont, par `detectSupplier` (`doc-rules.ts` l.117 : profils appris par mots d'en-tête, ≥3 mots communs) ou un nom explicite. C'est probable, mais pas confirmé.
+2. **Établissements Faurie** : `supplier_info` (SIRET/TVA/adresse) n'est utilisé que comme indice secondaire. Il ne bloque jamais un nom lu par les règles, et l'écran ne compare pas le CP/la ville de l'en-tête à la fiche.
+3. **N° « 10/2026 »** : regex `doc-rules.ts` ~l.821 `facture … ([A-Z]{0,3}\d[A-Z0-9\-/]{3,})` accepte « / » et capture un fragment de date ; pas de rejet des formes date (`\d{1,2}/\d{4}`).
+4. **Date = paiement** : `document_date: labelledBl?.date ?? isoDate(text)` prend la **première date du texte**, sans priorité au libellé « FACTURE N° X du JJ/MM/AAAA » ni exclusion « date de paiement / échéance / règlement ».
+5. **Ligne GRILLE perdue** : cause non confirmée (sortie vision absente). Le schéma vision n'a pas de champ « complément / variante » (MX3) : une réf suivie d'un code peut être rejetée par la normalisation des références. À vérifier sur la trace.
+6. **PORT traité comme pièce** : le schéma vision et `normalizePurchaseExtract` n'ont aucun `line_kind` ; « PORT / FRAIS DE PORT » devient une ligne pièce sans réf. `shipping_ht` existe dans le contrôle mais n'est jamais renseigné depuis une ligne.
+7. **Candidat OSKARBI** : `receptionSuggestions` (`parts-site.ts` l.265-280) **ne filtre pas par fournisseur**. Sans recherche, il renvoie les commandes en attente du site triées par score. Avec une recherche, il filtre sur le texte (désignation « frais de port »). `explainOrderMatch` met bien le score à 0 hors fournisseur, mais la commande reste dans la liste, et `splitByExactRef` la range dans « autres ». C'est confirmé.
+8. **Contrôles chiffrés** : `validatePurchase` n'alerte que si `total_ht` est lu. Avec les règles seules (totaux absents ou faux), aucune alerte. De plus, les alertes ne bloquent ni l'affichage ni le rattachement fournisseur.
+9. **Relecture ciblée** : elle ne s'exécute que si `result.visionFirst && control_alerts` (`ocr.functions.ts` l.298). Sur le chemin de repli règles (vision nulle), `visionFirst` est faux, donc pas de relecture. Si elle s'exécute, `pickRecheck` ne la retient que si elle passe tous les contrôles ; sinon la première lecture reste, sans blocage.
 
-## 2. Cartes de réception correctes
-- Ces cartes ne viennent **pas** du BL. Après « Rapprocher » / « Confirmer l'association », les lignes viennent de la **commande** (`part_order_lines` : `qty_ordered`, `expected_unit_cost_ht`, `physical_reference`). C'est pourquoi on y voit « Commandée 1 » et le PA 109,88 / 15,41 de la commande.
-- `receiptLinesFromDoc(x.lines)` (ligne 423) ne sert qu'en réception sans commande. Il y a donc deux sources différentes : les lignes lues sur le BL (fausses) et les lignes de la commande (justes).
-- **Question 8** : « Commandée » s'affiche seulement une fois une commande associée. Cela ne valide rien avant le clic, mais il y a un risque : la quantité reçue préremplie peut reprendre le reliquat de la commande au lieu de la quantité réellement livrée. Si le BL était lu correctement, la comparaison BL / commande (`compareDocToOrder`) l'aurait signalé. Avec qty 20 lue, elle signale à tort « au-delà du reliquat ».
+## Correctif générique recommandé
+1. **Échec vision = lecture à vérifier**, pas de retour silencieux aux règles pour les photos : statut « Lecture à vérifier », pas de rattachement fournisseur automatique.
+2. **Fusion vision/règles** : n'ajouter un champ des règles que s'il est plausible (n° ≠ forme date, date ≠ date de paiement). Ajouter `invoice_number` aux conflits.
+3. **Règles facture** : regex n° excluant les formes date ; date liée au libellé « FACTURE/BL N° … du » prioritaire ; dates « paiement / échéance / règlement / LCR » exclues de `document_date`.
+4. **Fournisseur** : SIRET/TVA lus prioritaires. Une fiche dont la ville ou le CP diffère de l'en-tête est rejetée ; le nom de groupe seul (« FAURIE ») n'est jamais suffisant. En cas de conflit nom/SIRET : confirmation.
+5. **Vision** : champs `line_kind` (`part|fee|info`) et `variant_code` dans le schéma ; PORT/emballage/consigne → `fee`, comptés dans les totaux, jamais rapprochés comme pièces.
+6. **Contrôle bloquant** : si somme lignes ≠ total HT après relecture → bandeau « Lecture à vérifier », lignes non préremplies comme reçues. Relecture aussi déclenchée quand `total_ht` est lu mais que les lignes sont vides ou incomplètes.
+7. **Rapprochement** : `receptionSuggestions` et la recherche manuelle filtrent sur `sameSupplier` dès que le fournisseur du document est identifié. Les autres fournisseurs ne s'affichent que sur une action explicite « chercher chez tous les fournisseurs », avec un avertissement.
+8. **Traçabilité** : enregistrer `read_provenance` (vision ok/échec, relecture utilisée, champs complétés par les règles) pour diagnostiquer les prochains cas.
 
-## 3. 916076 et 328167
-- 916076 est le n° du **duplicata de bon de livraison**. « ** BL 328167 DU … ** » est une **ligne d'information du tableau**, qui renvoie au BL d'origine ou au BL du magasin.
-- `purchaseRules` retient le **premier** « bon de livraison / BL + n° » trouvé dans le texte. Ici c'est 916076, par chance. Si la ligne du tableau avait été lue avant l'en-tête, ce serait 328167. « N° lus » affiche les deux, car `ref_candidates` / identifiants regroupe tous les numéros trouvés.
-- **Attendu** : `delivery_note_number` = le n° qui suit « (duplicata de) bon de livraison n° … du … » dans l'en-tête. Le n° de la ligne « ** BL … DU … ** » est gardé comme référence secondaire (`source_bl_ref` ou `ref_candidates`). Cette ligne ne doit jamais devenir une ligne de pièce. La règle repose sur le libellé, pas sur les valeurs.
-
-## 4. Rapprochement : OR 51189 contre OR 51146 / 51148
-- `matchOrders` / `receptionSuggestions` (`parts-site.ts:132-236`) respecte déjà la priorité métier. Une référence lisible exige au moins une référence exacte commune, et une désignation proche n'apporte aucun point (ligne 173). **OR 51189 est donc proposé à juste titre**, grâce à 7717297600.
-- La deuxième référence exacte (7711945852) n'a pas été comptée, car le BL donne « 7M945852 ». Le score ne monte pas autant qu'il le devrait.
-- **OR 51146 et 51148 ne viennent pas de `matchOrders`.** Ils viennent très probablement de la liste manuelle `searchPendingOrders` (`parts-site.ts:259`). Cette liste montre **toutes** les commandes en attente du site et du fournisseur, triées par pertinence, donc aussi celles sans aucune référence commune. Le texte « désignation proche » affiché sur ces cartes est à localiser précisément dans l'écran avant de corriger.
-- Un écart de points trop faible : la 2e référence exacte rapporte +1 et la 3e +1, contre +3 pour la première. Une commande qui contient les deux références du BL ne se détache pas assez.
-- **Partiel 2 lignes sur 3 (question 7)** : déjà couvert. `compareDocToOrder` classe la bougie 8550503297 en `not_in_doc`, sans quantité reçue. À garder dans les tests.
-
-## Correctif recommandé (minimal, générique)
-1. **Une seule source pour les lignes du BL** : ajouter dans `doc-rules.ts` un lecteur « tableau avec colonnes remise % et TVA % ». Repérer la ligne d'en-tête des colonnes, puis, pour chaque ligne :
-   - ignorer les pourcentages (`\d+,\d{2}\s*%`) et les petits entiers suivis de « % » comme quantité ;
-   - refuser un montant à espace des milliers si les deux morceaux sont séparés par « % » ;
-   - vérifier que tarif × (1 − remise) × qté = montant HT (à 0,02 € près), sinon la ligne est marquée douteuse.
-2. **Contrôle global** : somme des montants HT = total HT, et HT + TVA = TTC. En cas d'écart, `lines` va dans `_suspect`, ce qui relance la vision et remplace les lignes douteuses (mécanisme existant de `mergeAi`). Une alerte de contrôle s'affiche comme pour Renault.
-3. **Référence corrigée par la commande** : quand une référence lue ne correspond à aucune commande mais diffère d'une seule confusion OCR (M↔11, O↔0, I↔1) d'une référence de **la même commande candidate**, l'écran le propose comme écart à confirmer. Aucune correction n'est faite automatiquement.
-4. **N° de BL** : priorité au libellé « (duplicata de) bon de livraison n° X du date ». La date du document est celle de ce libellé. Les lignes « ** BL … DU … ** » sont gardées comme référence secondaire et exclues des lignes de pièces.
-5. **Points de rapprochement** : chaque référence exacte compte au moins autant que la première, plus un bonus quand toutes les références du BL sont dans la commande. Dans la liste manuelle, les commandes sans référence commune vont dans un groupe replié « Autres commandes du fournisseur ».
-6. **Bloc « N° lus »** : afficher l'alerte de contrôle quand les lignes sont douteuses, au lieu de montrer « 20 × … PU 4500109.88 » comme une valeur fiable.
-
-## Tests à prévoir (fixture texte synthétique Faurie 916076 / 916084)
-- Lignes lues : 7717297600 qté 1 PU 109,88 et 7711945852 qté 1 PU 15,41. La TVA 20 n'est jamais prise pour une quantité, et la remise 45,00 ne colle jamais au montant.
-- Somme 125,29 = total HT. Une variante altérée donne une alerte et marque les lignes douteuses.
-- `delivery_note_number` = 916076, et 328167 est conservé à part, même si la ligne « BL 328167 » apparaît en premier dans le texte.
-- Variante OCR « 7M945852 » : proposée comme écart vers 7711945852 de la commande candidate, jamais appliquée seule.
-- Rapprochement : une commande avec les deux références exactes passe devant une commande « FILTRE A HUILE VALUE+ », qui n'apparaît pas dans les propositions. Commande à 3 lignes : la bougie est `not_in_doc` et n'est pas reçue.
-- 916084 : « 284421319R CAMERA AIDE STATIONNEMENT » et la variante collée « 284421319RCAMERA » donnent « CAMERA… », remise 13 % et 88,56.
-- Non-régression avec les fixtures actuelles (Renault, BL 914963 / 914776, PAD) et `reception-confirm-gaps`.
+## Tests à prévoir (fixture « duplicata facture Faurie Brive », numéros = données de test)
+- Vision simulée complète → n° 02-5018641, date 2026-10-16, 2 lignes (GRILLE part 344,34 ; PORT fee 14), totaux cohérents.
+- Vision nulle → statut à vérifier, aucun fournisseur rattaché automatiquement.
+- Règles : « Date de paiement 30/11/2026 » jamais `document_date` ; « 10/2026 » jamais n° ; regex sans faux positif sur les PDF existants (CAZES/Autodoc/PAD/Renault).
+- `resolveSupplier` : « FAURIE AXESS PREMIUM BRIVE » ≠ « FAURIE AUTO SARLAT » ; un SIRET lu l'emporte.
+- Une seule ligne 14 € avec HT 358,34 → alerte + relecture ; relecture invalide → lecture à vérifier.
+- `receptionSuggestions` : document Faurie identifié → aucune commande OSKARBI, même en cherchant « frais de port ».
 
 ## Fichiers concernés
-`src/lib/doc-rules.ts` (lecteur des lignes, n° de BL, contrôle des totaux), `src/lib/doc-pipeline.ts` (lignes douteuses ⇒ vision), `src/lib/purchase-extract.ts` (garder la référence secondaire du BL), `src/lib/parts-site.ts` (`explainOrderMatch`, `searchPendingOrders`), `src/routes/pieces-achats.reception.tsx` (bloc « N° lus » et regroupement des candidats), plus les tests.
-
-## Points ouverts
-- Récupérer le texte OCR brut du BL 916076 pour confirmer l'origine exacte de 20, 4500109.88 et 0.77.
-- Localiser dans l'écran le texte « désignation proche » des cartes OR 51146 / 51148.
-- Les causes du plan précédent (« SEJ1ND SA », date 2016, « AMERA ») restent valables et seront traitées dans le même lot.
+`src/lib/doc-pipeline.ts`, `src/lib/purchase-validate.ts`, `src/lib/doc-rules.ts` (`detectSupplier`, règles facture), `src/lib/purchase-extract.ts`, `src/lib/ocr.functions.ts` (prompt/relecture), `src/lib/supplier-identify.ts`, `src/lib/parts-site.ts` (`receptionSuggestions`, `splitByExactRef`), `src/routes/pieces-achats.reception.tsx` (affichage « à vérifier »).
