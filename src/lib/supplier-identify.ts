@@ -87,7 +87,7 @@ export function resolveSupplier<T extends S>(name: string | null | undefined, su
   if (contains.length > 1) return { kind: "ambiguous", candidates: contains };
   // Mots significatifs : tous ceux de la fiche présents dans le nom lu (ordre indifférent).
   const words = new Set(sig(clean));
-  const full = active.filter((s) => { const sw = sig(s.name); return sw.length > 0 && sw.every((w) => words.has(w)); });
+  const full = active.filter((s) => { const sw = sig(s.name); return sw.length > 0 && sw.every((w) => words.has(w)) && !groupOnly(s.name); });
   if (full.length === 1) return { kind: "found", supplier: full[0]! };
   if (full.length > 1) return { kind: "ambiguous", candidates: full };
   // Enseigne / groupe : « RENAULT SARLAT - GROUPE FAURIE » = « FAURIE AUTO SARLAT » (mots génériques ignorés).
