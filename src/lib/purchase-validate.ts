@@ -89,3 +89,18 @@ export function mergeVisionFirst(vision: Record<string, unknown>, rules: Record<
   }
   return { fields: out, completed, conflicts };
 }
+
+/**
+ * Relecture ciblée (lignes + totaux) après échec des contrôles : retenue seulement si ELLE passe les contrôles.
+ * Sinon la première lecture reste, avec ses alertes « Lecture à vérifier ».
+ */
+export function pickRecheck<T extends X & { control_alerts?: string[]; suspect_lines?: number[] }>(first: T, recheck: X | null): { value: T; used: boolean } {
+  if (!recheck || !(recheck.lines ?? []).length) return { value: first, used: false };
+  const c = validatePurchase(recheck);
+  if (!c.ok) return { value: first, used: false };
+  const { control_alerts: _a, suspect_lines: _s, ...rest } = first;
+  return {
+    value: { ...rest, lines: recheck.lines, total_ht: recheck.total_ht ?? first.total_ht, vat_amount: recheck.vat_amount ?? first.vat_amount, total_ttc: recheck.total_ttc ?? first.total_ttc } as T,
+    used: true,
+  };
+}
