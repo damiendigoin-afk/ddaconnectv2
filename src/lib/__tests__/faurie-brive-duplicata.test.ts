@@ -92,14 +92,14 @@ describe("fournisseur : établissements distincts", () => {
 });
 
 describe("contrôles bloquants / relecture", () => {
-  const portOnly = normalizePurchaseExtract({ ...VISION, lines: [VISION.lines[1]] });
+  const portOnly = normalizePurchaseExtract({ ...VISION, lines: [VISION.lines[1]!] });
   it("PORT seul pour un total 358,34 => échec, relecture demandée, lecture à vérifier", () => {
     expect(validatePurchase(portOnly).ok).toBe(false);
     expect(needsLinesRecheck(portOnly, false)).toBe(true);
     expect(reviewReasons(portOnly, { visionFailed: false })).toContain("Contrôles chiffrés en échec");
   });
   it("relecture incomplète rejetée => la lecture reste à vérifier", () => {
-    const r = pickRecheck(portOnly, { lines: [VISION.lines[1]], total_ht: 358.34, vat_amount: 71.67, total_ttc: 430.01 });
+    const r = pickRecheck(portOnly, { lines: [VISION.lines[1]!], total_ht: 358.34, vat_amount: 71.67, total_ttc: 430.01 });
     expect(r.used).toBe(false);
   });
   it("relecture complète retenue", () => {
