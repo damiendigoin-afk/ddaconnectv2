@@ -31,8 +31,23 @@ async function viaPipeline(
   if (!any) {
     return { ok: false as const, error: "Lecture automatique sans résultat : complétez les informations manuellement.", route: r.route, content: "", missing: r.missing };
   }
-  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "", missing: r.missing };
+  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "", missing: r.missing, visionFirst: !!r.visionFirst };
 }
+
+/**
+ * Consignes de lecture visuelle communes aux documents d'achat (vision d'abord sur photo/scan).
+ * Génériques : aucune règle propre à un fournisseur.
+ */
+const PURCHASE_VISION_RULES = `LECTURE VISUELLE DES COLONNES (obligatoire) :
+- supplier = raison sociale imprimée en EN-TÊTE (souvent en haut à gauche, près du logo) ; supplier_info = adresse, CP, ville, site web, TVA intracom, SIRET de l'émetteur (en-tête ou pied de page).
+- delivery_note_number : numéro qui suit « (Duplicata de) bon de livraison n° X du JJ/MM/AAAA » ; document_date = la date de CE libellé.
+  Une ligne du tableau « ** BL 123456 DU JJ/MM/AAAA ** » est une référence BL source : mets-la dans secondary_refs, JAMAIS dans delivery_note_number, et ce n'est JAMAIS une ligne article.
+- Pour chaque ligne article : reference (code pièce, sans espaces, distinct de la désignation : ne retire ni n'absorbe aucune lettre de la désignation), label, quantity (colonne Qté),
+  gross_unit_price (tarif / prix brut HT unitaire si visible), discount_pct (remise %), amount (montant NET HT de la ligne), unit_price (= amount / quantity), vat_pct (taux TVA de la ligne), amount_ttc (si visible).
+- La colonne TVA (ex. 20) n'est JAMAIS la quantité. Ne concatène JAMAIS la remise et un montant (45,00 % puis 109,88 => discount_pct 45, amount 109.88).
+- total_ht, vat_amount, total_ttc : bloc des montants en bas (« Montant HT », « TVA », « Net à payer / TTC »), jamais le total hors remise.
+- or_number / plate : uniquement s'ils sont imprimés ; n'invente jamais d'OR ni d'immatriculation.
+- Ajoute "secondary_refs":[] au JSON. null pour tout champ illisible.`;
 
 export const ocrRepairOrder = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => fileInput.parse(data))
@@ -216,7 +231,8 @@ Réponds STRICTEMENT en JSON :
 Dates ISO YYYY-MM-DD. Nombres décimaux avec un point, sans symbole ni unité.
 - supplier_info : coordonnées de l'ÉMETTEUR uniquement, telles qu'imprimées (en-tête/pied de page) : {"address","postal_code","city","phone","email","website","siret","vat_number"} ; champ absent = omis ; null si rien.
 handwritten_notes : recopie littérale UNIQUEMENT du texte manuscrit réellement lisible (ex : "Pas BL retour / Frs à remb", "retour"). Jamais la description d'un symbole, d'une coche, d'un trait, d'une couleur, d'un cercle, d'un tampon ou d'une signature (ex interdit : "cochée au stylo noir") ; sinon null.
-Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun montant.`;
+Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun montant.
+${PURCHASE_VISION_RULES}`;
     const result = await viaPipeline("purchase", prompt, data, "supplier_invoice");
     if (result.ok) void learnSupplierProfile((parseJsonBlock(result.content)?.["supplier"] as string) ?? null, data.text, result.route);
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
@@ -258,11 +274,12 @@ Réponds STRICTEMENT en JSON :
 - customer_or_site : nom/adresse du client livré ou facturé (garage destinataire).
 - delay : délai / date de livraison tel qu'écrit. Dates ISO YYYY-MM-DD. Nombres avec un point décimal.
 Mets null pour tout ce qui n'est pas lisible. N'invente aucune ligne, aucun prix, aucune référence.
+${PURCHASE_VISION_RULES}
 Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
     // Lecture rapide : raisonnement minimal (la sortie était gonflée de 2 à 3,5k jetons de réflexion pour ~500 caractères utiles).
     const result = await viaPipeline("purchase", prompt, data, "supplier_invoice", {
       reasoning_effort: "low",
-      max_tokens: 3000,
+      max_tokens: 4000,
     });
     if (!result.ok) return { ok: false as const, error: result.error, json: "" };
     const parsed = parseJsonBlock(result.content);
@@ -270,7 +287,8 @@ Réponds directement avec le JSON compact, sans explication ni raisonnement.`;
     let norm = normalizePurchaseExtract(parsed);
     void learnSupplierProfile(norm.supplier ?? null, data.text, result.route);
     // Passe ciblée vision uniquement si la voie vision a déjà été nécessaire (jamais « par confort »).
-    if (result.route === "ai_vision_fallback" && needsIdentifierPass(norm)) {
+    // Vision d'abord : OR/immat déjà demandés dans la passe unique, pas de seconde vision systématique.
+    if (result.route === "ai_vision_fallback" && !result.visionFirst && needsIdentifierPass(norm)) {
       // Second passage court et ciblé : uniquement les repères atelier souvent manqués (« Mes références »…).
       const second = await askVision(IDENT_PROMPT, data.dataUrl, data.filename, "supplier_invoice_ids", { reasoning_effort: "low", max_tokens: 400 });
       const p2 = second.ok ? parseJsonBlock(second.content) : null;

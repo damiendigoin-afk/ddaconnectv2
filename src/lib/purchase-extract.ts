@@ -4,6 +4,7 @@
  */
 import { findFrenchPlate } from "@/lib/plate";
 import type { InvoiceExtract, InvoiceLine, SupplierInfo } from "@/lib/supplier-docs";
+import { validatePurchase } from "@/lib/purchase-validate";
 
 type Raw = Record<string, unknown> & Partial<Record<"doc_kind"|"document_number"|"document_date"|"delivery_note_number"|"invoice_number"|"invoice_date"|"plate"|"plate_printed"|"customer_or_site"|"total_ht"|"vat_amount"|"total_ttc"|"handwritten_notes"|"lines"|"quantity"|"qty"|"qte"|"qty_ordered"|"amount"|"net_amount"|"line_total_ht"|"montant_net"|"net_unit_price"|"unit_net_price"|"client_price"|"public_price"|"list_price"|"unit_price"|"price"|"expected_unit_cost_ht"|"discount_pct", unknown>>;
 
@@ -76,7 +77,10 @@ function normLine(l: Raw): NormLine {
   // seconde normalisation navigateur de remplacer trois lignes par trois lignes vides.
   const quantity = num(l.quantity ?? l.qty ?? l.qte ?? l["quantite"] ?? l.qty_ordered) ?? null;
   const amount = num(l.amount ?? l.net_amount ?? l.line_total_ht ?? l.montant_net ?? l.total_ht);
-  const unitNet = num(l.net_unit_price ?? l.unit_net_price);
+  const amountTtc = num(l["amount_ttc"] ?? l["line_total_ttc"]);
+  const unitNet = num(l.net_unit_price ?? l.unit_net_price ?? l["net_unit_ht"]);
+  const gross = num(l["gross_unit_price"] ?? l["gross_unit_ht"] ?? l["tarif_ht"]);
+  const vatPct = num(l["vat_pct"]);
   const clientPrice = num(l.client_price ?? l.public_price ?? l.list_price);
   let unit = num(l.unit_price ?? l.price ?? l["prix_unitaire"] ?? l["pu"] ?? l.expected_unit_cost_ht);
   const q = quantity && quantity > 0 ? quantity : 1;
@@ -92,6 +96,9 @@ function normLine(l: Raw): NormLine {
     unit_price: unit,
     discount_pct: num(l.discount_pct),
     amount,
+    ...(gross != null ? { gross_unit_price: gross } : {}),
+    ...(vatPct != null ? { vat_pct: vatPct } : {}),
+    ...(amountTtc != null ? { amount_ttc: amountTtc } : {}),
     delay: pick(l, ["delay", "delivery", "delivery_info", "availability"]),
     isolated_number: str(l["isolated_number"]),
     client_price: clientPrice,
@@ -165,7 +172,8 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   }
   if (!orderRef && kind === "commande" && docNumber && !sameAsOr(docNumber)) orderRef = docNumber;
   // Repères OR multiples (commande multi-OR) : 5-6 chiffres, jamais le n° de commande/document.
-  const notOr = new Set([orderRef, docNumber, str(o.delivery_note_number), str(o.invoice_number)].map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean));
+  const secondaryRefs = Array.isArray(o["secondary_refs"]) ? [...new Set((o["secondary_refs"] as unknown[]).map((v) => digits(str(v)) ?? str(v)).filter((v): v is string => !!v))].slice(0, 6) : [];
+  const notOr = new Set([orderRef, docNumber, str(o.delivery_note_number), str(o.invoice_number), ...secondaryRefs].map((v) => (v ?? "").replace(/\D/g, "")).filter(Boolean));
   // Suites de chiffres plus longues (références pièces, n° commande/document/client) : un repère extrait de
   // leur préfixe ou de leur milieu n'est jamais un OR (idempotent au second passage).
   const longNums = [orderRef, docNumber, str(o.delivery_note_number), str(o.invoice_number), ...lines.map((l) => l.reference), ...(Array.isArray(o["ref_candidates"]) ? (o["ref_candidates"] as unknown[]).map((v) => str(v)) : [])]
@@ -174,6 +182,11 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
   const orNumbers = [...new Set([orNumber, ...(Array.isArray(o["or_numbers"]) ? (o["or_numbers"] as unknown[]).map((v) => digits(str(v))) : [])]
     .filter((v): v is string => !!v && /^\d{5,6}$/.test(v) && !notOr.has(v) && (v === orNumber || !embedded(v))))].slice(0, 8);
   if (!orNumber && orNumbers.length) orNumber = orNumbers[0]!;
+  const outLines = lines.map(({ client_price: _c, isolated_number: _i, ...l }) => l);
+  const check = validatePurchase({ lines: outLines, total_ht: totalHt, vat_amount: num(o.vat_amount), total_ttc: num(o.total_ttc), shipping_ht: num(o["shipping_ht"]) });
+  const prevAlerts = Array.isArray(o["control_alerts"]) ? (o["control_alerts"] as unknown[]).map((v) => String(v)) : [];
+  const alerts = [...new Set([...prevAlerts, ...check.alerts])];
+  const prov = o["read_provenance"] && typeof o["read_provenance"] === "object" ? (o["read_provenance"] as InvoiceExtract["read_provenance"]) : null;
   return {
     doc_kind: kind,
     supplier: pick(o, ["supplier", "distributor", "distributeur", "vendor", "seller"]),
@@ -193,7 +206,7 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
       ?? refPlate
       ?? findFrenchPlate([str(o.handwritten_notes), ...lines.map((l) => l.label)].filter(Boolean).join(" | ")),
     customer_or_site: str(o.customer_or_site),
-    lines: lines.map(({ client_price: _c, isolated_number: _i, ...l }) => l),
+    lines: outLines,
     total_ht: totalHt,
     vat_amount: num(o.vat_amount),
     shipping_ht: num(o["shipping_ht"]),
@@ -203,7 +216,10 @@ export function normalizePurchaseExtract(input: unknown): InvoiceExtract {
     ...(str(o["expected_delivery_date"]) ? { expected_delivery_date: str(o["expected_delivery_date"]) } : {}),
     ...(str(o["vehicle_label"]) ? { vehicle_label: str(o["vehicle_label"]) } : {}),
     ...(str(o["template"]) ? { template: str(o["template"]) } : {}),
-    ...(Array.isArray(o["control_alerts"]) && o["control_alerts"].length ? { control_alerts: (o["control_alerts"] as unknown[]).map((v) => String(v)) } : {}),
+    ...(alerts.length ? { control_alerts: alerts } : {}),
+    ...(check.suspectLines.length ? { suspect_lines: check.suspectLines } : {}),
+    ...(secondaryRefs.length ? { secondary_refs: secondaryRefs } : {}),
+    ...(prov ? { read_provenance: prov } : {}),
   };
 }
 

@@ -66,7 +66,7 @@ export async function readDocument(input: ReadDocInput): Promise<PipelineResult>
   const ctx = input.kind === "purchase" ? { suppliers: await supplierHints() } : {};
   const fp = await fingerprint(input.feature, text || input.dataUrl?.slice(0, 5000) || "");
   return runDocPipeline(
-    { kind: input.kind, text, hasImage: !!input.dataUrl, media: detectMedia(input.dataUrl, text), ctx },
+    { kind: input.kind, text, hasImage: !!input.dataUrl, media: detectMedia(input.dataUrl, text), ctx, visionFirst: input.kind === "purchase" && !input.bench },
     {
       fallbackEnabled: async () => (await readBudget()).fallbackAiEnabled,
       logLocal: (route, missing) =>

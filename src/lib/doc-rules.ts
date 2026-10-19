@@ -204,6 +204,8 @@ export function parseItemBlocks(text: string): Line[] {
  * Un nombre seul (5 chiffres, éventuellement entre parenthèses) sous une ligne = repère isolé (dossier atelier possible).
  */
 export function parseItemLines(text: string): Line[] {
+  const vatCols = parseDiscountVatLines(text);
+  if (vatCols.length) return vatCols;
   const discounted = parseDiscountLines(text);
   if (discounted.length) return discounted;
   const blocks = parseItemBlocks(text);
@@ -233,6 +235,66 @@ export function parseDiscountLines(text: string): Line[] {
     out.push({ reference, label: m[2]!.trim(), quantity: qty, unit_price: net, amount: amt ?? Math.round(net * qty * 100) / 100 });
   }
   return out;
+}
+
+/**
+ * Ligne « [Désignation] Réf [Désignation] Qté Tarif Remise% Montant TVA% TTC » (BL de distributeurs constructeurs) :
+ * lue depuis la FIN (colonnes chiffrées), retenue seulement si tarif × qté × (1 − remise) = montant
+ * ET montant × (1 + TVA) = TTC (±0,03 €). Le taux de TVA n'est donc jamais pris pour une quantité,
+ * et la remise n'est jamais collée au montant.
+ */
+export function parseDiscountVatLines(text: string): Line[] {
+  const out: Line[] = [];
+  const num = String.raw`\d{1,6}(?:[.,]\d{2})`;
+  const re = new RegExp(String.raw`^(.*?)\s+(\d{1,3})\s+(${num})\s+(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s+(${num})\s+(\d{1,2}(?:[.,]\d{1,2})?)\s*%?\s+(${num})\s*(?:€|EUR)?\s*$`, "i");
+  for (const raw of cleanText(text).split("\n")) {
+    const line = raw.replace(/[|\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
+    const m = re.exec(line);
+    if (!m) continue;
+    const qty = Number(m[2]), gross = money(m[3]), pct = Number(m[4]!.replace(",", ".")), net = money(m[5]), vat = Number(m[6]!.replace(",", ".")), ttc = money(m[7]);
+    if (!qty || gross == null || net == null || ttc == null || !(pct >= 0 && pct < 90) || !(vat > 0 && vat <= 25)) continue;
+    if (Math.abs(gross * qty * (1 - pct / 100) - net) > 0.03 || Math.abs(net * (1 + vat / 100) - ttc) > 0.03) continue;
+    const split = splitRefLabel(m[1]!);
+    if (!split) continue;
+    out.push({ reference: split.reference, label: split.label, quantity: qty, unit_price: Math.round((net / qty) * 100) / 100, amount: net });
+  }
+  return out;
+}
+
+/**
+ * Sépare référence et désignation dans une zone « texte + réf » ou « réf + texte », y compris collées
+ * (« 284421319RCAMERA ») : chiffres (≥ 6) + au plus une lettre finale si les chiffres sont au nombre de 9 ;
+ * la désignation garde toutes ses lettres (jamais de première lettre absorbée).
+ */
+export function splitRefLabel(zone: string): { reference: string; label: string | null } | null {
+  const toks = zone.trim().split(/\s+/);
+  for (let i = 0; i < toks.length; i += 1) {
+    const t = toks[i]!;
+    const glued = /^(\d{6,})([A-Z]{3,}.*)$/i.exec(t);
+    let ref: string | null = null, rest: string | null = null;
+    if (glued) {
+      const d = glued[1]!, tail = glued[2]!;
+      if (d.length === 9) { ref = d + tail[0]!.toUpperCase(); rest = tail.slice(1); }
+      else { ref = d; rest = tail; }
+    } else if (/^[A-Z0-9][A-Z0-9.\-/]{3,}$/i.test(t) && /\d{4,}/.test(t) && !/^\d{1,6}[.,]\d{2}$/.test(t)) ref = t;
+    if (!ref) continue;
+    const label = [...toks.slice(0, i), ...(rest ? [rest] : []), ...toks.slice(i + 1)].join(" ").replace(/^[-:–\s]+/, "").trim();
+    if (!/[A-Za-zÀ-ÿ]{3}/.test(label)) continue;
+    return { reference: ref.replace(/[.\-/]/g, "").toUpperCase(), label };
+  }
+  return null;
+}
+
+/** Références BL source imprimées dans le tableau (« ** BL 328167 DU 19/10/2026 ** ») : jamais le n° principal. */
+export function secondaryBlRefs(text: string): string[] {
+  return [...new Set([...cleanText(text).matchAll(/\*{1,3}\s*B\.?L\.?\s*(?:n[°o]\s*)?(\d{4,10})\s+DU\s+\d{2}\/\d{2}\/\d{2,4}\s*\*{0,3}/gi)].map((m) => m[1]!))];
+}
+
+/** « (Duplicata de) bon de livraison n° X du JJ/MM/AAAA » : n° et date du document principal. */
+export function labelledDeliveryNote(text: string): { number: string; date: string | null } | null {
+  const m = /(?:duplicata\s+(?:de\s+|du\s+)?)?bon\s+de\s+livraison\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*(\d[\dA-Z\-/]{3,})(?:\s+du\s+(\d{2}[/.\-]\d{2}[/.\-]\d{2,4}))?/i.exec(cleanText(text));
+  if (!m) return null;
+  return { number: m[1]!, date: m[2] ? isoDate(m[2]) : null };
 }
 
 /**
@@ -753,7 +815,9 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
       : /commande|confirmation/.test(low)
         ? "commande"
         : null;
-  const docNumber = firstMatch(text, [
+  const secondary_refs = secondaryBlRefs(text);
+  const labelledBl = doc_kind === "bl" ? labelledDeliveryNote(text) : null;
+  const docNumber = labelledBl?.number ?? firstMatch(text.replace(/\*{1,3}\s*B\.?L\.?[^\n]*\*{0,3}/gi, " "), [
     /(?:facture|bon de livraison|\bB\.?L\.?|n°\s*(?:de\s*)?(?:document|pi[eè]ce))\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*([A-Z]{0,3}\d[A-Z0-9\-/]{3,})/i,
   ]);
   const order_reference = firstMatch(text, [/commande\s*(?:web|internet|en ligne|client|fournisseur)?\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#]?\s*\**\s*([A-Z0-9][A-Z0-9\-]{4,})/i]);
@@ -779,9 +843,10 @@ export function purchaseRules(raw: string, ctx: RuleContext = {}): Fields {
     supplier,
     supplier_info: headerSupplierInfo(text),
     document_number: docNumber,
-    document_date: isoDate(text),
+    document_date: labelledBl?.date ?? isoDate(text),
     order_date: parsedOrderDate,
     delivery_note_number: doc_kind === "bl" ? docNumber : null,
+    ...(secondary_refs.length ? { secondary_refs } : {}),
     invoice_number: doc_kind === "facture" ? docNumber : null,
     invoice_date: doc_kind === "facture" ? isoDate(text) : null,
     order_reference: orderRef,

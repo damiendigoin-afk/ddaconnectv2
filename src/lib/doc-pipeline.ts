@@ -7,6 +7,7 @@
  */
 import { mergeRenaultAi, renaultIncomplete } from "./renault-order";
 import { DOC_SPECS, fillMissing, missingFields, type DocKind, type Fields, type RuleContext } from "./doc-rules";
+import { mergeVisionFirst } from "./purchase-validate";
 
 const empty = (v: unknown) => v == null || v === "";
 const setAt = (o: Fields, path: string, v: unknown): Fields => {
@@ -47,7 +48,7 @@ export type PipelineDeps = {
   aiRenault?: () => Promise<Fields | null>;
 };
 
-export type PipelineResult = { fields: Fields; route: DocRoute; missing: string[]; aiCalls: number };
+export type PipelineResult = { fields: Fields; route: DocRoute; missing: string[]; aiCalls: number; visionFirst?: boolean };
 
 /** Texte OCR jugé exploitable pour un repli texte (sinon on passe directement à la vision). */
 export const MIN_TEXT_FOR_AI = 60;
@@ -69,7 +70,7 @@ export function detectMedia(dataUrl: string | null | undefined, text: string | n
  * et elle complète les champs fiables déjà lus sans les écraser.
  */
 export async function runDocPipeline(
-  input: { kind: DocKind; text?: string | null; hasImage: boolean; media?: DocMedia; ctx?: RuleContext },
+  input: { kind: DocKind; text?: string | null; hasImage: boolean; media?: DocMedia; ctx?: RuleContext; visionFirst?: boolean },
   deps: PipelineDeps,
 ): Promise<PipelineResult> {
   const spec = DOC_SPECS[input.kind];
@@ -81,6 +82,20 @@ export async function runDocPipeline(
   const suspect = Array.isArray(first.fields["_suspect"]) ? (first.fields["_suspect"] as string[]) : [];
   let fields: Fields = { ...first.fields };
   delete fields["_suspect"];
+  // Vision d'abord (photos / scans image) : une valeur OCR fausse mais non vide ne doit plus bloquer la vision.
+  // Une seule passe vision ; les règles ne font que compléter les champs absents et non suspects.
+  let visionTried = false;
+  if (input.visionFirst && input.hasImage && (media === "photo" || media === "pdf_scan")) {
+    visionTried = true;
+    const req = spec.required.map((r) => (Array.isArray(r) ? r[0]! : r));
+    const r = await deps.aiVision(req, true);
+    if (r) {
+      const v = stripMeta(clean(r).fields);
+      const m = mergeVisionFirst(v, fields, [...suspect, ...first.rejected]);
+      const out: Fields = { ...m.fields, read_provenance: { source: "vision", completed: m.completed, conflicts: m.conflicts } };
+      return { fields: out, route: "ai_vision_fallback", missing: missingFields(spec, out), aiCalls: 1, visionFirst: true };
+    }
+  }
   // Lecture suspecte (valeur parasite rejetée) = champ manquant : le repli texte / vision peut le compléter.
   // Gabarit Renault fréquent : lecture complète => 0 IA ; incomplète => une seule passe vision dédiée.
   if (fields["template"] === "renault_detail_commande") {
@@ -105,7 +120,7 @@ export async function runDocPipeline(
     await deps.logLocal("manual", missing);
     return { fields, route: "manual", missing, aiCalls: 0 };
   }
-  let aiCalls = 0;
+  let aiCalls = visionTried ? 1 : 0;
   let route: DocRoute = "manual";
   // Repli texte : seulement si autorisé et si le texte vient d'une vraie couche texte ou d'un OCR consistant.
   if (fallback && media !== "pdf_scan" && text.trim().length >= MIN_TEXT_FOR_AI) {
@@ -118,7 +133,7 @@ export async function runDocPipeline(
       if (!missing.length) return { fields, route, missing, aiCalls };
     }
   }
-  if (input.hasImage && (fallback || essentialVision)) {
+  if (input.hasImage && !visionTried && (fallback || essentialVision)) {
     aiCalls += 1;
     const r = await deps.aiVision(missing, essentialVision && !fallback);
     if (r) {

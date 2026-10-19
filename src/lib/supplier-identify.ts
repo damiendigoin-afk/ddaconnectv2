@@ -29,8 +29,19 @@ export function supplierAliases(notes: string | null | undefined): string[] {
 
 /** Identifiants fiscaux déclarés dans les notes (TVA intracom, SIRET/SIREN), normalisés. */
 export function supplierIds(notes: string | null | undefined): string[] {
-  return [...(notes ?? "").matchAll(/(?:tva(?: intracom)?|siret(?:\/siren)?|siren)\s*:\s*([A-Z0-9 ]{8,20})/gi)].map((m) => m[1]!.replace(/\s/g, "").toUpperCase());
+  const sites = [...(notes ?? "").matchAll(/(?:site(?: web)?|web|internet)\s*:\s*(\S+)/gi)].map((m) => domainKey(m[1])).filter((v): v is string => !!v);
+  const fiscal = [...(notes ?? "").matchAll(/(?:tva(?: intracom)?|siret(?:\/siren)?|siren)\s*:\s*([A-Z0-9 ]{8,20})/gi)].map((m) => m[1]!.replace(/\s/g, "").toUpperCase());
+  return [...sites, ...fiscal];
 }
+
+/** Domaine web normalisé (« https://www.Faurie.fr/x » => « FAURIE.FR »), clé d'identification fournisseur. */
+export function domainKey(v: string | null | undefined): string | null {
+  const m = /^(?:https?:\/\/)?(?:www\.)?([a-z0-9][a-z0-9\-]*(?:\.[a-z0-9\-]+)*\.[a-z]{2,})/i.exec((v ?? "").trim());
+  return m ? m[1]!.toUpperCase() : null;
+}
+
+/** Signaux d'identité lus sur le document (TVA, SIRET, site web) pour resolveSupplier. */
+export const docSupplierSignals = (i: SupplierInfo | null | undefined) => [i?.vat_number, i?.siret, domainKey(i?.website)];
 
 /** Tous les noms d'une fiche : nom + alias. */
 export const supplierNames = (s: { name: string; notes?: string | null }) => [s.name, ...supplierAliases(s.notes)];
@@ -55,7 +66,7 @@ export function resolveSupplier<T extends S>(name: string | null | undefined, su
   const hard = hardAliasSupplier(clean, suppliers);
   if (hard) return { kind: "found", supplier: hard };
   // Identifiant fiscal lu = fiche portant ce même identifiant (le plus sûr).
-  const idKeys = ids.map((v) => (v ?? "").replace(/\s/g, "").toUpperCase()).filter((v) => v.length >= 8);
+  const idKeys = ids.map((v) => (v ?? "").replace(/\s/g, "").toUpperCase()).filter((v) => v.length >= 6);
   if (idKeys.length) {
     const byId = suppliers.filter((s) => supplierIds(s.notes).some((k) => idKeys.includes(k)));
     if (byId.length === 1) return { kind: "found", supplier: byId[0]! };
@@ -117,6 +128,6 @@ export function docSupplierId<T extends S>(x: InvoiceExtract, suppliers: T[]): s
   const hard = hardAliasSupplier(x.supplier, suppliers);
   if (hard) return hard.id;
   if (x.supplier_id && suppliers.some((s) => s.id === x.supplier_id)) return x.supplier_id;
-  const r = resolveSupplier(x.supplier, suppliers, [x.supplier_info?.vat_number, x.supplier_info?.siret]);
+  const r = resolveSupplier(x.supplier, suppliers, docSupplierSignals(x.supplier_info));
   return r.kind === "found" ? r.supplier.id : null;
 }

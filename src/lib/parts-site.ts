@@ -161,8 +161,9 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
     if (common > 3) continue;
     const rest = ol.qty_ordered != null ? Number(ol.qty_ordered) - Number(ol.qty_received ?? 0) : null;
     const qtyOk = l.quantity != null && rest != null && Number(l.quantity) > 0 && Number(l.quantity) <= rest;
-    score += common === 1 ? 3 : 1;
-    strong += common === 1 ? 3 : 1;
+    // Chaque référence exacte compte pleinement : 2 réf. exactes dominent nettement 1 réf. ou une désignation proche.
+    score += 3;
+    strong += 3;
     if (qtyOk) score += 1;
     // Prix : contrôle d'écart seulement, jamais critère.
     const pu = l.unit_price, exp = ol.expected_unit_cost_ht;
@@ -170,6 +171,8 @@ export function explainOrderMatch(doc: DocExtractLite, order: OrderLike): { scor
     const price = diff == null || diff === 0 ? "" : diff <= 0.01 ? " (écart prix arrondi 0,01 €)" : ` (écart prix ${diff.toFixed(2).replace(".", ",")} €)`;
     reasons.push(`réf ${l.reference} exacte${qtyOk ? ` + qté ${l.quantity}` : ""}${price}`);
   }
+  const docRefs = new Set((doc.lines ?? []).map((l) => normalizeRef(l.reference ?? "")).filter(Boolean));
+  if (docRefs.size >= 2 && common >= docRefs.size) { score += 3; strong += 3; reasons.push("toutes les réf. du document présentes"); }
   // Une désignation proche seule ne compte jamais comme indice de rapprochement.
   return { score, strong, idMatch, refMatch: common > 0, orMatch, plateMatch, reasons };
 }
@@ -274,6 +277,18 @@ export function searchPendingOrders<T extends OrderLike & { requested_or_number?
     const rq = normalizeRef(query);
     return !!rq && lines.some((l) => normalizeRef(l.physical_reference ?? "").includes(rq));
   }).slice(0, max);
+}
+
+/**
+ * Recherche manuelle : sépare les commandes ayant au moins une référence exacte du document des autres.
+ * Quand au moins une commande partage une référence exacte, les autres (désignation proche, simple
+ * fournisseur) sont repliées par l'écran : elles ne doivent pas concurrencer visuellement les références exactes.
+ */
+export function splitByExactRef<T extends OrderLike>(orders: T[], doc: DocExtractLite | null | undefined): { exact: T[]; others: T[] } {
+  if (!doc || !(doc.lines ?? []).some((l) => normalizeRef(l.reference ?? ""))) return { exact: [], others: orders };
+  const exact: T[] = [], others: T[] = [];
+  for (const o of orders) (explainOrderMatch(doc, o).refMatch ? exact : others).push(o);
+  return { exact, others };
 }
 
 /**

@@ -145,3 +145,13 @@ Reste à faire :
 - [x] Commander chez DC : commande interne à transmettre + validation manuelle portail
 
 - [x] Commander chez DC : aide panier Districash (réf. commande OR>immat, copie, ouverture fiche), sans achat
+
+# BL fournisseurs — vision d'abord (19/10)
+
+- [x] Photos / scans image : vision IA en premier, règles OCR en complément des seuls champs absents
+- [x] Contrôles chiffrés (somme lignes, HT+TVA=TTC, tarif×remise, TVA≠qté, prix aberrants) + alerte « Lecture à vérifier »
+- [x] N° BL principal (duplicata) vs réf. BL source ; colonnes remise/TVA ; référence collée à la désignation
+- [x] Fournisseur par TVA / SIRET / site web ; avertissement si deux lectures divergent
+- [x] Rapprochement : réf. exactes prioritaires, autres commandes repliées
+- [ ] Renseigner TVA / site dans la fiche FAURIE AUTO SARLAT (donnée utilisateur)
+- [ ] Essai réel avec photos des BL 916076 / 916084 après publication

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -14,7 +14,7 @@ import { CancelAction } from "@/components/parts/CancelAction";
 import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
 import { listReceiptDocs } from "@/lib/receipt-docs";
 import { receiptDocState } from "@/lib/receipt-docs-rules";
-import { compareDocToOrder, guessDocumentSite, isBareSimplified, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders } from "@/lib/parts-site";
+import { compareDocToOrder, guessDocumentSite, isBareSimplified, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders, splitByExactRef } from "@/lib/parts-site";
 import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
 import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
@@ -230,8 +230,19 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
         <p>Repères atelier (aides au rapprochement, facultatifs) — OR / dossier : <b>{x.or_number ?? "—"}</b> · Immat : <b>{x.plate ?? "—"}</b></p>
         {docLines.length ? (
           <ul className="rounded border border-border p-1">
-            {docLines.map((l, i) => <li key={i}><b>{l.quantity ?? "?"} ×</b> {l.reference ?? "réf ?"} — {l.label ?? "—"}{l.unit_price != null ? ` · PU ${l.unit_price.toFixed(2)} €` : ""}</li>)}
+            {docLines.map((l, i) => {
+              const bad = (x.suspect_lines ?? []).includes(i);
+              return <li key={i} className={bad ? "text-status-warn" : undefined}><b>{l.quantity ?? "?"} ×</b> {l.reference ?? "réf ?"} — {l.label ?? "—"}{l.unit_price != null ? ` · PU ${l.unit_price.toFixed(2)} €` : ""}{bad ? " · à vérifier" : ""}</li>;
+            })}
           </ul>
+        ) : null}
+        {x.secondary_refs?.length ? <p className="text-muted-foreground">Réf. BL source : {x.secondary_refs.join(", ")}</p> : null}
+        {x.control_alerts?.length ? (
+          <div role="alert" className="rounded border-2 border-status-warn p-2">
+            <p className="font-extrabold">Lecture à vérifier</p>
+            <ul className="list-disc pl-4">{x.control_alerts.map((a, i) => <li key={i}>{a}</li>)}</ul>
+            <p className="text-muted-foreground">Ces valeurs ne sont pas considérées comme fiables : contrôlez-les (et corrigez les quantités / prix) à l'étape de réception.</p>
+          </div>
         ) : null}
         {unread.length ? <p className="text-status-warn">Non lu (à compléter si besoin) : {unread.join(", ")}</p> : null}
       </div>
@@ -271,13 +282,30 @@ export function DocMatch({ doc, onOrder, onNoOrder, onCancel }: { doc: SupplierD
           <p className="text-xs font-bold uppercase text-muted-foreground">Commandes correspondantes / récentes</p>
           <input className={inputCls} autoFocus placeholder="Fournisseur, n° commande, OR, immat, réf. pièce, désignation, commentaire / créateur" aria-label="Recherche de commande" value={q} onChange={(e) => setQ(e.target.value)} />
           <p className="text-xs text-muted-foreground">Toutes les commandes non soldées du site (détaillées, importées et front office), les plus proches du document en premier.</p>
-          {orders.isLoading ? <p className="text-xs text-muted-foreground">Chargement des commandes…</p> : found.length ? found.map((o) => orderBtn(o, null)) : <p className="text-xs text-muted-foreground">{(orders.data ?? []).length ? "Aucune commande en attente ne correspond." : "Aucune commande en attente sur ce site."}</p>}
+          {orders.isLoading ? <p className="text-xs text-muted-foreground">Chargement des commandes…</p> : found.length ? <ManualOrderList found={found} doc={xm} render={(o) => orderBtn(o, null)} /> : <p className="text-xs text-muted-foreground">{(orders.data ?? []).length ? "Aucune commande en attente ne correspond." : "Aucune commande en attente sur ce site."}</p>}
         </div>
       ) : null}
 
       {x.plate ? <PlateInfo plate={x.plate} /> : null}
       <button className="w-full text-xs underline" onClick={onCancel}>Annuler</button>
     </div>
+  );
+}
+
+/** Liste manuelle : commandes à référence exacte d'abord ; les autres repliées quand il en existe. */
+function ManualOrderList<T extends Parameters<typeof splitByExactRef>[0][number]>({ found, doc, render }: { found: T[]; doc: Parameters<typeof splitByExactRef>[1]; render: (o: T) => ReactNode }) {
+  const { exact, others } = splitByExactRef(found, doc);
+  if (!exact.length) return <>{others.map(render)}</>;
+  return (
+    <>
+      {exact.map(render)}
+      {others.length ? (
+        <details className="rounded border border-border p-1 text-xs">
+          <summary className="cursor-pointer font-bold">Autres commandes du fournisseur, sans référence commune ({others.length})</summary>
+          <div className="space-y-2 pt-2">{others.map(render)}</div>
+        </details>
+      ) : null}
+    </>
   );
 }
 
