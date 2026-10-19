@@ -45,7 +45,7 @@ export function validatePurchase(x: X): PurchaseCheck {
       suspect.add(i); alerts.push(`${tag} : PU ${eur(l.unit_price)} × ${qq} ≠ montant ${eur(l.amount)}`);
     }
     // Prix aberrant face au total du document (ex. remise collée au montant : 4 500 109,88 €).
-    for (const v of [l.unit_price, l.amount, l.gross_unit_price]) {
+    for (const v of [l.unit_price, l.amount]) {
       if (isNum(v) && ceiling > 0 && v > ceiling * 1.05 + 1) { suspect.add(i); alerts.push(`${tag} : prix ${eur(v)} € supérieur au total du document`); break; }
     }
   });

@@ -180,7 +180,7 @@ describe("H — rapprochement : réf. exactes >>> désignation proche ; partiel 
     expect(r.others).toHaveLength(2);
   });
   it("BL 2 lignes sur commande 3 lignes : la 3e reste non livrée", () => {
-    const rows = compareDocToOrder(doc as never, both as never);
+    const { rows } = compareDocToOrder(doc as never, both as never);
     const bougie = rows.find((r) => r.reference === "8550503297")!;
     expect(bougie.status).toBe("not_in_doc");
     expect(bougie.qty_doc).toBeNull();

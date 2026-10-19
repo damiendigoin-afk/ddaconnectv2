@@ -30,7 +30,8 @@ export function supplierAliases(notes: string | null | undefined): string[] {
 /** Identifiants fiscaux déclarés dans les notes (TVA intracom, SIRET/SIREN), normalisés. */
 export function supplierIds(notes: string | null | undefined): string[] {
   const sites = [...(notes ?? "").matchAll(/(?:site(?: web)?|web|internet)\s*:\s*(\S+)/gi)].map((m) => domainKey(m[1])).filter((v): v is string => !!v);
-  return [...sites, ...(notes ?? "").matchAll(/(?:tva(?: intracom)?|siret(?:\/siren)?|siren)\s*:\s*([A-Z0-9 ]{8,20})/gi)].map((m) => m[1]!.replace(/\s/g, "").toUpperCase());
+  const fiscal = [...(notes ?? "").matchAll(/(?:tva(?: intracom)?|siret(?:\/siren)?|siren)\s*:\s*([A-Z0-9 ]{8,20})/gi)].map((m) => m[1]!.replace(/\s/g, "").toUpperCase());
+  return [...sites, ...fiscal];
 }
 
 /** Domaine web normalisé (« https://www.Faurie.fr/x » => « FAURIE.FR »), clé d'identification fournisseur. */
