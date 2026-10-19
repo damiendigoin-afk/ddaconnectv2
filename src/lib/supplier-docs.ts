@@ -6,7 +6,7 @@ import { mailFullyImported, operationalMails } from "@/lib/supplier-mail-filter"
 import { supabase } from "@/integrations/supabase/client";
 import { extensionOf, rejectReason } from "@/lib/documents";
 import { dedupeDocs } from "@/lib/receipt-lines";
-import { resolveSupplier } from "@/lib/supplier-identify";
+import { docSupplierSignals, resolveSupplier } from "@/lib/supplier-identify";
 import { uploadWithRetry } from "@/lib/storage-retry";
 
 export const SUPPLIER_DOC_TYPE = "facture_fournisseur";
