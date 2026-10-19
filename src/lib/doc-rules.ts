@@ -270,12 +270,12 @@ export function splitRefLabel(zone: string): { reference: string; label: string 
   const toks = zone.trim().split(/\s+/);
   for (let i = 0; i < toks.length; i += 1) {
     const t = toks[i]!;
-    const glued = /^(\d{6,})([A-Z]+.*)$/i.exec(t);
+    const glued = /^(\d{6,})([A-Z]{3,}.*)$/i.exec(t);
     let ref: string | null = null, rest: string | null = null;
     if (glued) {
       const d = glued[1]!, tail = glued[2]!;
-      if (d.length === 9 && /^[A-Z][A-Z]{3,}/i.test(tail)) { ref = d + tail[0]!.toUpperCase(); rest = tail.slice(1); }
-      else if (/^[A-Z]{3,}/i.test(tail)) { ref = d; rest = tail; }
+      if (d.length === 9) { ref = d + tail[0]!.toUpperCase(); rest = tail.slice(1); }
+      else { ref = d; rest = tail; }
     } else if (/^[A-Z0-9][A-Z0-9.\-/]{3,}$/i.test(t) && /\d{4,}/.test(t) && !/^\d{1,6}[.,]\d{2}$/.test(t)) ref = t;
     if (!ref) continue;
     const label = [...toks.slice(0, i), ...(rest ? [rest] : []), ...toks.slice(i + 1)].join(" ").replace(/^[-:–\s]+/, "").trim();
