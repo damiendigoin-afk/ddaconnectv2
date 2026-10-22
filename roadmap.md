@@ -162,4 +162,4 @@ Reste à faire :
 - [x] Fournisseur : SIRET/TVA d'abord, établissements d'un groupe distincts, nom de groupe seul insuffisant
 - [x] Lignes part/fee + code variante ; frais exclus du rapprochement ; filtre fournisseur sur recherche manuelle
 - [ ] Rescanner la facture Faurie Brive 02-5018641 après publication
-- [ ] Perf lecture BL photo : vision directe, Tesseract en secours, upload parallèle, étapes UI, timings
+- [x] Perf lecture BL photo : vision directe, Tesseract en secours, upload parallèle, étapes UI, timings
