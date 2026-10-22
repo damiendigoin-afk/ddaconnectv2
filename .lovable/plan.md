@@ -1,39 +1,59 @@
-# Diagnostic — duplicata facture FAURIE AXESS PREMIUM BRIVE (lecture seule)
+# Diagnostic lenteur lecture BL — /pieces-achats/reception (aucune modification)
 
-## Ce qui est confirmé par le code et les journaux
-- La lecture « vision d'abord » est bien en production : les appels IA d'aujourd'hui (ex. 15:19 UTC, `01a154bf-…`) utilisent le nouveau prompt (`secondary_refs`, règle « ** BL … ** »). Je n'ai **pas** retrouvé l'appel correspondant à cette photo Brive parmi les traces de 12:00 à 15:35 UTC (les corps sont tronqués) : la sortie brute de la vision pour ce document **n'est pas confirmée**.
-- Tous les symptômes (n° « 10/2026 », date = date de paiement, une seule ligne « FRAIS DE PORT » sans réf/qté, fournisseur Sarlat) correspondent à la sortie des **règles OCR**, pas à une lecture vision correcte. Deux chemins y mènent :
-  1. La vision échoue ou renvoie un JSON illisible → `runDocPipeline` retombe sur l'ancien chemin règles d'abord (`doc-pipeline.ts` l.88-98 : aucun garde-fou si `r` est nul).
-  2. La vision laisse des champs vides → `mergeVisionFirst` (`purchase-validate.ts` l.79) les remplit avec les règles sans contrôle de plausibilité ; `invoice_number` n'est même pas comparé.
+## Chemin actuel (tout est séquentiel)
 
-## Causes par point
-1. **Sortie brute / passage à SARLAT** : non tracé pour ce document. Le nom ne vient pas de la résolution des fiches : `resolveSupplier` ne relierait pas « FAURIE AXESS PREMIUM BRIVE » à SARLAT (la règle par mots-clés exige « sarlat »). Le nom erroné est donc **lu** ainsi en amont, par `detectSupplier` (`doc-rules.ts` l.117 : profils appris par mots d'en-tête, ≥3 mots communs) ou un nom explicite. C'est probable, mais pas confirmé.
-2. **Établissements Faurie** : `supplier_info` (SIRET/TVA/adresse) n'est utilisé que comme indice secondaire. Il ne bloque jamais un nom lu par les règles, et l'écran ne compare pas le CP/la ville de l'en-tête à la fiche.
-3. **N° « 10/2026 »** : regex `doc-rules.ts` ~l.821 `facture … ([A-Z]{0,3}\d[A-Z0-9\-/]{3,})` accepte « / » et capture un fragment de date ; pas de rejet des formes date (`\d{1,2}/\d{4}`).
-4. **Date = paiement** : `document_date: labelledBl?.date ?? isoDate(text)` prend la **première date du texte**, sans priorité au libellé « FACTURE N° X du JJ/MM/AAAA » ni exclusion « date de paiement / échéance / règlement ».
-5. **Ligne GRILLE perdue** : cause non confirmée (sortie vision absente). Le schéma vision n'a pas de champ « complément / variante » (MX3) : une réf suivie d'un code peut être rejetée par la normalisation des références. À vérifier sur la trace.
-6. **PORT traité comme pièce** : le schéma vision et `normalizePurchaseExtract` n'ont aucun `line_kind` ; « PORT / FRAIS DE PORT » devient une ligne pièce sans réf. `shipping_ht` existe dans le contrôle mais n'est jamais renseigné depuis une ligne.
-7. **Candidat OSKARBI** : `receptionSuggestions` (`parts-site.ts` l.265-280) **ne filtre pas par fournisseur**. Sans recherche, il renvoie les commandes en attente du site triées par score. Avec une recherche, il filtre sur le texte (désignation « frais de port »). `explainOrderMatch` met bien le score à 0 hors fournisseur, mais la commande reste dans la liste, et `splitByExactRef` la range dans « autres ». C'est confirmé.
-8. **Contrôles chiffrés** : `validatePurchase` n'alerte que si `total_ht` est lu. Avec les règles seules (totaux absents ou faux), aucune alerte. De plus, les alertes ne bloquent ni l'affichage ni le rattachement fournisseur.
-9. **Relecture ciblée** : elle ne s'exécute que si `result.visionFirst && control_alerts` (`ocr.functions.ts` l.298). Sur le chemin de repli règles (vision nulle), `visionFirst` est faux, donc pas de relecture. Si elle s'exécute, `pickRecheck` ne la retient que si elle passe tous les contrôles ; sinon la première lecture reste, sans blocage.
+```text
+photo choisie
+ 1. compressImage (navigateur) : 1500 px max, JPEG 0,82   ~0,5-2 s
+ 2. blobToDataUrl (base64, +33 %, ~300-600 Ko)             <0,5 s
+ 3. localDocText : OCR Tesseract LOCAL sur le téléphone     ~15-40 s (estimé, non mesuré)
+    (+ téléchargement moteur/langue au 1er usage, ~10 Mo)
+ 4. appel serveur ocrPurchaseDocument
+    a. règles sur le texte Tesseract
+    b. vision Gemini 3.8 Flash (une passe)                  p50 5,3 s
+    c. normalisation + contrôles
+    d. recheck ciblé si contrôles en échec                  +4-6 s (rare)
+ 5. uploadSupplierDoc : SHA-256, requête doublon,
+    lecture de TOUS les fournisseurs, upload original       ~2-5 s (photo originale non réduite)
+ 6. affichage DocMatch puis recherche des commandes         ~0,5-1 s
+```
 
-## Correctif générique recommandé
-1. **Échec vision = lecture à vérifier**, pas de retour silencieux aux règles pour les photos : statut « Lecture à vérifier », pas de rattachement fournisseur automatique.
-2. **Fusion vision/règles** : n'ajouter un champ des règles que s'il est plausible (n° ≠ forme date, date ≠ date de paiement). Ajouter `invoice_number` aux conflits.
-3. **Règles facture** : regex n° excluant les formes date ; date liée au libellé « FACTURE/BL N° … du » prioritaire ; dates « paiement / échéance / règlement / LCR » exclues de `document_date`.
-4. **Fournisseur** : SIRET/TVA lus prioritaires. Une fiche dont la ville ou le CP diffère de l'en-tête est rejetée ; le nom de groupe seul (« FAURIE ») n'est jamais suffisant. En cas de conflit nom/SIRET : confirmation.
-5. **Vision** : champs `line_kind` (`part|fee|info`) et `variant_code` dans le schéma ; PORT/emballage/consigne → `fee`, comptés dans les totaux, jamais rapprochés comme pièces.
-6. **Contrôle bloquant** : si somme lignes ≠ total HT après relecture → bandeau « Lecture à vérifier », lignes non préremplies comme reçues. Relecture aussi déclenchée quand `total_ht` est lu mais que les lignes sont vides ou incomplètes.
-7. **Rapprochement** : `receptionSuggestions` et la recherche manuelle filtrent sur `sameSupplier` dès que le fournisseur du document est identifié. Les autres fournisseurs ne s'affichent que sur une action explicite « chercher chez tous les fournisseurs », avec un avertissement.
-8. **Traçabilité** : enregistrer `read_provenance` (vision ok/échec, relecture utilisée, champs complétés par les règles) pour diagnostiquer les prochains cas.
+## Mesures (journaux)
+- Vision `supplier_invoice` (7 j, 81 appels) : médiane 5,3 s ; 50 sous 8 s ; 4 au-dessus de 20 s ; maximum 125 s (cas isolé, 06:05 aujourd'hui, 139 s côté passerelle).
+- `supplier_invoice_ids` : 3 appels, ~3 s.
+- `supplier_invoice_recheck` : 0 appel journalisé sur 7 j → le recheck n'explique pas la minute.
+- Pas de retry automatique : IA = un seul appel ; stockage = au plus 2 reprises (1 s + 3 s) seulement sur 429/503.
 
-## Tests à prévoir (fixture « duplicata facture Faurie Brive », numéros = données de test)
-- Vision simulée complète → n° 02-5018641, date 2026-10-16, 2 lignes (GRILLE part 344,34 ; PORT fee 14), totaux cohérents.
-- Vision nulle → statut à vérifier, aucun fournisseur rattaché automatiquement.
-- Règles : « Date de paiement 30/11/2026 » jamais `document_date` ; « 10/2026 » jamais n° ; regex sans faux positif sur les PDF existants (CAZES/Autodoc/PAD/Renault).
-- `resolveSupplier` : « FAURIE AXESS PREMIUM BRIVE » ≠ « FAURIE AUTO SARLAT » ; un SIRET lu l'emporte.
-- Une seule ligne 14 € avec HT 358,34 → alerte + relecture ; relecture invalide → lecture à vérifier.
-- `receptionSuggestions` : document Faurie identifié → aucune commande OSKARBI, même en cherchant « frais de port ».
+## Réponses aux points
+- Image envoyée deux fois : oui. Version réduite (base64) pour l'IA, puis original pleine résolution (souvent 3-8 Mo sur Android) vers le stockage, après la lecture.
+- Tesseract tourne en plus de la vision sur photo : oui. Il bloque l'attente (il passe avant l'appel serveur), mais le texte est presque inutile en vision-first : les règles ne complètent que les champs vides.
+- Recherche commandes : elle attend la lecture + l'upload complets ; elle pourrait commencer dès que fournisseur/réfs sont connus.
+- Retours visuels : un seul libellé « Lecture du document… », sans étapes.
 
-## Fichiers concernés
-`src/lib/doc-pipeline.ts`, `src/lib/purchase-validate.ts`, `src/lib/doc-rules.ts` (`detectSupplier`, règles facture), `src/lib/purchase-extract.ts`, `src/lib/ocr.functions.ts` (prompt/relecture), `src/lib/supplier-identify.ts`, `src/lib/parts-site.ts` (`receptionSuggestions`, `splitByExactRef`), `src/routes/pieces-achats.reception.tsx` (affichage « à vérifier »).
+## Décomposition estimée d'une minute
+Tesseract local 25-40 s · vision 5-8 s (parfois 20 s+) · upload original + fournisseurs 3-8 s · compression/base64 1-2 s · matching ~1 s.
+Cause principale probable : l'OCR local sur le téléphone, pas l'IA. À confirmer par une mesure chronométrée (étape 0).
+
+## Plan d'optimisation
+
+### a) Gains faciles et sûrs
+0. Ajouter des chronos par étape (console + provenance interne) pour confirmer.
+1. Ne plus lancer Tesseract pour les photos en lecture achats (vision-first) ; le garder pour PDF scannés et le mode secours. Gain attendu 15-40 s.
+2. Lancer l'upload du document en parallèle de la lecture IA (au lieu d'après).
+3. Libellé par étapes : « Photo prise → Envoi → Lecture IA → Contrôles → Recherche commandes ».
+Objectif : 6-12 s pour une photo standard.
+
+### b) Gains structurants
+4. Si la vision échoue : seulement alors, OCR local en secours (pas systématique).
+5. Charger la liste fournisseurs une fois (cache) au lieu de la relire à chaque dépôt.
+6. Délai max de 25 s pour la vision, puis « Lecture à vérifier » au lieu d'attendre 2 min.
+7. Optionnel : afficher d'abord fournisseur/n° BL, puis lignes et commandes dès qu'elles arrivent.
+
+### c) À ne pas sacrifier
+- Vision-first sur photo, contrôles arithmétiques, recheck si incohérent, fail-closed « Lecture à vérifier ».
+- Pas d'auto-rattachement fournisseur ni de commande proposée en review.
+- Conservation de l'original déposé et anti-doublon SHA-256.
+- Pas de baisse de résolution sous 1500 px (lisibilité des références).
+
+## Coût
+Lot a) : environ 3-6 crédits. Lot b) : 6-12 crédits. Aucun surcoût IA (moins d'appels si Tesseract retiré).
