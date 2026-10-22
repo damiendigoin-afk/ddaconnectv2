@@ -252,9 +252,23 @@ ${PURCHASE_VISION_RULES}`;
  * Lecture générique d'un document d'achat pièces (bon de commande, confirmation, BL, facture,
  * capture d'écran de site fournisseur…). Aucun modèle par fournisseur : ce qui n'est pas lu reste null.
  */
+/** Achat : `fallbackOcr` = secours OCR local après vision indisponible (aucune nouvelle vision, image non renvoyée). */
+const purchaseInput = z
+  .object({ dataUrl: z.string().min(10).optional(), filename: z.string().optional(), text: z.string().max(40000).optional(), fallbackOcr: z.boolean().optional() })
+  .refine((d) => d.fallbackOcr || !!d.dataUrl, { message: "dataUrl requis" });
+
 export const ocrPurchaseDocument = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => fileInput.parse(data))
-  .handler(async ({ data }) => {
+  .inputValidator((data: unknown) => purchaseInput.parse(data))
+  .handler(async ({ data: input }) => {
+    // Secours OCR local : règles (et repli texte si autorisé) sur le texte seul, puis « Lecture à vérifier » obligatoire.
+    if (input.fallbackOcr) {
+      const r = await readDocument({ feature: "supplier_invoice_ocr_fallback", kind: "purchase", prompt: "Document d'achat : réponds en JSON (supplier, document_date, delivery_note_number, invoice_number, lines, total_ht, vat_amount, total_ttc).", text: input.text ?? "", dataUrl: null, filename: input.filename });
+      const base = normalizePurchaseExtract(r.fields);
+      const reasons = reviewReasons(base, { visionFailed: true });
+      const norm = normalizePurchaseExtract({ ...base, requires_review: true, review_reasons: reasons, supplier_id: null, read_provenance: { source: "ocr_rules", vision_initial: "failed", recheck_used: false, fallback_rules_fields: Object.keys(r.fields), requires_review: true } });
+      return { ok: true as const, error: "", json: JSON.stringify(norm) };
+    }
+    const data = { ...input, dataUrl: input.dataUrl! };
     const prompt = `Tu lis un document d'achat de pièces automobiles (France) : bon de commande, confirmation de commande,
 capture d'écran d'un site fournisseur, bon de livraison (BL) ou facture. Formats et mises en page variés, photo possible.
 Réponds STRICTEMENT en JSON :
