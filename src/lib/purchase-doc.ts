@@ -35,9 +35,10 @@ type OcrRes = { ok: boolean; error: string; json: string };
 export function visionUnusable(res: OcrRes | null): boolean {
   if (!res || !res.json) return true;
   try {
-    const raw = JSON.parse(res.json) as { read_provenance?: { vision_initial?: string } } | null;
+    const raw = JSON.parse(res.json) as { read_provenance?: { vision_initial?: string; recheck_used?: boolean } } | null;
     if (!raw || typeof raw !== "object" || !Object.keys(raw).length) return true;
-    return raw.read_provenance?.vision_initial === "failed";
+    // Relecture ciblée réussie après une 1re vision nulle : exploitable, pas d'OCR local en plus.
+    return raw.read_provenance?.vision_initial === "failed" && !raw.read_provenance?.recheck_used;
   } catch {
     return true;
   }
