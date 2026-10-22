@@ -151,7 +151,7 @@ export type PreparedDocFile = { contentHash: string; path: string; reused: boole
  * Étape « fichier » de uploadSupplierDoc, lançable en parallèle de la lecture IA :
  * aucune donnée métier n'est écrite (seul l'original part en stockage, retry inchangé).
  */
-export async function prepareSupplierDocFile(opts: { file: File; siteId?: string | null; docType?: string }): Promise<PreparedDocFile> {
+export async function prepareSupplierDocFile(opts: { file: File; siteId?: string | null | undefined; docType?: string | undefined }): Promise<PreparedDocFile> {
   const t0 = Date.now();
   const reason = rejectReason(opts.file);
   if (reason) throw new Error(reason);

@@ -20,7 +20,7 @@ export function DocDropZone({
   hint?: string;
   busy?: boolean;
   /** Étape en cours affichée pendant la lecture (défaut « Lecture du document… »). */
-  busyLabel?: string;
+  busyLabel?: string | undefined;
   onFile: (file: File) => void | Promise<void>;
   pickLabel?: string;
 }) {
