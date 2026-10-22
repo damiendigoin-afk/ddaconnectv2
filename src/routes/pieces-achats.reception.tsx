@@ -16,8 +16,8 @@ import { ReceiptDocActions } from "@/components/parts/ReceiptDocActions";
 import { listReceiptDocs } from "@/lib/receipt-docs";
 import { receiptDocState } from "@/lib/receipt-docs-rules";
 import { compareDocToOrder, guessDocumentSite, isBareSimplified, matchSupplier, pendingReceptionOrders, receptionSuggestions, searchPendingOrders, splitByExactRef } from "@/lib/parts-site";
-import { docSiteText, readPurchaseDoc } from "@/lib/purchase-doc";
-import { getSupplierDoc, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
+import { docSiteText, READ_STAGE_LABEL, readPurchaseDoc, type ReadStage } from "@/lib/purchase-doc";
+import { getSupplierDoc, prepareSupplierDocFile, updateSupplierDoc, uploadSupplierDoc, type SupplierDoc } from "@/lib/supplier-docs";
 import { ensureSupplierByName } from "@/lib/suppliers";
 import { docSupplierId } from "@/lib/supplier-identify";
 import { DocSupplierLink } from "@/components/parts/DocSupplierLink";
@@ -60,6 +60,7 @@ function ReceptionPage() {
   const [orderId, setOrderId] = useState<string | null>(search.order ?? null);
   const [doc, setDoc] = useState<SupplierDoc | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<ReadStage | null>(null);
   const { actor, writeSite } = usePartsCtx();
 
   useEffect(() => {
@@ -70,16 +71,23 @@ function ReceptionPage() {
   async function onFile(file: File) {
     if (!writeSite) return void toast.error("Choisissez le site actif dans la barre du haut.");
     setBusy(true);
+    setStage("prepare");
     try {
-      const r = await readPurchaseDoc(file);
+      // Original envoyé en parallèle de la lecture (stockage seul, aucune fiche ni liaison métier).
+      const prepared = prepareSupplierDocFile({ file, siteId: writeSite });
+      prepared.catch(() => undefined);
+      const r = await readPurchaseDoc(file, setStage);
       if (r.warning) toast.warning(r.warning);
-      // Le BL rejoint la file documents existante : aucun redépôt ultérieur nécessaire.
-      const created = await uploadSupplierDoc({ file: r.file, extracted: { ...r.extracted, doc_kind: r.extracted.doc_kind ?? "bl" }, siteId: writeSite, userId: actor.userId, userName: actor.name });
+      setStage("matching");
+      // Le BL rejoint la file documents existante : fiche créée seulement après la lecture.
+      const created = await uploadSupplierDoc({ file: r.file, extracted: { ...r.extracted, doc_kind: r.extracted.doc_kind ?? "bl" }, siteId: writeSite, userId: actor.userId, userName: actor.name, prepared });
+      void prepared.then((p) => console.info("[purchase-read] storage_upload_ms", p.uploadMs)).catch(() => undefined);
       setDoc(created);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Dépôt impossible");
     } finally {
       setBusy(false);
+      setStage(null);
     }
   }
 
@@ -95,7 +103,7 @@ function ReceptionPage() {
           <DocMatch doc={doc} onOrder={(id) => { setOrderId(id); setMode("order"); }} onNoOrder={() => setMode("document")} onCancel={reset} />
         ) : (
           <>
-            <DocDropZone title="Scanner / déposer un BL" hint="Glissez-déposez le bon de livraison (PDF, photo, capture) : rapprochement automatique" busy={busy} onFile={onFile} />
+            <DocDropZone title="Scanner / déposer un BL" hint="Glissez-déposez le bon de livraison (PDF, photo, capture) : rapprochement automatique" busy={busy} busyLabel={stage ? READ_STAGE_LABEL[stage] : undefined} onFile={onFile} />
             <PendingOrderList onPick={(id) => { setOrderId(id); setMode("order"); }} />
             <button className={`${btnGhost} w-full`} onClick={() => setMode("physical")}>Réception physique sans document</button>
             <p className="text-xs text-muted-foreground">Seule la validation d'une réception physique fait bouger le stock. Un BL reçu par e-mail sans livraison ne change rien au stock.</p>

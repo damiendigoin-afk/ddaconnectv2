@@ -12,12 +12,15 @@ export function DocDropZone({
   title,
   hint,
   busy,
+  busyLabel,
   onFile,
   pickLabel = "Choisir un fichier",
 }: {
   title: string;
   hint?: string;
   busy?: boolean;
+  /** Étape en cours affichée pendant la lecture (défaut « Lecture du document… »). */
+  busyLabel?: string | undefined;
   onFile: (file: File) => void | Promise<void>;
   pickLabel?: string;
 }) {
@@ -50,7 +53,7 @@ export function DocDropZone({
       data-testid="doc-dropzone"
     >
       {busy ? <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand" /> : <UploadCloud className="mx-auto h-10 w-10 text-brand" />}
-      <p className="mt-2 text-sm font-extrabold uppercase tracking-wide">{busy ? "Lecture du document…" : title}</p>
+      <p aria-live="polite" className="mt-2 text-sm font-extrabold uppercase tracking-wide">{busy ? (busyLabel ?? "Lecture du document…") : title}</p>
       <p className="text-xs text-muted-foreground">{hint ?? "Glissez-déposez ici un PDF, une photo ou une capture d'écran"}</p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button type="button" disabled={busy} onClick={() => pick(false)} className="flex h-11 items-center justify-center gap-2 rounded-lg border-2 border-border bg-background text-xs font-bold uppercase disabled:opacity-50">
