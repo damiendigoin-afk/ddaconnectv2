@@ -1,59 +1,49 @@
-# Diagnostic lenteur lecture BL — /pieces-achats/reception (aucune modification)
+# Audit — Recherche de pièces IXELLIO par référence (stock mort)
 
-## Chemin actuel (tout est séquentiel)
+Audit seul : aucun code, aucune donnée, aucune migration, aucune publication.
+
+## Ce que le code prouve déjà
+
+- **Identifiants** : `ixellio-store.server.ts` stocke un seul compte chiffré (`integration_credentials`, provider `ixellio`), lu par `loadCredentials()` côté serveur uniquement. Réutilisable tel quel.
+- **Connexion** (`ixellio.server.ts`, `runIxellioAuthTest`) : GET `/index.html` pour les cookies → champs cachés du formulaire → POST `/j_spring_security_check` (`j_username`, `j_password`) → redirections suivies jusqu'à `mainMenu.html`. Cookies gardés en mémoire pendant la requête seulement ; trace nettoyée (`safePath`).
+- **CSRF** : Spring exige `_csrf` sur les POST (absent → HTTP 403, constaté le 27/09/2026). `extractCsrf()` ne vise que le formulaire `ident_admin_search_immat` ; il faudra une variante pour le formulaire de recherche pièces.
+- **Licence mono-session** : une seule reprise avec cookie jar neuf déjà prévue dans `runIxellioWithStoredCredentials`. Une recherche de pièces doit passer par le même verrou, sinon elle peut déconnecter un utilisateur IXELLIO.
+- **Aucun code pièces** : pas de `PieceRecherche` ni `searchReference` dans le projet.
+
+## Ce qui n'est PAS prouvé (à relever dans DevTools)
+
+Ce que montre la capture : URL `/PieceRecherche.html?method=searchReference`, 3 résultats à 119,25 € pour 214992066R. À relever dans l'onglet Réseau en lançant la recherche dans Chrome, puis en copiant « as cURL » sans cookies :
+1. La méthode (GET ou POST) et le nom exact du paramètre de référence (`reference`, `ref`, `searchText`… : inconnu).
+2. Le `_csrf` : s'il est requis, de quelle page il vient (le formulaire de `PieceRecherche.html` ou celui du menu), et l'`id` du formulaire.
+3. Les autres champs envoyés (marque, type de recherche, filtres, véhicule en contexte) et le Referer attendu.
+4. Si les résultats sont dans la page HTML ou chargés à part (requête XHR/JSON, `ajax=1`).
+5. Le HTML d'une ligne de résultat (clic droit → Copier l'élément, sur une ligne anonymisée) : référence, marque/équipementier, libellé, colonnes de prix et leurs en-têtes.
+6. **Le prix** : 119,25 € est-il HT ou TTC, prix public ou net remisé ? Il faut le lire dans l'en-tête de colonne ou la mention de la page. Sans libellé explicite, on ne le déduit pas : le prix est stocké avec `price_basis = "unknown"`.
+7. Les 3 résultats : équivalences ou fournisseurs différents ? Repérer le champ qui les distingue.
+
+## Vérification en direct
+
+Non faite. Elle exige d'exécuter du code serveur avec les identifiants déchiffrés, ce que ce mode lecture seule interdit. De plus, aucun point d'appel pièces n'existe encore. Elle est possible après accord, avec un seul appel lecture seule : il renverrait seulement le statut HTTP, les noms de champs, le nombre de lignes et les en-têtes de colonnes, sans HTML, cookies ni secrets.
+
+## Comment réutiliser le code existant (après accord)
 
 ```text
-photo choisie
- 1. compressImage (navigateur) : 1500 px max, JPEG 0,82   ~0,5-2 s
- 2. blobToDataUrl (base64, +33 %, ~300-600 Ko)             <0,5 s
- 3. localDocText : OCR Tesseract LOCAL sur le téléphone     ~15-40 s (estimé, non mesuré)
-    (+ téléchargement moteur/langue au 1er usage, ~10 Mo)
- 4. appel serveur ocrPurchaseDocument
-    a. règles sur le texte Tesseract
-    b. vision Gemini 3.8 Flash (une passe)                  p50 5,3 s
-    c. normalisation + contrôles
-    d. recheck ciblé si contrôles en échec                  +4-6 s (rare)
- 5. uploadSupplierDoc : SHA-256, requête doublon,
-    lecture de TOUS les fournisseurs, upload original       ~2-5 s (photo originale non réduite)
- 6. affichage DocMatch puis recherche des commandes         ~0,5-1 s
+runIxellioWithStoredCredentials ──► session (login + jar)
+        ├─ recherche immat (existant)
+        └─ searchPartByReference(ref)  [nouveau]
+              GET PieceRecherche.html (page du formulaire) → extractCsrf(form id)
+              requête relevée en DevTools (+_csrf)
+              parseIxellioParts(html) → lignes {ref, marque, libellé, prix, price_basis}
 ```
 
-## Mesures (journaux)
-- Vision `supplier_invoice` (7 j, 81 appels) : médiane 5,3 s ; 50 sous 8 s ; 4 au-dessus de 20 s ; maximum 125 s (cas isolé, 06:05 aujourd'hui, 139 s côté passerelle).
-- `supplier_invoice_ids` : 3 appels, ~3 s.
-- `supplier_invoice_recheck` : 0 appel journalisé sur 7 j → le recheck n'explique pas la minute.
-- Pas de retry automatique : IA = un seul appel ; stockage = au plus 2 reprises (1 s + 3 s) seulement sur 429/503.
+1. Extraire de `runIxellioAuthTest` une fonction `openIxellioSession()` (login + jar), partagée par l'immat et les pièces, sans changer le comportement de la recherche immat.
+2. Rendre `extractCsrf(html, formId)` paramétrable : `ident_admin_search_immat` reste la valeur par défaut.
+3. Nouveau module de parsing pur `ixellio-parts-parse.ts`, testé sur une fixture anonymisée du HTML relevé. Prix lu seulement si la colonne est libellée HT ou TTC ; détection d'un retour à la page de login.
+4. Nouvelle fonction serveur réservée aux utilisateurs connectés, en lecture seule : référence normalisée, aucun enregistrement automatique. Le stock mort affichera les résultats et l'utilisateur décidera.
+5. Tests : CSRF, paramètres, parsing (3 lignes, 119,25, `price_basis`), session expirée, référence introuvable.
 
-## Réponses aux points
-- Image envoyée deux fois : oui. Version réduite (base64) pour l'IA, puis original pleine résolution (souvent 3-8 Mo sur Android) vers le stockage, après la lecture.
-- Tesseract tourne en plus de la vision sur photo : oui. Il bloque l'attente (il passe avant l'appel serveur), mais le texte est presque inutile en vision-first : les règles ne complètent que les champs vides.
-- Recherche commandes : elle attend la lecture + l'upload complets ; elle pourrait commencer dès que fournisseur/réfs sont connus.
-- Retours visuels : un seul libellé « Lecture du document… », sans étapes.
+Estimation : 15–30 crédits une fois les relevés DevTools fournis.
 
-## Décomposition estimée d'une minute
-Tesseract local 25-40 s · vision 5-8 s (parfois 20 s+) · upload original + fournisseurs 3-8 s · compression/base64 1-2 s · matching ~1 s.
-Cause principale probable : l'OCR local sur le téléphone, pas l'IA. À confirmer par une mesure chronométrée (étape 0).
+## Bloquant
 
-## Plan d'optimisation
-
-### a) Gains faciles et sûrs
-0. Ajouter des chronos par étape (console + provenance interne) pour confirmer.
-1. Ne plus lancer Tesseract pour les photos en lecture achats (vision-first) ; le garder pour PDF scannés et le mode secours. Gain attendu 15-40 s.
-2. Lancer l'upload du document en parallèle de la lecture IA (au lieu d'après).
-3. Libellé par étapes : « Photo prise → Envoi → Lecture IA → Contrôles → Recherche commandes ».
-Objectif : 6-12 s pour une photo standard.
-
-### b) Gains structurants
-4. Si la vision échoue : seulement alors, OCR local en secours (pas systématique).
-5. Charger la liste fournisseurs une fois (cache) au lieu de la relire à chaque dépôt.
-6. Délai max de 25 s pour la vision, puis « Lecture à vérifier » au lieu d'attendre 2 min.
-7. Optionnel : afficher d'abord fournisseur/n° BL, puis lignes et commandes dès qu'elles arrivent.
-
-### c) À ne pas sacrifier
-- Vision-first sur photo, contrôles arithmétiques, recheck si incohérent, fail-closed « Lecture à vérifier ».
-- Pas d'auto-rattachement fournisseur ni de commande proposée en review.
-- Conservation de l'original déposé et anti-doublon SHA-256.
-- Pas de baisse de résolution sous 1500 px (lisibilité des références).
-
-## Coût
-Lot a) : environ 3-6 crédits. Lot b) : 6-12 crédits. Aucun surcoût IA (moins d'appels si Tesseract retiré).
+Les points 1 à 6 ci-dessus. Sans eux, les noms de paramètres et la nature du prix restent des hypothèses.
