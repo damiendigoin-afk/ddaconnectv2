@@ -106,3 +106,17 @@ export const saveIxellioVehicle = createServerFn({ method: "POST" })
     const { saveVehicleFromIxellio } = await import("./ixellio-vehicle.server");
     return saveVehicleFromIxellio(data.plate, data.vehicle);
   });
+
+/** Consultation catalogue IXELLIO par référence (managers, lecture seule, aucune écriture). */
+export const lookupIxellioPartsDiag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({ reference: z.string().min(4).max(30).transform((s) => s.replace(/[^A-Za-z0-9]/g, "").toUpperCase()) })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertManager(context as never);
+    const { lookupIxellioPartsByReference } = await import("./ixellio-parts.server");
+    return lookupIxellioPartsByReference(data.reference);
+  });

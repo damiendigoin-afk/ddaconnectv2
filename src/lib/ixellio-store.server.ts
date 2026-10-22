@@ -41,7 +41,7 @@ export async function clearIxellioCredentials(): Promise<void> {
 }
 
 /** Renvoie les identifiants déchiffrés (usage interne serveur uniquement). */
-async function loadCredentials(): Promise<{ username: string; password: string } | null> {
+export async function loadIxellioCredentials(): Promise<{ username: string; password: string } | null> {
   const { data } = await supabaseAdmin
     .from("integration_credentials")
     .select("username_enc, password_enc")
@@ -68,7 +68,7 @@ export async function runIxellioWithStoredCredentials(
   plate: string,
   override?: { username: string; password: string },
 ): Promise<IxellioTestResult & { notConfigured?: boolean }> {
-  const creds = override ?? (await loadCredentials());
+  const creds = override ?? (await loadIxellioCredentials());
   if (!creds) {
     return {
       outcome: "unexpected_response",

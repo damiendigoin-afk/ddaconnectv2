@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { IntegrationCard } from "@/components/IntegrationCard";
 import { IxellioSettings } from "@/components/IxellioSettings";
+import { IxellioPartsDiag } from "@/components/IxellioPartsDiag";
 import { DistricashSettings } from "@/components/DistricashSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -156,6 +157,7 @@ function ApiSettings() {
         <section className="card-surface space-y-3 p-4">
           <h2 className="text-sm font-extrabold uppercase">Connexion IXELLIO</h2>
           <IxellioSettings />
+          <IxellioPartsDiag />
         </section>
 
         <section className="card-surface space-y-3 p-4">

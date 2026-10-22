@@ -163,3 +163,5 @@ Reste à faire :
 - [x] Lignes part/fee + code variante ; frais exclus du rapprochement ; filtre fournisseur sur recherche manuelle
 - [ ] Rescanner la facture Faurie Brive 02-5018641 après publication
 - [x] Perf lecture BL photo : vision directe, Tesseract en secours, upload parallèle, étapes UI, timings
+- [x] Diagnostic catalogue IXELLIO par référence (managers, lecture seule)
+- [ ] Relever une fixture réelle PieceRecherche (premier essai manager)
