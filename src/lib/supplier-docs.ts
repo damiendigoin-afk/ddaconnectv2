@@ -144,18 +144,15 @@ export async function findExistingSupplierDocId(file: File, siteId: string | nul
   return (data?.[0] as { id?: string } | undefined)?.id ?? null;
 }
 
-export async function uploadSupplierDoc(opts: {
-  file: File;
-  extracted: InvoiceExtract;
-  siteId?: string | null;
-  userId?: string | null;
-  userName?: string | null;
-  /** Type de document : BL/facture par défaut ; « bon_commande_fournisseur » pour une commande. */
-  docType?: string;
-  /** Traçabilité : e-mail et pièce jointe d'origine (anti-doublon). */
-  sourceEmailId?: string | null;
-  sourceEmailAttachmentId?: string | null;
-}): Promise<SupplierDoc> {
+/** Fichier original préparé : empreinte, doublon éventuel, chemin stockage (envoyé si nouveau). Aucune fiche créée. */
+export type PreparedDocFile = { contentHash: string; path: string; reused: boolean; existing: SupplierDoc | null; uploadMs: number };
+
+/**
+ * Étape « fichier » de uploadSupplierDoc, lançable en parallèle de la lecture IA :
+ * aucune donnée métier n'est écrite (seul l'original part en stockage, retry inchangé).
+ */
+export async function prepareSupplierDocFile(opts: { file: File; siteId?: string | null; docType?: string }): Promise<PreparedDocFile> {
+  const t0 = Date.now();
   const reason = rejectReason(opts.file);
   if (reason) throw new Error(reason);
   // Anti-doublon : même fichier (SHA-256) sur le même site → document existant réutilisé.
@@ -164,14 +161,7 @@ export async function uploadSupplierDoc(opts: {
   let dq = supabase.from("inbox_documents").select(DOC_COLS).eq("content_hash", contentHash).eq("doc_type", opts.docType ?? SUPPLIER_DOC_TYPE).neq("status", "doublon").order("created_at", { ascending: false }).limit(1);
   dq = opts.siteId ? dq.eq("site_id", opts.siteId) : dq.is("site_id", null);
   const { data: same } = await dq;
-  if (same?.[0]) return { ...same[0], extracted: toExtract(same[0].extracted) };
-  // Identification du fournisseur dès l'import : fiche existante sûre => rattachement immédiat.
-  // Lecture à vérifier : jamais de rattachement automatique (confirmation utilisateur obligatoire).
-  if (!opts.extracted.supplier_id && opts.extracted.supplier && !opts.extracted.requires_review) {
-    const { data: sups } = await supabase.from("suppliers").select("id,name,active,notes");
-    const r = resolveSupplier(opts.extracted.supplier, sups ?? [], docSupplierSignals(opts.extracted.supplier_info));
-    if (r.kind === "found") opts = { ...opts, extracted: { ...opts.extracted, supplier_id: r.supplier.id } };
-  }
+  if (same?.[0]) return { contentHash, path: same[0].storage_path, reused: true, existing: { ...same[0], extracted: toExtract(same[0].extracted) }, uploadMs: Date.now() - t0 };
   // Même contenu déjà stocké (autre type/site visible) : un seul original en stockage, nouveau rattachement seulement.
   const { data: twin } = await supabase.from("inbox_documents").select("storage_path").eq("content_hash", contentHash).like("storage_path", "fournisseurs/%").limit(1);
   const reused = twin?.[0]?.storage_path ?? null;
@@ -183,6 +173,33 @@ export async function uploadSupplierDoc(opts: {
     });
   }
 
+  return { contentHash, path, reused: !!reused, existing: null, uploadMs: Date.now() - t0 };
+}
+
+export async function uploadSupplierDoc(opts: {
+  file: File;
+  extracted: InvoiceExtract;
+  siteId?: string | null;
+  userId?: string | null;
+  userName?: string | null;
+  /** Type de document : BL/facture par défaut ; « bon_commande_fournisseur » pour une commande. */
+  docType?: string;
+  /** Traçabilité : e-mail et pièce jointe d'origine (anti-doublon). */
+  sourceEmailId?: string | null;
+  sourceEmailAttachmentId?: string | null;
+  /** Original déjà préparé/envoyé en parallèle de la lecture (même fichier, même site). */
+  prepared?: Promise<PreparedDocFile>;
+}): Promise<SupplierDoc> {
+  const prep = await (opts.prepared ?? prepareSupplierDocFile({ file: opts.file, siteId: opts.siteId, docType: opts.docType }));
+  if (prep.existing) return prep.existing;
+  const { contentHash, path, reused } = prep;
+  // Identification du fournisseur dès l'import : fiche existante sûre => rattachement immédiat.
+  // Lecture à vérifier : jamais de rattachement automatique (confirmation utilisateur obligatoire).
+  if (!opts.extracted.supplier_id && opts.extracted.supplier && !opts.extracted.requires_review) {
+    const { data: sups } = await supabase.from("suppliers").select("id,name,active,notes");
+    const r = resolveSupplier(opts.extracted.supplier, sups ?? [], docSupplierSignals(opts.extracted.supplier_info));
+    if (r.kind === "found") opts = { ...opts, extracted: { ...opts.extracted, supplier_id: r.supplier.id } };
+  }
   const { data, error } = await supabase
     .from("inbox_documents")
     .insert({
