@@ -175,40 +175,22 @@ async function followRedirects(
 }
 
 
-export async function runIxellioAuthTest(input: {
-  username: string;
-  password: string;
-  plate: string;
-}): Promise<IxellioTestResult> {
-  const started = Date.now();
-  // 5) Nouveau cookie jar à chaque test.
-  const jar = new Map<string, string>();
-  const trace: string[] = [];
-  const base: IxellioTestResult = {
-    outcome: "unexpected_response",
-    authenticated: false,
-    loginStatus: null,
-    searchStatus: null,
-    loginRedirect: null,
-    searchRedirect: null,
-    trace,
-    durationMs: 0,
-    bytes: 0,
-    vehicle: {},
-    detectedFields: [],
-    fieldCount: 0,
-    pairCount: 0,
-    isVersionList: false,
-    message: "",
-  };
-  const done = (patch: Partial<IxellioTestResult>): IxellioTestResult => ({
-    ...base,
-    ...patch,
-    trace,
-    durationMs: Date.now() - started,
-  });
 
-  try {
+export type IxellioSession =
+  | { ok: true; jar: Map<string, string>; html: string; reachedMain: boolean; loginStatus: number | null; loginRedirect: string | null }
+  | { ok: false; outcome: IxellioTestOutcome; message: string; loginStatus: number | null; loginRedirect: string | null };
+
+/**
+ * Ouvre UNE session IXELLIO (Spring Security) : un seul POST de login, aucune boucle.
+ * Partagé par la recherche immat et la consultation pièces. Le jar reste en mémoire.
+ */
+export async function openIxellioSession(
+  input: { username: string; password: string },
+  trace: string[],
+): Promise<IxellioSession> {
+  const jar = new Map<string, string>();
+  const res = { loginStatus: null as number | null, loginRedirect: null as string | null };
+  const fail = (p: { outcome: IxellioTestOutcome; message: string }): IxellioSession => ({ ok: false, ...p, ...res });
     // 1) Amorçage : GET de la page de login réelle, redirections suivies, cookies conservés.
     let loginPageHtml = "";
     let loginPageUrl = `${BASE}/index.html`;
@@ -250,9 +232,9 @@ export async function runIxellioAuthTest(input: {
       body: form.toString(),
     });
     mergeCookies(jar, login);
-    base.loginStatus = login.status;
+    res.loginStatus = login.status;
     const loginLoc = safePath(login.headers.get("location") ?? "");
-    base.loginRedirect = loginLoc || null;
+    res.loginRedirect = loginLoc || null;
     trace.push(
       `POST /j_spring_security_check ${login.status}${loginLoc ? ` → ${loginLoc}` : ""} (${jar.size} cookie(s))`,
     );
@@ -268,7 +250,7 @@ export async function runIxellioAuthTest(input: {
       (afterLogin.html.length > 0 && looksLikeLoginPage(afterLogin.html));
 
     if (!reachedMain && bouncedToLogin) {
-      return done({
+      return fail({
         outcome: "auth_refused",
         message: `Identifiants refusés par IXELLIO (redirection finale : ${
           loginPathChain[loginPathChain.length - 1] ?? "inconnue"
@@ -277,20 +259,66 @@ export async function runIxellioAuthTest(input: {
     }
 
     if (login.status >= 400) {
-      return done({
+      return fail({
         outcome: "unexpected_response",
         message: `Réponse inattendue du serveur IXELLIO lors du login (HTTP ${login.status}).`,
       });
     }
 
     if (!reachedMain && afterLogin.html.length === 0 && afterLogin.status >= 300) {
-      return done({
+      return fail({
         outcome: "unexpected_response",
         message: `Login : chaîne de redirection non résolue (HTTP ${afterLogin.status}, dernier chemin ${
           afterLogin.finalPath || "inconnu"
         }).`,
       });
     }
+
+    return { ok: true, jar, html: afterLogin.html, reachedMain, ...res };
+}
+
+
+export async function runIxellioAuthTest(input: {
+  username: string;
+  password: string;
+  plate: string;
+}): Promise<IxellioTestResult> {
+  const started = Date.now();
+  // 5) Nouveau cookie jar à chaque test.
+  const jar = new Map<string, string>();
+  const trace: string[] = [];
+  const base: IxellioTestResult = {
+    outcome: "unexpected_response",
+    authenticated: false,
+    loginStatus: null,
+    searchStatus: null,
+    loginRedirect: null,
+    searchRedirect: null,
+    trace,
+    durationMs: 0,
+    bytes: 0,
+    vehicle: {},
+    detectedFields: [],
+    fieldCount: 0,
+    pairCount: 0,
+    isVersionList: false,
+    message: "",
+  };
+  const done = (patch: Partial<IxellioTestResult>): IxellioTestResult => ({
+    ...base,
+    ...patch,
+    trace,
+    durationMs: Date.now() - started,
+  });
+
+  try {
+    const session = await openIxellioSession(input, trace);
+    base.loginStatus = session.loginStatus;
+    base.loginRedirect = session.loginRedirect;
+    if (!session.ok) return done({ outcome: session.outcome, message: session.message });
+    for (const [k, v] of session.jar) jar.set(k, v);
+    const afterLogin = { html: session.html };
+    const reachedMain = session.reachedMain;
 
     // 5) Recherche par immatriculation dans la même session.
     // IXELLIO protège le formulaire par un jeton CSRF Spring (`_csrf`) : sans lui → HTTP 403.
