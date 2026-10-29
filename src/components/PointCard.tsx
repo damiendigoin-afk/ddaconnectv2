@@ -1,6 +1,6 @@
 import { normalizeMeasureValue } from "@/lib/measure";
 import { Camera } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -26,11 +26,13 @@ export function PointCard({
   def,
   inspectionId,
   onChanged,
+  photoContent,
 }: {
   point: PointRow;
   def?: PointDef | undefined;
   inspectionId: string;
   onChanged?: ((status: PointStatus) => void) | undefined;
+  photoContent?: ReactNode;
 }) {
   const [status, setStatus] = useState<PointStatus>(point.status as PointStatus);
   const [measure, setMeasure] = useState(normalizeMeasureValue(point.measure_value, point.measure_unit) ?? "");
@@ -39,6 +41,8 @@ export function PointCard({
   const [uploading, setUploading] = useState(false);
   const [photoKey, setPhotoKey] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => setComment(point.comment ?? ""), [point.comment]);
 
   useEffect(() => {
     return () => {
@@ -157,7 +161,7 @@ export function PointCard({
         }}
         className="w-full rounded-lg border-2 border-border px-3 py-2 text-sm outline-none focus:border-brand"
       />
-      {flagged ? (
+      {flagged && photoContent === undefined ? (
         <button
           type="button"
           onClick={() => setCameraOpen(true)}
@@ -167,12 +171,12 @@ export function PointCard({
           <Camera className="h-5 w-5" /> {uploading ? "Envoi…" : "Photo(s)"}
         </button>
       ) : null}
-      <PhotoManager
+      {photoContent ?? <PhotoManager
         key={photoKey}
         compact
         folder={`inspections/${inspectionId}`}
         links={{ inspection_id: inspectionId, inspection_point_id: point.id }}
-      />
+      />}
       {cameraOpen ? (
         <BurstCamera
           steps={[]}

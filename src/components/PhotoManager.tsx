@@ -44,10 +44,12 @@ export function PhotoManager({
   folder,
   links,
   compact,
+  captureEnabled = true,
 }: {
   folder: string;
   links: MediaLinks;
   compact?: boolean;
+  captureEnabled?: boolean;
 }) {
   const [items, setItems] = useState<MediaRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -126,6 +128,7 @@ export function PhotoManager({
 
   return (
     <div className="space-y-2">
+      {captureEnabled ? <>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -168,6 +171,7 @@ export function PhotoManager({
           e.target.value = "";
         }}
       />
+      </> : null}
       {items.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {items.map((item, i) => (
