@@ -178,6 +178,7 @@ function ReportPage() {
         <TourManagement
           tourId={tourId}
           archivedAt={(d.inspection as { archived_at?: string | null }).archived_at ?? null}
+          guided={d.inspection.inspection_type === "guide"}
           lastModifiedAt={(d.inspection as { last_modified_at?: string | null }).last_modified_at ?? null}
           lastModifiedBy={(d.inspection as { last_modified_by_name?: string | null }).last_modified_by_name ?? null}
           isManager={isManager}
@@ -470,6 +471,7 @@ function TourManagement({
   lastModifiedAt: string | null;
   lastModifiedBy: string | null;
   isManager: boolean;
+  guided?: boolean;
   onChanged: () => Promise<void> | void;
   onDeleted: () => void;
   actor: { userId: string | null; userName: string | null };
@@ -515,14 +517,14 @@ function TourManagement({
         >
           <Pencil className="h-4 w-4" /> Modifier le tour
         </Link>
-        <Link
+        {guided ? <Link
           to="/tour/$tourId"
           params={{ tourId }}
           search={{ edit: true, tires: true }}
           className="flex items-center justify-center gap-2 rounded-lg border-2 border-brand bg-card px-3 py-3 text-sm font-bold uppercase text-brand"
         >
           <Pencil className="h-4 w-4" /> Modifier l’analyse des 4 pneus
-        </Link>
+        </Link> : null}
         {archivedAt ? (
           <button
             disabled={busy}
