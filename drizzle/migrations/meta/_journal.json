@@ -414,6 +414,13 @@
       "when": 1793263526435,
       "tag": "0058_expense_revision_auth_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793263698112,
+      "tag": "0059_expense_revision_protect_approved_fields",
+      "breakpoints": true
     }
   ]
 }
