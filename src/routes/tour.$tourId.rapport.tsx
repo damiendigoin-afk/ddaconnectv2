@@ -462,6 +462,7 @@ function TourManagement({
   lastModifiedAt,
   lastModifiedBy,
   isManager,
+  guided,
   onChanged,
   onDeleted,
   actor,
