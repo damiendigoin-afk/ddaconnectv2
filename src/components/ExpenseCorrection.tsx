@@ -73,7 +73,7 @@ export function ExpenseCorrection({ note, sites }: { note: ExpenseNote; sites: {
         <Select label="Règlement" value={String(draft.payment_method)} options={PAYMENT_METHODS} allowEmpty={false} onChange={v => setDraft({ ...draft, payment_method: v })} />
         {draft.payment_method === "en_compte" && <><Select label="Compte" value={String(draft.account_ref ?? "")} options={EXPENSE_ACCOUNTS} onChange={v => setDraft({ ...draft, account_ref: v })} /><Field label="Précision compte" value={String(draft.account_other ?? "")} onChange={v => setDraft({ ...draft, account_other: v })} /></>}
         <Area label="Commentaire" value={String(draft.notes ?? "")} onChange={v => setDraft({ ...draft, notes: v })} />
-        <Field label="Nouveau justificatif (original conservé dans l’historique)" type="file" onChange={() => {}} value="" />
+        <p>Nouveau justificatif (original conservé dans l’historique)</p>
         <input aria-label="Remplacer le justificatif" type="file" accept="image/*,application/pdf" onChange={e => setFile(e.target.files?.[0] ?? null)} />
       </>}
       <Area label="Motif de correction / annulation *" value={reason} onChange={setReason} />

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { accountingEmailFor, accountLabel, isAccountPayment, isPersonalPayment, paymentLabel, categoryLabel } from "./expenses";
+import { sendExpenseRevision } from "./expense-revision-send.functions";
 
 const input = z.object({
   expenseId: z.string().uuid(),
