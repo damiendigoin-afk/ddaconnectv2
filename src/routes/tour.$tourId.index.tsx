@@ -509,7 +509,7 @@ function Guided(props: SharedProps) {
   }
 
   async function saveTiresEdit(edits: Partial<Record<TourTireKey, TireEditState>>) {
-    if (!user) return;
+    if (!user) return undefined;
     const fresh = (await points.refetch()).data ?? [];
     const built = buildTireCorrections({
       points: fresh as unknown as TirePointLike[],
@@ -518,7 +518,7 @@ function Guided(props: SharedProps) {
       afterClosure: props.editingCompleted,
     });
     if (!built.ok) return { missingReason: built.missingReason };
-    if (!built.updates.length) { toast.info("Aucune modification"); closeTiresEdit(); return; }
+    if (!built.updates.length) { toast.info("Aucune modification"); closeTiresEdit(); return undefined; }
     for (const u of built.updates) {
       const { error } = await supabase.from("inspection_points").update(u.patch as never).eq("id", u.pointId);
       if (error) throw new Error(error.message);
@@ -532,6 +532,7 @@ function Guided(props: SharedProps) {
     ]);
     toast.success("Analyse des pneus corrigée");
     closeTiresEdit();
+    return undefined;
   }
 
   async function rerunTiresWithoutSaving(): Promise<TourTiresRun> {
