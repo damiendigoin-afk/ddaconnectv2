@@ -23,6 +23,8 @@ import {
 /** Lignes montants du récapitulatif : TTC, TVA totale et, pour le carburant, TVA récupérable (80 %). */
 export function expenseAmountRows(note: Pick<ExpenseNote, "amount_ttc" | "vat_amount" | "category">): [string, string][] {
   const rows: [string, string][] = [
+    ["Référence permanente", `${note.id} / v${note.revision ?? 1}`],
+    ...(note.revision > 1 ? [[note.cancelled_at ? "ANNULE" : "REMPLACE", `Version précédente - ${note.correction_reason || "Correction"}`] as [string, string]] : []),
     ["Montant TTC", euros(note.amount_ttc)],
     ["Dont TVA", note.vat_amount != null ? euros(note.vat_amount) : "—"],
   ];

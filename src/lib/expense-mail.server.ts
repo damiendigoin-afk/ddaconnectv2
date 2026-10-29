@@ -17,14 +17,15 @@ export type ExpenseMailInput = {
   pdfBase64: string;
   filename: string;
   idempotencyKey: string;
+  revisionNotice?: string;
 };
 
 export async function sendExpenseToAccounting(input: ExpenseMailInput) {
-  const subject = input.personal
+  const subject = input.revisionNotice || (input.personal
     ? `Remboursement à effectuer — ${input.authorName} — ${input.amount} — ${input.siteLabel}`
     : input.onAccount
       ? `En compte — justificatif à rapprocher — ${input.authorName} — ${input.amount} — ${input.siteLabel}`
-      : `Justificatif à comptabiliser — déjà réglé — ${input.authorName} — ${input.amount} — ${input.siteLabel}`;
+      : `Justificatif à comptabiliser — déjà réglé — ${input.authorName} — ${input.amount} — ${input.siteLabel}`);
 
   const banner = input.personal
     ? `<p style="background:#fde047;color:#1a1a1a;padding:10px 14px;font-weight:700;margin:0 0 16px 0;">REMBOURSEMENT À EFFECTUER (paiement personnel du salarié)</p>`
@@ -53,7 +54,7 @@ export async function sendExpenseToAccounting(input: ExpenseMailInput) {
     .join("");
 
   const html = brandedEmail(
-    `<h1 style="margin:0 0 16px 0;font-size:20px;">Note de frais validée</h1>${banner}<table>${table}</table>
+    `<h1 style="margin:0 0 16px 0;font-size:20px;">${esc(input.revisionNotice || "Note de frais validée")}</h1>${banner}<table>${table}</table>
      <p style="font-size:13px;color:#71717a;margin-top:18px;">Document A4 avec justificatif joint à cet e-mail.</p>`,
     { preview: subject },
   );
@@ -65,7 +66,7 @@ export async function sendExpenseToAccounting(input: ExpenseMailInput) {
     attachments: [{ filename: input.filename, content: input.pdfBase64 }],
     idempotencyKey: input.idempotencyKey,
   });
-  return { ok: res.ok, error: res.error ?? "", subject };
+  return { ok: res.ok, error: res.error ?? "", subject, providerId: res.id, status: res.status };
 }
 
 function esc(s: string) {
