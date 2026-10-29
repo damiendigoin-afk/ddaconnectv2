@@ -48,6 +48,8 @@ export const Route = createFileRoute("/tour/$tourId/")({
       { name: "description", content: "Contrôles, mesures, commentaires et photos du tour véhicule." },
       { property: "og:title", content: "Tour véhicule — DDA Connect" },
       { property: "og:description", content: "Réalisez le tour véhicule atelier depuis le smartphone." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: TourPage,
@@ -792,16 +794,13 @@ function Guided(props: SharedProps) {
           if (def?.special === "ct") {
             return (
               <LocalErrorBoundary key={p.id} label={p.point_label}>
-                <div>
-                  <PointCard point={p} def={def} inspectionId={props.tourId} />
-                  <TechnicalControlCard
+                  <PointCard point={p} def={def} inspectionId={props.tourId} photoContent={<TechnicalControlCard
                     pointId={p.id}
                     tourId={props.tourId}
                     vehicleId={props.vehicleId}
                     initialCt={firstValidCtDate((p as unknown as { ct_due_date?: string | null }).ct_due_date, props.ctDueDate)}
                     initialPollution={firstValidCtDate((p as unknown as { pollution_due_date?: string | null }).pollution_due_date, props.pollutionDueDate)}
-                  />
-                </div>
+                  />} />
               </LocalErrorBoundary>
             );
           }
