@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 
 import { fetchReport, type ReportMedia } from "@/lib/report";
-import { ctPointLine, ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
+import { ctPointLine, ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates, stripCtAuto } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { GROUP_LABEL, siteHeader } from "@/lib/sites";

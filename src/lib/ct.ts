@@ -117,3 +117,8 @@ export function ctPersistValues(ct: string, pollution: string, manual: boolean):
   if (p || manual) out.pollution_due_date = p;
   return out;
 }
+
+/** Commentaire opérateur sans les lignes CT automatiques (évite le doublon/contradiction). */
+export function stripCtAuto(comment?: string | null): string {
+  return (comment ?? "").split("\n").filter((l) => !AUTO_LINE.test(l)).join("\n").trim();
+}
