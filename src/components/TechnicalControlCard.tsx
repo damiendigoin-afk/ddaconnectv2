@@ -4,7 +4,7 @@ import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { mergeCtComment } from "@/lib/ct";
+import { ctPersistValues, firstValidCtDate, mergeCtComment } from "@/lib/ct";
 import { ocrTechnicalControl } from "@/lib/ocr.functions";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 
@@ -29,8 +29,8 @@ export function TechnicalControlCard({
   initialPollution?: string | null;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const [ctDate, setCtDate] = useState(initialCt ?? "");
-  const [pollutionDate, setPollutionDate] = useState(initialPollution ?? "");
+  const [ctDate, setCtDate] = useState(firstValidCtDate(initialCt) ?? "");
+  const [pollutionDate, setPollutionDate] = useState(firstValidCtDate(initialPollution) ?? "");
   const [isUtility, setIsUtility] = useState(Boolean(initialPollution));
   const [busy, setBusy] = useState(false);
 
@@ -49,11 +49,17 @@ export function TechnicalControlCard({
         return;
       }
       const parsed = JSON.parse(result.json) as CtRead;
-      setCtDate(parsed.ct_due_date ?? "");
-      setPollutionDate(parsed.pollution_due_date ?? "");
-      setIsUtility(parsed.vehicle_kind === "vu" || Boolean(parsed.pollution_due_date));
-      await persist(parsed.ct_due_date ?? "", parsed.pollution_due_date ?? "", media.id, false);
-      toast.success("Échéance du contrôle technique lue");
+      const readCt = firstValidCtDate(parsed.ct_due_date);
+      const readPollution = firstValidCtDate(parsed.pollution_due_date);
+      // Lecture vide : on conserve la date déjà connue (point ou fiche véhicule).
+      const nextCt = readCt ?? ctDate;
+      const nextPollution = readPollution ?? pollutionDate;
+      setCtDate(nextCt);
+      setPollutionDate(nextPollution);
+      setIsUtility(parsed.vehicle_kind === "vu" || Boolean(nextPollution));
+      await persist(readCt ?? "", readPollution ?? "", media.id, false, nextCt, nextPollution);
+      if (readCt) toast.success("Échéance du contrôle technique lue");
+      else toast.warning("Date CT non lue sur la photo : date existante conservée, saisissez-la si besoin.");
     } catch (error) {
       console.error(error);
       toast.error("Photo conservée, mais la lecture automatique a échoué. Saisissez les dates manuellement.");
@@ -62,7 +68,15 @@ export function TechnicalControlCard({
     }
   }
 
-  async function persist(ct: string, pollution: string, mediaId?: string, manual = true) {
+  async function persist(
+    ct: string,
+    pollution: string,
+    mediaId?: string,
+    manual = true,
+    commentCt = ct,
+    commentPollution = pollution,
+  ) {
+    const values = ctPersistValues(ct, pollution, manual);
     const now = new Date().toISOString();
     // Le commentaire du point reprend la date structurée : partie automatique
     // régénérée sans doublon, commentaire manuel conservé.
@@ -72,16 +86,14 @@ export function TechnicalControlCard({
       .eq("id", pointId)
       .maybeSingle();
     const pointPatch = {
-      ct_due_date: ct || null,
-      pollution_due_date: pollution || null,
+      ...values,
       ct_read_at: now,
       ct_source: manual ? "manuel" : "ocr",
       ct_manually_corrected: manual,
-      comment: mergeCtComment(current?.comment ?? "", ct, pollution),
+      comment: mergeCtComment(current?.comment ?? "", commentCt, commentPollution),
     };
     const vehiclePatch = {
-      ct_due_date: ct || null,
-      pollution_due_date: pollution || null,
+      ...values,
       ...(mediaId ? { ct_photo_media_id: mediaId } : {}),
       ct_read_at: now,
       ct_source: manual ? "manuel" : "ocr",
@@ -93,6 +105,20 @@ export function TechnicalControlCard({
     ]);
     if (pointError) throw pointError;
     if (vehicleError) throw vehicleError;
+  }
+
+  // Saisie manuelle : enregistrée dès qu'une date complète est choisie (le
+  // sélecteur Android ne déclenche pas toujours la perte de focus), puis au blur.
+  const saved = useRef({ ct: firstValidCtDate(initialCt) ?? "", pollution: firstValidCtDate(initialPollution) ?? "" });
+  async function saveManual(ct: string, pollution: string) {
+    if (saved.current.ct === ct && saved.current.pollution === pollution) return;
+    try {
+      await persist(ct, pollution);
+      saved.current = { ct, pollution };
+    } catch (error) {
+      console.error(error);
+      toast.error("Échéance CT non enregistrée. Vérifiez la connexion puis ressaisissez la date.");
+    }
   }
 
 
@@ -124,8 +150,12 @@ export function TechnicalControlCard({
         <input
           type="date"
           value={ctDate}
-          onChange={(event) => setCtDate(event.target.value)}
-          onBlur={() => void persist(ctDate, pollutionDate)}
+          onChange={(event) => {
+            const v = event.target.value;
+            setCtDate(v);
+            if (!v || firstValidCtDate(v)) void saveManual(v, pollutionDate);
+          }}
+          onBlur={() => void saveManual(ctDate, pollutionDate)}
           className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground"
         />
       </label>
@@ -139,8 +169,12 @@ export function TechnicalControlCard({
           <input
             type="date"
             value={pollutionDate}
-            onChange={(event) => setPollutionDate(event.target.value)}
-            onBlur={() => void persist(ctDate, pollutionDate)}
+            onChange={(event) => {
+              const v = event.target.value;
+              setPollutionDate(v);
+              if (!v || firstValidCtDate(v)) void saveManual(ctDate, v);
+            }}
+            onBlur={() => void saveManual(ctDate, pollutionDate)}
             className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground"
           />
         </label>

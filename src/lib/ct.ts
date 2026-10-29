@@ -69,14 +69,51 @@ export function mileageAndCtLine(mileage: number | null | undefined, ct?: string
   return `${km} · ${ctSummaryLabel(ct)}`;
 }
 
-/** Date CT retenue pour un rapport : point de contrôle en priorité, puis véhicule. */
+/** Première date exploitable (non vide, convertible) parmi les candidates, sinon null. */
+export function firstValidCtDate(...values: (string | null | undefined)[]): string | null {
+  for (const v of values) {
+    if (formatCtDate(v)) return (v as string).trim();
+  }
+  return null;
+}
+
+/**
+ * Date CT retenue pour un rapport : point de contrôle en priorité, puis véhicule.
+ * Une valeur vide ou invalide sur le point ne masque jamais la date du véhicule.
+ */
 export function reportCtDates(d: {
   vehicle?: { ct_due_date?: string | null; pollution_due_date?: string | null } | null;
   points?: { point_key?: string | null; ct_due_date?: string | null; pollution_due_date?: string | null }[];
 }): { ct: string | null; pollution: string | null } {
   const point = (d.points ?? []).find((p) => p.point_key === "controle_technique");
   return {
-    ct: point?.ct_due_date ?? d.vehicle?.ct_due_date ?? null,
-    pollution: point?.pollution_due_date ?? d.vehicle?.pollution_due_date ?? null,
+    ct: firstValidCtDate(point?.ct_due_date, d.vehicle?.ct_due_date),
+    pollution: firstValidCtDate(point?.pollution_due_date, d.vehicle?.pollution_due_date),
   };
+}
+
+/** Mention affichée sur la ligne « Contrôle technique » du rapport, quel que soit l'état. */
+export function ctPointLine(ct?: string | null, pollution?: string | null): string {
+  const date = formatCtDate(ct);
+  const pol = formatCtDate(pollution);
+  return [date ? `CT valable jusqu'au ${date}` : CT_MISSING, pol ? `${POLLUTION_PREFIX} ${pol}.` : ""]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Patchs d'enregistrement CT. Une lecture OCR sans date ne doit jamais effacer
+ * une date déjà connue : les champs vides sont alors omis. Une saisie manuelle
+ * vide reste une décision explicite et efface la date.
+ */
+export function ctPersistValues(ct: string, pollution: string, manual: boolean): {
+  ct_due_date?: string | null;
+  pollution_due_date?: string | null;
+} {
+  const out: { ct_due_date?: string | null; pollution_due_date?: string | null } = {};
+  const c = firstValidCtDate(ct);
+  const p = firstValidCtDate(pollution);
+  if (c || manual) out.ct_due_date = c;
+  if (p || manual) out.pollution_due_date = p;
+  return out;
 }

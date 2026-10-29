@@ -797,8 +797,8 @@ function Guided(props: SharedProps) {
                     pointId={p.id}
                     tourId={props.tourId}
                     vehicleId={props.vehicleId}
-                    initialCt={(p as unknown as { ct_due_date?: string | null }).ct_due_date ?? props.ctDueDate}
-                    initialPollution={(p as unknown as { pollution_due_date?: string | null }).pollution_due_date ?? props.pollutionDueDate}
+                    initialCt={firstValidCtDate((p as unknown as { ct_due_date?: string | null }).ct_due_date, props.ctDueDate)}
+                    initialPollution={firstValidCtDate((p as unknown as { pollution_due_date?: string | null }).pollution_due_date, props.pollutionDueDate)}
                   />
                 </div>
               </LocalErrorBoundary>
