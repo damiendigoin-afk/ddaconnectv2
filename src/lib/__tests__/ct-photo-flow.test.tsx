@@ -75,7 +75,7 @@ function show(initialCt?: string) {
   return render(<QueryClientProvider client={client}><PointCard
     point={mocks.point as unknown as React.ComponentProps<typeof PointCard>["point"]}
     inspectionId="test-tour"
-    photoContent={<TechnicalControlCard pointId="test-point" tourId="test-tour" vehicleId="test-vehicle" initialCt={initialCt} />}
+    photoContent={<TechnicalControlCard pointId="test-point" tourId="test-tour" vehicleId="test-vehicle" initialCt={initialCt ?? null} />}
   /></QueryClientProvider>);
 }
 function choosePhoto(container: HTMLElement, imported = false) {
