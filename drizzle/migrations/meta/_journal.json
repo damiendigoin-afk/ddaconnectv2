@@ -407,6 +407,13 @@
       "when": 1793263463617,
       "tag": "0057_expense_revision_correction_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793263526435,
+      "tag": "0058_expense_revision_auth_guard",
+      "breakpoints": true
     }
   ]
 }
