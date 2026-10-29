@@ -18,6 +18,7 @@ vi.mock("@/lib/photo", () => ({
 vi.mock("@/components/PhotoLightbox", () => ({ useLightbox: () => ({ open: vi.fn(), node: null }) }));
 vi.mock("@/lib/site-context", () => ({ useSite: () => ({ site: null }) }));
 vi.mock("@tanstack/react-router", () => ({
+  lazyRouteComponent: (load: () => Promise<Record<string, React.ComponentType>>, name: string) => React.lazy(async () => { const module = await load(); const component = module[name]; if (!component) throw new Error("PDF absent"); return { default: component }; }),
   createFileRoute: () => (options: Record<string, unknown>) => ({ options, useParams: () => ({ tourId: "test-tour" }) }),
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
@@ -40,7 +41,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
     const builder = {
       select: () => builder, eq: () => builder, order: () => builder,
       update: (value: Record<string, unknown>) => { patch = value; return builder; },
-      maybeSingle: async () => ({ data: { comment: mocks.point.comment }, error: null }),
+      maybeSingle: async () => ({ data: { comment: mocks.point["comment"] }, error: null }),
       single: async () => result(),
       then: (resolve: (value: ReturnType<typeof result>) => unknown) => Promise.resolve(result()).then(resolve),
     };
@@ -92,50 +93,50 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
     expect(mocks.upload).toHaveBeenCalledTimes(1);
     expect(mocks.upload).toHaveBeenCalledWith(expect.any(File), "tours/test-tour/controle-technique", { inspection_id: "test-tour", inspection_point_id: "test-point", label: "Contrôle technique" });
     expect(mocks.ocr).toHaveBeenCalledTimes(1);
-    expect(mocks.point.ct_due_date).toBeNull(); // Pas de remplacement avant confirmation.
+    expect(mocks.point["ct_due_date"]).toBeNull(); // Pas de remplacement avant confirmation.
     fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance" }));
-    await waitFor(() => expect(mocks.point.ct_due_date).toBe("2028-10-29"));
+    await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-10-29"));
     await waitFor(() => expect(screen.queryByLabelText("Échéance CT lue")).toBeNull());
-    expect(mocks.vehicle.ct_due_date).toBe("2028-10-29");
-    expect(mocks.point.status).toBe("ok");
+    expect(mocks.vehicle["ct_due_date"]).toBe("2028-10-29");
+    expect(mocks.point["status"]).toBe("ok");
     expect(mocks.updates.some(({ patch }) => "status" in patch)).toBe(false);
     expect(mocks.media).toHaveLength(1);
-    expect(mocks.vehicle.ct_photo_media_id).toBe("test-media");
+    expect(mocks.vehicle["ct_photo_media_id"]).toBe("test-media");
     const report = await fetchReport({ id: "test-tour" });
     expect(report.inspection.completed_at).toBe("2026-10-29T12:12:00Z");
     cleanup();
     client.setQueryData(["report", "test-tour"], report);
     const Pdf = PdfRoute.options.component;
     if (!Pdf) throw new Error("Écran PDF absent");
-    const pdf = render(<QueryClientProvider client={client}><Pdf /></QueryClientProvider>);
-    expect(pdf.container.textContent).toContain("CT valable jusqu'au 29/10/2028");
+    const pdf = render(<QueryClientProvider client={client}><React.Suspense fallback={null}><Pdf /></React.Suspense></QueryClientProvider>);
+    await waitFor(() => expect(pdf.container.textContent).toContain("CT valable jusqu'au 29/10/2028"));
     expect(pdf.container.textContent).not.toContain("Date du contrôle technique non renseignée");
   });
 
   it.each(["vide", "erreur", "exception"])("OCR %s : photo conservée, date existante et statut OK inchangés, correction manuelle possible", async (kind) => {
-    mocks.point.ct_due_date = "2027-04-15"; mocks.vehicle.ct_due_date = "2027-04-15";
+    mocks.point["ct_due_date"] = "2027-04-15"; mocks.vehicle["ct_due_date"] = "2027-04-15";
     if (kind === "vide") mocks.ocr.mockResolvedValue({ ok: true, json: '{"ct_due_date":null}' });
     if (kind === "erreur") mocks.ocr.mockResolvedValue({ ok: false, error: "Illisible" });
     if (kind === "exception") mocks.ocr.mockRejectedValue(new Error("Lecture indisponible"));
     const { container } = show("2027-04-15");
     choosePhoto(container, true);
-    await waitFor(() => expect(screen.getByLabelText("Prochaine échéance CT")).not.toBeDisabled());
+    await waitFor(() => expect((screen.getByLabelText("Prochaine échéance CT") as HTMLInputElement).disabled).toBe(false));
     await screen.findByRole("status");
     expect(mocks.media).toHaveLength(1);
-    expect(mocks.point.ct_due_date).toBe("2027-04-15");
-    expect(mocks.vehicle.ct_due_date).toBe("2027-04-15");
-    expect(mocks.point.status).toBe("ok");
+    expect(mocks.point["ct_due_date"]).toBe("2027-04-15");
+    expect(mocks.vehicle["ct_due_date"]).toBe("2027-04-15");
+    expect(mocks.point["status"]).toBe("ok");
     fireEvent.change(screen.getByLabelText("Prochaine échéance CT"), { target: { value: "2028-05-20" } });
-    await waitFor(() => expect(mocks.point.ct_due_date).toBe("2028-05-20"));
-    expect(mocks.vehicle.ct_due_date).toBe("2028-05-20");
+    await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-05-20"));
+    expect(mocks.vehicle["ct_due_date"]).toBe("2028-05-20");
     expect(mocks.upload).toHaveBeenCalledTimes(1);
   });
 
   it("saisie manuelle sans nouvelle photo : point et véhicule enregistrés, aucun OCR", async () => {
     show();
     fireEvent.change(screen.getByLabelText("Prochaine échéance CT"), { target: { value: "2027-12-10" } });
-    await waitFor(() => expect(mocks.point.ct_due_date).toBe("2027-12-10"));
-    expect(mocks.vehicle.ct_due_date).toBe("2027-12-10");
+    await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2027-12-10"));
+    expect(mocks.vehicle["ct_due_date"]).toBe("2027-12-10");
     expect(mocks.ocr).not.toHaveBeenCalled(); expect(mocks.upload).not.toHaveBeenCalled();
   });
 
@@ -144,8 +145,8 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
     const proposal = await screen.findByLabelText("Échéance CT lue");
     fireEvent.change(proposal, { target: { value: "2028-11-15" } });
     fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance" }));
-    await waitFor(() => expect(mocks.point.ct_due_date).toBe("2028-11-15"));
-    expect(mocks.point.ct_source).toBe("manuel");
-    expect(mocks.point.ct_manually_corrected).toBe(true);
+    await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-11-15"));
+    expect(mocks.point["ct_source"]).toBe("manuel");
+    expect(mocks.point["ct_manually_corrected"]).toBe(true);
   });
 });
