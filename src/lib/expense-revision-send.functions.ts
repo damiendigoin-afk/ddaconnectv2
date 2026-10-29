@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { accountingEmailFor, accountLabel, categoryLabel, isAccountPayment, isPersonalPayment, paymentLabel, type ExpenseNote } from "./expenses";
 import { expenseDeliveryKey } from "./expense-revision-rules";
+import { buildExpenseNotePdf } from "./expense-pdf";
 
 export const sendExpenseRevision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -33,7 +34,10 @@ export const sendExpenseRevision = createServerFn({ method: "POST" })
     const jobs = [...recipients].map(([recipient, target_revision]) => ({ recipient, target_revision, kind: note.cancelled_at || recipient !== to ? "cancel" : "replace" }));
     if (!note.cancelled_at && !recipients.has(to)) jobs.push({ recipient: to, target_revision: 0, kind: "initial" });
     const path = `notes-frais/${note.id}/v${note.revision}/${crypto.randomUUID()}.pdf`;
-    const { error: up } = await admin.storage.from("dda-media").upload(path, Buffer.from(data.pdfBase64, "base64"), { contentType: "application/pdf", upsert: false });
+    const { data: receipt } = note.receipt_path ? await admin.storage.from("dda-media").createSignedUrl(note.receipt_path, 300) : { data: null };
+    if (note.receipt_path && !receipt?.signedUrl) throw new Error("Justificatif indisponible : aucun envoi effectué");
+    const pdf = await buildExpenseNotePdf({ note: { ...note, validated_at: note.cancelled_at ? null : note.validated_at ?? new Date().toISOString(), validated_by_name: note.validated_by_name ?? String(context.claims["email"] ?? "Validateur") }, siteLabel: site?.name ?? "—", receiptUrl: receipt?.signedUrl ?? null });
+    const { error: up } = await admin.storage.from("dda-media").upload(path, pdf as unknown as Blob, { contentType: "application/pdf", upsert: false });
     if (up) throw new Error("Archivage du PDF impossible, aucun envoi effectué");
     // Authenticated client carries auth.uid() into the locked transaction.
     const { error: prep } = await sb.rpc("prepare_expense_revision", { _id: note.id, _revision: note.revision, _pdf: path, _jobs: jobs });
@@ -53,7 +57,8 @@ export const sendExpenseRevision = createServerFn({ method: "POST" })
       const notice = d.kind === "cancel" ? `ANNULE note ${note.id} v${d.target_revision} — correction v${note.revision}` : d.kind === "replace" ? `REMPLACE note ${note.id} v${d.target_revision} par v${note.revision}` : `Note ${note.id} v${note.revision}${note.revision > 1 ? " — nouvelle affectation, ne pas doubler l'ancienne écriture" : ""}`;
       try {
         const result = await sendExpenseToAccounting({ to: d.recipient, personal: d.kind !== "cancel" && isPersonalPayment(note.payment_method), onAccount: isAccountPayment(note.payment_method), accountLabel: accountLabel(note.account_ref, note.account_other), amount: Number(note.amount_ttc).toLocaleString("fr-FR", { style: "currency", currency: "EUR" }), merchant: note.merchant ?? "—", siteLabel: site?.name ?? "—", spentOn: note.spent_on, purpose: `${note.purpose || categoryLabel(note.category)}. ${note.correction_reason ?? ""}. ${note.accounting_instruction ?? ""}${d.kind === "cancel" ? ". ANNULATION : ne pas comptabiliser ni rembourser ce document." : ""}`, paymentLabel: paymentLabel(note.payment_method), authorName: note.user_name ?? "—", validatorName: String(context.claims["email"] ?? "Validateur"), pdfBase64: Buffer.from(await stored.arrayBuffer()).toString("base64"), filename: `note-${note.id}-v${note.revision}.pdf`, idempotencyKey: expenseDeliveryKey(note.id, note.revision, d.recipient, d.kind), revisionNotice: notice });
-        await admin.from("expense_revision_deliveries").update({ state: result.ok ? "sent" : result.status === 0 || result.status >= 500 ? "unknown" : "failed", sent_at: result.ok ? new Date().toISOString() : null, provider_id: result.providerId, error: result.ok ? null : "Envoi non confirmé ; vérifier avant nouvel essai" }).eq("id", d.id);
+        const { error: evidenceError } = await admin.from("expense_revision_deliveries").update({ state: result.ok ? "sent" : result.status === 0 || result.status >= 500 ? "unknown" : "failed", sent_at: result.ok ? new Date().toISOString() : null, provider_id: result.providerId ?? null, error: result.ok ? null : "Envoi non confirmé ; vérifier avant nouvel essai" }).eq("id", d.id);
+        if (evidenceError) throw evidenceError;
       } catch {
         await admin.from("expense_revision_deliveries").update({ state: "unknown", error: "Résultat incertain : contrôle manuel requis, pas de réessai automatique" }).eq("id", d.id);
       }
