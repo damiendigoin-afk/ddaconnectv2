@@ -515,6 +515,14 @@ function TourManagement({
         >
           <Pencil className="h-4 w-4" /> Modifier le tour
         </Link>
+        <Link
+          to="/tour/$tourId"
+          params={{ tourId }}
+          search={{ edit: true, tires: true }}
+          className="flex items-center justify-center gap-2 rounded-lg border-2 border-brand bg-card px-3 py-3 text-sm font-bold uppercase text-brand"
+        >
+          <Pencil className="h-4 w-4" /> Modifier l’analyse des 4 pneus
+        </Link>
         {archivedAt ? (
           <button
             disabled={busy}
