@@ -59,3 +59,48 @@ describe("Écran Analyse des 4 pneus", () => {
     expect(run).toHaveBeenLastCalledWith(true);
   });
 });
+
+import { buildTireCorrections, preloadTireEdit } from "../tour-tire-correction";
+
+describe("Correction de l’analyse des 4 pneus (tour clôturé)", () => {
+  const step = normalizeTireStep(wheel(5.5));
+  const points = TOUR_TIRE_KEYS.map((k) => ({ id: `id-${k}`, point_key: k, status: "ok", tire_analysis: { tourStep: step, corrections: [] } }));
+  const initial = () => preloadTireEdit(points);
+
+  it("mode édition : résultats préchargés, AUCUN appel IA à l’ouverture", async () => {
+    const run = vi.fn(); const rerun = vi.fn();
+    render(<TourTiresAnalysis plate="P" tourId="t" run={run} onValidate={vi.fn()} onBack={vi.fn()} edit={{ initial: initial(), proof: {}, rerun, onSave: vi.fn() }} />);
+    expect(screen.getAllByDisplayValue("5.5").length).toBe(12);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(run).not.toHaveBeenCalled(); expect(rerun).not.toHaveBeenCalled();
+  });
+
+  it("retour sans enregistrer n’appelle pas la sauvegarde", () => {
+    const onSave = vi.fn(); const onBack = vi.fn();
+    render(<TourTiresAnalysis plate="P" tourId="t" run={vi.fn()} onValidate={vi.fn()} onBack={onBack} edit={{ initial: initial(), proof: {}, rerun: vi.fn(), onSave }} />);
+    fireEvent.click(screen.getByText("Retour sans enregistrer"));
+    expect(onBack).toHaveBeenCalled(); expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("statut AVD OK → À remplacer sans motif : refusé", () => {
+    const edits = initial(); edits.pneu_avd = { ...edits.pneu_avd!, status: "defect" };
+    const r = buildTireCorrections({ points, edits, actor: { id: "u", name: "Arnaud" }, afterClosure: true });
+    expect(r).toEqual({ ok: false, missingReason: ["pneu_avd"] });
+  });
+
+  it("statut AVD corrigé avec motif : mesures inchangées, historique avant/après, auteur, date", () => {
+    const edits = initial(); edits.pneu_avd = { ...edits.pneu_avd!, status: "defect", reason: "Hernie flanc constatée" };
+    const r = buildTireCorrections({ points, edits, actor: { id: "u", name: "Arnaud" }, afterClosure: true, now: new Date("2026-10-29T10:00:00Z") });
+    if (!r.ok) throw new Error("refusé");
+    expect(r.updates).toHaveLength(1);
+    const u = r.updates[0]!;
+    expect(u.pointId).toBe("id-pneu_avd"); expect(u.patch.status).toBe("defect"); expect(u.patch.measure_value).toBe("5.5");
+    expect(u.entry).toMatchObject({ byName: "Arnaud", at: "2026-10-29T10:00:00.000Z", afterClosure: true, previous: { status: "ok" }, next: { status: "defect", depths: { inner_mm: 5.5 } } });
+    expect((u.patch.tire_analysis["corrections"] as unknown[]).length).toBe(1);
+  });
+
+  it("aucune modification : rien n’est écrit", () => {
+    const r = buildTireCorrections({ points, edits: initial(), actor: { id: "u", name: null }, afterClosure: true });
+    expect(r).toEqual({ ok: true, updates: [] });
+  });
+});

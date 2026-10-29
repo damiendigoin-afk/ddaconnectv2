@@ -19,6 +19,7 @@ import { TourTiresAnalysis, type TourTiresRun } from "@/components/TourTiresAnal
 import { useServerFn } from "@tanstack/react-start";
 import { analyzeTourTires } from "@/lib/tour-tire-analysis.functions";
 import { legacyTireAnalysis, TOUR_TIRE_KEYS, type TourTireKey } from "@/lib/tour-tire-analysis";
+import { buildTireCorrections, preloadTireEdit, type TireEditState, type TirePointLike } from "@/lib/tour-tire-correction";
 import type { TireStepResult } from "@/lib/tire-step";
 import type { TireLabelAi } from "@/lib/tire-types";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
@@ -34,8 +35,12 @@ import { FREE_CATEGORIES, GUIDED_ZONES } from "@/lib/zones";
 
 export const Route = createFileRoute("/tour/$tourId/")({
   // Un tour terminé reste modifiable : ?edit=1 rouvre les contrôles.
-  validateSearch: (search: Record<string, unknown>): { edit?: boolean } =>
-    search["edit"] === "1" || search["edit"] === 1 || search["edit"] === true ? { edit: true } : {},
+  // ?tires=1 (avec edit) ouvre directement la correction de l'analyse des 4 pneus.
+  validateSearch: (search: Record<string, unknown>): { edit?: boolean; tires?: boolean } => {
+    const yes = (v: unknown) => v === "1" || v === 1 || v === true;
+    if (!yes(search["edit"])) return {};
+    return yes(search["tires"]) ? { edit: true, tires: true } : { edit: true };
+  },
   head: () => ({
     meta: [
       { title: "Tour véhicule — DDA Connect" },
@@ -59,7 +64,7 @@ async function loadTour(id: string) {
 
 function TourPage() {
   const { tourId } = Route.useParams();
-  const { edit } = Route.useSearch();
+  const { edit, tires } = Route.useSearch();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user, displayName } = useAuth();
@@ -144,6 +149,7 @@ function TourPage() {
 
   const shared = {
     editingCompleted: Boolean(editingCompleted),
+    openTiresEdit: Boolean(editingCompleted && tires),
     tourId,
     orderId: order.id,
     vehicleId: vehicle.id,
@@ -165,6 +171,8 @@ function TourPage() {
 type SharedProps = {
   /** Reprise d'un tour déjà clôturé : la clôture initiale est préservée. */
   editingCompleted: boolean;
+  /** Ouverture directe de la correction des 4 pneus depuis le récapitulatif clôturé. */
+  openTiresEdit?: boolean;
   tourId: string;
   orderId: string;
   vehicleId: string;
@@ -185,10 +193,12 @@ function TourNav({
   quit,
   deleteDraft,
   editingCompleted,
+  onEditTires,
 }: {
   quit: () => void;
   deleteDraft: () => void;
   editingCompleted?: boolean;
+  onEditTires?: () => void;
 }) {
   return (
     <div className="mb-3 space-y-2">
@@ -196,6 +206,15 @@ function TourNav({
         <p className="rounded-lg bg-status-watch-soft px-3 py-2 text-xs font-bold uppercase text-status-watch">
           Modification d'un tour terminé — la clôture initiale est conservée
         </p>
+      ) : null}
+      {editingCompleted && onEditTires ? (
+        <button
+          type="button"
+          onClick={onEditTires}
+          className="w-full rounded-lg border-2 border-brand bg-card px-3 py-3 text-sm font-extrabold uppercase text-brand"
+        >
+          Modifier l’analyse des 4 pneus
+        </button>
       ) : null}
       <div className="flex gap-2">
       <button
@@ -229,6 +248,9 @@ function Guided(props: SharedProps) {
   const [showSummary, setShowSummary] = useState(false);
   const analyzeTires = useServerFn(analyzeTourTires);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const qc = useQueryClient();
+  const [tiresEdit, setTiresEdit] = useState<null | { initial: Partial<Record<TourTireKey, TireEditState>>; proof: Partial<Record<TourTireKey, { mainPhotoUrl?: string | null }>> }>(null);
+  const [autoOpened, setAutoOpened] = useState(false);
   // Étiquette pneumatiques lue côté conducteur : sert de dimension homologuée
   // de référence pour les quatre roues du tour en cours.
   const [tireLabel, setTireLabel] = useState<TireLabelAi | null>(null);
@@ -452,6 +474,86 @@ function Guided(props: SharedProps) {
     await finish();
   }
 
+  // Correction après clôture : préchargement des statuts/résultats ET photos existants, sans IA.
+  async function openTiresEdit() {
+    const { data: fresh, error } = await points.refetch();
+    if (error || !fresh) { toast.error("Pneus non chargés"); return; }
+    const tirePoints = fresh.filter((p) => (TOUR_TIRE_KEYS as readonly string[]).includes(p.point_key));
+    const proof: Partial<Record<TourTireKey, { mainPhotoUrl?: string | null }>> = {};
+    const { data: media } = await supabase
+      .from("media")
+      .select("inspection_point_id, storage_path, label, created_at")
+      .eq("inspection_id", props.tourId)
+      .in("inspection_point_id", tirePoints.map((p) => p.id))
+      .order("created_at", { ascending: false });
+    for (const p of tirePoints) {
+      const m = (media ?? []).find((x) => x.inspection_point_id === p.id && /bande/i.test(x.label ?? "") && x.storage_path)
+        ?? (media ?? []).find((x) => x.inspection_point_id === p.id && x.storage_path);
+      if (!m?.storage_path) continue;
+      const { data: signed } = await supabase.storage.from("dda-media").createSignedUrl(m.storage_path, 900);
+      proof[p.point_key as TourTireKey] = { mainPhotoUrl: signed?.signedUrl ?? null };
+    }
+    setTiresEdit({ initial: preloadTireEdit(tirePoints as unknown as TirePointLike[]), proof });
+  }
+
+  useEffect(() => {
+    if (!props.openTiresEdit || autoOpened || !points.data) return;
+    setAutoOpened(true);
+    void openTiresEdit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.openTiresEdit, autoOpened, points.data]);
+
+  function closeTiresEdit() {
+    setTiresEdit(null);
+    if (props.openTiresEdit) navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
+  }
+
+  async function saveTiresEdit(edits: Partial<Record<TourTireKey, TireEditState>>) {
+    if (!user) return undefined;
+    const fresh = (await points.refetch()).data ?? [];
+    const built = buildTireCorrections({
+      points: fresh as unknown as TirePointLike[],
+      edits,
+      actor: { id: user.id, name: displayName || null },
+      afterClosure: props.editingCompleted,
+    });
+    if (!built.ok) return { missingReason: built.missingReason };
+    if (!built.updates.length) { toast.info("Aucune modification"); closeTiresEdit(); return undefined; }
+    for (const u of built.updates) {
+      const { error } = await supabase.from("inspection_points").update(u.patch as never).eq("id", u.pointId);
+      if (error) throw new Error(error.message);
+    }
+    // Clôture d'origine conservée, aucun envoi client déclenché : seule la trace de modification change.
+    await markTourModified(props.tourId, { userId: user.id, userName: displayName || null });
+    await Promise.all([
+      points.refetch(),
+      qc.invalidateQueries({ queryKey: ["report", props.tourId] }),
+      qc.invalidateQueries({ queryKey: ["tour", props.tourId] }),
+    ]);
+    toast.success("Analyse des pneus corrigée");
+    closeTiresEdit();
+    return undefined;
+  }
+
+  async function rerunTiresWithoutSaving(): Promise<TourTiresRun> {
+    const r = await analyzeTires({ data: { inspectionId: props.tourId, siteId: isGroup ? null : activeSite || null, force: true } });
+    if (!r.ok || !r.results) return { ok: false, error: r.error || "Analyse IA impossible." };
+    return { ok: true, results: r.results as Record<TourTireKey, TireStepResult>, proof: (r.proof ?? {}) as Partial<Record<TourTireKey, { mainPhotoUrl?: string | null }>> };
+  }
+
+  if (tiresEdit) {
+    return (
+      <TourTiresAnalysis
+        plate={props.plate}
+        tourId={props.tourId}
+        run={runTourTires}
+        onValidate={validateTiresAndFinish}
+        onBack={closeTiresEdit}
+        edit={{ initial: tiresEdit.initial, proof: tiresEdit.proof, rerun: rerunTiresWithoutSaving, onSave: saveTiresEdit }}
+      />
+    );
+  }
+
   if (analysisOpen) {
     return <TourTiresAnalysis plate={props.plate} tourId={props.tourId} run={runTourTires} onValidate={validateTiresAndFinish} onBack={() => setAnalysisOpen(false)} />;
   }
@@ -507,6 +609,14 @@ function Guided(props: SharedProps) {
           ) : null}
           <div className="grid gap-2">
             <PendingUploadsGuard />
+            {props.editingCompleted ? (
+              <button
+                onClick={() => void openTiresEdit()}
+                className="rounded-xl border-2 border-brand bg-card px-4 py-4 font-bold uppercase text-brand"
+              >
+                Modifier l’analyse des 4 pneus
+              </button>
+            ) : null}
             <button
               onClick={() => setShowSummary(false)}
               className="rounded-xl border-2 border-border bg-card px-4 py-4 font-bold uppercase"
@@ -584,7 +694,7 @@ function Guided(props: SharedProps) {
       subtitle={current.label.toUpperCase()}
       back={{ to: "/tours" }}
     >
-      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} editingCompleted={props.editingCompleted} />
+      <TourNav quit={props.quit} deleteDraft={props.deleteDraft} editingCompleted={props.editingCompleted} onEditTires={() => void openTiresEdit()} />
       <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
         <div
           className="h-full bg-brand transition-all"
