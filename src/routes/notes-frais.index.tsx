@@ -13,7 +13,9 @@ import { usePermissions } from "@/lib/module-access";
 import { toastError } from "@/lib/errors";
 import { fetchSites, type Site } from "@/lib/sites";
 import { ocrExpenseReceipt } from "@/lib/expense-ocr.functions";
-import { validateAndSendExpense } from "@/lib/expense-mail.functions";
+import { sendExpenseRevision } from "@/lib/expense-revision-send.functions";
+import { ExpenseCorrection } from "@/components/ExpenseCorrection";
+import { useServerFn } from "@tanstack/react-start";
 import { transitionExpense } from "@/lib/expense-actions.functions";
 import { buildExpenseNotePdf, pdfToBase64 } from "@/lib/expense-pdf";
 import { blobToDataUrl, receiptUrl, uploadReceipt } from "@/lib/expense-upload";
@@ -94,6 +96,7 @@ function emptyDraft(siteId: string): Draft {
 
 function ExpenseHub() {
   const qc = useQueryClient();
+  const validateAndSendExpense = useServerFn(sendExpenseRevision);
   const { user, displayName } = useAuth();
   const { site } = useSite();
   const perms = usePermissions();
@@ -214,7 +217,7 @@ function ExpenseHub() {
         receiptUrl: url,
       });
       const res = await validateAndSendExpense({
-        data: { expenseId: note.id, pdfBase64: pdfToBase64(bytes), attempt: crypto.randomUUID() },
+        data: { expenseId: note.id, revision: note.revision, pdfBase64: pdfToBase64(bytes) },
       });
       if (!res.ok) throw new Error(res.error);
     },
@@ -496,7 +499,7 @@ function ExpenseHub() {
                        onClick={() => change.mutate({ id: e.id, action: "resubmit" })}
                     />
                   ) : null}
-                  {perms.canValidateExpenses && (e.status === "soumis" || failed) ? (
+                  {perms.canValidateExpenses && e.revision === 1 && (e.status === "soumis" || (failed && e.status === "valide")) ? (
                     <>
                       <Act
                         label={validate.isPending ? "Envoi…" : failed ? "Renvoyer" : "Valider et transmettre"}
@@ -514,7 +517,7 @@ function ExpenseHub() {
                       ) : null}
                     </>
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && personal ? (
+                  {perms.canAccountExpenses && e.revision === 1 && e.status === "transmise" && personal ? (
                     <Act
                       label="Marquer comme réglé"
                       primary
@@ -529,7 +532,7 @@ function ExpenseHub() {
                       }}
                     />
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && !personal && !onAccount ? (
+                  {perms.canAccountExpenses && e.revision === 1 && e.status === "transmise" && !personal && !onAccount ? (
                     <Act
                       label="Marquer comptabilisé"
                       primary
@@ -541,7 +544,7 @@ function ExpenseHub() {
                       }
                     />
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && onAccount ? (
+                  {perms.canAccountExpenses && e.revision === 1 && e.status === "transmise" && onAccount ? (
                     <Act
                       label="Rapprochée / comptabilisée"
                       primary
@@ -561,6 +564,7 @@ function ExpenseHub() {
                   ) : null}
 
                 </div>
+                <ExpenseCorrection key={`${e.id}:${e.revision}`} note={e} sites={sites.data ?? []} />
               </div>
             );
           })}
