@@ -17,3 +17,9 @@ export function expenseDeliveryKey(noteId: string, revision: number, recipient: 
 export function canRetryExpenseDelivery(state: string) {
   return state === "ready" || state === "failed";
 }
+
+export function expenseRevisionTargets(cancelled: boolean, to: string, recipients: Map<string, number>) {
+  const jobs = [...recipients].map(([recipient, target_revision]) => ({ recipient, target_revision, kind: revisionMailKind(cancelled, recipient, to) }));
+  if (!cancelled && !recipients.has(to)) jobs.push({ recipient: to, target_revision: 0, kind: "initial" });
+  return jobs;
+}

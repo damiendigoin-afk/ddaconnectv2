@@ -471,11 +471,11 @@ function ExpenseHub() {
                 ) : null}
                 {e.settled_at ? (
                   <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-status-ok">
-                    <CheckCircle2 className="h-3 w-3" /> Remboursement réglé le {frDate(e.settled_at)}
+                    <CheckCircle2 className="h-3 w-3" /> {e.revision > 1 ? "Version antérieure : remboursement réglé le " : "Remboursement réglé le "}{frDate(e.settled_at)}
                   </p>
                 ) : null}
                 {e.accounted_at ? (
-                  <p className="mt-1 text-[11px] font-bold text-status-ok">Comptabilisée le {frDateTime(e.accounted_at)}</p>
+                  <p className="mt-1 text-[11px] font-bold text-status-ok">{e.revision > 1 ? "Version antérieure comptabilisée le " : "Comptabilisée le "}{frDateTime(e.accounted_at)}</p>
                 ) : null}
                 {e.user_id === user?.id && !e.employee_notified_at && (e.status === "reglee" || e.status === "comptabilisee") ? (
                   <p className="mt-2 rounded-lg bg-status-ok-soft px-2 py-2 text-[11px] font-bold text-status-ok">

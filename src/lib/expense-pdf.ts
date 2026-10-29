@@ -199,6 +199,7 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
     }
   }
   if (!drawn) {
+    if (input.receiptUrl) throw new Error("Justificatif illisible dans le PDF : aucun envoi autorisé");
     text("Justificatif non disponible en image dans ce document.", M + 14, y - 24, 10, font, RED);
   }
 

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { accountingEmailFor, accountLabel, categoryLabel, isAccountPayment, isPersonalPayment, paymentLabel, type ExpenseNote } from "./expenses";
-import { expenseDeliveryKey } from "./expense-revision-rules";
+import { expenseDeliveryKey, expenseRevisionTargets } from "./expense-revision-rules";
 import { buildExpenseNotePdf } from "./expense-pdf";
 
 export const sendExpenseRevision = createServerFn({ method: "POST" })
@@ -31,8 +31,7 @@ export const sendExpenseRevision = createServerFn({ method: "POST" })
       if (s.sent_at && s.accounting_email && !recipients.has(s.accounting_email)) recipients.set(s.accounting_email, v.revision);
     }
     if (note.revision === 1 && note.sent_at && note.accounting_email) recipients.set(note.accounting_email, 1);
-    const jobs = [...recipients].map(([recipient, target_revision]) => ({ recipient, target_revision, kind: note.cancelled_at || recipient !== to ? "cancel" : "replace" }));
-    if (!note.cancelled_at && !recipients.has(to)) jobs.push({ recipient: to, target_revision: 0, kind: "initial" });
+    const jobs = expenseRevisionTargets(Boolean(note.cancelled_at), to, recipients);
     const path = `notes-frais/${note.id}/v${note.revision}/${crypto.randomUUID()}.pdf`;
     const { data: receipt } = note.receipt_path ? await admin.storage.from("dda-media").createSignedUrl(note.receipt_path, 300) : { data: null };
     if (note.receipt_path && !receipt?.signedUrl) throw new Error("Justificatif indisponible : aucun envoi effectué");

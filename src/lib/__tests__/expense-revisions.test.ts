@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { expenseDeliveryKey, revisionMailKind, canRetryExpenseDelivery, requiresAccountingInstruction, EXPENSE_EDIT_FIELDS } from "../expense-revision-rules";
+import { expenseRevisionTargets, expenseDeliveryKey, revisionMailKind, canRetryExpenseDelivery, requiresAccountingInstruction, EXPENSE_EDIT_FIELDS } from "../expense-revision-rules";
 
 describe("Corrections comptables versionnées", () => {
+  it("jamais envoyée : annulation ne crée aucun destinataire", () => expect(expenseRevisionTargets(true, "compta@garagecastillon.fr", new Map())).toEqual([]));
+  it("déplacement inter-entités : annulation ancienne boîte et une seule nouvelle transmission", () => {
+    expect(expenseRevisionTargets(false, "compta@garagecastillon.fr", new Map([["compta@dda-lalinde.fr", 1]]))).toEqual([
+      { recipient: "compta@dda-lalinde.fr", target_revision: 1, kind: "cancel" },
+      { recipient: "compta@garagecastillon.fr", target_revision: 0, kind: "initial" },
+    ]);
+  });
   it("changement Lalinde vers Castillon : annuler côté ancien établissement", () => {
     expect(revisionMailKind(false, "compta@dda-lalinde.fr", "compta@garagecastillon.fr")).toBe("cancel");
   });
