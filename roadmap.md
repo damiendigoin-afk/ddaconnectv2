@@ -167,7 +167,8 @@ Reste à faire :
 - [ ] Relever une fixture réelle PieceRecherche (premier essai manager)
 
 ## Correction / annulation notes de frais
-- [ ] Versions immuables, motifs, droits et verrou de concurrence
-- [ ] Modification / annulation explicites, revalidation et historique consultable
-- [ ] PDF versionnés, corrections comptables par destinataire, idempotence et prise en compte distincte
-- [ ] Tests sans mail réel, contrôle compilation et parcours connecté
+- [x] Versions immuables, motifs, droits et verrou de concurrence
+- [x] Modification / annulation explicites, revalidation et historique consultable
+- [x] PDF versionnés, corrections comptables par destinataire, idempotence et prise en compte distincte
+- [x] Tests sans mail réel, compilation automatique et ouverture connectée de l'éditeur / historique
+- [ ] Recette complète correction puis validation comptable : nécessite une note de test autorisée et un destinataire de test (aucun mail réel permis)
