@@ -24,7 +24,7 @@ export const sendExpenseRevision = createServerFn({ method: "POST" })
     const to = accountingEmailFor(site?.code, site?.name);
     if (!to && !note.cancelled_at) throw new Error("Adresse comptable non configurée");
     const recipients = new Map<string, number>();
-    for (const d of previous ?? []) if (!recipients.has(d.recipient)) recipients.set(d.recipient, d.revision);
+    for (const d of previous ?? []) if (d.kind !== "cancel" && !recipients.has(d.recipient)) recipients.set(d.recipient, d.revision);
     // Legacy deliveries are evidence too; no historical row is rewritten.
     for (const v of versions ?? []) {
       const s = v.snapshot as unknown as ExpenseNote;
