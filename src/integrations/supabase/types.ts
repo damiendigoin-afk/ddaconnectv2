@@ -2721,13 +2721,17 @@ export type Database = {
           accounted_at: string | null
           accounted_by_name: string | null
           accounting_email: string | null
+          accounting_instruction: string | null
           amount_ttc: number
           archived_at: string | null
           archived_by: string | null
           archived_by_name: string | null
+          cancelled_at: string | null
           category: string
+          correction_reason: string | null
           created_at: string
           employee_notified_at: string | null
+          exported_at: string | null
           id: string
           merchant: string | null
           notes: string | null
@@ -2740,6 +2744,7 @@ export type Database = {
           reject_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          revision: number
           send_error: string | null
           send_status: string | null
           sent_at: string | null
@@ -2765,13 +2770,17 @@ export type Database = {
           accounted_at?: string | null
           accounted_by_name?: string | null
           accounting_email?: string | null
+          accounting_instruction?: string | null
           amount_ttc?: number
           archived_at?: string | null
           archived_by?: string | null
           archived_by_name?: string | null
+          cancelled_at?: string | null
           category?: string
+          correction_reason?: string | null
           created_at?: string
           employee_notified_at?: string | null
+          exported_at?: string | null
           id?: string
           merchant?: string | null
           notes?: string | null
@@ -2784,6 +2793,7 @@ export type Database = {
           reject_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          revision?: number
           send_error?: string | null
           send_status?: string | null
           sent_at?: string | null
@@ -2809,13 +2819,17 @@ export type Database = {
           accounted_at?: string | null
           accounted_by_name?: string | null
           accounting_email?: string | null
+          accounting_instruction?: string | null
           amount_ttc?: number
           archived_at?: string | null
           archived_by?: string | null
           archived_by_name?: string | null
+          cancelled_at?: string | null
           category?: string
+          correction_reason?: string | null
           created_at?: string
           employee_notified_at?: string | null
+          exported_at?: string | null
           id?: string
           merchant?: string | null
           notes?: string | null
@@ -2828,6 +2842,7 @@ export type Database = {
           reject_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          revision?: number
           send_error?: string | null
           send_status?: string | null
           sent_at?: string | null
@@ -2853,6 +2868,150 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_revision_deliveries: {
+        Row: {
+          created_at: string
+          error: string | null
+          expense_id: string
+          id: string
+          kind: string
+          pdf_path: string
+          processed_at: string | null
+          processed_by: string | null
+          processing_reference: string | null
+          provider_id: string | null
+          recipient: string
+          revision: number
+          sent_at: string | null
+          state: string
+          target_revision: number | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          expense_id: string
+          id?: string
+          kind: string
+          pdf_path: string
+          processed_at?: string | null
+          processed_by?: string | null
+          processing_reference?: string | null
+          provider_id?: string | null
+          recipient: string
+          revision: number
+          sent_at?: string | null
+          state?: string
+          target_revision?: number | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          expense_id?: string
+          id?: string
+          kind?: string
+          pdf_path?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          processing_reference?: string | null
+          provider_id?: string | null
+          recipient?: string
+          revision?: number
+          sent_at?: string | null
+          state?: string
+          target_revision?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_revision_deliveries_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expense_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_revision_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          detail: Json
+          expense_id: string
+          id: string
+          revision: number
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          detail?: Json
+          expense_id: string
+          id?: string
+          revision: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          detail?: Json
+          expense_id?: string
+          id?: string
+          revision?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_revision_events_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expense_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_versions: {
+        Row: {
+          actor_id: string
+          actor_name: string
+          created_at: string
+          expense_id: string
+          id: string
+          reason: string
+          revision: number
+          snapshot: Json
+        }
+        Insert: {
+          actor_id: string
+          actor_name: string
+          created_at?: string
+          expense_id: string
+          id?: string
+          reason: string
+          revision: number
+          snapshot: Json
+        }
+        Update: {
+          actor_id?: string
+          actor_name?: string
+          created_at?: string
+          expense_id?: string
+          id?: string
+          reason?: string
+          revision?: number
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_versions_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expense_notes"
             referencedColumns: ["id"]
           },
         ]
@@ -9178,6 +9337,10 @@ export type Database = {
       }
     }
     Functions: {
+      ack_expense_revision_delivery: {
+        Args: { _delivery: string; _reference: string }
+        Returns: undefined
+      }
       activity_import_apply: {
         Args: {
           p_anomalies: Json
@@ -9209,9 +9372,24 @@ export type Database = {
         Args: { _reason: string; _receipt: string; _user_name: string }
         Returns: Json
       }
+      claim_expense_revision_delivery: {
+        Args: { _delivery: string }
+        Returns: boolean
+      }
       complete_winmotor_dossier_extras: {
         Args: { _data: Json; _or: string }
         Returns: undefined
+      }
+      correct_expense: {
+        Args: {
+          _action: string
+          _id: string
+          _instruction?: string
+          _patch: Json
+          _reason: string
+          _revision: number
+        }
+        Returns: Json
       }
       create_or_client_from_capture: {
         Args: {
@@ -9360,6 +9538,10 @@ export type Database = {
           db_bytes: number
         }[]
       }
+      prepare_expense_revision: {
+        Args: { _id: string; _jobs: Json; _pdf: string; _revision: number }
+        Returns: undefined
+      }
       purge_stale_drafts: {
         Args: { _days?: number }
         Returns: {
@@ -9377,6 +9559,10 @@ export type Database = {
           _user_name: string
         }
         Returns: Json
+      }
+      resolve_expense_uncertain_delivery: {
+        Args: { _delivery: string; _proof: string; _sent: boolean }
+        Returns: undefined
       }
       resolve_or_for_order: {
         Args: { _or: string; _plate: string; _site: string }

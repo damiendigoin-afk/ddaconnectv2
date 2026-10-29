@@ -119,6 +119,8 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
   /* ------------------------------- Détails -------------------------------- */
   y -= 30;
   const rows: [string, string][] = [
+    ["Référence permanente", `${note.id} / v${note.revision ?? 1}`],
+    ...(note.revision > 1 ? [[note.cancelled_at ? "ANNULE" : "REMPLACE", `Version précédente - ${note.correction_reason || "Correction"}`] as [string, string]] : []),
     ["Établissement", input.siteLabel],
     ["Date de la dépense", frDate(note.spent_on)],
     ["Fournisseur / enseigne", note.merchant || "—"],
@@ -197,6 +199,7 @@ export async function buildExpenseNotePdf(input: ExpensePdfInput): Promise<Uint8
     }
   }
   if (!drawn) {
+    if (input.receiptUrl) throw new Error("Justificatif illisible dans le PDF : aucun envoi autorisé");
     text("Justificatif non disponible en image dans ce document.", M + 14, y - 24, 10, font, RED);
   }
 

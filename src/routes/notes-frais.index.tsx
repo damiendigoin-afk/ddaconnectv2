@@ -13,7 +13,9 @@ import { usePermissions } from "@/lib/module-access";
 import { toastError } from "@/lib/errors";
 import { fetchSites, type Site } from "@/lib/sites";
 import { ocrExpenseReceipt } from "@/lib/expense-ocr.functions";
-import { validateAndSendExpense } from "@/lib/expense-mail.functions";
+import { sendExpenseRevision } from "@/lib/expense-revision-send.functions";
+import { ExpenseCorrection } from "@/components/ExpenseCorrection";
+import { useServerFn } from "@tanstack/react-start";
 import { transitionExpense } from "@/lib/expense-actions.functions";
 import { buildExpenseNotePdf, pdfToBase64 } from "@/lib/expense-pdf";
 import { blobToDataUrl, receiptUrl, uploadReceipt } from "@/lib/expense-upload";
@@ -94,6 +96,7 @@ function emptyDraft(siteId: string): Draft {
 
 function ExpenseHub() {
   const qc = useQueryClient();
+  const validateAndSendExpense = useServerFn(sendExpenseRevision);
   const { user, displayName } = useAuth();
   const { site } = useSite();
   const perms = usePermissions();
@@ -118,7 +121,7 @@ function ExpenseHub() {
   });
 
   const list = rows.data ?? [];
-  const total = useMemo(() => list.reduce((s, e) => s + Number(e.amount_ttc || 0), 0), [list]);
+  const total = useMemo(() => list.filter(e => !e.cancelled_at).reduce((s, e) => s + Number(e.amount_ttc || 0), 0), [list]);
   const siteName = (id: string | null) => sites.data?.find((s) => s.id === id)?.name ?? "—";
 
   /* --------------------------- Scan du justificatif ------------------------ */
@@ -214,7 +217,7 @@ function ExpenseHub() {
         receiptUrl: url,
       });
       const res = await validateAndSendExpense({
-        data: { expenseId: note.id, pdfBase64: pdfToBase64(bytes), attempt: crypto.randomUUID() },
+        data: { expenseId: note.id, revision: note.revision, pdfBase64: pdfToBase64(bytes) },
       });
       if (!res.ok) throw new Error(res.error);
     },
@@ -468,11 +471,11 @@ function ExpenseHub() {
                 ) : null}
                 {e.settled_at ? (
                   <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-status-ok">
-                    <CheckCircle2 className="h-3 w-3" /> Remboursement réglé le {frDate(e.settled_at)}
+                    <CheckCircle2 className="h-3 w-3" /> {e.revision > 1 ? "Version antérieure : remboursement réglé le " : "Remboursement réglé le "}{frDate(e.settled_at)}
                   </p>
                 ) : null}
                 {e.accounted_at ? (
-                  <p className="mt-1 text-[11px] font-bold text-status-ok">Comptabilisée le {frDateTime(e.accounted_at)}</p>
+                  <p className="mt-1 text-[11px] font-bold text-status-ok">{e.revision > 1 ? "Version antérieure comptabilisée le " : "Comptabilisée le "}{frDateTime(e.accounted_at)}</p>
                 ) : null}
                 {e.user_id === user?.id && !e.employee_notified_at && (e.status === "reglee" || e.status === "comptabilisee") ? (
                   <p className="mt-2 rounded-lg bg-status-ok-soft px-2 py-2 text-[11px] font-bold text-status-ok">
@@ -496,7 +499,7 @@ function ExpenseHub() {
                        onClick={() => change.mutate({ id: e.id, action: "resubmit" })}
                     />
                   ) : null}
-                  {perms.canValidateExpenses && (e.status === "soumis" || failed) ? (
+                  {perms.canValidateExpenses && e.revision === 1 && (e.status === "soumis" || (failed && e.status === "valide")) ? (
                     <>
                       <Act
                         label={validate.isPending ? "Envoi…" : failed ? "Renvoyer" : "Valider et transmettre"}
@@ -514,7 +517,7 @@ function ExpenseHub() {
                       ) : null}
                     </>
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && personal ? (
+                  {perms.canAccountExpenses && e.revision === 1 && e.status === "transmise" && personal ? (
                     <Act
                       label="Marquer comme réglé"
                       primary
@@ -529,7 +532,7 @@ function ExpenseHub() {
                       }}
                     />
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && !personal && !onAccount ? (
+                  {perms.canAccountExpenses && e.revision === 1 && e.status === "transmise" && !personal && !onAccount ? (
                     <Act
                       label="Marquer comptabilisé"
                       primary
@@ -541,7 +544,7 @@ function ExpenseHub() {
                       }
                     />
                   ) : null}
-                  {perms.canAccountExpenses && e.status === "transmise" && onAccount ? (
+                  {perms.canAccountExpenses && e.revision === 1 && e.status === "transmise" && onAccount ? (
                     <Act
                       label="Rapprochée / comptabilisée"
                       primary
@@ -556,11 +559,12 @@ function ExpenseHub() {
                   ) : (
                     <Act label="Archiver" onClick={() => change.mutate({ id: e.id, action: "archive" })} />
                   )}
-                  {e.user_id === user?.id && canDeleteExpense(e.status) ? (
+                  {e.user_id === user?.id && e.revision === 1 && canDeleteExpense(e.status) ? (
                     <Act label="Supprimer" onClick={() => remove.mutate(e.id)} />
                   ) : null}
 
                 </div>
+                <ExpenseCorrection key={`${e.id}:${e.revision}`} note={e} sites={sites.data ?? []} />
               </div>
             );
           })}
