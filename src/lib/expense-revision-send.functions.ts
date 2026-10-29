@@ -65,6 +65,7 @@ export const sendExpenseRevision = createServerFn({ method: "POST" })
     }
     const { data: final } = await admin.from("expense_revision_deliveries").select("state").eq("expense_id", note.id).eq("revision", note.revision);
     const success = (final ?? []).every(d => d.state === "sent");
-    await admin.from("expense_notes").update({ status: note.cancelled_at ? "annulee" : success ? "transmise" : "valide", send_status: success ? "sent" : "failed", sent_at: success && jobs.length ? new Date().toISOString() : null, accounting_email: to || null }).eq("id", note.id).eq("revision", note.revision);
+    const { error: finalError } = await admin.from("expense_notes").update({ status: note.cancelled_at ? "annulee" : success ? "transmise" : "valide", send_status: !jobs.length ? "not_required" : success ? "sent" : "failed", sent_at: success && jobs.length ? new Date().toISOString() : null, accounting_email: to || null }).eq("id", note.id).eq("revision", note.revision);
+    if (finalError) throw new Error("Envois enregistrés, statut de note à contrôler dans l'historique");
     return { ok: success, error: success ? "" : "Certains envois restent à contrôler dans l'historique." };
   });

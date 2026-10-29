@@ -35,7 +35,7 @@ export const transitionExpense = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: note } = await supabaseAdmin
       .from("expense_notes")
-      .select("id, user_id, site_id, status, payment_method, archived_at")
+      .select("id, user_id, site_id, status, payment_method, archived_at, revision")
       .eq("id", data.expenseId)
       .maybeSingle();
 
@@ -51,6 +51,7 @@ export const transitionExpense = createServerFn({ method: "POST" })
     }
 
     const action = data.action as ExpenseAction;
+    if (note.revision > 1 && ["settle", "account", "reconcile"].includes(action)) throw new Error("Confirmez le traitement de chaque envoi versionné dans l'historique");
     if (action === "resubmit" && (!owner || !["brouillon", "refuse"].includes(note.status))) throw new Error("Action non autorisée");
     if (action === "reject" && (!canValidate || note.status !== "soumis")) throw new Error("Action non autorisée");
     if (action === "settle" && (!canAccount || note.status !== "transmise" || note.payment_method !== "perso")) {

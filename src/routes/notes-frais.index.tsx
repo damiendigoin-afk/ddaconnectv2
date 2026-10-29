@@ -121,7 +121,7 @@ function ExpenseHub() {
   });
 
   const list = rows.data ?? [];
-  const total = useMemo(() => list.reduce((s, e) => s + Number(e.amount_ttc || 0), 0), [list]);
+  const total = useMemo(() => list.filter(e => !e.cancelled_at).reduce((s, e) => s + Number(e.amount_ttc || 0), 0), [list]);
   const siteName = (id: string | null) => sites.data?.find((s) => s.id === id)?.name ?? "—";
 
   /* --------------------------- Scan du justificatif ------------------------ */
@@ -559,7 +559,7 @@ function ExpenseHub() {
                   ) : (
                     <Act label="Archiver" onClick={() => change.mutate({ id: e.id, action: "archive" })} />
                   )}
-                  {e.user_id === user?.id && canDeleteExpense(e.status) ? (
+                  {e.user_id === user?.id && e.revision === 1 && canDeleteExpense(e.status) ? (
                     <Act label="Supprimer" onClick={() => remove.mutate(e.id)} />
                   ) : null}
 
