@@ -9560,6 +9560,10 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_expense_uncertain_delivery: {
+        Args: { _delivery: string; _proof: string; _sent: boolean }
+        Returns: undefined
+      }
       resolve_or_for_order: {
         Args: { _or: string; _plate: string; _site: string }
         Returns: string
