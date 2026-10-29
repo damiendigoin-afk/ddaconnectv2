@@ -165,3 +165,9 @@ Reste à faire :
 - [x] Perf lecture BL photo : vision directe, Tesseract en secours, upload parallèle, étapes UI, timings
 - [x] Diagnostic catalogue IXELLIO par référence (managers, lecture seule)
 - [ ] Relever une fixture réelle PieceRecherche (premier essai manager)
+
+## Correction / annulation notes de frais
+- [ ] Versions immuables, motifs, droits et verrou de concurrence
+- [ ] Modification / annulation explicites, revalidation et historique consultable
+- [ ] PDF versionnés, corrections comptables par destinataire, idempotence et prise en compte distincte
+- [ ] Tests sans mail réel, contrôle compilation et parcours connecté
