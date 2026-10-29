@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 
 import { fetchReport, type ReportMedia } from "@/lib/report";
-import { ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
+import { ctPointLine, ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { GROUP_LABEL, siteHeader } from "@/lib/sites";
@@ -301,7 +301,12 @@ function PdfPage() {
                     {STATUS_FR[p.status] ?? p.status}
                   </td>
                   <td className={cell}>
-                    {[formatMeasure(p.measure_value, p.measure_unit) ?? "", p.comment ?? ""]
+                    {[
+                      p.point_key === "controle_technique" ? ctPointLine(ctDates.ct, ctDates.pollution) : "",
+                      formatMeasure(p.measure_value, p.measure_unit) ?? "",
+                      // La mention CT automatique du commentaire est remplacée par la ligne ci-dessus.
+                      p.point_key === "controle_technique" ? stripCtAuto(p.comment) : (p.comment ?? ""),
+                    ]
                       .filter(Boolean)
                       .join(" — ")}
                   </td>

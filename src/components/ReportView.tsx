@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MediaThumb } from "@/components/PhotoManager";
 import { useLightbox } from "@/components/PhotoLightbox";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
-import { ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
+import { ctPointLine, ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import type { ReportData, ReportMedia } from "@/lib/report";
 
@@ -232,6 +232,11 @@ export function ReportBody({
                   <span className="text-sm font-semibold">{p.point_label}</span>
                   {editable && !clientView ? null : <StatusBadge status={p.status} />}
                 </div>
+                {p.point_key === "controle_technique" ? (
+                  <div className="text-sm font-semibold">
+                    {ctPointLine(reportCtDates(d).ct, reportCtDates(d).pollution)}
+                  </div>
+                ) : null}
                 {editable && !clientView ? (
                   <ItemEditor
                     table="inspection_points"

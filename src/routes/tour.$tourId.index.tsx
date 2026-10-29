@@ -2,6 +2,7 @@ import { formatMeasure, normalizeMeasureValue } from "@/lib/measure";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { firstValidCtDate } from "@/lib/ct";
 import { Camera, ChevronLeft, ChevronRight, Loader2, LogOut, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
