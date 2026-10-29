@@ -7,7 +7,7 @@ import { Field, Area, Select } from "@/components/bits";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/module-access";
-import { correctExpense, acknowledgeExpenseDelivery } from "@/lib/expense-revisions.functions";
+import { correctExpense, acknowledgeExpenseDelivery, resolveExpenseDelivery } from "@/lib/expense-revisions.functions";
 import { sendExpenseRevision } from "@/lib/expense-revision-send.functions";
 import { requiresAccountingInstruction, type ExpenseEdit } from "@/lib/expense-revision-rules";
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, EXPENSE_ACCOUNTS, frDateTime, type ExpenseNote } from "@/lib/expenses";
@@ -23,6 +23,7 @@ export function ExpenseCorrection({ note, sites }: { note: ExpenseNote; sites: {
   const correct = useServerFn(correctExpense);
   const send = useServerFn(sendExpenseRevision);
   const ack = useServerFn(acknowledgeExpenseDelivery);
+  const resolve = useServerFn(resolveExpenseDelivery);
   const [mode, setMode] = useState<"edit" | "cancel" | "history" | null>(null);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
@@ -85,6 +86,7 @@ export function ExpenseCorrection({ note, sites }: { note: ExpenseNote; sites: {
       {note.sent_at && <p>Envoi enregistré sur la note : {note.accounting_email} · {frDateTime(note.sent_at)}</p>}
       {history.isLoading && <p>Chargement…</p>}{history.error && <p>Historique inaccessible.</p>}
       {history.data?.versions.map(v => <details key={v.id}><summary>Version {v.revision} · {v.actor_name} · {frDateTime(v.created_at)} · {v.reason}</summary><pre className="overflow-auto whitespace-pre-wrap">{JSON.stringify(v.snapshot, null, 2)}</pre></details>)}
+      {perms.canAccountExpenses && history.data?.deliveries.filter(d => ["unknown", "sending"].includes(d.state)).map(d => <div key={`resolve-${d.id}`} className="space-y-2"><p>Envoi incertain vers {d.recipient} : vérifiez les journaux d’envoi avant de trancher.</p>{[true, false].map(sent => <Button key={String(sent)} size="sm" variant="outline" onClick={async () => { const proof = window.prompt(sent ? "Preuve / référence fournisseur confirmant l’envoi" : "Preuve du contrôle confirmant l’absence d’envoi (réessai ensuite possible)"); if (!proof) return; try { await resolve({ data: { deliveryId: d.id, sent, proof } }); refresh(); } catch (e) { toastError(e, "Résolution impossible"); } }}>{sent ? "Envoi confirmé après contrôle" : "Absence d’envoi vérifiée"}</Button>)}</div>)}
       {history.data?.events.map(e => <details key={e.id}><summary>{e.action} · {e.actor_name || "Utilisateur"} · {frDateTime(e.created_at)}</summary><pre className="overflow-auto whitespace-pre-wrap">{JSON.stringify(e.detail, null, 2)}</pre></details>)}
       {history.data?.deliveries.map(d => <div key={d.id} className="border-t border-border py-2"><p>v{d.revision} {d.kind} → {d.recipient} · {d.state === "sent" ? "Envoyé" : d.state === "unknown" || d.state === "sending" ? "À contrôler — aucun réessai automatique" : d.state === "failed" ? "Échec — réessai possible" : "À envoyer"}</p><p>{d.processed_at ? `Traité par comptabilité : ${d.processing_reference} · ${frDateTime(d.processed_at)}` : "Non confirmé traité par comptabilité"}</p><Button variant="link" size="sm" onClick={async () => { const url = await receiptUrl(d.pdf_path); if (url) window.open(url, "_blank", "noopener"); }}>PDF de cet envoi</Button>{perms.canAccountExpenses && d.state === "sent" && !d.processed_at && <Button size="sm" variant="outline" onClick={async () => { const reference = window.prompt("Référence de l’écriture / extourne comptable effectivement traitée"); if (!reference) return; try { await ack({ data: { deliveryId: d.id, reference } }); refresh(); } catch (e) { toastError(e, "Confirmation impossible"); } }}>Confirmer traité par comptabilité</Button>}</div>)}
     </div>}

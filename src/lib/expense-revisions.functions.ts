@@ -21,3 +21,12 @@ export const acknowledgeExpenseDelivery = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+export const resolveExpenseDelivery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ deliveryId: z.string().uuid(), sent: z.boolean(), proof: z.string().trim().min(10).max(2000) }).parse(v))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("resolve_expense_uncertain_delivery", { _delivery: data.deliveryId, _sent: data.sent, _proof: data.proof });
+    if (error) throw error;
+    return { ok: true };
+  });
