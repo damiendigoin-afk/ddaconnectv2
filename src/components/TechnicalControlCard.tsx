@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { localDocText } from "@/lib/doc-text.browser";
 import { Camera, Check, Images, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -41,14 +41,25 @@ export function TechnicalControlCard({
   const [isUtility, setIsUtility] = useState(Boolean(initialPollution));
   const [busy, setBusy] = useState(false);
   const [photoKey, setPhotoKey] = useState(0);
-  const [proposal, setProposal] = useState<{ ct: string; pollution: string } | null>(null);
+  const [proposal, setProposal] = useState<{ ct: string; pollution: string; originalCt: string; originalPollution: string } | null>(null);
   const [readMessage, setReadMessage] = useState("");
   const reading = useRef(false);
+  const saving = useRef(false);
+  const saved = useRef({ ct: firstValidCtDate(initialCt) ?? "", pollution: firstValidCtDate(initialPollution) ?? "" });
+
+  useEffect(() => {
+    if (reading.current || saving.current) return;
+    const ct = firstValidCtDate(initialCt) ?? "";
+    const pollution = firstValidCtDate(initialPollution) ?? "";
+    setCtDate(ct);
+    setPollutionDate(pollution);
+    saved.current = { ct, pollution };
+  }, [initialCt, initialPollution]);
 
   async function refresh() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["tour", tourId] }),
-      queryClient.invalidateQueries({ queryKey: ["tour-points", tourId] }),
+      queryClient.invalidateQueries({ queryKey: ["points", tourId] }),
       queryClient.invalidateQueries({ queryKey: ["report", tourId] }),
     ]);
   }
@@ -85,7 +96,7 @@ export function TechnicalControlCard({
       const nextCt = readCt ?? ctDate;
       const nextPollution = readPollution ?? pollutionDate;
       setIsUtility(parsed.vehicle_kind === "vu" || Boolean(nextPollution));
-      if (readCt || readPollution) setProposal({ ct: nextCt, pollution: nextPollution });
+      if (readCt || readPollution) setProposal({ ct: nextCt, pollution: nextPollution, originalCt: nextCt, originalPollution: nextPollution });
       setReadMessage(readCt ? "Échéance lue — à confirmer." : "Photo enregistrée. Échéance CT non lue : date existante conservée, saisie manuelle possible.");
     } catch (error) {
       console.error(error);
@@ -113,11 +124,12 @@ export function TechnicalControlCard({
     const now = new Date().toISOString();
     // Le commentaire du point reprend la date structurée : partie automatique
     // régénérée sans doublon, commentaire manuel conservé.
-    const { data: current } = await supabase
+    const { data: current, error: commentError } = await supabase
       .from("inspection_points")
       .select("comment")
       .eq("id", pointId)
       .maybeSingle();
+    if (commentError) throw commentError;
     const pointPatch = {
       ...values,
       ct_read_at: now,
@@ -143,9 +155,10 @@ export function TechnicalControlCard({
 
   // Saisie manuelle : enregistrée dès qu'une date complète est choisie (le
   // sélecteur Android ne déclenche pas toujours la perte de focus), puis au blur.
-  const saved = useRef({ ct: firstValidCtDate(initialCt) ?? "", pollution: firstValidCtDate(initialPollution) ?? "" });
   async function saveManual(ct: string, pollution: string) {
+    if (saving.current || reading.current) return;
     if (saved.current.ct === ct && saved.current.pollution === pollution) return;
+    saving.current = true;
     try {
       setBusy(true);
       await persist(ct, pollution);
@@ -155,6 +168,7 @@ export function TechnicalControlCard({
       toast.error("Échéance CT non enregistrée. Vérifiez la connexion puis ressaisissez la date.");
     } finally {
       setBusy(false);
+      saving.current = false;
     }
   }
 
@@ -202,18 +216,23 @@ export function TechnicalControlCard({
           <input type="date" disabled={busy} value={proposal.pollution} onChange={(event) => setProposal({ ...proposal, pollution: event.target.value })} className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground" />
         </label> : null}
         <Button type="button" disabled={busy} onClick={() => {
+          if (saving.current) return;
+          saving.current = true;
           void (async () => {
             setBusy(true);
             try {
-              await persist(proposal.ct, proposal.pollution, undefined, false);
-              setCtDate(proposal.ct || ctDate);
-              setPollutionDate(proposal.pollution || pollutionDate);
-              saved.current = { ct: proposal.ct || ctDate, pollution: proposal.pollution || pollutionDate };
+              const corrected = proposal.ct !== proposal.originalCt || proposal.pollution !== proposal.originalPollution;
+              await persist(proposal.ct, proposal.pollution, undefined, corrected, proposal.ct || ctDate, proposal.pollution || pollutionDate);
+              const ct = corrected ? proposal.ct : proposal.ct || ctDate;
+              const pollution = corrected ? proposal.pollution : proposal.pollution || pollutionDate;
+              setCtDate(ct);
+              setPollutionDate(pollution);
+              saved.current = { ct, pollution };
               setProposal(null);
               setReadMessage("Échéance confirmée et enregistrée.");
             } catch {
               toast.error("Échéance CT non enregistrée. Réessayez la confirmation.");
-            } finally { setBusy(false); }
+            } finally { setBusy(false); saving.current = false; }
           })();
         }}><Check /> Confirmer l’échéance</Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={() => setProposal(null)}>Ignorer la lecture</Button>
