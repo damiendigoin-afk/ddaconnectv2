@@ -1,5 +1,9 @@
 # Suivi d'activité mensuel (01/09)
 
+## Ergonomie contrôle technique — 29/10
+- [ ] Un seul parcours photo CT dans le point, lecture et confirmation de l’échéance, saisie manuelle indépendante
+- [ ] Tests CT photo → OCR → sauvegarde → données PDF et échecs, contrôle automatique de compilation, aucune mutation réelle ni publication
+
 - [x] Migration `activity_imports` / `activity_months` / `activity_values`
 - [x] Import Excel déterministe (société, mois, libellés normalisés, anomalies)
 - [x] Tableau de bord site / Groupe, comparatifs N-1/N-2, courbes
