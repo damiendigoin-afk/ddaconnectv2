@@ -505,7 +505,7 @@ function Guided(props: SharedProps) {
 
   function closeTiresEdit() {
     setTiresEdit(null);
-    if (props.openTiresEdit) navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId } });
+    if (props.openTiresEdit) navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
   }
 
   async function saveTiresEdit(edits: Partial<Record<TourTireKey, TireEditState>>) {
