@@ -1,8 +1,9 @@
 # Suivi d'activité mensuel (01/09)
 
 ## Ergonomie contrôle technique — 29/10
-- [ ] Un seul parcours photo CT dans le point, lecture et confirmation de l’échéance, saisie manuelle indépendante
-- [ ] Tests CT photo → OCR → sauvegarde → données PDF et échecs, contrôle automatique de compilation, aucune mutation réelle ni publication
+- [x] Un seul parcours photo CT dans le point, lecture et confirmation de l’échéance, saisie manuelle indépendante
+- [x] Tests CT photo → OCR → sauvegarde → écran PDF et échecs avec mocks, 1 162 tests réussis, types/compilation automatiques OK, aucune mutation réelle ni publication
+- Limite : pas de prise de photo ni de lecture OCR réelle sur Android ; parcours testé avec photo et réponse OCR fictives.
 
 - [x] Migration `activity_imports` / `activity_months` / `activity_values`
 - [x] Import Excel déterministe (société, mois, libellés normalisés, anomalies)
