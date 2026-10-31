@@ -10,7 +10,7 @@ const brands = [
   { brand: "Nexen", tier: "entree", active: false },
 ] as unknown as BrandTierRow[];
 
-const item = (brand: string, ttc: number, sourceTier: PublicTireItem["sourceTier"], ref = brand): PublicTireItem => ({
+const item = (brand: string, ttc: number, sourceTier: "entree" | "milieu" | "haut" | null, ref = brand): PublicTireItem => ({
   supplierRef: ref, brand, model: "M", size: "205/55R16", loadIndex: "91", speedIndex: "V", season: "ete", is3pmsf: false,
   publicPriceTtc: ttc, availability: null, sourceUrl: "u", consultedAt: "2026-10-31T00:00:00.000Z", sourceTier,
 });
