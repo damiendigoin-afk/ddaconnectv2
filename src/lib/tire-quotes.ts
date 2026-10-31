@@ -238,7 +238,9 @@ export async function quoteTopPriceTires(args: {
     offers: [...args.engine.catalog] as TireOffer[],
     warning: `centralepneus : ${e instanceof Error ? e.message : "consultation impossible"}`,
   }));
-  const districash = collectSupplierOffers({ ...base, supplier: "districash" }).catch((e) => ({
+  // Indices = minima : on ne les transmet pas au portail (qui pourrait filtrer à
+  // l'identique) ; la conformité « minimum » est appliquée par pickTopPriceOffers.
+  const districash = collectSupplierOffers({ ...base, load: null, speed: null, supplier: "districash" }).catch((e) => ({
     offers: [] as TireOffer[],
     warning: `districash : ${e instanceof Error ? e.message : "consultation impossible"}`,
   }));

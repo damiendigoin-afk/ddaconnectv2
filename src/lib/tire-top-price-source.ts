@@ -44,8 +44,10 @@ function firstLoad(l: string | null | undefined): number {
 }
 
 /**
- * Pré-contrôle serveur strict des indices (sert uniquement à arrêter la
- * pagination ; la sélection finale réapplique offerMeetsRequirement).
+ * Pré-contrôle serveur des indices, en MINIMA (charge/vitesse supérieures
+ * acceptées). Plus strict que offerMeetsRequirement (indice inconnu ou
+ * dérogation 3PMSF non comptés) : il ne sert qu'à arrêter la pagination, donc
+ * il ne peut que faire lire davantage de pages, jamais écarter une offre.
  */
 export function meetsIndicesStrict(
   item: { loadIndex: string | null; speedIndex: string | null },
