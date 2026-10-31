@@ -30,6 +30,18 @@ export const BRAND_REFERENCE_SOURCES = {
     label: "Tyre Shopper (distributeur UK) — Premium / Mid-Range / Low Cost Budget",
     url: "https://www.tyre-shopper.co.uk/brands",
   },
+  quelpneu: {
+    label: "QuelPneu (comparateur FR) — fiche marque, catégorie entrée de gamme",
+    url: "https://www.quelpneu.com/",
+  },
+  tyrecomp: {
+    label: "Tyrecomp (comparateur UK) — Entry-level / Mid-range / Premium",
+    url: "https://www.tyrecomp.co.uk/",
+  },
+  neomatic: {
+    label: "Neomatic (distributeur FR) — Eco Budget / Qualité / Premium",
+    url: "https://www.neomatic.fr/",
+  },
   centralepneus: {
     label: "CentralePneus (distributeur FR) — catégorie premium / quality / discount, relevée en 205/55 R16",
     url: "https://www.centralepneus.fr/",
@@ -40,6 +52,8 @@ export type RefSourceKey = keyof typeof BRAND_REFERENCE_SOURCES;
 /** [clé normalisée, nom, gamme, statut, preuves [source, libellé publié, gamme]] */
 type Row = [string, string, RefTier | null, RefStatus, [RefSourceKey, string, RefTier][]];
 const ROWS: Row[] = [
+  // Relevé ciblé 2026-10-31 : quelpneu.com/pneus-roadking, tyrecomp.co.uk/roadking-tyres, neomatic.fr/.../roadking.
+  ["ROADKING", "Roadking", "entree", "concordant", [["quelpneu", "Entrée de gamme", "entree"], ["tyrecomp", "Entry-level", "entree"], ["neomatic", "Eco Budget", "entree"]]],
   ["ACCELERA", "Accelera", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["ACHILLES", "Achilles", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["ACHILLESWINTER", "Achilles\u00a0Winter", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],

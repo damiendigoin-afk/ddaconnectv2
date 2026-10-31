@@ -156,3 +156,22 @@ describe("Rotation arrière (clic droit)", () => {
     expect(updated[2]).toBe(grid[2]);
   });
 });
+
+describe("Roadking (référentiel mondial)", () => {
+  it("entrée, 3 sources concordantes datées", () => {
+    const r = brandReferenceOf("ROAD KING")!;
+    expect(r).toMatchObject({ tier: "entree", status: "concordant", checkedOn: "2026-10-31" });
+    expect(r.evidence.map((e) => e.source).sort()).toEqual(["neomatic", "quelpneu", "tyrecomp"]);
+  });
+  it("entrée même si la source ne donne rien ou se contredit, et plus jamais non classée", () => {
+    expect(tierOfOffer(brands, { brand: "Roadking", tier: "" } as unknown as TireOffer)).toBe("entree");
+    expect(tierOfOffer(brands, { brand: "ROADKING", tier: "haut" } as TireOffer)).toBe("entree");
+    expect(effectiveTier("Roadking", "milieu", {})).toBe("entree");
+    expect(unclassifiedBrands([{ brand: "Roadking", tier: "" }])).toEqual([]);
+    const a = offer({ brand: "Roadking", purchase_price_ht: 20, tier: "milieu", supplier_key: "centralepneus" });
+    const b = offer({ brand: "ROADKING", purchase_price_ht: 21, tier: "haut", supplier_key: "districash" });
+    expect(divergentSourceBrands(brands, [a, b])).toEqual([]);
+    const [entree] = pickTopPriceOffers({ offers: [a, b], brands, settings: null, quantity: 4, season: "ete", required: req });
+    expect(entree!.brand).toBe("Roadking");
+  });
+});
