@@ -6,6 +6,7 @@
  * Top prix (runTopPrice, même moteur que l'écran interne) sous délai global.
  * Aucune écriture métier, aucune donnée personnelle, aucune commande.
  */
+import { applyBrandReference } from "./tires";
 import type { TopPriceEngine, TopPriceSources, TopPriceResult } from "./tire-top-price-core";
 import {
   WEB_QUOTE_MAX_BODY_BYTES,
