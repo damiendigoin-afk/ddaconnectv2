@@ -36,7 +36,7 @@ beforeEach(() => {
   allBrands.mockImplementation(async ({ data }: { data: { season: string } }) => ({
     ok: true, error: "", truncated: false, pagesRead: 1,
     items: data.season === "ete"
-      ? [it_("Linglong", 48, "ete", "entree", "l1"), it_("Nokian", 84, "ete", "milieu", "n1", "94", "W"), it_("Inconnue", 20, "ete", null, "x1"), it_("Bad", 30, "ete", "entree", "b1", "88"), it_("Pirelli", 130, "ete", "haut", "p1")]
+      ? [it_("Linglong", 48, "ete", "entree", "l1"), it_("Nexen", 84, "ete", "milieu", "n1", "94", "W"), it_("Inconnue", 20, "ete", null, "x1"), it_("Bad", 30, "ete", "entree", "b1", "88"), it_("Pirelli", 130, "ete", "haut", "p1")]
       : [it_("Linglong", 54, "quatre_saisons", "entree", "l2")],
   }));
 });
@@ -49,7 +49,7 @@ describe("Option fournisseur « Top prix » : même devis 6/7 offres", () => {
     expect(top.grid).toHaveLength(6);
     const by = Object.fromEntries(top.grid.map((o) => [o.slot, o]));
     expect(by["entree_ete"]!.brand).toBe("Linglong"); // marque hors paramétrage, gamme source fiable
-    expect(by["milieu_ete"]!.brand).toBe("Nokian"); // 94W accepté pour 91V
+    expect(by["milieu_ete"]!.brand).toBe("Nexen"); // 94W accepté pour 91V
     expect(by["haut_ete"]!.brand).toBe("Pirelli"); // moins cher que Michelin
     expect(by["entree_quatre_saisons"]!.brand).toBe("Linglong");
     expect(by["milieu_quatre_saisons"]!.brand).toBe("Hankook");

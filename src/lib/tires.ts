@@ -1,3 +1,4 @@
+import { SOURCE_TIER_OVERRIDES } from "./tire-top-price-source";
 /**
  * Pneumatiques — intégré au Tour Véhicule (aucun module séparé).
  *
@@ -1206,7 +1207,7 @@ export function publicItemsToTopPriceOffers(items: PublicTireItem[], brands: Bra
   const base = publicItemsToOffers(items, brands);
   return base.map((o, i) => {
     const listed = brands.some((r) => r.brand.trim().toLowerCase() === o.brand.trim().toLowerCase());
-    const tier = tierOfBrand(brands, o.brand) ?? (listed ? null : (items[i]!.sourceTier ?? null));
+    const tier = tierOfBrand(brands, o.brand) ?? (listed ? null : (TOP_PRICE_TIER_OVERRIDES[o.brand.trim().toLowerCase()] ?? items[i]!.sourceTier ?? null));
     return { ...o, tier: tier ?? "" };
   });
 }
@@ -1263,15 +1264,8 @@ export function tierOfOffer(brands: BrandTierRow[], offer: Pick<TireOffer, "bran
  * puis ordre déterministe (fournisseur, marque, modèle, id). Chiffrage via
  * priceOffer/priceTireLine : marge et montage inchangés.
  */
-/**
- * Gammes imposées par DDA pour des marques absentes du paramétrage, quand la
- * gamme publiée par la source contredit l'usage atelier. Le paramétrage
- * tire_brand_tiers reste prioritaire. Une entrée par marque, justifiée.
- */
-export const TOP_PRICE_TIER_OVERRIDES: Record<string, TireTier> = {
-  // CentralePneus la publie « quality » (milieu) ; l'atelier la vend en entrée de gamme.
-  nankang: "entree",
-};
+/** Corrections de gamme DDA (voir tire-top-price-source). */
+export const TOP_PRICE_TIER_OVERRIDES: Record<string, TireTier> = SOURCE_TIER_OVERRIDES;
 
 type TopRequired = { size: string | null; load: string | null; speed: string | null };
 

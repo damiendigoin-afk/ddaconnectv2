@@ -59,8 +59,15 @@ export function meetsIndicesStrict(
   return true;
 }
 
-/** Miroir de TOP_PRICE_TIER_OVERRIDES (tires.ts) pour l'arrêt de pagination. */
-const SOURCE_TIER_OVERRIDES: Record<string, SourceTier> = { nankang: "entree" };
+/**
+ * Gammes imposées par DDA pour des marques absentes du paramétrage (source
+ * contradictoire ou sans gamme). Unique source, utilisée par la pagination,
+ * la sélection (tierOfOffer) et le diagnostic. tire_brand_tiers reste prioritaire.
+ */
+export const SOURCE_TIER_OVERRIDES: Record<string, SourceTier> = {
+  nankang: "entree", // publiée « quality » ; vendue entrée de gamme à l'atelier
+  nokian: "haut", // premium ; parfois sans gamme source
+};
 
 /** Gamme effective : paramétrage DDA prioritaire, sinon gamme source fiable. */
 export function effectiveTier(
@@ -94,10 +101,14 @@ export function topPriceCoverageComplete(
 }
 
 /** Marques sans gamme fiable (ni paramétrage DDA, ni gamme source) : diagnostic. */
-export function unclassifiedBrands(offers: { brand: string; tier: string | null }[]): string[] {
+export function unclassifiedBrands(
+  offers: { brand: string; tier: string | null }[],
+  configured: Record<string, SourceTier | null> = {},
+): string[] {
   const out = new Set<string>();
   for (const o of offers) {
-    if (o.tier !== "entree" && o.tier !== "milieu" && o.tier !== "haut" && o.brand.trim()) out.add(o.brand.trim().toUpperCase());
+    const raw = o.tier === "entree" || o.tier === "milieu" || o.tier === "haut" ? o.tier : null;
+    if (!effectiveTier(o.brand, raw, configured) && o.brand.trim()) out.add(o.brand.trim().toUpperCase());
   }
   return [...out].sort();
 }
