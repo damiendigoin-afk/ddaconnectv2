@@ -64,38 +64,68 @@ describe("Top prix — autre marque, même gamme", () => {
     expect(updated[2]).toBe(grid[2]);
   });
 
-  it("Nankang : entrée de gamme même si la source la publie milieu ; paramétrage DDA prioritaire", () => {
+  it("Nankang : entrée (référentiel mondial, sources concordantes), quel que soit le paramétrage", () => {
     expect(tierOfOffer(brands, { brand: "Nankang", tier: "milieu" } as TireOffer)).toBe("entree");
-    expect(tierOfOffer(brands, { brand: "NANKANG", tier: "milieu" } as TireOffer)).toBe("entree");
     const set = [{ brand: "Nankang", tier: "haut", active: true }] as unknown as BrandTierRow[];
-    expect(tierOfOffer(set, { brand: "Nankang", tier: "milieu" } as TireOffer)).toBe("haut");
+    expect(tierOfOffer(set, { brand: "NANKANG", tier: "milieu" } as TireOffer)).toBe("entree");
     expect(effectiveTier("Nankang", "milieu", {})).toBe("entree");
-    // les autres marques gardent la gamme source
-    expect(tierOfOffer(brands, { brand: "Nexen", tier: "milieu" } as TireOffer)).toBe("milieu");
   });
 });
 
 import { unclassifiedBrands } from "@/lib/tire-top-price-source";
 
-describe("Nokian haut de gamme", () => {
-  it("haut même sans gamme source, en sélection et pagination", () => {
-    expect(tierOfOffer(brands, { brand: "Nokian", tier: "" } as unknown as TireOffer)).toBe("haut");
-    expect(tierOfOffer(brands, { brand: "NOKIAN", tier: "milieu" } as TireOffer)).toBe("haut");
-    expect(effectiveTier("Nokian", null, {})).toBe("haut");
+import { applyBrandReference, divergentSourceBrands, tierOfBrand } from "@/lib/tires";
+import { brandReferenceOf, normalizeBrandKey } from "@/lib/tire-brand-reference";
+import { districashOffersOf } from "@/lib/tire-top-price-core";
+
+describe("Référentiel mondial des marques", () => {
+  it("Nokian : milieu selon les sources (TheTyreLab upper-middle + CentralePneus quality), sources tracées", () => {
+    const r = brandReferenceOf("NOKIAN")!;
+    expect(r.tier).toBe("milieu");
+    expect(r.status).toBe("concordant");
+    expect(r.evidence.map((e) => e.source).sort()).toEqual(["centralepneus", "thetyrelab"]);
+    expect(r.checkedOn).toBe("2026-10-31");
   });
-  it("le paramétrage du garage reste prioritaire", () => {
-    const set = [{ brand: "Nokian", tier: "milieu", active: true }] as unknown as BrandTierRow[];
-    expect(tierOfOffer(set, { brand: "Nokian", tier: "" } as unknown as TireOffer)).toBe("milieu");
-    expect(effectiveTier("Nokian", null, { nokian: "milieu" })).toBe("milieu");
+
+  it("même marque = même gamme quel que soit le fournisseur ou la gamme qu'il déclare", () => {
+    const cp = offer({ brand: "Hankook", purchase_price_ht: 70, tier: "milieu", supplier_key: "centralepneus" });
+    const dc = offer({ brand: "HANKOOK", purchase_price_ht: 72, tier: "entree", supplier_key: "districash" });
+    const loc = offer({ brand: "hankook ", purchase_price_ht: 74, tier: "", supplier_key: "catalogue_local" });
+    expect([cp, dc, loc].map((o) => tierOfOffer(brands, o))).toEqual(["haut", "haut", "haut"]);
+    const grid = pickTopPriceOffers({ offers: [cp, dc, loc], brands, settings: null, quantity: 4, season: "ete", required: req });
+    expect(grid.map((g) => g.available)).toEqual([false, false, true]);
   });
-  it("disparaît du diagnostic « marques non classées », les vraies inconnues restent", () => {
-    expect(unclassifiedBrands([{ brand: "Nokian", tier: "" }, { brand: "Foo", tier: "" }])).toEqual(["FOO"]);
+
+  it("Districash : le référentiel prime sur la gamme du portail", () => {
+    const res = { ok: true, error: "", rows: [{ code: "1", ean: "1", brand: "MICHELIN", label: "MICHELIN PRIMACY 4 205/55R16 91V", priceHt: 80, status: "J", supplierTier: "entree" }] };
+    const conv = districashOffersOf(res as never, brands);
+    if (conv.offers[0]) expect(conv.offers[0].tier).toBe("haut");
   });
-  it("gagne la case haut si moins chère", () => {
-    const [, , haut] = pickTopPriceOffers({
-      offers: [offer({ brand: "Nokian", purchase_price_ht: 60, tier: "" }), offer({ brand: "Michelin", purchase_price_ht: 90, tier: "haut" })],
-      brands, settings: null, quantity: 4, season: "ete", required: req,
-    });
-    expect(haut!.brand).toBe("Nokian");
+
+  it("le paramétrage garage ne peut pas déclasser une marque référencée (mode classique)", () => {
+    const rows = [{ id: "1", brand: "Hankook", tier: "milieu", active: true, is_default: true, sort_order: 1 }] as unknown as BrandTierRow[];
+    expect(tierOfBrand(rows, "Hankook")).toBe("haut");
+    expect(applyBrandReference(rows)[0]).toMatchObject({ tier: "haut", is_default: false });
+  });
+
+  it("alias et variantes d'orthographe", () => {
+    expect(normalizeBrandKey("Good Year")).toBe("GOODYEAR");
+    expect(normalizeBrandKey("BF Goodrich")).toBe(normalizeBrandKey("BFGoodrich"));
+    expect(brandReferenceOf("Michelin Tyres")?.tier).toBe("haut");
+  });
+
+  it("marque inconnue : gamme fournisseur provisoire ; divergente entre fournisseurs => exclue, jamais par prix", () => {
+    const a = offer({ brand: "Zzinconnue", purchase_price_ht: 10, tier: "entree", supplier_key: "centralepneus" });
+    expect(brandReferenceOf("Zzinconnue")).toBeNull();
+    expect(tierOfOffer(brands, a)).toBe("entree");
+    const b = offer({ brand: "ZZINCONNUE", purchase_price_ht: 11, tier: "haut", supplier_key: "districash" });
+    expect(divergentSourceBrands(brands, [a, b])).toEqual(["ZZINCONNUE"]);
+    const grid = pickTopPriceOffers({ offers: [a, b], brands, settings: null, quantity: 4, season: "ete", required: req });
+    expect(grid.every((g) => !g.available)).toBe(true);
+    expect(unclassifiedBrands([{ brand: "Zzsans", tier: "" }])).toEqual(["ZZSANS"]);
+  });
+
+  it("marque divergente dans le référentiel (Nexen) : aucune gamme globale, à vérifier", () => {
+    expect(brandReferenceOf("Nexen")).toMatchObject({ tier: null, status: "divergent" });
   });
 });
