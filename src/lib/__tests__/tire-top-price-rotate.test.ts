@@ -99,7 +99,7 @@ describe("Référentiel mondial des marques", () => {
   it("Districash : le référentiel prime sur la gamme du portail", () => {
     const res = { ok: true, error: "", rows: [{ code: "1", ean: "1", brand: "MICHELIN", label: "MICHELIN PRIMACY 4 205/55R16 91V", priceHt: 80, status: "J", supplierTier: "entree" }] };
     const conv = districashOffersOf(res as never, brands);
-    if (conv.offers[0]) expect(conv.offers[0].tier).toBe("haut");
+    expect(conv.offers.map((o) => o.tier)).toEqual(["haut"]);
   });
 
   it("le paramétrage garage ne peut pas déclasser une marque référencée (mode classique)", () => {
