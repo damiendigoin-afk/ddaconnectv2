@@ -11,6 +11,7 @@ import { WEB_QUOTE_CASES } from "./tire-web-quote";
 export const WEB_QUOTE_MAX_BODY_BYTES = 1024;
 export const WEB_QUOTE_TTL_MS = 15 * 60 * 1000;
 export const DEFAULT_ALLOWED_ORIGIN = "https://dda-pneus-premiere-version.genialdrake34.chatgpt.site";
+export const DEFAULT_ALLOWED_ORIGINS = [DEFAULT_ALLOWED_ORIGIN, "https://pneu.garagecastillon.fr"];
 
 const SPEED = /^(?:[LMNPQRSTUHVWY]|ZR)$/;
 export const webQuoteInput = z
@@ -42,7 +43,6 @@ export type WebQuoteCase = {
   quantity: number;
   totalTtcCents: number | null;
   includedServices: { code: "montage"; label: string }[];
-  availability: string | null;
   compatibility: "compatible" | "to_confirm" | null;
   compatibilityMessage: string | null;
 };
@@ -68,7 +68,7 @@ export function toWebCase(o: SevenOffer | undefined, tier: WebQuoteCase["tier"],
   if (!ok) {
     return {
       tier, season, status: "unavailable", brand: null, model: null, size: null, loadIndex: null, speedIndex: null,
-      quantity, totalTtcCents: null, includedServices: [], availability: null, compatibility: null, compatibilityMessage: null,
+      quantity, totalTtcCents: null, includedServices: [], compatibility: null, compatibilityMessage: null,
     };
   }
   const mountIncluded = o.mountTtc != null && o.mountTtc > 0;
@@ -84,7 +84,7 @@ export function toWebCase(o: SevenOffer | undefined, tier: WebQuoteCase["tier"],
     quantity: o.quantity,
     totalTtcCents: Math.round((total as number) * 100),
     includedServices: mountIncluded ? [{ code: "montage", label: o.mountLabel ?? "Montage" }] : [],
-    availability: o.availability ?? null,
+    // Disponibilité volontairement jamais exposée (hors périmètre du site public).
     compatibility: o.compatibility === "compatible" ? "compatible" : "to_confirm",
     // L'avertissement « à confirmer » n'est jamais retiré.
     compatibilityMessage: o.compatibilityMessage || null,
@@ -117,7 +117,8 @@ export type WebQuoteConfig = {
   web_supplier: string | null;
   site_id: string | null;
   enabled: boolean;
-  allowed_origin: string | null;
+  allowed_origin?: string | null;
+  allowed_origins: string[] | null;
   quota_ip_per_10min: number;
   quota_global_per_hour: number;
 };
@@ -138,18 +139,70 @@ export function webReadiness(c: Partial<WebQuoteConfig> | null, districashConfig
     reasons.push("Établissement requis : Top prix consulte Districash, dont le compte dépend du site.");
   else if (districashConfigured === false) reasons.push("Identifiants Districash absents pour l'établissement choisi.");
   else if (districashConfigured === null) reasons.push("État Districash de l'établissement non vérifié.");
-  if (!validOrigin(c?.allowed_origin)) reasons.push("Origine autorisée du site vitrine manquante ou invalide (https://…).");
+  const origins = c?.allowed_origins ?? [];
+  if (!origins.length || !origins.every(validOrigin)) reasons.push("Origines autorisées du site vitrine manquantes ou invalides (https://…).");
   if (!c || !(Number(c.quota_ip_per_10min) > 0) || !(Number(c.quota_global_per_hour) > 0)) reasons.push("Quotas d'appels non définis.");
   return { ok: reasons.length === 0, reasons };
 }
 
-export function corsHeaders(origin: string | null, allowed: string | null): Record<string, string> {
+/** Origine exactement présente dans la liste autorisée (aucun joker, aucun suffixe). */
+export function originAllowed(origin: string | null, allowed: string[] | null | undefined): boolean {
+  return !!origin && validOrigin(origin) && (allowed ?? []).includes(origin);
+}
+
+export function corsHeaders(origin: string | null, allowed: string[] | null | undefined): Record<string, string> {
   const h: Record<string, string> = { Vary: "Origin" };
-  if (origin && allowed && origin === allowed) {
-    h["Access-Control-Allow-Origin"] = allowed;
+  if (originAllowed(origin, allowed)) {
+    h["Access-Control-Allow-Origin"] = origin as string;
     h["Access-Control-Allow-Methods"] = "POST, OPTIONS";
     h["Access-Control-Allow-Headers"] = "Content-Type";
     h["Access-Control-Max-Age"] = "600";
   }
   return h;
+}
+
+/* ------------------------- Demande de rendez-vous ------------------------- */
+
+export const WEB_APPT_MAX_BODY_BYTES = 4096;
+/** Délai minimal de saisie du formulaire (anti-robot simple). */
+export const WEB_APPT_MIN_FILL_MS = 3000;
+
+const SLOT = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    period: z.enum(["matin", "apres_midi"]),
+  })
+  .strict();
+
+export const webAppointmentInput = z
+  .object({
+    quoteId: z.string().uuid(),
+    tier: z.enum(["entree", "milieu", "haut"]),
+    season: z.enum(["ete", "quatre_saisons"]),
+    name: z.string().trim().min(2).max(100),
+    phone: z.string().trim().regex(/^[+0-9 ().-]{6,20}$/).optional(),
+    email: z.string().trim().email().max(255).optional(),
+    plate: z.string().trim().max(12).regex(/^[A-Za-z0-9 -]*$/).optional(),
+    preferredSlots: z.array(SLOT).min(1).max(3),
+    message: z.string().trim().max(500).optional(),
+    consent: z.literal(true),
+    /** Pot de miel : doit rester vide. */
+    website: z.string().max(200).optional(),
+    /** Temps passé sur le formulaire (ms), fourni par le site. */
+    formElapsedMs: z.number().int().min(0).max(86_400_000),
+  })
+  .strict()
+  .refine((v) => !!v.phone || !!v.email, { path: ["phone"], message: "Téléphone ou e-mail requis." });
+export type WebAppointmentInput = z.infer<typeof webAppointmentInput>;
+
+/** Signaux de robot : réponse neutre, rien n'est enregistré. */
+export function looksLikeBot(i: Pick<WebAppointmentInput, "website" | "formElapsedMs">): boolean {
+  return !!(i.website && i.website.trim()) || i.formElapsedMs < WEB_APPT_MIN_FILL_MS;
+}
+
+/** Créneaux : uniquement aujourd'hui → +60 jours (date Europe/Paris approximée en UTC). */
+export function slotsInRange(slots: { date: string }[], now: Date): boolean {
+  const today = now.toISOString().slice(0, 10);
+  const max = new Date(now.getTime() + 60 * 86_400_000).toISOString().slice(0, 10);
+  return slots.every((s) => s.date >= today && s.date <= max);
 }
