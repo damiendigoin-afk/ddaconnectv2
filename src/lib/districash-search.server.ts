@@ -4,7 +4,7 @@
  */
 export async function districashSearchForSite(
   siteId: string,
-  dims: { width: string; height: string; diameter: string; load?: string | null; speed?: string | null },
+  dims: { width: string; height: string; diameter: string; load?: string | null | undefined; speed?: string | null | undefined },
   quantity: number,
 ) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

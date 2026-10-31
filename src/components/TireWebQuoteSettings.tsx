@@ -222,7 +222,7 @@ export function TireWebQuoteSettings() {
           État de connexion :{" "}
         </span>
         <span className={tone}>{conn.label}</span>
-        {dc.isError && sKey === "districash" ? (
+        {dc.isError && sKey === "top_prix" ? (
           <button
             onClick={() => void dc.refetch()}
             className="ml-2 rounded-lg border border-border px-2 py-1 text-xs font-bold uppercase"
