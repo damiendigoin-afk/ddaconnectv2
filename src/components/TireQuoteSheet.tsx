@@ -132,16 +132,6 @@ export function TireQuoteSheet({
                 {o.mountTtc != null ? ` · ${MOUNT_LABEL} ${euro(o.mountTtc)}` : " · montage non paramétré"}
               </div>
             ) : null}
-            {internal && o.available && o.title.startsWith("Top prix") ? (
-              <div data-internal-only className="mt-1 flex flex-wrap gap-x-3 text-xs print:hidden">
-                <span className="font-bold">Fournisseur : {supplierLabel(o.supplier)}</span>
-                <span>Achat HT comparé : {euro(o.unitSourceHt)}</span>
-                <span className="text-muted-foreground">{o.availability ? `Dispo : ${o.availability}` : "Disponibilité non communiquée"}</span>
-                {/3PMSF/.test(o.compatibilityMessage ?? "") ? (
-                  <span className="basis-full font-bold text-destructive">{o.compatibilityMessage}</span>
-                ) : null}
-              </div>
-            ) : null}
             {internal && o.available ? <SupplierLink offer={o} order={{ size: header.size, plate: header.plate, quoteId }} /> : null}
           </div>
         ))}
@@ -153,14 +143,6 @@ export function TireQuoteSheet({
       </p>
     </section>
   );
-}
-
-function supplierLabel(key: string | null): string {
-  const k = (key ?? "").toLowerCase();
-  if (k.startsWith("centralepneus")) return "CentralePneus";
-  if (k.startsWith("districash")) return "Districash";
-  if (k.startsWith("catalogue")) return "Catalogue local";
-  return key || "Catalogue local";
 }
 
 /**

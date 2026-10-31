@@ -21,7 +21,8 @@ import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { prepareCapture } from "@/lib/photo-capture";
 import { useSite } from "@/lib/site-context";
 import { supabase } from "@/integrations/supabase/client";
-import { QUOTE_TIRE_SUPPLIERS, SEASON_LABEL, quoteSupplierKey, type QuoteTireSupplierKey, type TireSeason } from "@/lib/tires";
+import { QUOTE_TIRE_SUPPLIERS, quoteSupplierKey, type QuoteTireSupplierKey } from "@/lib/tires";
+import { TOP_PRICE_OPTION } from "@/lib/tire-top-price-source";
 import { suggestBrands } from "@/lib/tire-brands";
 import { analyzeTireLabelPhoto } from "@/lib/tire-ai.functions";
 import { ocrTirePhoto } from "@/lib/tire-ocr.browser";
@@ -140,10 +141,8 @@ function TireQuotePage() {
   });
   const [supplier, setSupplier] = useState<QuoteTireSupplierKey | null>(null);
   const activeSupplier: QuoteTireSupplierKey = supplier ?? siteSupplier.data ?? "centralepneus";
-  /** Mode « Top prix » : tous fournisseurs, moins cher par gamme (mode supplémentaire). */
+  /** Option « Top prix » du sélecteur Fournisseur (seul point d'entrée). */
   const [topPrice, setTopPrice] = useState(false);
-  const [topSeason, setTopSeason] = useState<TireSeason>("ete");
-  const resetResult = () => { setResult(null); setSavedId(null); setAdjust(0); };
 
 
   const set = (patch: Partial<TireQuoteForm>) => {
@@ -164,8 +163,8 @@ function TireQuotePage() {
           size,
           load: form.load.trim() || null,
           speed: form.speed.trim().toUpperCase() || null,
+          requestedBrand: form.brand.trim() || null,
           quantity: form.quantity,
-          season: topSeason,
           engine: data,
           siteId: site?.id ?? null,
         });
@@ -306,53 +305,29 @@ function TireQuotePage() {
             </button>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="shrink-0 font-bold uppercase tracking-widest text-muted-foreground">Fournisseur</span>
-              <select
-                aria-label="Fournisseur"
-                value={activeSupplier}
-                disabled={topPrice}
-                onChange={(e) => {
-                  setSupplier(quoteSupplierKey(e.target.value));
-                  resetResult();
-                }}
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold disabled:opacity-50"
-              >
-                {QUOTE_TIRE_SUPPLIERS.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.shortLabel}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                aria-pressed={topPrice}
-                onClick={() => { setTopPrice((v) => !v); resetResult(); }}
-                className={`shrink-0 rounded-lg border-2 px-3 py-1 text-left leading-tight ${topPrice ? "border-brand bg-brand text-brand-foreground" : "border-border bg-card"}`}
-              >
-                <span className="block text-sm font-extrabold">Top prix</span>
-                <span className="block text-[10px] font-semibold opacity-80">moins cher par gamme</span>
-              </button>
-            </div>
-            {topPrice ? (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="shrink-0 font-bold uppercase tracking-widest text-muted-foreground">Saison</span>
-                {(["ete", "quatre_saisons"] as TireSeason[]).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={topSeason === s}
-                    onClick={() => { setTopSeason(s); resetResult(); }}
-                    className={`rounded-lg border px-3 py-1.5 font-bold ${topSeason === s ? "border-brand bg-secondary" : "border-border"}`}
-                  >
-                    {SEASON_LABEL[s]}
-                  </button>
-                ))}
-                <span className="text-muted-foreground">Tous fournisseurs · marque indifférente</span>
-              </div>
-            ) : null}
-          </div>
+          <label className="flex items-center gap-3 text-xs">
+            <span className="shrink-0 font-bold uppercase tracking-widest text-muted-foreground">Fournisseur</span>
+            <select
+              aria-label="Fournisseur"
+              value={topPrice ? TOP_PRICE_OPTION : activeSupplier}
+              onChange={(e) => {
+                const isTop = e.target.value === TOP_PRICE_OPTION;
+                setTopPrice(isTop);
+                if (!isTop) setSupplier(quoteSupplierKey(e.target.value));
+                setResult(null);
+                setSavedId(null);
+                setAdjust(0);
+              }}
+              className="w-full max-w-56 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold"
+            >
+              {QUOTE_TIRE_SUPPLIERS.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.shortLabel}
+                </option>
+              ))}
+              <option value={TOP_PRICE_OPTION}>Top prix</option>
+            </select>
+          </label>
 
           <div className="grid grid-cols-3 gap-2">
             <Field
@@ -446,7 +421,7 @@ function TireQuotePage() {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-5 text-base font-extrabold uppercase tracking-wide text-brand-foreground disabled:opacity-50"
           >
             {quote.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
-            {topPrice ? "Chiffrer Top prix (3 gammes)" : form.brand.trim() ? "Chiffrer (7 offres)" : "Chiffrer (6 offres)"}
+            {form.brand.trim() ? "Chiffrer (7 offres)" : "Chiffrer (6 offres)"}
           </button>
           {!size ? (
             <p className="text-xs text-muted-foreground">

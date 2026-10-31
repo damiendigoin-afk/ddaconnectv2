@@ -98,3 +98,6 @@ export function unclassifiedBrands(offers: { brand: string; tier: string | null 
   }
   return [...out].sort();
 }
+
+/** Valeur de l'option « Top prix » du sélecteur Fournisseur (hors QuoteTireSupplierKey). */
+export const TOP_PRICE_OPTION = "top_prix";

@@ -197,78 +197,88 @@ async function collectSupplierOffers(args: SupplierFetchArgs): Promise<{ offers:
 }
 
 /**
- * Mode « Top prix » : interroge tous les fournisseurs intégrés (CentralePneus,
- * catalogue local, Districash du site) puis retient le moins cher de chaque
- * gamme pour la saison choisie, marque indifférente.
+ * Option fournisseur « Top prix » : même devis que le mode fournisseur (marque
+ * demandée éventuelle + 6 cases Entrée/Milieu/Haut × Été/4 saisons, mêmes
+ * titres, slots, prix, marge, montage). Seul l'approvisionnement change : chaque
+ * case reçoit le pneu conforme le moins cher, toutes marques et tous
+ * fournisseurs consultés (CentralePneus toutes marques + catalogue local +
+ * Districash du site). Aucune offre n'est simulée.
  */
 export async function quoteTopPriceTires(args: {
   size: string;
   load: string | null;
   speed: string | null;
+  requestedBrand: string | null;
   quantity: number;
-  season: TireSeason;
   engine: TireEngineData;
   siteId?: string | null;
 }): Promise<ManualQuoteResult> {
-  const base = { ...args, requestedBrand: null };
-  // CentralePneus : toutes marques (dimension + saison, tri prix), sans liste
-  // de marques présélectionnée. Catalogue local : toutes ses offres.
-  // Districash : la recherche par dimension renvoie déjà toutes les marques.
-  const centrale = (async () => {
-    const res = await fetchPublicTireOffersAllBrands({
-      data: {
-        size: args.size,
-        season: args.season,
-        load: args.load,
-        speed: args.speed,
-        configured: configuredTierMap(args.engine.brands),
-      },
-    });
-    const offers = [
-      ...(res.ok ? publicItemsToTopPriceOffers(res.items as PublicTireItem[], args.engine.brands) : []),
-      ...args.engine.catalog,
-    ];
-    const warning = !res.ok
-      ? `CentralePneus : ${res.error}`
-      : res.truncated
-        ? `CentralePneus : consultation limitée aux ${res.pagesRead * 50} pneus les moins chers de la saison.`
-        : "";
-    return { offers, warning };
-  })().catch((e) => ({
-    offers: [...args.engine.catalog] as TireOffer[],
-    warning: `centralepneus : ${e instanceof Error ? e.message : "consultation impossible"}`,
-  }));
-  // Indices = minima : on ne les transmet pas au portail (qui pourrait filtrer à
-  // l'identique) ; la conformité « minimum » est appliquée par pickTopPriceOffers.
-  const districash = collectSupplierOffers({ ...base, load: null, speed: null, supplier: "districash" }).catch((e) => ({
-    offers: [] as TireOffer[],
-    warning: `districash : ${e instanceof Error ? e.message : "consultation impossible"}`,
-  }));
-  const parts = await Promise.all([centrale, districash]);
-  const all = parts.flatMap((p) => p.offers);
-  const unclassified = unclassifiedBrands(
-    all.filter((o) => o.season === args.season).map((o) => ({ brand: o.brand, tier: o.tier })),
-  );
-  if (unclassified.length) {
-    parts.push({ offers: [], warning: `Marques non classées (exclues du Top prix) : ${unclassified.join(", ")}.` });
+  const { engine } = args;
+  const configured = configuredTierMap(engine.brands);
+  const centraleSeason = (season: TireSeason) =>
+    fetchPublicTireOffersAllBrands({ data: { size: args.size, season, load: args.load, speed: args.speed, configured } })
+      .then((res) => ({
+        offers: res.ok ? publicItemsToTopPriceOffers(res.items as PublicTireItem[], engine.brands) : [],
+        warning: !res.ok
+          ? `CentralePneus : ${res.error}`
+          : res.truncated
+            ? `CentralePneus (${SEASON_LABEL_SHORT[season]}) : consultation limitée aux ${res.pagesRead * 50} pneus les moins chers.`
+            : "",
+      }))
+      .catch((e) => ({ offers: [] as TireOffer[], warning: `CentralePneus : ${e instanceof Error ? e.message : "consultation impossible"}` }));
+  const safe = (p: Promise<{ offers: TireOffer[]; warning: string }>, label: string) =>
+    p.catch((e) => ({ offers: [] as TireOffer[], warning: `${label} : ${e instanceof Error ? e.message : "consultation impossible"}` }));
+
+  const parts = await Promise.all([
+    centraleSeason("ete"),
+    centraleSeason("quatre_saisons"),
+    // Consultation historique (marques paramétrées + marque demandée) : garantit
+    // la 7e offre « marque demandée » et inclut le catalogue local.
+    safe(collectSupplierOffers({ ...args, supplier: "centralepneus" }), "CentralePneus"),
+    // Indices = minima : non transmis au portail, conformité appliquée ici.
+    safe(collectSupplierOffers({ ...args, load: null, speed: null, supplier: "districash" }), "Districash"),
+  ]);
+  const seen = new Set<string>();
+  const all: TireOffer[] = [];
+  for (const o of parts.flatMap((p) => p.offers)) {
+    const k = String(o.id);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    all.push(o);
   }
-  const grid = pickTopPriceOffers({
+  const required = { size: args.size, load: args.load, speed: args.speed };
+
+  // Structure d'origine (marque demandée + 6 cases) produite par le moteur habituel.
+  const [identical, ...base] = buildSevenOffers({
     offers: all,
-    brands: args.engine.brands,
-    settings: args.engine.settings,
+    brands: engine.brands,
+    packages: engine.packages,
+    settings: engine.settings,
     quantity: args.quantity,
-    season: args.season,
-    required: { size: args.size, load: args.load, speed: args.speed },
+    mounted: { brand: args.requestedBrand, model: null, size: args.size, season: null },
+    required,
   });
-  return {
-    size: args.size,
-    quantity: args.quantity,
-    requestedBrand: null,
-    requested: null,
-    grid,
-    warning: parts.map((p) => p.warning).filter(Boolean).join(" "),
-  };
+  const top = new Map<string, SevenOffer>();
+  for (const season of ["ete", "quatre_saisons"] as TireSeason[]) {
+    for (const o of pickTopPriceOffers({ offers: all, brands: engine.brands, settings: engine.settings, quantity: args.quantity, season, required })) {
+      top.set(o.slot, o);
+    }
+  }
+  const grid = base.map((slot) => {
+    const best = top.get(slot.slot);
+    if (!best) return slot;
+    return { ...best, slot: slot.slot, kind: slot.kind, title: slot.title, tier: slot.tier, season: slot.season };
+  });
+
+  const unclassified = unclassifiedBrands(all.map((o) => ({ brand: o.brand, tier: o.tier })));
+  const warnings = parts.map((p) => p.warning).filter(Boolean);
+  if (unclassified.length) warnings.push(`Top prix — marques non classées (exclues) : ${unclassified.join(", ")}.`);
+  const requested =
+    args.requestedBrand && identical ? { ...identical, title: `Marque demandée : ${args.requestedBrand}` } : null;
+  return { size: args.size, quantity: args.quantity, requestedBrand: args.requestedBrand, requested, grid, warning: warnings.join(" ") };
 }
+
+const SEASON_LABEL_SHORT: Record<TireSeason, string> = { ete: "été", quatre_saisons: "4 saisons", hiver: "hiver" };
 
 /**
  * Chiffrage d'une dimension saisie manuellement.

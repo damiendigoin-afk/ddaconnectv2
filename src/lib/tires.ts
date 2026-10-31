@@ -480,8 +480,8 @@ export function speedRank(v: string | null | undefined): number | null {
  * Conformité réelle d'un produit à la demande.
  * — charge : jamais inférieure à la demande (aucune dérogation) ;
  * — vitesse été : jamais inférieure ;
- * — vitesse 4 saisons / hiver : un seul cran en dessous toléré si le pneu est
- *   3PMSF (dérogation hiver : autocollant de vitesse maximale obligatoire).
+ * — vitesse 4 saisons : un seul cran en dessous toléré si le pneu est 3PMSF
+ *   (règle maison).
  * Charge et vitesse sont des MINIMA : un indice supérieur est toujours accepté.
  * Un indice non publié n'est pas une non-conformité : il reste « à confirmer ».
  */
@@ -503,16 +503,11 @@ export function offerMeetsRequirement(args: {
     const os = speedRank(args.offerSpeed);
     if (os != null && os < rs) {
       const tolerated =
-        (args.season === "quatre_saisons" || args.season === "hiver") && args.is3pmsf === true && os === rs - 1;
+        args.season === "quatre_saisons" && args.is3pmsf === true && os === rs - 1;
       if (!tolerated) return false;
     }
   }
   return true;
-}
-
-/** Avertissement de la dérogation hiver/4 saisons 3PMSF (vitesse un cran en dessous). */
-export function speedDerogationWarning(offerSpeed: string | null, requiredSpeed: string | null): string {
-  return `Indice de vitesse ${offerSpeed ?? "?"} inférieur au ${requiredSpeed ?? "?"} demandé, toléré pour un pneu 3PMSF : autocollant de vitesse maximale obligatoire dans le champ de vision du conducteur, à confirmer avec le client.`;
 }
 
 /** Marquage 3PMSF porté par une offre consultée (absent du catalogue local). */
@@ -1303,19 +1298,7 @@ export function pickTopPriceOffers(args: {
   return (["entree", "milieu", "haut"] as TireTier[]).map((tier) => {
     const best = eligible.filter((o) => tierOfOffer(brands, o) === tier).sort(compare)[0] ?? null;
     const base = { slot: `${tier}_${season}`, kind: "gamme" as const, title: `Top prix · ${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`, tier, season, quantity };
-    if (best) {
-      const priced = priceOffer(best, quantity, settings, required);
-      const os = speedRank(best.speed_index);
-      const rs = speedRank(required.speed);
-      const derogation = os != null && rs != null && os < rs;
-      return {
-        ...base,
-        available: true,
-        unavailableReason: "",
-        ...priced,
-        ...(derogation ? { compatibility: "a_confirmer" as const, compatibilityMessage: speedDerogationWarning(best.speed_index, required.speed) } : {}),
-      };
-    }
+    if (best) return { ...base, available: true, unavailableReason: "", ...priceOffer(best, quantity, settings, required) };
     return {
       ...base,
       available: false,

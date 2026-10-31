@@ -14,9 +14,9 @@ describe("Indices = minima (91V demandé)", () => {
     expect(ok("91", "H")).toBe(false);
     expect(ok("91", "T")).toBe(false);
   });
-  it("dérogation 3PMSF : un cran en dessous en 4 saisons / hiver uniquement", () => {
+  it("dérogation 3PMSF : un cran en dessous en 4 saisons uniquement (règle maison)", () => {
     expect(ok("91", "H", "quatre_saisons", true)).toBe(true);
-    expect(ok("91", "H", "hiver", true)).toBe(true);
+    expect(ok("91", "H", "hiver", true)).toBe(false);
     expect(ok("91", "H", "quatre_saisons", false)).toBe(false);
     expect(ok("91", "T", "quatre_saisons", true)).toBe(false); // deux crans
     expect(ok("91", "H", "ete", true)).toBe(false);
@@ -48,12 +48,11 @@ describe("Top prix avec indices supérieurs et dérogation", () => {
     expect(r[0]!.compatibility).toBe("compatible");
   });
 
-  it("4 saisons 3PMSF un cran en dessous : retenu avec avertissement", () => {
+  it("4 saisons 3PMSF un cran en dessous : retenu, compatibilité à confirmer", () => {
     const r = pickTopPriceOffers({ brands, settings: null, quantity: 4, season: "quatre_saisons", required: req, offers: [
       o({ season: "quatre_saisons", speed_index: "H", is3pmsf: true, purchase_price_ht: 40 }),
     ] });
     expect(r[0]!.available).toBe(true);
     expect(r[0]!.compatibility).toBe("a_confirmer");
-    expect(r[0]!.compatibilityMessage).toMatch(/3PMSF.*autocollant/);
   });
 });
