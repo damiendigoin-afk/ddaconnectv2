@@ -14,7 +14,7 @@ import {
   publicItemsToOffers,
   publicItemsToTopPriceOffers,
   quoteBrandsOf,
-  tierOfBrand,
+  divergentSourceBrands,
   type BrandTierRow,
   type PublicTireItem,
   type SevenOffer,
@@ -166,8 +166,10 @@ export async function runTopPrice(
   const warnings = [ete.warning, qs.warning, leg.warning, dist.warning].filter(Boolean);
   const unclassified = unclassifiedBrands(
     offers.map((o) => ({ brand: o.brand, tier: o.tier })),
-    Object.fromEntries(engine.brands.map((r) => [r.brand.trim().toLowerCase(), tierOfBrand(engine.brands, r.brand)])),
+    configuredTierMap(engine.brands),
   );
+  const divergent = divergentSourceBrands(engine.brands, offers);
+  if (divergent.length) warnings.push(`Top prix — classements fournisseurs divergents (exclues, à vérifier) : ${divergent.join(", ")}.`);
   if (unclassified.length) warnings.push(`Top prix — marques non classées (exclues) : ${unclassified.join(", ")}.`);
   const requested =
     args.requestedBrand && identical ? { ...identical, title: `Marque demandée : ${args.requestedBrand}` } : null;

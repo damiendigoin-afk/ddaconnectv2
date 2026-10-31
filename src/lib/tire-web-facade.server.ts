@@ -221,7 +221,7 @@ export async function realFacadeDeps(): Promise<FacadeDeps> {
         db.from("tire_brand_tiers").select("*").order("tier").order("sort_order"),
       ]);
       if (s.error || c.error || p.error || b.error) throw new Error("engine");
-      return { settings: s.data ?? null, catalog: c.data ?? [], packages: p.data ?? [], brands: b.data ?? [] };
+      return { settings: s.data ?? null, catalog: c.data ?? [], packages: p.data ?? [], brands: applyBrandReference(b.data ?? []) };
     },
     sources: (input, siteId) => ({
       centraleAllBrands: async ({ season, configured }) => {

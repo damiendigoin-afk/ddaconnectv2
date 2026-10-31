@@ -863,6 +863,7 @@ export function buildSevenOffers(args: {
   required: { size: string | null; load: string | null; speed: string | null };
 }): SevenOffer[] {
   const { offers, brands, settings, quantity, mounted, required } = args;
+  const tierOfOfferInPool = poolTierResolver(brands, offers);
   const sizeMatch = (o: TireOffer) =>
     !required.size || !o.size || normalizeTireSize(o.size) === normalizeTireSize(required.size);
   const cheapest = (list: TireOffer[]) =>
@@ -1279,6 +1280,30 @@ export function tierOfOffer(brands: BrandTierRow[], offer: Pick<TireOffer, "bran
 }
 
 /**
+ * Gamme d'une offre dans un lot consulté : comme tierOfOffer, mais une marque
+ * hors référentiel et hors paramétrage dont les fournisseurs déclarent des
+ * gammes différentes n'a AUCUNE gamme (exclue, signalée « divergente »).
+ * Une même marque ne peut donc jamais occuper deux gammes selon le fournisseur.
+ */
+export function poolTierResolver(brands: BrandTierRow[], offers: Pick<TireOffer, "brand" | "tier">[]): (o: Pick<TireOffer, "brand" | "tier">) => TireTier | null {
+  const div = new Set(divergentSourceBrands(brands, offers));
+  return (o) => (div.has(normalizeBrandKey(o.brand)) ? null : tierOfOffer(brands, o));
+}
+
+/** Clés de marques hors référentiel/paramétrage aux gammes fournisseur contradictoires. */
+export function divergentSourceBrands(brands: BrandTierRow[], offers: Pick<TireOffer, "brand" | "tier">[]): string[] {
+  const seen = new Map<string, Set<string>>();
+  for (const o of offers) {
+    if (globalBrandTier(o.brand) || tierOfBrand(brands, o.brand)) continue;
+    if (o.tier !== "entree" && o.tier !== "milieu" && o.tier !== "haut") continue;
+    const k = normalizeBrandKey(o.brand);
+    if (!seen.has(k)) seen.set(k, new Set());
+    seen.get(k)!.add(o.tier);
+  }
+  return [...seen].filter(([, t]) => t.size > 1).map(([k]) => k).sort();
+}
+
+/**
  * « Top prix » : parmi toutes les offres consultées (tous fournisseurs), le pneu
  * le moins cher de chaque gamme pour la saison demandée, quelle que soit la
  * marque. Comparaison sur la base HT normalisée (sourceHtOf), mêmes filtres de
@@ -1336,8 +1361,9 @@ export function topPriceBrandAlternatives(args: {
   season: TireSeason;
   required: TopRequired;
 }): TireOffer[] {
+  const tierIn = poolTierResolver(args.brands, args.offers);
   const list = topPriceEligible(args.offers, args.season, args.required)
-    .filter((o) => tierOfOffer(args.brands, o) === args.tier)
+    .filter((o) => tierIn(o) === args.tier)
     .sort(compareTopPrice);
   const seen = new Set<string>();
   return list.filter((o) => {
@@ -1388,9 +1414,10 @@ export function pickTopPriceOffers(args: {
   const { offers, brands, settings, quantity, season, required } = args;
   const eligible = topPriceEligible(offers, season, required);
   const compare = compareTopPrice;
+  const tierIn = poolTierResolver(brands, offers);
 
   return (["entree", "milieu", "haut"] as TireTier[]).map((tier) => {
-    const best = eligible.filter((o) => tierOfOffer(brands, o) === tier).sort(compare)[0] ?? null;
+    const best = eligible.filter((o) => tierIn(o) === tier).sort(compare)[0] ?? null;
     const base = { slot: `${tier}_${season}`, kind: "gamme" as const, title: `Top prix · ${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`, tier, season, quantity };
     if (best) return { ...base, available: true, unavailableReason: "", ...priceOffer(best, quantity, settings, required) };
     return {

@@ -1,3 +1,4 @@
+import { globalBrandTier, normalizeBrandKey } from "./tire-brand-reference";
 /**
  * Top prix — règles pures de consultation « toutes marques ».
  *
@@ -59,25 +60,15 @@ export function meetsIndicesStrict(
   return true;
 }
 
-/**
- * Gammes imposées par DDA pour des marques absentes du paramétrage (source
- * contradictoire ou sans gamme). Unique source, utilisée par la pagination,
- * la sélection (tierOfOffer) et le diagnostic. tire_brand_tiers reste prioritaire.
- */
-export const SOURCE_TIER_OVERRIDES: Record<string, SourceTier> = {
-  nankang: "entree", // publiée « quality » ; vendue entrée de gamme à l'atelier
-  nokian: "haut", // premium ; parfois sans gamme source
-};
-
 /** Gamme effective : paramétrage DDA prioritaire, sinon gamme source fiable. */
 export function effectiveTier(
   brand: string,
   sourceTier: SourceTier | null | undefined,
   configured: Record<string, SourceTier | null>,
 ): SourceTier | null {
-  const k = brand.trim().toLowerCase();
-  if (k in configured) return configured[k] ?? null; // marque paramétrée (désactivée => null)
-  return SOURCE_TIER_OVERRIDES[k] ?? sourceTier ?? null;
+  const k = normalizeBrandKey(brand);
+  if (k in configured && configured[k] == null) return null; // marque désactivée par le garage
+  return globalBrandTier(brand) ?? configured[k] ?? sourceTier ?? null;
 }
 
 /**
