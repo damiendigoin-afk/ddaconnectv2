@@ -137,6 +137,9 @@ export function TireQuoteSheet({
                 <span className="font-bold">Fournisseur : {supplierLabel(o.supplier)}</span>
                 <span>Achat HT comparé : {euro(o.unitSourceHt)}</span>
                 <span className="text-muted-foreground">{o.availability ? `Dispo : ${o.availability}` : "Disponibilité non communiquée"}</span>
+                {/3PMSF/.test(o.compatibilityMessage ?? "") ? (
+                  <span className="basis-full font-bold text-destructive">{o.compatibilityMessage}</span>
+                ) : null}
               </div>
             ) : null}
             {internal && o.available ? <SupplierLink offer={o} order={{ size: header.size, plate: header.plate, quoteId }} /> : null}
