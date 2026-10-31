@@ -30,7 +30,7 @@ export type AppointmentDeps = {
   insertRequest: (row: Record<string, unknown>) => Promise<string>;
   /** Garage actif par code interne, avec son adresse d'accueil configurée (sites.contact_email). */
   loadSite: (code: string) => Promise<FrontOfficeSite | null>;
-  sendEmail: (m: { to: string; subject: string; html: string; replyTo?: string; idempotencyKey: string }) => Promise<{ ok: boolean; error?: string }>;
+  sendEmail: (m: { to: string; subject: string; html: string; replyTo?: string; idempotencyKey: string }) => Promise<{ ok: boolean; error?: string | undefined }>;
   updateNotification: (id: string, patch: { notification_status: string; notification_error: string | null; notified_at: string | null }) => Promise<void>;
   now: () => Date;
 };
