@@ -1,7 +1,8 @@
 /**
  * Devis pneus — Site web : configuration administrateur (aucun calcul ici).
- * Le futur calcul web réutilisera priceTireLine / applyMargin / mountPriceFor
- * avec les paramètres du site de rattachement. Aucun état « connecté » n'est
+ * Le futur calcul web réutilisera priceTireLine / applyMargin / mountPriceFor.
+ * Marge et montage sont aujourd'hui communs à tous les sites (commercial_settings) ;
+ * seul le compte fournisseur (Districash) est rattaché au site. Aucun état « connecté » n'est
  * déclaré sans contrôle réel enregistré.
  */
 import { QUOTE_TIRE_SUPPLIERS, type QuoteTireSupplierKey } from "./tires";
@@ -26,12 +27,13 @@ export function webSupplierKey(v: string | null | undefined): QuoteTireSupplierK
 /** Point d'entrée public sécurisé : inexistant à ce stade. */
 export const PUBLIC_ENDPOINT_READY = false;
 
-export type WebConnectionState = "non_selectionne" | "site_requis" | "aucune_connexion_requise" | "controle_ok" | "echec" | "jamais_controle" | "identifiants_absents";
+export type WebConnectionState = "non_selectionne" | "site_requis" | "aucune_connexion_requise" | "controle_ok" | "echec" | "jamais_controle" | "identifiants_absents" | "lecture_impossible";
 
 export type ConnectionInput = {
   supplier: QuoteTireSupplierKey | null;
   siteId: string | null;
   centrale?: { status: string | null; lastOkAt: string | null; message: string | null } | null;
+  districashError?: boolean;
   districash?: { configured: boolean; lastTestOk: boolean | null; lastTestAt: string | null } | null;
 };
 
@@ -47,6 +49,7 @@ export function webConnectionState(i: ConnectionInput): { state: WebConnectionSt
     if (c?.status === "indisponible") return { state: "echec", label: "Dernière consultation en échec." };
     return { state: "jamais_controle", label: "Aucune consultation enregistrée." };
   }
+  if (i.districashError) return { state: "lecture_impossible", label: "État Districash illisible (erreur de lecture), réessayez." };
   const d = i.districash;
   if (!d?.configured) return { state: "identifiants_absents", label: "Identifiants Districash absents pour ce site." };
   if (d.lastTestOk === true && d.lastTestAt)
