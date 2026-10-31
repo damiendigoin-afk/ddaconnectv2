@@ -50,9 +50,10 @@ describe("demande de RDV pneus site web", () => {
     const r = await handleAppointmentPost(post({ ...good }), d);
     expect(r.status).toBe(201);
     expect((await r.json()).status).toBe("a_confirmer");
-    expect(rows[0].status).toBe("a_confirmer");
-    expect((rows[0].offer_snapshot as WebQuoteCase).totalTtcCents).toBe(41234);
-    expect(rows[0].site_id).toBe("s1");
+    const row = rows[0] ?? {};
+    expect(row["status"]).toBe("a_confirmer");
+    expect((row["offer_snapshot"] as WebQuoteCase).totalTtcCents).toBe(41234);
+    expect(row["site_id"]).toBe("s1");
   });
 
   it("un prix fourni par le navigateur est refusé (champ inconnu)", async () => {
