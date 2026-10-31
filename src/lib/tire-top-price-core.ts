@@ -52,6 +52,10 @@ export type TopPriceResult = {
   /** Avertissements internes (noms de fournisseurs) — jamais exposés au public. */
   warning: string;
   sources: TopPriceSourceStatus[];
+  /** Offres réellement consultées (écran interne : rotation de marque). Jamais exposé au public. */
+  pool: TireOffer[];
+  /** Exigences de conformité utilisées pour la grille. */
+  required: { size: string | null; load: string | null; speed: string | null };
 };
 
 /** Conversion des lignes Districash (même logique que le mode fournisseur). */
@@ -170,6 +174,8 @@ export async function runTopPrice(
     requested,
     grid,
     warning: [...new Set(warnings)].join(" "),
+    pool: offers,
+    required,
     sources: [
       { source: "centralepneus", ok: ete.ok || qs.ok || leg.ok },
       { source: "districash", ok: dist.ok },

@@ -140,6 +140,9 @@ export type ManualQuoteResult = {
   grid: SevenOffer[];
   /** Message de consultation tarifaire (jamais de prix simulé). */
   warning: string;
+  /** Top prix seulement : offres consultées et exigences, pour « Autre marque, même gamme ». */
+  pool?: TireOffer[];
+  required?: { size: string | null; load: string | null; speed: string | null };
 };
 
 
