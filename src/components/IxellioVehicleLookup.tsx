@@ -4,9 +4,10 @@
  */
 import { useServerFn } from "@tanstack/react-start";
 import { Car, Loader2, Search } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { lookupIxellioVehicle, saveIxellioVehicle } from "@/lib/ixellio.functions";
+import { cachedIxellioLookup } from "@/lib/ixellio-lookup-cache";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 
 type Vehicle = Record<string, string | undefined>;
@@ -43,10 +44,17 @@ const FIELDS: [string, string][] = [
 export function IxellioVehicleLookup({
   plate,
   onSaved,
+  variant = "default",
+  renderSaved,
 }: {
   plate: string;
   onSaved?: (vehicleId: string) => void;
+  /** "home" : libellés accueil (« Véhicule non trouvé dans DDA Connect », « Rechercher avec Ixellio »). */
+  variant?: "default" | "home";
+  /** Actions proposées après enregistrement confirmé (ex. Tour véhicule / OR). */
+  renderSaved?: (vehicleId: string) => ReactNode;
 }) {
+  const home = variant === "home";
   const lookup = useServerFn(lookupIxellioVehicle);
   const save = useServerFn(saveIxellioVehicle);
   const [state, setState] = useState<"ask" | "loading" | "done" | "declined">("ask");
@@ -54,16 +62,20 @@ export function IxellioVehicleLookup({
   const [diag, setDiag] = useState<{ fields: string[]; count: number; versionList: boolean } | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<{ fields: number } | null>(null);
+  const [saved, setSaved] = useState<{ fields: number; id: string } | null>(null);
+  // Garde synchrone : aucun double clic / requête concurrente (l'état React arrive trop tard).
+  const busy = useRef(false);
 
   const norm = normalizePlate(plate);
   if (norm.length < 4) return null;
 
-  async function ask() {
+  async function ask(force = false) {
+    if (busy.current) return;
+    busy.current = true;
     setState("loading");
     setMessage("");
     try {
-      const res = await lookup({ data: { plate: norm } });
+      const res = await cachedIxellioLookup(norm, (p) => lookup({ data: { plate: p } }), { force });
       setVehicle(res.ok ? res.vehicle : null);
       setDiag({
         fields: res.detectedFields ?? [],
@@ -77,22 +89,26 @@ export function IxellioVehicleLookup({
       setDiag(null);
       setMessage(e instanceof Error ? e.message : "Interrogation IXELLIO impossible.");
       setState("done");
+    } finally {
+      busy.current = false;
     }
   }
 
   async function persist() {
-    if (!vehicle) return;
+    if (!vehicle || busy.current || saved) return;
+    busy.current = true;
     setSaving(true);
     try {
       const clean: Record<string, string> = {};
       for (const [k, v] of Object.entries(vehicle)) if (v) clean[k] = v;
       const res = await save({ data: { plate: norm, vehicle: clean } });
-      setSaved({ fields: res.storedFields });
+      setSaved({ fields: res.storedFields, id: res.id });
       onSaved?.(res.id);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Enregistrement impossible.");
     } finally {
       setSaving(false);
+      busy.current = false;
     }
   }
 
@@ -103,10 +119,13 @@ export function IxellioVehicleLookup({
       <div className="flex items-start gap-3">
         <Car className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-extrabold uppercase">Véhicule inconnu</p>
+          <p className="text-sm font-extrabold uppercase">
+            {home ? "Véhicule non trouvé dans DDA Connect" : "Véhicule inconnu"}
+          </p>
           <p className="text-xs text-muted-foreground">
-            {formatPlate(norm)} n'est pas dans la base DDA Connect. Interroger IXELLIO pour récupérer les
-            informations du véhicule ?
+            {home
+              ? `${formatPlate(norm)} n'est pas encore enregistré. Ixellio peut fournir les informations du véhicule.`
+              : `${formatPlate(norm)} n'est pas dans la base DDA Connect. Interroger IXELLIO pour récupérer les informations du véhicule ?`}
           </p>
         </div>
       </div>
@@ -116,16 +135,16 @@ export function IxellioVehicleLookup({
           <button
             type="button"
             onClick={() => void ask()}
-            className="rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground"
+            className="rounded-lg bg-brand px-3 py-3 text-xs font-extrabold uppercase text-brand-foreground"
           >
-            Oui, interroger IXELLIO
+            {home ? "Rechercher avec Ixellio" : "Oui, interroger IXELLIO"}
           </button>
           <button
             type="button"
             onClick={() => setState("declined")}
-            className="rounded-lg border-2 border-border px-3 py-2 text-xs font-extrabold uppercase"
+            className="rounded-lg border-2 border-border px-3 py-3 text-xs font-extrabold uppercase"
           >
-            Non
+            {home ? "Ignorer" : "Non"}
           </button>
         </div>
       ) : null}
@@ -141,7 +160,7 @@ export function IxellioVehicleLookup({
           <p className="rounded-lg bg-status-watch-soft px-3 py-2 text-xs">{message}</p>
           <button
             type="button"
-            onClick={() => void ask()}
+            onClick={() => void ask(true)}
             className="flex items-center gap-2 rounded-lg border-2 border-border px-3 py-2 text-xs font-extrabold uppercase"
           >
             <Search className="h-3.5 w-3.5" /> Réessayer
@@ -167,24 +186,28 @@ export function IxellioVehicleLookup({
               identifié).
             </p>
           ) : null}
-          <dl className="grid grid-cols-2 gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
+          <p className="text-sm font-extrabold">{formatPlate(norm)}</p>
+          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 rounded-lg bg-muted px-3 py-2 text-xs">
             {FIELDS.filter(([k]) => vehicle[k]).map(([k, label]) => (
               <div key={k}>
                 <dt className="text-[10px] font-bold uppercase text-muted-foreground">{label}</dt>
-                <dd className="font-semibold">{vehicle[k]}</dd>
+                <dd className="break-words font-semibold">{vehicle[k]}</dd>
               </div>
             ))}
           </dl>
           {saved ? (
-            <p className="rounded-lg bg-status-ok-soft px-3 py-2 text-xs font-bold">
-              Véhicule enregistré dans DDA Connect ({saved.fields} champs mémorisés et vérifiés).
-            </p>
+            <>
+              <p className="rounded-lg bg-status-ok-soft px-3 py-2 text-xs font-bold">
+                Véhicule enregistré dans DDA Connect ({saved.fields} champs mémorisés et vérifiés).
+              </p>
+              {renderSaved ? renderSaved(saved.id) : null}
+            </>
           ) : (
             <button
               type="button"
               onClick={() => void persist()}
               disabled={saving}
-              className="w-full rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60"
+              className="w-full rounded-lg bg-brand px-3 py-3 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60"
             >
               {saving ? "Enregistrement…" : "Enregistrer ce véhicule dans DDA Connect"}
             </button>

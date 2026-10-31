@@ -1,15 +1,34 @@
 import { Link } from "@tanstack/react-router";
 import { Car, Loader2, Receipt, Search, User, Wrench } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { wellFormedPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { searchInvoices } from "@/lib/winmotor/wm-data";
 import { customerName, universalSearch, vehicleLabel, type SearchResult } from "@/lib/refbase";
 
-export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n° OR, n° facture…" }: { placeholder?: string }) {
+/** Plaque bien formée et absente des véhicules trouvés localement => normalisée, sinon null. */
+export function unknownPlateOf(term: string, res: SearchResult | null): string | null {
+  const plate = wellFormedPlate(term);
+  if (!plate || !res) return null;
+  const known =
+    res.vehicles.some((v) => v.registration_normalized === plate) ||
+    res.customers.some((c) => c.vehicles.some((v) => v.registration_normalized === plate));
+  return known ? null : plate;
+}
+
+export function UniversalSearch({
+  placeholder = "Immat, nom, téléphone, VIN, n° OR, n° facture…",
+  renderUnknownPlate,
+}: {
+  placeholder?: string;
+  /** Affiché seulement quand la recherche locale est terminée et la plaque bien formée est inconnue. */
+  renderUnknownPlate?: (plate: string) => ReactNode;
+}) {
   const [term, setTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<SearchResult | null>(null);
+  const [resFor, setResFor] = useState("");
   const [invoices, setInvoices] = useState<Awaited<ReturnType<typeof searchInvoices>>>([]);
   // Recherche multi-sites pour tous : chaque résultat affiche son site / sa société.
   const { sites } = useSite();
@@ -28,7 +47,11 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
       // Factures WinMotor : n° exact, à partir de 3 caractères, résultat limité.
       searchInvoices(t, 5).then((r) => alive && setInvoices(r)).catch(() => alive && setInvoices([]));
       universalSearch(t)
-        .then((r) => alive && setRes(r))
+        .then((r) => {
+          if (!alive) return;
+          setRes(r);
+          setResFor(t);
+        })
         .catch(() => alive && setRes(null))
         .finally(() => alive && setLoading(false));
     }, 250);
@@ -58,6 +81,10 @@ export function UniversalSearch({ placeholder = "Immat, nom, téléphone, VIN, n
           className="w-full rounded-xl border-2 border-border bg-card py-4 pl-11 pr-10 text-base outline-none focus:border-brand"
         />
       </div>
+
+      {renderUnknownPlate && !loading && resFor === term.trim() && unknownPlateOf(term, res)
+        ? renderUnknownPlate(unknownPlateOf(term, res)!)
+        : null}
 
       {isEmpty ? <p className="px-1 text-sm text-muted-foreground">Aucun résultat.</p> : null}
 

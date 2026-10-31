@@ -92,3 +92,14 @@ export function strictPlate(raw: unknown, hint?: string | null): string | null {
   if (h && cands.has(h)) return formatPlate(h);
   return null;
 }
+
+/**
+ * Immatriculation « correctement formée » pour une interrogation externe (IXELLIO) :
+ * SIV AA-123-AA ou ancien FNI (123 ABC 24, 2A/2B, DOM 97x). Renvoie la forme normalisée, sinon null.
+ */
+export function wellFormedPlate(input: string | null | undefined): string | null {
+  const n = normalizePlate(input || "");
+  if (validSiv(n)) return n;
+  if (/^\d{1,4}[A-Z]{1,3}(\d{2}|2A|2B|97\d)$/.test(n)) return n;
+  return null;
+}
