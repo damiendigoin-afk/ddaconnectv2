@@ -9,12 +9,12 @@ import { SEASON_LABEL, TIER_LABEL } from "@/lib/tires";
 import {
   WEB_QUOTE_CASES,
   WEB_SUPPLIERS,
-  canActivateWeb,
   webConnectionState,
   webSupplierKey,
 } from "@/lib/tire-web-quote";
+import { DEFAULT_ALLOWED_ORIGIN, validOrigin, webReadiness } from "@/lib/tire-web-api";
 
-/** Bloc administrateur « Devis pneus — Site web » (configuration seule, activation bloquée). */
+/** Bloc administrateur « Devis pneus — Site web » (Top prix, activation contrôlée). */
 export function TireWebQuoteSettings() {
   const districashStatus = useServerFn(getDistricashStatus);
   const q = useQuery({
@@ -23,7 +23,7 @@ export function TireWebQuoteSettings() {
       const [cfg, sites, cs] = await Promise.all([
         supabase
           .from("tire_web_quote_settings")
-          .select("web_supplier, site_id, enabled, updated_at")
+          .select("web_supplier, site_id, enabled, allowed_origin, quota_ip_per_10min, quota_global_per_hour, updated_at")
           .maybeSingle(),
         supabase.from("sites").select("id, name, code").eq("active", true).order("name"),
         supabase
@@ -42,6 +42,9 @@ export function TireWebQuoteSettings() {
 
   const [supplier, setSupplier] = useState("");
   const [siteId, setSiteId] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [quotaIp, setQuotaIp] = useState("10");
+  const [quotaGlobal, setQuotaGlobal] = useState("120");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   // Initialisation contrôlée : un refetch ne remplace jamais une saisie en cours.
@@ -49,6 +52,9 @@ export function TireWebQuoteSettings() {
     if (!q.data || dirty) return;
     setSupplier(webSupplierKey(q.data.cfg?.web_supplier) ?? "");
     setSiteId(q.data.cfg?.site_id ?? "");
+    setOrigin(q.data.cfg?.allowed_origin ?? DEFAULT_ALLOWED_ORIGIN);
+    setQuotaIp(String(q.data.cfg?.quota_ip_per_10min ?? 10));
+    setQuotaGlobal(String(q.data.cfg?.quota_global_per_hour ?? 120));
   }, [q.data, dirty]);
   const loaded = q.isSuccess && !!q.data;
 
@@ -69,10 +75,21 @@ export function TireWebQuoteSettings() {
       ? { configured: dSite.configured, lastTestOk: dSite.lastTestOk, lastTestAt: dSite.lastTestAt }
       : null,
   });
-  const activation = canActivateWeb();
+  const enabled = q.data?.cfg?.enabled === true;
+  const readiness = webReadiness(
+    {
+      web_supplier: sKey,
+      site_id: siteId || null,
+      allowed_origin: origin.trim() || null,
+      quota_ip_per_10min: Number(quotaIp),
+      quota_global_per_hour: Number(quotaGlobal),
+    },
+    dc.isError || !siteId ? null : !!dSite?.configured,
+  );
 
-  async function save() {
-    if (!loaded || saving || !dirty) return;
+  async function save(nextEnabled = enabled && !dirty ? enabled : false) {
+    if (!loaded || saving) return;
+    if (!dirty && nextEnabled === enabled) return;
     setSaving(true);
     try {
       const { data: u } = await supabase.auth.getUser();
@@ -81,14 +98,17 @@ export function TireWebQuoteSettings() {
           id: true,
           web_supplier: sKey,
           site_id: siteId || null,
-          enabled: false,
+          enabled: nextEnabled,
+          allowed_origin: origin.trim() || null,
+          quota_ip_per_10min: Math.max(1, Math.trunc(Number(quotaIp)) || 10),
+          quota_global_per_hour: Math.max(1, Math.trunc(Number(quotaGlobal)) || 120),
           updated_by: u.user?.id ?? null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" },
       );
       if (error) {
-        toast.error("Enregistrement impossible.");
+        toast.error(/Activation refusée/.test(error.message) ? error.message : "Enregistrement impossible.");
         return;
       }
       toast.success("Paramètres site web enregistrés");
@@ -114,10 +134,10 @@ export function TireWebQuoteSettings() {
     <section className="card-surface space-y-3 p-4">
       <h2 className="text-sm font-bold uppercase tracking-widest">Devis pneus — Site web</h2>
       <p className="text-xs text-muted-foreground">
-        Réglages propres au devis du site vitrine, séparés des fournisseurs internes par site. Le
-        calcul reprendra la marge, le montage et les marques actuellement communs à tous les sites ;
-        seul le compte fournisseur (Districash) dépend de l&apos;établissement de rattachement. 6
-        cases fixes, sans remplacement silencieux d&apos;une case vide.
+        Le site vitrine utilise exclusivement « Top prix » : 6 cases fixes (été / 4 saisons ×
+        entrée / milieu / haut), le pneu conforme le moins cher par case, avec la marge, le montage et
+        les marques communs à tous les sites. Top prix consulte Districash : l&apos;établissement
+        choisi détermine le compte Districash utilisé (aucun autre compte n&apos;est consulté).
       </p>
       {q.isPending ? (
         <p className="text-xs text-muted-foreground">Chargement des réglages…</p>
@@ -173,6 +193,30 @@ export function TireWebQuoteSettings() {
           </select>
         </label>
       </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground sm:col-span-3">
+          Origine autorisée (site vitrine)
+          <input
+            value={origin}
+            onChange={(e) => { setOrigin(e.target.value); setDirty(true); }}
+            disabled={!loaded || saving}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal text-foreground"
+          />
+          {origin && !validOrigin(origin.trim()) ? (
+            <span className="block normal-case tracking-normal text-destructive">Adresse https:// sans chemin attendue.</span>
+          ) : null}
+        </label>
+        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Devis / 10 min / visiteur
+          <input type="number" min={1} value={quotaIp} onChange={(e) => { setQuotaIp(e.target.value); setDirty(true); }} disabled={!loaded || saving}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+        </label>
+        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Devis / heure (total)
+          <input type="number" min={1} value={quotaGlobal} onChange={(e) => { setQuotaGlobal(e.target.value); setDirty(true); }} disabled={!loaded || saving}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+        </label>
+      </div>
       <div className="rounded-lg border border-border p-3 text-sm">
         <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
           État de connexion :{" "}
@@ -194,15 +238,22 @@ export function TireWebQuoteSettings() {
       <label className="flex items-start gap-2 rounded-lg border border-dashed border-border p-3 text-sm">
         <input
           type="checkbox"
-          checked={false}
-          disabled
+          checked={enabled}
+          disabled={!loaded || saving || dirty || (!enabled && !readiness.ok)}
+          onChange={(e) => void save(e.target.checked)}
           aria-describedby="web-activation-reason"
           className="mt-1"
         />
         <span>
           <span className="font-semibold">Activer le devis sur le site web</span>
           <span id="web-activation-reason" className="block text-xs text-muted-foreground">
-            {activation.reason}
+            {dirty
+              ? "Enregistrez d'abord les réglages."
+              : readiness.ok
+                ? enabled
+                  ? "Actif : le site vitrine peut demander des devis."
+                  : "Prêt : l'activation ouvre le devis au site vitrine."
+                : readiness.reasons.join(" ")}
           </span>
         </span>
       </label>
