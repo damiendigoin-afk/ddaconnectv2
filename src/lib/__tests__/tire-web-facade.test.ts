@@ -10,16 +10,16 @@ import type { BrandTierRow, PublicTireItem } from "@/lib/tires";
 const ORIGIN = "https://dda-pneus-premiere-version.genialdrake34.chatgpt.site";
 const cfg: WebQuoteConfig = { web_supplier: "top_prix", site_id: "site-1", enabled: true, allowed_origin: ORIGIN, quota_ip_per_10min: 10, quota_global_per_hour: 100 };
 const brands = [
-  { brand: "Kumho", tier: "entree", active: true, is_default: true, sort_order: 1 },
-  { brand: "Hankook", tier: "milieu", active: true, is_default: true, sort_order: 1 },
-  { brand: "Michelin", tier: "haut", active: true, is_default: true, sort_order: 1 },
+  { brand: "ZzKumho", tier: "entree", active: true, is_default: true, sort_order: 1 },
+  { brand: "ZzHankook", tier: "milieu", active: true, is_default: true, sort_order: 1 },
+  { brand: "ZzMichelin", tier: "haut", active: true, is_default: true, sort_order: 1 },
 ] as unknown as BrandTierRow[];
 const settings = { tire_margin_percent: 20, tire_margin_min_ht: 10 } as never;
 const item = (brand: string, ttc: number, season: "ete" | "quatre_saisons", ref: string, extra: Partial<PublicTireItem> = {}): PublicTireItem => ({
   supplierRef: ref, brand, model: `${brand} M`, size: "205/55R16", loadIndex: "91", speedIndex: "V", season, is3pmsf: false,
   publicPriceTtc: ttc, availability: null, sourceUrl: "https://secret.example/achat", productUrl: "https://secret.example/p", consultedAt: "2026-10-31T00:00:00Z", sourceTier: null, ...extra,
 });
-const legacyItems = [item("Kumho", 72, "ete", "k1"), item("Hankook", 96, "ete", "h1"), item("Michelin", 144, "ete", "m1"), item("Kumho", 78, "quatre_saisons", "k2")];
+const legacyItems = [item("ZzKumho", 72, "ete", "k1"), item("ZzHankook", 96, "ete", "h1"), item("ZzMichelin", 144, "ete", "m1"), item("ZzKumho", 78, "quatre_saisons", "k2")];
 
 /** Total TTC calculé par le moteur existant (référence, aucune formule recopiée). */
 async function engineCents(quantity: number) {
@@ -71,7 +71,7 @@ describe("Façade devis pneus web", () => {
       "ete:entree", "ete:milieu", "ete:haut", "quatre_saisons:entree", "quatre_saisons:milieu", "quatre_saisons:haut",
     ]);
     const e = j.cases[0];
-    expect(e).toMatchObject({ status: "available", brand: "Kumho", quantity: 4 });
+    expect(e).toMatchObject({ status: "available", brand: "ZzKumho", quantity: 4 });
     expect(e.totalTtcCents).toBe(await engineCents(4));
     expect(Number.isInteger(e.totalTtcCents)).toBe(true);
     expect(Object.keys(e).sort()).toEqual(["availability", "brand", "compatibility", "compatibilityMessage", "includedServices", "loadIndex", "model", "quantity", "season", "size", "speedIndex", "status", "tier", "totalTtcCents"]);

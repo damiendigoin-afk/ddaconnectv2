@@ -30,9 +30,9 @@ describe("Indices = minima (91V demandé)", () => {
 });
 
 describe("Top prix avec indices supérieurs et dérogation", () => {
-  const brands = [{ brand: "Kumho", tier: "entree", active: true }] as unknown as BrandTierRow[];
+  const brands = [{ brand: "ZzKumho", tier: "entree", active: true }] as unknown as BrandTierRow[];
   const o = (p: Partial<TireOffer> & Record<string, unknown>) =>
-    ({ id: String(Math.random()), brand: "Kumho", model: "M", size: "205/55R16", season: "ete", tier: "", active: true,
+    ({ id: String(Math.random()), brand: "ZzKumho", model: "M", size: "205/55R16", season: "ete", tier: "", active: true,
        load_index: "91", speed_index: "V", price_kind: "purchase_ht", availability: null, supplier_key: "x", source: "x",
        purchase_price_ht: 60, ...p }) as unknown as TireOffer;
   const req = { size: "205/55R16", load: "91", speed: "V" };

@@ -6,6 +6,7 @@
  * Top prix (runTopPrice, même moteur que l'écran interne) sous délai global.
  * Aucune écriture métier, aucune donnée personnelle, aucune commande.
  */
+import { applyBrandReference } from "./tires";
 import type { TopPriceEngine, TopPriceSources, TopPriceResult } from "./tire-top-price-core";
 import {
   WEB_QUOTE_MAX_BODY_BYTES,
@@ -221,7 +222,7 @@ export async function realFacadeDeps(): Promise<FacadeDeps> {
         db.from("tire_brand_tiers").select("*").order("tier").order("sort_order"),
       ]);
       if (s.error || c.error || p.error || b.error) throw new Error("engine");
-      return { settings: s.data ?? null, catalog: c.data ?? [], packages: p.data ?? [], brands: b.data ?? [] };
+      return { settings: s.data ?? null, catalog: c.data ?? [], packages: p.data ?? [], brands: applyBrandReference(b.data ?? []) };
     },
     sources: (input, siteId) => ({
       centraleAllBrands: async ({ season, configured }) => {

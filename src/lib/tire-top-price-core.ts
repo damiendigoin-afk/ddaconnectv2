@@ -14,6 +14,7 @@ import {
   publicItemsToOffers,
   publicItemsToTopPriceOffers,
   quoteBrandsOf,
+  divergentSourceBrands,
   tierOfBrand,
   type BrandTierRow,
   type PublicTireItem,
@@ -65,7 +66,7 @@ export function districashOffersOf(
   brands: BrandTierRow[],
 ): { offers: TireOffer[]; warning: string } {
   if (!res.ok) return { offers: [], warning: res.error };
-  const tierOf = (b: string) => brands.find((r) => r.active && r.brand.trim().toUpperCase() === b)?.tier ?? null;
+  const tierOf = (b: string) => tierOfBrand(brands, b);
   const offers = districashRowsToOffers(res.rows, tierOf, res.consultedAt) as unknown as TireOffer[];
   const x = districashExclusions(res.rows);
   const noSeason = offers.filter((o) => !o.season).length;
@@ -166,8 +167,10 @@ export async function runTopPrice(
   const warnings = [ete.warning, qs.warning, leg.warning, dist.warning].filter(Boolean);
   const unclassified = unclassifiedBrands(
     offers.map((o) => ({ brand: o.brand, tier: o.tier })),
-    Object.fromEntries(engine.brands.map((r) => [r.brand.trim().toLowerCase(), tierOfBrand(engine.brands, r.brand)])),
+    configuredTierMap(engine.brands),
   );
+  const divergent = divergentSourceBrands(engine.brands, offers);
+  if (divergent.length) warnings.push(`Top prix — classements fournisseurs divergents (exclues, à vérifier) : ${divergent.join(", ")}.`);
   if (unclassified.length) warnings.push(`Top prix — marques non classées (exclues) : ${unclassified.join(", ")}.`);
   const requested =
     args.requestedBrand && identical ? { ...identical, title: `Marque demandée : ${args.requestedBrand}` } : null;

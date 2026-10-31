@@ -1,3 +1,4 @@
+import { globalBrandTier } from "./tire-brand-reference";
 /**
  * Districash — éléments purs (sans réseau) partagés client/serveur.
  *
@@ -241,7 +242,8 @@ export function districashRowsToOffers(
     return {
       id: `districash:${r.code || r.ean}`,
       // Marque paramétrée : sa gamme prime ; sinon gamme déclarée par le portail.
-      tier: tierOf(brand) ?? r.supplierTier ?? "",
+      // Référentiel mondial puis paramétrage (tierOf) ; sinon gamme portail provisoire.
+      tier: globalBrandTier(brand) ?? tierOf(brand) ?? r.supplierTier ?? "",
       season: districashRowSeason(r) ?? "",
       is3pmsf: /3PMSF|\bM\+S\b.*\bSNOW/i.test(r.label),
       brand,

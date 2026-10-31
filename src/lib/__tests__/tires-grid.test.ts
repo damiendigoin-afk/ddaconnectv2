@@ -57,9 +57,9 @@ const settings = {
 } as unknown as Parameters<typeof buildSevenOffers>[0]["settings"];
 
 const brandRows = [
-  { tier: "entree", brand: "Sailun", active: true, is_default: true, sort_order: 1 },
-  { tier: "milieu", brand: "Kleber", active: true, is_default: true, sort_order: 1 },
-  { tier: "haut", brand: "Michelin", active: true, is_default: true, sort_order: 1 },
+  { tier: "entree", brand: "ZzSailun", active: true, is_default: true, sort_order: 1 },
+  { tier: "milieu", brand: "ZzKleber", active: true, is_default: true, sort_order: 1 },
+  { tier: "haut", brand: "ZzMichelin", active: true, is_default: true, sort_order: 1 },
 ] as unknown as Parameters<typeof buildSevenOffers>[0]["brands"];
 
 const tire = (id: string, brand: string, season: string, ttc: number) =>
@@ -92,9 +92,9 @@ describe("prix pneus", () => {
 
   it("chiffre réellement chaque gamme avec son produit, saison inconnue jamais placée", () => {
     const offers = [
-      tire("s1", "Sailun", "ete", 60),
-      tire("k1", "Kleber", "", 90),
-      tire("m1", "Michelin", "quatre_saisons", 150),
+      tire("s1", "ZzSailun", "ete", 60),
+      tire("k1", "ZzKleber", "", 90),
+      tire("m1", "ZzMichelin", "quatre_saisons", 150),
     ];
     const out = buildSevenOffers({
       offers,
@@ -107,20 +107,20 @@ describe("prix pneus", () => {
     const grid = out.slice(1);
     expect(grid).toHaveLength(6);
     const byBrand = grid.filter((o) => o.available).map((o) => o.brand);
-    expect(byBrand).toContain("Sailun");
-    expect(byBrand).not.toContain("Kleber");
-    expect(byBrand).toContain("Michelin");
+    expect(byBrand).toContain("ZzSailun");
+    expect(byBrand).not.toContain("ZzKleber");
+    expect(byBrand).toContain("ZzMichelin");
     // 2 × 60 € TTC de pneus + 2 × 17 € HT de montage (20,40 € TTC).
-    const sailun = grid.find((o) => o.brand === "Sailun")!;
+    const sailun = grid.find((o) => o.brand === "ZzSailun")!;
     expect(sailun.totalTtc).toBeCloseTo(120 + 40.8, 2);
     expect(sailun.mountTtc).toBeCloseTo(40.8, 2);
   });
 
   it("respecte strictement la marque présélectionnée de chaque gamme", () => {
     const offers = [
-      tire("s1", "Sailun", "ete", 60),
-      tire("d1", "Dunlop", "ete", 20), // moins chère : ne doit jamais être retenue
-      tire("d2", "Dunlop", "quatre_saisons", 25),
+      tire("s1", "ZzSailun", "ete", 60),
+      tire("d1", "ZzDunlop", "ete", 20), // moins chère : ne doit jamais être retenue
+      tire("d2", "ZzDunlop", "quatre_saisons", 25),
     ];
     const grid = buildSevenOffers({
       offers,
@@ -130,13 +130,13 @@ describe("prix pneus", () => {
       mounted: { brand: null, model: null, size: "205/55R16", season: null },
       required: { size: "205/55R16", load: "91", speed: "V" },
     }).slice(1);
-    expect(grid.map((o) => o.brand)).not.toContain("Dunlop");
+    expect(grid.map((o) => o.brand)).not.toContain("ZzDunlop");
     const entreeEte = grid.find((o) => o.slot === "entree_ete")!;
     expect(entreeEte.available).toBe(true);
-    expect(entreeEte.brand).toBe("Sailun");
+    expect(entreeEte.brand).toBe("ZzSailun");
     // Aucune marque de la gamme ne répond : offre indisponible.
     const milieu = grid.find((o) => o.slot === "milieu_ete")!;
     expect(milieu.available).toBe(false);
-    expect(milieu.brand).toBe("Kleber");
+    expect(milieu.brand).toBe("ZzKleber");
   });
 });
