@@ -35,6 +35,8 @@ export type IxellioVehicle = {
   ptac?: string;
   masseVide?: string;
   co2?: string;
+  /** Cycle d'homologation du CO2, seulement si le libellé IXELLIO l'indique (WLTP / NEDC). */
+  co2Cycle?: string;
 };
 
 export type IxellioParseResult = {
@@ -47,6 +49,8 @@ export type IxellioParseResult = {
   /** La page est une liste de versions à choisir, pas une fiche véhicule. */
   isVersionList: boolean;
   versionCount: number;
+  /** Libellés présents mais non reconnus (noms seuls, jamais les valeurs) — diagnostic. */
+  unmatchedLabels: string[];
 };
 
 /* ------------------------------------------------------------------ */
@@ -223,7 +227,7 @@ const RULES: Rule[] = [
   { field: "ptac", labels: /^(ptac|poids total autorise|poids total autorise en charge|ptc|f 2|masse en charge maxi)$/, validate: isNumeric },
   { field: "masseVide", labels: /^(masse a vide|poids a vide|masse en service|g|masse vide)$/, validate: isNumeric },
   { field: "poids", labels: /^(poids|masse|masse du vehicule|f 1)$/, validate: isNumeric },
-  { field: "co2", labels: /^(co2|emission co2|emissions co2|emissions de co2|co2 g km|v 7)$/, validate: isNumeric },
+  { field: "co2", labels: /^((taux|rejets?|emissions?)( de)? )?co ?2( g ?km)?( (mixte|combine|cycle mixte))?( (wltp|nedc))?( g ?km)?$|^v ?7$/, validate: isNumeric },
 ];
 
 const VIN_RE = /\b[A-HJ-NPR-Z0-9]{17}\b/;
@@ -253,10 +257,14 @@ export function detectVersionList(html: string): { isVersionList: boolean; versi
 export function parseIxellioHtml(html: string): IxellioParseResult {
   const pairs = extractPairs(html);
   const vehicle: IxellioVehicle = {};
+  const unmatched = new Set<string>();
 
   for (const { label, value } of pairs) {
     const field = matchField(label, value);
-    if (!field) continue;
+    if (!field) {
+      if (label.length <= 40 && unmatched.size < 30) unmatched.add(label);
+      continue;
+    }
     if (vehicle[field]) continue; // première occurrence = fiche principale
     if (field === "dateMec") {
       const d = /\d{2}[/-]\d{2}[/-]\d{2,4}/.exec(value)?.[0];
@@ -270,6 +278,12 @@ export function parseIxellioHtml(html: string): IxellioParseResult {
       vehicle.vin = vin;
       continue;
     }
+    if (field === "co2") {
+      vehicle.co2 = value;
+      const cycle = /\b(wltp|nedc)\b/.exec(label)?.[1];
+      if (cycle) vehicle.co2Cycle = cycle.toUpperCase();
+      continue;
+    }
     vehicle[field] = value;
   }
 
@@ -279,7 +293,7 @@ export function parseIxellioHtml(html: string): IxellioParseResult {
     if (vin) vehicle.vin = vin;
   }
 
-  const detectedFields = (Object.keys(vehicle) as (keyof IxellioVehicle)[]).filter((k) => vehicle[k]);
+  const detectedFields = (Object.keys(vehicle) as (keyof IxellioVehicle)[]).filter((k) => vehicle[k] && k !== "co2Cycle");
   const list = detectVersionList(html);
 
   return {
@@ -289,5 +303,6 @@ export function parseIxellioHtml(html: string): IxellioParseResult {
     pairCount: pairs.length,
     isVersionList: list.isVersionList,
     versionCount: list.versionCount,
+    unmatchedLabels: [...unmatched],
   };
 }

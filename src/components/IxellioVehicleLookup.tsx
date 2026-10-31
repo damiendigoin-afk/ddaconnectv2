@@ -3,10 +3,12 @@
  * Interroge IXELLIO côté serveur puis propose l'enregistrement du véhicule.
  */
 import { useServerFn } from "@tanstack/react-start";
-import { Car, Loader2, Search } from "lucide-react";
+import { Car, Check, Copy, Loader2, Search } from "lucide-react";
+import { toast } from "sonner";
 import { useRef, useState, type ReactNode } from "react";
 
 import { lookupIxellioVehicle, saveIxellioVehicle } from "@/lib/ixellio.functions";
+import { copyToClipboard, ixellioCopyText, ixellioDisplayValue } from "@/lib/ixellio-copy";
 import { cachedIxellioLookup } from "@/lib/ixellio-lookup-cache";
 import { formatPlate, normalizePlate } from "@/lib/plate";
 
@@ -40,6 +42,28 @@ const FIELDS: [string, string][] = [
   ["co2", "CO2"],
 ];
 
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label={`Copier ${label}`}
+      title={`Copier ${label}`}
+      onClick={async () => {
+        const ok = await copyToClipboard(value);
+        if (ok) {
+          setDone(true);
+          toast.success("Copié", { duration: 1200 });
+          setTimeout(() => setDone(false), 1200);
+        } else toast.error("Copie impossible");
+      }}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background active:scale-95"
+    >
+      {done ? <Check className="h-4 w-4 text-status-ok" /> : <Copy className="h-4 w-4" />}
+    </button>
+  );
+}
+
 
 export function IxellioVehicleLookup({
   plate,
@@ -59,7 +83,7 @@ export function IxellioVehicleLookup({
   const save = useServerFn(saveIxellioVehicle);
   const [state, setState] = useState<"ask" | "loading" | "done" | "declined">("ask");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [diag, setDiag] = useState<{ fields: string[]; count: number; versionList: boolean } | null>(null);
+  const [diag, setDiag] = useState<{ fields: string[]; count: number; versionList: boolean; unmatched: string[] } | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<{ fields: number; id: string } | null>(null);
@@ -81,6 +105,7 @@ export function IxellioVehicleLookup({
         fields: res.detectedFields ?? [],
         count: res.fieldCount ?? 0,
         versionList: Boolean(res.isVersionList),
+        unmatched: res.unmatchedLabels ?? [],
       });
       setMessage(res.message);
       setState("done");
@@ -186,15 +211,43 @@ export function IxellioVehicleLookup({
               identifié).
             </p>
           ) : null}
-          <p className="text-sm font-extrabold">{formatPlate(norm)}</p>
-          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 rounded-lg bg-muted px-3 py-2 text-xs">
-            {FIELDS.filter(([k]) => vehicle[k]).map(([k, label]) => (
-              <div key={k}>
-                <dt className="text-[10px] font-bold uppercase text-muted-foreground">{label}</dt>
-                <dd className="break-words font-semibold">{vehicle[k]}</dd>
-              </div>
-            ))}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-extrabold">{formatPlate(norm)}</p>
+            <CopyButton value={formatPlate(norm)} label="Immatriculation" />
+          </div>
+          <dl className="grid grid-cols-1 gap-1 rounded-lg bg-muted px-3 py-2 text-xs sm:grid-cols-2">
+            {FIELDS.map(([k, label]) => [k, label, ixellioDisplayValue(k, vehicle)] as const)
+              .filter(([, , val]) => val)
+              .map(([k, label, val]) => (
+                <div key={k} className="flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <dt className="text-[10px] font-bold uppercase text-muted-foreground">{label}</dt>
+                    <dd className="break-all font-semibold">{val}</dd>
+                  </div>
+                  <CopyButton value={vehicle[k]!.trim()} label={label} />
+                </div>
+              ))}
           </dl>
+          {!vehicle["co2"] ? (
+            <p className="text-[11px] text-muted-foreground">CO2 non transmis par Ixellio pour ce véhicule.</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = await copyToClipboard(ixellioCopyText(formatPlate(norm), vehicle, FIELDS));
+              if (ok) toast.success("Caractéristiques copiées", { duration: 1500 });
+              else toast.error("Copie impossible");
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-border px-3 py-3 text-xs font-extrabold uppercase"
+          >
+            <Copy className="h-4 w-4" /> Copier toutes les caractéristiques
+          </button>
+          {diag?.unmatched.length ? (
+            <details className="text-[11px] text-muted-foreground">
+              <summary>Autres libellés Ixellio non repris ({diag.unmatched.length})</summary>
+              <p className="mt-1 break-words">{diag.unmatched.join(" · ")}</p>
+            </details>
+          ) : null}
           {saved ? (
             <>
               <p className="rounded-lg bg-status-ok-soft px-3 py-2 text-xs font-bold">
