@@ -30,14 +30,14 @@ import { districashRowsToOffers, districashSeason, parseDistricashLabel } from "
 import { sourceHtOf } from "../tires";
 describe("offres Districash pour le devis", () => {
   const rows = [
-    { brand: "Hankook", label: "KINERGY 4S2 X H750A 245/45R20 103V XL", code: "H1", ean: "8808563527390", purchaseHt: 208, availability: "J+" as const, productUrl: null },
+    { brand: "Zzhankook", label: "KINERGY 4S2 X H750A 245/45R20 103V XL", code: "H1", ean: "8808563527390", purchaseHt: 208, availability: "J+" as const, productUrl: null },
     { brand: "Michelin", label: "PILOT SPORT 5 245/45ZR20 103Y", code: "M1", ean: "1", purchaseHt: 250, availability: "indisponible" as const, productUrl: null },
     { brand: "X", label: "FOO 245/45R20 103V", code: "X1", ean: "2", purchaseHt: 90, availability: "inconnu" as const, productUrl: null },
   ];
   it("ne garde que J/J+ et prend data-filtreprixachat comme prix d'achat HT", () => {
-    const o = districashRowsToOffers(rows, (b) => (b === "HANKOOK" ? "milieu" : null), "2026-10-15T12:00:00Z");
+    const o = districashRowsToOffers(rows, (b) => (b === "ZZHANKOOK" ? "milieu" : null), "2026-10-15T12:00:00Z");
     expect(o).toHaveLength(1);
-    expect(o[0]).toMatchObject({ brand: "HANKOOK", size: "245/45R20", load_index: "103", speed_index: "V", season: "quatre_saisons", tier: "milieu", supplier_key: "districash" });
+    expect(o[0]).toMatchObject({ brand: "ZZHANKOOK", size: "245/45R20", load_index: "103", speed_index: "V", season: "quatre_saisons", tier: "milieu", supplier_key: "districash" });
     expect(sourceHtOf(o[0] as never)).toBe(208);
   });
   it("saison jamais devinée", () => {
