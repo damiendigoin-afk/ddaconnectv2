@@ -12,6 +12,7 @@ export type IxellioLookupResponse = {
   vehicle: Record<string, string | undefined>;
   detectedFields?: string[];
   fieldCount?: number;
+  unmatchedLabels?: string[];
   isVersionList?: boolean;
 };
 

@@ -40,6 +40,8 @@ export type IxellioTestResult = {
   detectedFields: string[];
   fieldCount: number;
   pairCount: number;
+  /** Libellés non reconnus (noms seuls). */
+  unmatchedLabels?: string[];
   isVersionList: boolean;
   message: string;
 };
@@ -345,6 +347,7 @@ export async function runIxellioAuthTest(input: {
         detectedFields: localParsed.detectedFields,
         fieldCount: localParsed.fieldCount,
         pairCount: localParsed.pairCount,
+        unmatchedLabels: localParsed.unmatchedLabels,
         isVersionList: localParsed.isVersionList,
         message: `Véhicule identifié par IXELLIO (${localParsed.fieldCount} champs).`,
       });
@@ -411,6 +414,7 @@ export async function runIxellioAuthTest(input: {
       detectedFields: parsed.detectedFields,
       fieldCount: parsed.fieldCount,
       pairCount: parsed.pairCount,
+      unmatchedLabels: parsed.unmatchedLabels,
       isVersionList: parsed.isVersionList,
       bytes: html.length,
       outcome: found ? "auth_ok_vehicle_found" : "auth_ok_no_vehicle",
