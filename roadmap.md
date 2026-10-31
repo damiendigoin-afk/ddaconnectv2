@@ -177,3 +177,7 @@ Reste à faire :
 - [x] PDF versionnés, corrections comptables par destinataire, idempotence et prise en compte distincte
 - [x] Tests sans mail réel, compilation automatique et ouverture connectée de l'éditeur / historique
 - [ ] Recette complète correction puis validation comptable : nécessite une note de test autorisée et un destinataire de test (aucun mail réel permis)
+
+## Devis pneus Top prix
+- [x] Icône « Autre marque, même gamme » par case (écran interne), cycle par marque sur offres consultées
+- [x] Nankang classée entrée (correction DDA, paramétrage prioritaire)
