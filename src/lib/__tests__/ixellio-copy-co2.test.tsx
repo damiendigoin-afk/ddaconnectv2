@@ -56,7 +56,7 @@ describe("copie", () => {
     fireEvent.click(screen.getByText("Rechercher avec Ixellio"));
     fireEvent.click(await screen.findByLabelText("Copier VIN"));
     await vi.waitFor(() => expect(writeText).toHaveBeenLastCalledWith("WF0FXXGCHFMA12345"));
-    expect(m.toast.success).toHaveBeenCalledWith("Copié", expect.anything());
+    await vi.waitFor(() => expect(m.toast.success).toHaveBeenCalledWith("Copié", expect.anything()));
     fireEvent.click(screen.getByLabelText("Copier Immatriculation"));
     await vi.waitFor(() => expect(writeText).toHaveBeenLastCalledWith("GA-925-CZ"));
     expect(screen.getByText("CO2 non transmis par Ixellio pour ce véhicule.")).toBeTruthy();
