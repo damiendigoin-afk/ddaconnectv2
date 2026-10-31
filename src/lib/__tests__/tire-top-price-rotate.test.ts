@@ -129,3 +129,30 @@ describe("Référentiel mondial des marques", () => {
     expect(brandReferenceOf("Nexen")).toMatchObject({ tier: null, status: "divergent" });
   });
 });
+
+import { prevTopPriceAlternative } from "@/lib/tires";
+
+describe("Rotation arrière (clic droit)", () => {
+  it("précédente en boucle, y compris après rotations avant", () => {
+    const a = alts(); // Dovroad, ARIVO, Kpatos
+    expect(prevTopPriceAlternative(a, "Dovroad")!.brand).toBe("Kpatos");
+    let cur = "Dovroad";
+    cur = nextTopPriceAlternative(a, cur)!.brand; // ARIVO
+    cur = nextTopPriceAlternative(a, cur)!.brand; // Kpatos
+    cur = prevTopPriceAlternative(a, cur)!.brand;
+    expect(cur).toBe("ARIVO");
+    cur = prevTopPriceAlternative(a, cur)!.brand;
+    expect(cur).toBe("Dovroad");
+  });
+  it("aucune précédente avec une seule marque", () => {
+    expect(prevTopPriceAlternative(alts().slice(0, 1), "Dovroad")).toBeNull();
+  });
+  it("arrière ne modifie qu'une case, gamme/saison/titre conservés", () => {
+    const grid = pickTopPriceOffers({ offers: pool, brands, settings: null, quantity: 4, season: "ete", required: req });
+    const prev = prevTopPriceAlternative(alts(), grid[0]!.brand)!;
+    const updated = grid.map((g, i) => (i === 0 ? topPriceSlotWith(g, prev, 4, null, req) : g));
+    expect(updated[0]).toMatchObject({ brand: "Kpatos", unitSourceHt: 40, slot: "entree_ete", tier: "entree", season: "ete", title: grid[0]!.title });
+    expect(updated[1]).toBe(grid[1]);
+    expect(updated[2]).toBe(grid[2]);
+  });
+});

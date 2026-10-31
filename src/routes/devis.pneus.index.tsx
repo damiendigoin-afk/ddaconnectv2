@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { MarginLever } from "@/components/MarginLever";
 import { TireQuoteSheet } from "@/components/TireQuoteSheet";
-import { nextTopPriceAlternative, topPriceBrandAlternatives, topPriceSlotWith } from "@/lib/tires";
+import { nextTopPriceAlternative, prevTopPriceAlternative, topPriceBrandAlternatives, topPriceSlotWith } from "@/lib/tires";
 import { adjustOffersMargin } from "@/lib/tires";
 import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
@@ -212,22 +212,21 @@ function TireQuotePage() {
     const alts = topPriceBrandAlternatives({
       offers: result.pool, brands: engine.data.brands, tier: slot.tier, season: slot.season, required: result.required,
     });
-    const next = nextTopPriceAlternative(alts, slot.available ? slot.brand : null);
-    if (!next) {
-      return { disabled: true, reason: "Aucune autre marque conforme dans cette gamme et saison", onClick: () => {} };
+    const current = slot.available ? slot.brand : null;
+    const next = nextTopPriceAlternative(alts, current);
+    const prev = prevTopPriceAlternative(alts, current);
+    if (!next || !prev) {
+      return { disabled: true, reason: "Aucune autre marque conforme dans cette gamme et saison", onClick: () => {}, onPrev: () => {} };
     }
-    return {
-      disabled: false,
-      reason: "",
-      onClick: () => {
-        const settings = engine.data?.settings ?? null;
-        const req = result.required!;
-        setResult((r) =>
-          r ? { ...r, grid: r.grid.map((g) => (g.slot === slotKey ? topPriceSlotWith(g, next, r.quantity, settings, req) : g)) } : r,
-        );
-        setGridRev((n) => n + 1);
-      },
+    const apply = (pick: typeof next) => {
+      const settings = engine.data?.settings ?? null;
+      const req = result.required!;
+      setResult((r) =>
+        r ? { ...r, grid: r.grid.map((g) => (g.slot === slotKey ? topPriceSlotWith(g, pick, r.quantity, settings, req) : g)) } : r,
+      );
+      setGridRev((n) => n + 1);
     };
+    return { disabled: false, reason: "", onClick: () => apply(next), onPrev: () => apply(prev) };
   };
 
   /* Enregistrement automatique : création unique, puis mise à jour de la même
