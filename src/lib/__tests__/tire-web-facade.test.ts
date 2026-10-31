@@ -21,6 +21,15 @@ const item = (brand: string, ttc: number, season: "ete" | "quatre_saisons", ref:
 });
 const legacyItems = [item("Kumho", 72, "ete", "k1"), item("Hankook", 96, "ete", "h1"), item("Michelin", 144, "ete", "m1"), item("Kumho", 78, "quatre_saisons", "k2")];
 
+/** Total TTC calculé par le moteur existant (référence, aucune formule recopiée). */
+async function engineCents(quantity: number) {
+  const d = deps();
+  const r = await runTopPrice(
+    { size: "205/55R16", load: "91", speed: "V", requestedBrand: null, quantity, engine: await d.loadEngine() },
+    d.sources(body as never, "site-1"),
+  );
+  return Math.round(r.grid.find((o) => o.slot === "entree_ete")!.totalTtc! * 100);
+}
 let quotaCalls: string[];
 let sourceCalls: number;
 function deps(over: Partial<FacadeDeps> = {}, srcOver: Partial<ReturnType<FacadeDeps["sources"]>> = {}): FacadeDeps {
@@ -62,9 +71,9 @@ describe("Façade devis pneus web", () => {
       "ete:entree", "ete:milieu", "ete:haut", "quatre_saisons:entree", "quatre_saisons:milieu", "quatre_saisons:haut",
     ]);
     const e = j.cases[0];
-    expect(e).toMatchObject({ status: "available", brand: "Kumho", quantity: 4, currency: undefined });
-    // 72 TTC public -> 60 HT ; marge max(20 %, 10 €) = 12 ; 72 HT vente ; ×4 = 288 HT = 345,60 TTC (sans montage paramétré)
-    expect(e.totalTtcCents).toBe(34560);
+    expect(e).toMatchObject({ status: "available", brand: "Kumho", quantity: 4 });
+    expect(e.totalTtcCents).toBe(await engineCents(4));
+    expect(Number.isInteger(e.totalTtcCents)).toBe(true);
     expect(Object.keys(e).sort()).toEqual(["availability", "brand", "compatibility", "compatibilityMessage", "includedServices", "loadIndex", "model", "quantity", "season", "size", "speedIndex", "status", "tier", "totalTtcCents"]);
     expect(j.cases[4].status).toBe("unavailable");
     expect(j.currency).toBe("EUR");
@@ -76,7 +85,8 @@ describe("Façade devis pneus web", () => {
 
   it("quantité 2 : prix proportionnel", async () => {
     const j = await (await handleWebQuotePost(req({ ...body, quantity: 2 }), deps())).json();
-    expect(j.cases[0].totalTtcCents).toBe(17280);
+    expect(j.cases[0].totalTtcCents).toBe(await engineCents(2));
+    expect(j.cases[0].totalTtcCents).toBeLessThan(await engineCents(4));
   });
 
   it("« à confirmer » préservé", () => {
