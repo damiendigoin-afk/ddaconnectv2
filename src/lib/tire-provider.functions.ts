@@ -58,3 +58,25 @@ export const fetchPublicTireOffers = createServerFn({ method: "POST" })
       consultedAt: result.consultedAt,
     };
   });
+
+const allInput = z.object({
+  size: z.string().min(3),
+  season: z.enum(["ete", "quatre_saisons", "hiver"]),
+  load: z.string().max(12).nullable(),
+  speed: z.string().max(4).nullable(),
+  /** Gammes du paramétrage DDA (marque minuscule → gamme, null si désactivée). */
+  configured: z.record(z.string().max(60), z.enum(["entree", "milieu", "haut"]).nullable()),
+});
+
+/**
+ * Top prix : consultation CentralePneus toutes marques (lecture seule, aucune
+ * écriture d'état fournisseur, aucune liste de marques présélectionnée).
+ */
+export const fetchPublicTireOffersAllBrands = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => allInput.parse(data))
+  .handler(async ({ data }) => {
+    const { fetchPublicTiresAllBrands } = await import("./tire-provider.server");
+    const r = await fetchPublicTiresAllBrands(data);
+    if (!r.ok) return { ok: false as const, error: r.error, items: [], truncated: false, pagesRead: 0 };
+    return { ok: true as const, error: "", items: r.items, truncated: r.truncated === true, pagesRead: r.pagesRead ?? 0 };
+  });

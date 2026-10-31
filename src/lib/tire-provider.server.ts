@@ -25,11 +25,21 @@ export type PublicTireItem = {
   /** Fiche produit exacte lue dans la carte du produit (usage interne), sinon null. */
   productUrl?: string | null;
   consultedAt: string;
+  /** Gamme déclarée par CentralePneus (item_category5), utilisée seulement par Top prix. */
+  sourceTier?: SourceTier | null;
 };
 
 export type PublicTireResult =
   | { ok: true; items: PublicTireItem[]; sourceUrl: string; consultedAt: string }
   | { ok: false; error: string; sourceUrl: string; consultedAt: string };
+
+import {
+  centraleSeasonCode,
+  sourceTierOfCategory,
+  topPriceCoverageComplete,
+  topPricePageUrl,
+  type SourceTier,
+} from "./tire-top-price-source";
 
 const BASE = "https://www.centralepneus.fr";
 const TIMEOUT_MS = 12_000;
@@ -62,6 +72,7 @@ type RawItem = {
   item_name?: string;
   item_brand?: string;
   item_category4?: string;
+  item_category5?: string;
   price?: number;
 };
 
@@ -176,6 +187,7 @@ export function extractItems(html: string, sourceUrl: string, consultedAt: strin
         sourceUrl,
         productUrl: card.productUrl,
         consultedAt,
+        sourceTier: sourceTierOfCategory(raw.item_category5),
       });
     }
   }
@@ -295,3 +307,51 @@ export async function fetchPublicTires(size: string, brands: string[] = []): Pro
   return { ok: true, items, sourceUrl: url, consultedAt };
 }
 
+
+/** Nombre maximal de pages (50 pneus/page) lues pour un Top prix. */
+const TOP_PRICE_MAX_PAGES = 12;
+
+/**
+ * Top prix — consultation TOUTES MARQUES : la dimension filtrée sur la saison,
+ * triée par prix croissant, page après page, sans aucune liste de marques.
+ * Arrêt dès que chaque gamme (paramétrage DDA, sinon gamme source) a des
+ * offres conformes aux indices, ou à la dernière page / plafond de pages.
+ */
+export async function fetchPublicTiresAllBrands(args: {
+  size: string;
+  season: "ete" | "quatre_saisons" | "hiver";
+  load: string | null;
+  speed: string | null;
+  configured: Record<string, SourceTier | null>;
+}): Promise<PublicTireResult & { pagesRead?: number; truncated?: boolean }> {
+  const consultedAt = new Date().toISOString();
+  const url = providerUrlFor(args.size);
+  if (!url) return { ok: false, error: "Dimension non exploitable pour la consultation tarifaire.", sourceUrl: BASE, consultedAt };
+  const code = centraleSeasonCode(args.season);
+  const items: PublicTireItem[] = [];
+  const seen = new Set<string>();
+  let pagesRead = 0;
+  let truncated = false;
+  for (let p = 1; p <= TOP_PRICE_MAX_PAGES; p++) {
+    const pageUrl = topPricePageUrl(url, code, p);
+    const html = await getHtml(pageUrl);
+    if (html == null) {
+      if (p === 1) return { ok: false, error: "Tarif actuellement indisponible.", sourceUrl: pageUrl, consultedAt };
+      break;
+    }
+    pagesRead = p;
+    const list = extractItems(html, pageUrl, consultedAt);
+    let added = 0;
+    for (const it of list) {
+      if (seen.has(it.supplierRef)) continue;
+      seen.add(it.supplierRef);
+      items.push(it);
+      added++;
+    }
+    if (!added) break; // fin des résultats
+    if (topPriceCoverageComplete(items, args.configured, args.load, args.speed)) break;
+    if (p === TOP_PRICE_MAX_PAGES) truncated = true;
+  }
+  if (!items.length) return { ok: false, error: "Tarif actuellement indisponible pour cette dimension.", sourceUrl: url, consultedAt };
+  return { ok: true, items, sourceUrl: url, consultedAt, pagesRead, truncated };
+}
