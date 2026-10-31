@@ -12,6 +12,7 @@ import {
   WEB_QUOTE_MAX_BODY_BYTES,
   buildWebQuoteResponse,
   corsHeaders,
+  originAllowed,
   webQuoteInput,
   webQuoteKey,
   webReadiness,
@@ -27,6 +28,8 @@ export type FacadeDeps = {
   loadEngine: () => Promise<TopPriceEngine>;
   sources: (input: WebQuoteInput, siteId: string) => TopPriceSources;
   runTopPrice: (args: Parameters<typeof import("./tire-top-price-core").runTopPrice>[0], s: TopPriceSources) => Promise<TopPriceResult>;
+  /** Conserve le devis (sans donnée personnelle) pour la demande de RDV ; échec non bloquant. */
+  saveQuote?: (body: WebQuoteResponse) => Promise<void>;
   now: () => Date;
   uuid: () => string;
   timeoutMs?: number;
@@ -43,40 +46,40 @@ export function resetWebQuoteCache() {
   inflight.clear();
 }
 
-function json(status: number, body: unknown, headers: Record<string, string> = {}, extra: Record<string, string> = {}) {
+export function json(status: number, body: unknown, headers: Record<string, string> = {}, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...headers, ...extra },
   });
 }
-const err = (code: string, message: string) => ({ error: { code, message } });
+export const err = (code: string, message: string) => ({ error: { code, message } });
 
-async function sha(text: string): Promise<string> {
+export async function sha(text: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 24);
 }
 
-function clientIp(req: Request): string {
+export function clientIp(req: Request): string {
   return (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown").trim();
 }
 
-async function readBounded(req: Request): Promise<string | null> {
+export async function readBounded(req: Request, max = WEB_QUOTE_MAX_BODY_BYTES): Promise<string | null> {
   const len = Number(req.headers.get("content-length") ?? "0");
-  if (len > WEB_QUOTE_MAX_BODY_BYTES) return null;
+  if (len > max) return null;
   const text = await req.text();
-  return new TextEncoder().encode(text).length > WEB_QUOTE_MAX_BODY_BYTES ? null : text;
+  return new TextEncoder().encode(text).length > max ? null : text;
 }
 
 export async function handleWebQuoteOptions(req: Request, deps: Pick<FacadeDeps, "loadConfig">): Promise<Response> {
   const origin = req.headers.get("origin");
-  let allowed: string | null = null;
+  let allowed: string[] | null = null;
   try {
-    allowed = (await deps.loadConfig())?.allowed_origin ?? null;
+    allowed = (await deps.loadConfig())?.allowed_origins ?? null;
   } catch {
     allowed = null;
   }
   const h = corsHeaders(origin, allowed);
-  return new Response(null, { status: origin && origin === allowed ? 204 : 403, headers: h });
+  return new Response(null, { status: originAllowed(origin, allowed) ? 204 : 403, headers: h });
 }
 
 export async function handleWebQuotePost(req: Request, deps: FacadeDeps): Promise<Response> {
@@ -89,7 +92,7 @@ export async function handleWebQuotePost(req: Request, deps: FacadeDeps): Promis
   } catch {
     return json(503, err("service_unavailable", "Devis en ligne momentanément indisponible."));
   }
-  const cors = corsHeaders(origin, cfg?.allowed_origin ?? null);
+  const cors = corsHeaders(origin, cfg?.allowed_origins ?? null);
   if (!cfg?.enabled) return json(503, err("service_unavailable", "Devis en ligne momentanément indisponible."), cors);
   let dcOk: boolean | null = null;
   try {
@@ -101,7 +104,7 @@ export async function handleWebQuotePost(req: Request, deps: FacadeDeps): Promis
     return json(503, err("service_unavailable", "Devis en ligne momentanément indisponible."), cors);
 
   // 2. Origine autorisée (CORS n'est pas un anti-abus : les quotas suivent).
-  if (origin !== cfg.allowed_origin) return json(403, err("origin_not_allowed", "Origine non autorisée."), cors);
+  if (!originAllowed(origin, cfg.allowed_origins)) return json(403, err("origin_not_allowed", "Origine non autorisée."), cors);
 
   // 3. Corps borné et validation stricte.
   if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json"))
@@ -169,6 +172,11 @@ async function compute(input: WebQuoteInput, siteId: string, deps: FacadeDeps): 
     if (failed === result.sources.length && engine.catalog.length === 0)
       return { status: 502, body: err("sources_unavailable", "Aucune source tarifaire n'a répondu.") };
     const body = buildWebQuoteResponse({ grid: result.grid, input, partial: failed > 0, quoteId: deps.uuid(), now: deps.now() });
+    try {
+      await deps.saveQuote?.(body);
+    } catch {
+      console.warn("[tyres-web] quote_save_failed");
+    }
     if (!body.partial) {
       if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
       cache.set(webQuoteKey(input), { at: deps.now().getTime(), body });
@@ -194,7 +202,7 @@ export async function realFacadeDeps(): Promise<FacadeDeps> {
     loadConfig: async () => {
       const { data, error } = await db
         .from("tire_web_quote_settings")
-        .select("web_supplier, site_id, enabled, allowed_origin, quota_ip_per_10min, quota_global_per_hour")
+        .select("web_supplier, site_id, enabled, allowed_origins, quota_ip_per_10min, quota_global_per_hour")
         .maybeSingle();
       if (error) throw new Error("config");
       return (data ?? null) as WebQuoteConfig | null;
@@ -251,6 +259,12 @@ export async function realFacadeDeps(): Promise<FacadeDeps> {
       },
     }),
     runTopPrice,
+    saveQuote: async (body) => {
+      const { error } = await db.from("tire_web_quotes").insert({
+        id: body.quoteId, created_at: body.generatedAt, expires_at: body.expiresAt, request: body.request, cases: body.cases,
+      });
+      if (error) throw new Error("quote");
+    },
     now: () => new Date(),
     uuid: () => crypto.randomUUID(),
   };

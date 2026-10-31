@@ -107,6 +107,7 @@ import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rap
 import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/emails.ingest'
 import { Route as ApiPublicGmailCallbackRouteImport } from './routes/api/public/gmail/callback'
 import { Route as ApiPublicHooksGmailSyncRouteImport } from './routes/api/public/hooks/gmail-sync'
+import { Route as ApiPublicTyresAppointmentRequestsRouteImport } from './routes/api/public/tyres/appointment-requests'
 import { Route as ApiPublicTyresQuotesRouteImport } from './routes/api/public/tyres/quotes'
 import { Route as DevisPneusQuoteIdPdfRouteImport } from './routes/devis.pneus.$quoteId.pdf'
 
@@ -609,6 +610,12 @@ const ApiPublicHooksGmailSyncRoute = ApiPublicHooksGmailSyncRouteImport.update({
   path: '/api/public/hooks/gmail-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTyresAppointmentRequestsRoute =
+  ApiPublicTyresAppointmentRequestsRouteImport.update({
+    id: '/api/public/tyres/appointment-requests',
+    path: '/api/public/tyres/appointment-requests',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicTyresQuotesRoute = ApiPublicTyresQuotesRouteImport.update({
   id: '/api/public/tyres/quotes',
   path: '/api/public/tyres/quotes',
@@ -719,6 +726,7 @@ export interface FileRoutesByFullPath {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
@@ -820,6 +828,7 @@ export interface FileRoutesByTo {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
@@ -923,6 +932,7 @@ export interface FileRoutesById {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
@@ -1027,6 +1037,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/quotes'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesByTo: FileRoutesByTo
@@ -1128,6 +1139,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/quotes'
     | '/devis/pneus/$quoteId/pdf'
   id:
@@ -1230,6 +1242,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/quotes'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesById: FileRoutesById
@@ -1330,6 +1343,7 @@ export interface RootRouteChildren {
   ApiPublicEmailsIngestRoute: typeof ApiPublicEmailsIngestRoute
   ApiPublicGmailCallbackRoute: typeof ApiPublicGmailCallbackRoute
   ApiPublicHooksGmailSyncRoute: typeof ApiPublicHooksGmailSyncRoute
+  ApiPublicTyresAppointmentRequestsRoute: typeof ApiPublicTyresAppointmentRequestsRoute
   ApiPublicTyresQuotesRoute: typeof ApiPublicTyresQuotesRoute
 }
 
@@ -2021,6 +2035,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksGmailSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tyres/appointment-requests': {
+      id: '/api/public/tyres/appointment-requests'
+      path: '/api/public/tyres/appointment-requests'
+      fullPath: '/api/public/tyres/appointment-requests'
+      preLoaderRoute: typeof ApiPublicTyresAppointmentRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/tyres/quotes': {
       id: '/api/public/tyres/quotes'
       path: '/api/public/tyres/quotes'
@@ -2162,6 +2183,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicEmailsIngestRoute: ApiPublicEmailsIngestRoute,
   ApiPublicGmailCallbackRoute: ApiPublicGmailCallbackRoute,
   ApiPublicHooksGmailSyncRoute: ApiPublicHooksGmailSyncRoute,
+  ApiPublicTyresAppointmentRequestsRoute:
+    ApiPublicTyresAppointmentRequestsRoute,
   ApiPublicTyresQuotesRoute: ApiPublicTyresQuotesRoute,
 }
 export const routeTree = rootRouteImport
