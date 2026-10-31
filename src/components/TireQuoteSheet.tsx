@@ -48,7 +48,7 @@ export function TireQuoteSheet({
   /** Devis enregistré source (traçabilité de la commande interne). */
   quoteId?: string | null;
   /** Top prix, écran interne : « Autre marque, même gamme » (null = pas de bouton). */
-  rotate?: ((slot: string) => { disabled: boolean; reason: string; onClick: () => void } | null) | undefined;
+  rotate?: ((slot: string) => { disabled: boolean; reason: string; onClick: () => void; onPrev?: () => void } | null) | undefined;
 }) {
   const h = siteHeader(header.site);
   const date = new Date(header.createdAt).toLocaleDateString("fr-FR", {
@@ -194,16 +194,21 @@ function SupplierLink({ offer, order }: { offer: SevenOffer; order?: { size: str
   );
 }
 
-function RotateButton({ r }: { r: { disabled: boolean; reason: string; onClick: () => void } | null }) {
+function RotateButton({ r }: { r: { disabled: boolean; reason: string; onClick: () => void; onPrev?: () => void } | null }) {
   if (!r) return null;
   return (
     <button
       type="button"
       data-internal-only
       aria-label="Autre marque, même gamme"
-      title={r.disabled ? r.reason : "Autre marque, même gamme"}
+      title={r.disabled ? r.reason : "Autre marque, même gamme — Clic gauche : suivante · clic droit : précédente"}
       disabled={r.disabled}
       onClick={r.onClick}
+      onContextMenu={(e) => {
+        // Uniquement sur ce bouton : marque précédente au lieu du menu natif.
+        e.preventDefault();
+        if (!r.disabled) r.onPrev?.();
+      }}
       className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 print:hidden"
     >
       <RefreshCw className="h-3.5 w-3.5" aria-hidden />

@@ -1381,6 +1381,14 @@ export function nextTopPriceAlternative(alternatives: TireOffer[], currentBrand:
   return alternatives[(i + 1) % alternatives.length] ?? null;
 }
 
+/** Marque précédente du cycle (avant la première : dernière alternative). */
+export function prevTopPriceAlternative(alternatives: TireOffer[], currentBrand: string | null): TireOffer | null {
+  if (alternatives.length < 2) return null;
+  const i = alternatives.findIndex((o) => brandKeyOf(o.brand) === brandKeyOf(currentBrand));
+  const n = alternatives.length;
+  return alternatives[i < 0 ? n - 1 : (i - 1 + n) % n] ?? null;
+}
+
 /** Remplace l'offre d'une case en gardant slot/titre/gamme/saison ; chiffrage moteur. */
 export function topPriceSlotWith(
   slot: SevenOffer,
