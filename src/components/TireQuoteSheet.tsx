@@ -156,6 +156,7 @@ function supplierLabel(key: string | null): string {
   const k = (key ?? "").toLowerCase();
   if (k.startsWith("centralepneus")) return "CentralePneus";
   if (k.startsWith("districash")) return "Districash";
+  if (k.startsWith("catalogue")) return "Catalogue local";
   return key || "Catalogue local";
 }
 
