@@ -175,3 +175,26 @@ describe("Roadking (référentiel mondial)", () => {
     expect(entree!.brand).toBe("Roadking");
   });
 });
+
+describe("Vredestein (référentiel mondial, contesté)", () => {
+  it("milieu retenu, statut contesté, divergence tracée", () => {
+    const r = brandReferenceOf("Vredestein")!;
+    expect(r).toMatchObject({ tier: "milieu", status: "conteste" });
+    expect(r.evidence.filter((e) => e.tier === "haut").map((e) => e.source).sort()).toEqual(["fabricant", "syndicatdupneu", "thetyrelab"]);
+    expect(r.evidence.filter((e) => e.tier === "milieu").map((e) => e.source).sort()).toEqual(["quelpneu", "tyrereviews"]);
+    expect(r.note).toContain("contesté");
+  });
+  it("milieu dans tous les modes et diagnostics, quelle que soit la source", () => {
+    expect(tierOfOffer(brands, { brand: "VREDESTEIN", tier: "haut" } as TireOffer)).toBe("milieu");
+    expect(effectiveTier("Vredestein", "haut", {})).toBe("milieu");
+    const rows = [{ id: "1", brand: "Vredestein", tier: "haut", active: true, is_default: false, sort_order: 1 }] as unknown as BrandTierRow[];
+    expect(tierOfBrand(rows, "Vredestein")).toBe("milieu");
+    expect(unclassifiedBrands([{ brand: "Vredestein", tier: "" }])).toEqual([]);
+    const [, milieu, haut] = pickTopPriceOffers({ offers: [offer({ brand: "Vredestein", purchase_price_ht: 50, tier: "haut" })], brands, settings: null, quantity: 4, season: "ete", required: req });
+    expect(milieu!.brand).toBe("Vredestein");
+    expect(haut!.available).toBe(false);
+  });
+  it("Roadking reste entrée", () => {
+    expect(brandReferenceOf("Roadking")?.tier).toBe("entree");
+  });
+});
