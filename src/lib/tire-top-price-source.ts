@@ -59,6 +59,9 @@ export function meetsIndicesStrict(
   return true;
 }
 
+/** Miroir de TOP_PRICE_TIER_OVERRIDES (tires.ts) pour l'arrêt de pagination. */
+const SOURCE_TIER_OVERRIDES: Record<string, SourceTier> = { nankang: "entree" };
+
 /** Gamme effective : paramétrage DDA prioritaire, sinon gamme source fiable. */
 export function effectiveTier(
   brand: string,
@@ -67,7 +70,7 @@ export function effectiveTier(
 ): SourceTier | null {
   const k = brand.trim().toLowerCase();
   if (k in configured) return configured[k] ?? null; // marque paramétrée (désactivée => null)
-  return sourceTier ?? null;
+  return SOURCE_TIER_OVERRIDES[k] ?? sourceTier ?? null;
 }
 
 /**

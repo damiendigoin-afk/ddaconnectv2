@@ -1249,6 +1249,9 @@ export function tierOfOffer(brands: BrandTierRow[], offer: Pick<TireOffer, "bran
   if (configured) return configured;
   const isListed = brands.some((r) => r.brand.trim().toLowerCase() === offer.brand.trim().toLowerCase());
   if (isListed) return null; // marque paramétrée mais désactivée : pas de gamme
+  // Correction DDA explicite (prioritaire sur la gamme source, jamais sur le paramétrage).
+  const override = TOP_PRICE_TIER_OVERRIDES[offer.brand.trim().toLowerCase()];
+  if (override) return override;
   return offer.tier === "entree" || offer.tier === "milieu" || offer.tier === "haut" ? offer.tier : null;
 }
 
@@ -1260,17 +1263,22 @@ export function tierOfOffer(brands: BrandTierRow[], offer: Pick<TireOffer, "bran
  * puis ordre déterministe (fournisseur, marque, modèle, id). Chiffrage via
  * priceOffer/priceTireLine : marge et montage inchangés.
  */
-export function pickTopPriceOffers(args: {
-  offers: TireOffer[];
-  brands: BrandTierRow[];
-  settings: CommercialSettings | null;
-  quantity: number;
-  season: TireSeason;
-  required: { size: string | null; load: string | null; speed: string | null };
-}): SevenOffer[] {
-  const { offers, brands, settings, quantity, season, required } = args;
+/**
+ * Gammes imposées par DDA pour des marques absentes du paramétrage, quand la
+ * gamme publiée par la source contredit l'usage atelier. Le paramétrage
+ * tire_brand_tiers reste prioritaire. Une entrée par marque, justifiée.
+ */
+export const TOP_PRICE_TIER_OVERRIDES: Record<string, TireTier> = {
+  // CentralePneus la publie « quality » (milieu) ; l'atelier la vend en entrée de gamme.
+  nankang: "entree",
+};
+
+type TopRequired = { size: string | null; load: string | null; speed: string | null };
+
+/** Offres consultées conformes (commandables, dimension, saison, indices minima). */
+export function topPriceEligible(offers: TireOffer[], season: TireSeason, required: TopRequired): TireOffer[] {
   const reqSize = normalizeTireSize(required.size);
-  const eligible = offers.filter((o) => {
+  return offers.filter((o) => {
     const ht = sourceHtOf(o);
     return (
       offerIsOrderable(o) &&
@@ -1288,12 +1296,85 @@ export function pickTopPriceOffers(args: {
       })
     );
   });
+}
+
+/** Ordre Top prix : prix HT normalisé, puis disponibilité, puis clé déterministe. */
+export function compareTopPrice(a: TireOffer, b: TireOffer): number {
   const key = (o: TireOffer) =>
     [o.supplier_key ?? o.source ?? "", o.brand, o.model, String(o.id)].join("|").toLowerCase();
-  const compare = (a: TireOffer, b: TireOffer) =>
+  return (
     sourceHtOf(a) - sourceHtOf(b) ||
     availabilityRank(a.availability) - availabilityRank(b.availability) ||
-    (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+    (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)
+  );
+}
+
+export const brandKeyOf = (b: string | null | undefined) => (b ?? "").trim().toUpperCase();
+
+/**
+ * Alternatives d'une case Top prix : une offre par MARQUE (la moins chère
+ * conforme de cette marque), même gamme et saison, triées par prix croissant.
+ * La première est la proposition initiale. Uniquement des offres consultées.
+ */
+export function topPriceBrandAlternatives(args: {
+  offers: TireOffer[];
+  brands: BrandTierRow[];
+  tier: TireTier;
+  season: TireSeason;
+  required: TopRequired;
+}): TireOffer[] {
+  const list = topPriceEligible(args.offers, args.season, args.required)
+    .filter((o) => tierOfOffer(args.brands, o) === args.tier)
+    .sort(compareTopPrice);
+  const seen = new Set<string>();
+  return list.filter((o) => {
+    const k = brandKeyOf(o.brand);
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/** Marque suivante du cycle (après la dernière : retour à la proposition initiale). */
+export function nextTopPriceAlternative(alternatives: TireOffer[], currentBrand: string | null): TireOffer | null {
+  if (alternatives.length < 2) return null;
+  const i = alternatives.findIndex((o) => brandKeyOf(o.brand) === brandKeyOf(currentBrand));
+  return alternatives[(i + 1) % alternatives.length] ?? null;
+}
+
+/** Remplace l'offre d'une case en gardant slot/titre/gamme/saison ; chiffrage moteur. */
+export function topPriceSlotWith(
+  slot: SevenOffer,
+  offer: TireOffer,
+  quantity: number,
+  settings: CommercialSettings | null,
+  required: TopRequired,
+): SevenOffer {
+  return {
+    ...slot,
+    available: true,
+    unavailableReason: "",
+    ...priceOffer(offer, quantity, settings, required),
+    quantity,
+    slot: slot.slot,
+    kind: slot.kind,
+    title: slot.title,
+    tier: slot.tier,
+    season: slot.season,
+  };
+}
+
+export function pickTopPriceOffers(args: {
+  offers: TireOffer[];
+  brands: BrandTierRow[];
+  settings: CommercialSettings | null;
+  quantity: number;
+  season: TireSeason;
+  required: { size: string | null; load: string | null; speed: string | null };
+}): SevenOffer[] {
+  const { offers, brands, settings, quantity, season, required } = args;
+  const eligible = topPriceEligible(offers, season, required);
+  const compare = compareTopPrice;
 
   return (["entree", "milieu", "haut"] as TireTier[]).map((tier) => {
     const best = eligible.filter((o) => tierOfOffer(brands, o) === tier).sort(compare)[0] ?? null;
