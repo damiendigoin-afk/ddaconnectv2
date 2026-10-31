@@ -181,3 +181,4 @@ Reste à faire :
 ## Devis pneus Top prix
 - [x] Icône « Autre marque, même gamme » par case (écran interne), cycle par marque sur offres consultées
 - [x] Nankang classée entrée (correction DDA, paramétrage prioritaire)
+- [ ] Référentiel mondial des gammes de marques (sources, alias, à vérifier), appliqué classique + Top prix + web
