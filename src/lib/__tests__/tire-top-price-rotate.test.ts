@@ -25,7 +25,7 @@ const pool = [
   offer({ brand: "Kpatos", purchase_price_ht: 40 }),
   offer({ brand: "Linglong", purchase_price_ht: 25, load_index: "88" }), // charge insuffisante
   offer({ brand: "Hifly", purchase_price_ht: 20, season: "quatre_saisons" }), // autre saison
-  offer({ brand: "Zeta", purchase_price_ht: 22, tier: "milieu" }), // autre gamme
+  offer({ brand: "Zzeta", purchase_price_ht: 22, tier: "milieu" }), // autre gamme
   offer({ brand: "Kumho", purchase_price_ht: 18 }), // paramétrée milieu
 ];
 const alts = () => topPriceBrandAlternatives({ offers: pool, brands, tier: "entree", season: "ete", required: req });
