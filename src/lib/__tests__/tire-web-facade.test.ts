@@ -8,7 +8,7 @@ import { buildWebQuoteResponse, webReadiness, type WebQuoteConfig } from "@/lib/
 import type { BrandTierRow, PublicTireItem } from "@/lib/tires";
 
 const ORIGIN = "https://dda-pneus-premiere-version.genialdrake34.chatgpt.site";
-const cfg: WebQuoteConfig = { web_supplier: "top_prix", site_id: "site-1", enabled: true, allowed_origin: ORIGIN, quota_ip_per_10min: 10, quota_global_per_hour: 100 };
+const cfg: WebQuoteConfig = { web_supplier: "top_prix", site_id: "site-1", enabled: true, allowed_origins: [ORIGIN, "https://pneu.garagecastillon.fr"], quota_ip_per_10min: 10, quota_global_per_hour: 100 };
 const brands = [
   { brand: "ZzKumho", tier: "entree", active: true, is_default: true, sort_order: 1 },
   { brand: "ZzHankook", tier: "milieu", active: true, is_default: true, sort_order: 1 },
@@ -74,7 +74,7 @@ describe("Façade devis pneus web", () => {
     expect(e).toMatchObject({ status: "available", brand: "ZzKumho", quantity: 4 });
     expect(e.totalTtcCents).toBe(await engineCents(4));
     expect(Number.isInteger(e.totalTtcCents)).toBe(true);
-    expect(Object.keys(e).sort()).toEqual(["availability", "brand", "compatibility", "compatibilityMessage", "includedServices", "loadIndex", "model", "quantity", "season", "size", "speedIndex", "status", "tier", "totalTtcCents"]);
+    expect(Object.keys(e).sort()).toEqual(["brand", "compatibility", "compatibilityMessage", "includedServices", "loadIndex", "model", "quantity", "season", "size", "speedIndex", "status", "tier", "totalTtcCents"]);
     expect(j.cases[4].status).toBe("unavailable");
     expect(j.currency).toBe("EUR");
     expect(j.quoteId).toBe("q-test-1");

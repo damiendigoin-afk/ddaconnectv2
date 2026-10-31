@@ -12,7 +12,7 @@ import {
   webConnectionState,
   webSupplierKey,
 } from "@/lib/tire-web-quote";
-import { DEFAULT_ALLOWED_ORIGIN, validOrigin, webReadiness } from "@/lib/tire-web-api";
+import { DEFAULT_ALLOWED_ORIGINS, validOrigin, webReadiness } from "@/lib/tire-web-api";
 
 /** Bloc administrateur « Devis pneus — Site web » (Top prix, activation contrôlée). */
 export function TireWebQuoteSettings() {
@@ -23,7 +23,7 @@ export function TireWebQuoteSettings() {
       const [cfg, sites, cs] = await Promise.all([
         supabase
           .from("tire_web_quote_settings")
-          .select("web_supplier, site_id, enabled, allowed_origin, quota_ip_per_10min, quota_global_per_hour, updated_at")
+          .select("web_supplier, site_id, enabled, allowed_origins, quota_ip_per_10min, quota_global_per_hour, updated_at")
           .maybeSingle(),
         supabase.from("sites").select("id, name, code").eq("active", true).order("name"),
         supabase
@@ -52,7 +52,7 @@ export function TireWebQuoteSettings() {
     if (!q.data || dirty) return;
     setSupplier(webSupplierKey(q.data.cfg?.web_supplier) ?? "");
     setSiteId(q.data.cfg?.site_id ?? "");
-    setOrigin(q.data.cfg?.allowed_origin ?? DEFAULT_ALLOWED_ORIGIN);
+    setOrigin((q.data.cfg?.allowed_origins ?? DEFAULT_ALLOWED_ORIGINS).join("\n"));
     setQuotaIp(String(q.data.cfg?.quota_ip_per_10min ?? 10));
     setQuotaGlobal(String(q.data.cfg?.quota_global_per_hour ?? 120));
   }, [q.data, dirty]);
@@ -80,7 +80,7 @@ export function TireWebQuoteSettings() {
     {
       web_supplier: sKey,
       site_id: siteId || null,
-      allowed_origin: origin.trim() || null,
+      allowed_origins: parseOrigins(origin),
       quota_ip_per_10min: Number(quotaIp),
       quota_global_per_hour: Number(quotaGlobal),
     },
@@ -99,7 +99,7 @@ export function TireWebQuoteSettings() {
           web_supplier: sKey,
           site_id: siteId || null,
           enabled: nextEnabled,
-          allowed_origin: origin.trim() || null,
+          allowed_origins: parseOrigins(origin),
           quota_ip_per_10min: Math.max(1, Math.trunc(Number(quotaIp)) || 10),
           quota_global_per_hour: Math.max(1, Math.trunc(Number(quotaGlobal)) || 120),
           updated_by: u.user?.id ?? null,
@@ -195,14 +195,14 @@ export function TireWebQuoteSettings() {
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground sm:col-span-3">
-          Origine autorisée (site vitrine)
+          Origines autorisées (une par ligne)
           <input
             value={origin}
             onChange={(e) => { setOrigin(e.target.value); setDirty(true); }}
             disabled={!loaded || saving}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal text-foreground"
           />
-          {origin && !validOrigin(origin.trim()) ? (
+          {origin && !parseOrigins(origin).every(validOrigin) ? (
             <span className="block normal-case tracking-normal text-destructive">Adresse https:// sans chemin attendue.</span>
           ) : null}
         </label>
@@ -266,4 +266,8 @@ export function TireWebQuoteSettings() {
       </button>
     </section>
   );
+}
+
+function parseOrigins(v: string): string[] {
+  return [...new Set(v.split(/[\s,]+/).map((o) => o.trim()).filter(Boolean))];
 }
