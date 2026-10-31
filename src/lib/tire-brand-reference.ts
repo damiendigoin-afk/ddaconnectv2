@@ -11,13 +11,14 @@
  * - majoritaire : sources divergentes, majorité nette (à revoir) ;
  * - source_unique : une seule source indépendante (à vérifier) ;
  * - divergent   : sources en désaccord sans majorité => aucune gamme globale (à vérifier).
+ * - conteste    : sources en désaccord, gamme retenue explicitement avec note (à revoir).
  *
  * Une catégorie fournisseur seule (CentralePneus) n'entre jamais au référentiel :
  * elle ne compte que comme voix supplémentaire à côté d'une source indépendante.
  * Mise à jour : ajouter / corriger une ligne avec sa source et la date de relevé.
  */
 export type RefTier = "entree" | "milieu" | "haut";
-export type RefStatus = "concordant" | "majoritaire" | "source_unique" | "divergent";
+export type RefStatus = "concordant" | "majoritaire" | "source_unique" | "divergent" | "conteste";
 
 export const BRAND_REFERENCE_CHECKED_ON = "2026-10-31";
 
@@ -42,6 +43,18 @@ export const BRAND_REFERENCE_SOURCES = {
     label: "Neomatic (distributeur FR) — Eco Budget / Qualité / Premium",
     url: "https://www.neomatic.fr/",
   },
+  tyrereviews: {
+    label: "TyreReviews (tests indépendants UK) — fiche marque « Mid-Range brand »",
+    url: "https://www.tyrereviews.com/",
+  },
+  syndicatdupneu: {
+    label: "Syndicat du Pneu / GfK — synthèse mensuelle, « Marques A ou Premium »",
+    url: "https://www.syndicatdupneu.org/synthese-mensuelle/",
+  },
+  fabricant: {
+    label: "Communication marketing du fabricant",
+    url: "",
+  },
   centralepneus: {
     label: "CentralePneus (distributeur FR) — catégorie premium / quality / discount, relevée en 205/55 R16",
     url: "https://www.centralepneus.fr/",
@@ -50,7 +63,7 @@ export const BRAND_REFERENCE_SOURCES = {
 export type RefSourceKey = keyof typeof BRAND_REFERENCE_SOURCES;
 
 /** [clé normalisée, nom, gamme, statut, preuves [source, libellé publié, gamme]] */
-type Row = [string, string, RefTier | null, RefStatus, [RefSourceKey, string, RefTier][]];
+type Row = [string, string, RefTier | null, RefStatus, [RefSourceKey, string, RefTier][], string?];
 const ROWS: Row[] = [
   // Relevé ciblé 2026-10-31 : quelpneu.com/pneus-roadking, tyrecomp.co.uk/roadking-tyres, neomatic.fr/.../roadking.
   ["ROADKING", "Roadking", "entree", "concordant", [["quelpneu", "Entrée de gamme", "entree"], ["tyrecomp", "Entry-level", "entree"], ["neomatic", "Eco Budget", "entree"]]],
@@ -209,7 +222,7 @@ const ROWS: Row[] = [
   ["UNIGRIP", "Unigrip", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["UNIROYAL", "Uniroyal", "milieu", "source_unique", [["thetyrelab", "upper-middle", "milieu"]]],
   ["VIKING", "Viking", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
-  ["VREDESTEIN", "Vredestein", "haut", "source_unique", [["thetyrelab", "premium", "haut"]]],
+  ["VREDESTEIN", "Vredestein", "milieu", "conteste", [["tyrereviews", "Mid-Range brand", "milieu"], ["quelpneu", "Milieu de gamme", "milieu"], ["thetyrelab", "premium", "haut"], ["syndicatdupneu", "Marques A ou Premium", "haut"], ["fabricant", "positionnement premium revendiqué", "haut"]], "Milieu retenu (TyreReviews, QuelPneu, relevé 2026-10-31) ; Syndicat du Pneu/GfK, TheTyreLab et le fabricant la placent premium : classement contesté, à revoir."],
   ["WANLI", "Wanli", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["WESTLAKE", "Westlake", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["WINDFORCE", "WindForce", "entree", "concordant", [["centralepneus", "discount", "entree"], ["thetyrelab", "lowcost", "entree"]]],
@@ -227,6 +240,7 @@ export type BrandReference = {
   status: RefStatus;
   evidence: { source: RefSourceKey; label: string; tier: RefTier }[];
   checkedOn: string;
+  note: string | null;
 };
 
 /** Variantes d'orthographe connues => clé canonique (après normalisation). */
@@ -249,9 +263,9 @@ export function normalizeBrandKey(brand: string | null | undefined): string {
 }
 
 const INDEX = new Map<string, BrandReference>(
-  ROWS.map(([key, brand, tier, status, ev]) => [
+  ROWS.map(([key, brand, tier, status, ev, note]) => [
     key,
-    { key, brand, tier, status, evidence: ev.map(([source, label, t]) => ({ source, label, tier: t })), checkedOn: BRAND_REFERENCE_CHECKED_ON },
+    { key, brand, tier, status, evidence: ev.map(([source, label, t]) => ({ source, label, tier: t })), checkedOn: BRAND_REFERENCE_CHECKED_ON, note: note ?? null },
   ]),
 );
 
