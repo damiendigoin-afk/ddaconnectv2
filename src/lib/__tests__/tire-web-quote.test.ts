@@ -17,6 +17,9 @@ describe("devis pneus site web", () => {
     expect(webConnectionState({ supplier: "districash", siteId: "s", districash: { configured: false, lastTestOk: true, lastTestAt: "2026-10-01" } }).state).toBe("identifiants_absents");
     expect(webConnectionState({ supplier: "districash", siteId: null }).state).toBe("site_requis");
   });
+  it("erreur de lecture Districash distincte", () => {
+    expect(webConnectionState({ supplier: "districash", siteId: "s", districashError: true }).state).toBe("lecture_impossible");
+  });
   it("activation bloquée sans point d'entrée public", () => {
     expect(canActivateWeb().ok).toBe(false);
   });
