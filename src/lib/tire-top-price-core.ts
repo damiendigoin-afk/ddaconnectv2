@@ -14,6 +14,7 @@ import {
   publicItemsToOffers,
   publicItemsToTopPriceOffers,
   quoteBrandsOf,
+  tierOfBrand,
   type BrandTierRow,
   type PublicTireItem,
   type SevenOffer,
