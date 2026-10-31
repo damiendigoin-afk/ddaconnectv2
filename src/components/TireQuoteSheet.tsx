@@ -6,6 +6,7 @@ import type { SevenOffer } from "@/lib/tires";
 import { MOUNT_LABEL, districashPortalLink, supplierProductLink } from "@/lib/tires";
 import { siteHeader, type Site } from "@/lib/sites";
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { TireOrderDialog } from "@/components/TireOrderDialog";
 import { canOrderOffer } from "@/lib/tire-supplier-order";
 
@@ -39,12 +40,15 @@ export function TireQuoteSheet({
   offers,
   internal = false,
   quoteId = null,
+  rotate,
 }: {
   header: TireQuoteHeader;
   offers: SevenOffer[];
   internal?: boolean;
   /** Devis enregistré source (traçabilité de la commande interne). */
   quoteId?: string | null;
+  /** Top prix, écran interne : « Autre marque, même gamme » (null = pas de bouton). */
+  rotate?: ((slot: string) => { disabled: boolean; reason: string; onClick: () => void } | null) | undefined;
 }) {
   const h = siteHeader(header.site);
   const date = new Date(header.createdAt).toLocaleDateString("fr-FR", {
@@ -115,7 +119,10 @@ export function TireQuoteSheet({
           >
             <div className="flex items-baseline justify-between gap-2">
               <div className="text-sm font-extrabold uppercase">{o.title}</div>
-              <div className="text-base font-extrabold">{o.available ? euro(o.totalTtc) : "—"}</div>
+              <div className="flex items-center gap-1.5">
+                <div className="text-base font-extrabold">{o.available ? euro(o.totalTtc) : "—"}</div>
+                {internal ? <RotateButton r={rotate?.(o.slot) ?? null} /> : null}
+              </div>
             </div>
             {o.available ? (
               <div className="text-xs text-muted-foreground">
@@ -184,5 +191,22 @@ function SupplierLink({ offer, order }: { offer: SevenOffer; order?: { size: str
         <span className="text-muted-foreground/70">Lien fournisseur indisponible</span>
       )}
     </div>
+  );
+}
+
+function RotateButton({ r }: { r: { disabled: boolean; reason: string; onClick: () => void } | null }) {
+  if (!r) return null;
+  return (
+    <button
+      type="button"
+      data-internal-only
+      aria-label="Autre marque, même gamme"
+      title={r.disabled ? r.reason : "Autre marque, même gamme"}
+      disabled={r.disabled}
+      onClick={r.onClick}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 print:hidden"
+    >
+      <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+    </button>
   );
 }
