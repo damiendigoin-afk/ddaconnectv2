@@ -22,6 +22,7 @@ import { prepareCapture } from "@/lib/photo-capture";
 import { useSite } from "@/lib/site-context";
 import { supabase } from "@/integrations/supabase/client";
 import { QUOTE_TIRE_SUPPLIERS, quoteSupplierKey, type QuoteTireSupplierKey } from "@/lib/tires";
+import { TOP_PRICE_OPTION } from "@/lib/tire-top-price-source";
 import { suggestBrands } from "@/lib/tire-brands";
 import { analyzeTireLabelPhoto } from "@/lib/tire-ai.functions";
 import { ocrTirePhoto } from "@/lib/tire-ocr.browser";
@@ -33,6 +34,7 @@ import {
   fetchTireEngine,
   formFromReference,
   quoteManualTires,
+  quoteTopPriceTires,
   quoteOffers,
   saveTireQuote,
   updateTireQuoteOffers,
@@ -139,6 +141,8 @@ function TireQuotePage() {
   });
   const [supplier, setSupplier] = useState<QuoteTireSupplierKey | null>(null);
   const activeSupplier: QuoteTireSupplierKey = supplier ?? siteSupplier.data ?? "centralepneus";
+  /** Option « Top prix » du sélecteur Fournisseur (seul point d'entrée). */
+  const [topPrice, setTopPrice] = useState(false);
 
 
   const set = (patch: Partial<TireQuoteForm>) => {
@@ -154,6 +158,17 @@ function TireQuotePage() {
     mutationFn: async () => {
       if (!size) throw new Error("Dimension incomplète : largeur, série et diamètre sont nécessaires.");
       const data = engine.data ?? (await fetchTireEngine());
+      if (topPrice) {
+        return quoteTopPriceTires({
+          size,
+          load: form.load.trim() || null,
+          speed: form.speed.trim().toUpperCase() || null,
+          requestedBrand: form.brand.trim() || null,
+          quantity: form.quantity,
+          engine: data,
+          siteId: site?.id ?? null,
+        });
+      }
       return quoteManualTires({
         size,
         load: form.load.trim() || null,
@@ -294,9 +309,11 @@ function TireQuotePage() {
             <span className="shrink-0 font-bold uppercase tracking-widest text-muted-foreground">Fournisseur</span>
             <select
               aria-label="Fournisseur"
-              value={activeSupplier}
+              value={topPrice ? TOP_PRICE_OPTION : activeSupplier}
               onChange={(e) => {
-                setSupplier(quoteSupplierKey(e.target.value));
+                const isTop = e.target.value === TOP_PRICE_OPTION;
+                setTopPrice(isTop);
+                if (!isTop) setSupplier(quoteSupplierKey(e.target.value));
                 setResult(null);
                 setSavedId(null);
                 setAdjust(0);
