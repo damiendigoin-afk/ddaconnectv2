@@ -1,4 +1,4 @@
-import { SOURCE_TIER_OVERRIDES } from "./tire-top-price-source";
+import { globalBrandTier, normalizeBrandKey } from "./tire-brand-reference";
 /**
  * Pneumatiques — intégré au Tour Véhicule (aucun module séparé).
  *
@@ -427,7 +427,28 @@ export async function fetchBrandTiers(): Promise<BrandTierRow[]> {
     .order("tier")
     .order("sort_order");
   if (error) throw error;
-  return (data ?? []) as BrandTierRow[];
+  return applyBrandReference((data ?? []) as BrandTierRow[]);
+}
+
+/**
+ * Paramétrage garage aligné sur le référentiel mondial : une marque référencée
+ * prend sa gamme globale (le garage garde seulement l'activation et l'ordre de
+ * préférence) ; une marque déplacée perd son statut « par défaut ». Les marques
+ * absentes ou divergentes gardent provisoirement la gamme saisie (à vérifier).
+ */
+export function applyBrandReference(rows: BrandTierRow[]): BrandTierRow[] {
+  return rows.map((r) => {
+    const g = globalBrandTier(r.brand);
+    return g && g !== r.tier ? { ...r, tier: g, is_default: false } : r;
+  });
+}
+
+/** Lignes du paramétrage contredites par le référentiel (diagnostic de transition). */
+export function brandReferenceConflicts(rows: BrandTierRow[]): { brand: string; configured: string; global: TireTier }[] {
+  return rows.flatMap((r) => {
+    const g = globalBrandTier(r.brand);
+    return g && g !== r.tier ? [{ brand: r.brand, configured: r.tier, global: g }] : [];
+  });
 }
 
 export function defaultBrandOf(rows: BrandTierRow[], tier: TireTier): string | null {
@@ -955,7 +976,7 @@ export function buildSevenOffers(args: {
               o.active &&
               sizeMatch(o) &&
               !used.has(String(o.id)) &&
-              o.tier === tier &&
+              tierOfOfferInPool(o) === tier &&
               o.season === season &&
               tierOfBrand(brands, o.brand) === null &&
               sourceHtOf(o) > 0 &&
@@ -1066,9 +1087,11 @@ export type PublicTireItem = {
 
 /** Gamme d'une marque d'après le paramétrage (aucune gamme inventée). */
 export function tierOfBrand(brands: BrandTierRow[], brand: string): TireTier | null {
-  const b = brand.trim().toLowerCase();
-  const row = brands.find((r) => r.active && r.brand.trim().toLowerCase() === b);
-  return (row?.tier as TireTier | undefined) ?? null;
+  const b = normalizeBrandKey(brand);
+  const row = brands.find((r) => r.active && normalizeBrandKey(r.brand) === b);
+  if (!row) return null;
+  // Référentiel mondial prioritaire ; sinon gamme saisie (provisoire, à vérifier).
+  return globalBrandTier(brand) ?? ((row.tier as TireTier | undefined) ?? null);
 }
 
 /**
@@ -1206,8 +1229,7 @@ export function mountPackageLevel0(
 export function publicItemsToTopPriceOffers(items: PublicTireItem[], brands: BrandTierRow[]): TireOffer[] {
   const base = publicItemsToOffers(items, brands);
   return base.map((o, i) => {
-    const listed = brands.some((r) => r.brand.trim().toLowerCase() === o.brand.trim().toLowerCase());
-    const tier = tierOfBrand(brands, o.brand) ?? (listed ? null : (TOP_PRICE_TIER_OVERRIDES[o.brand.trim().toLowerCase()] ?? items[i]!.sourceTier ?? null));
+    const tier = tierOfOffer(brands, { brand: o.brand, tier: items[i]!.sourceTier ?? "" });
     return { ...o, tier: tier ?? "" };
   });
 }
@@ -1216,9 +1238,9 @@ export function publicItemsToTopPriceOffers(items: PublicTireItem[], brands: Bra
 export function configuredTierMap(brands: BrandTierRow[]): Record<string, TireTier | null> {
   const out: Record<string, TireTier | null> = {};
   for (const r of brands) {
-    const k = r.brand.trim().toLowerCase();
+    const k = normalizeBrandKey(r.brand);
     if (!k) continue;
-    if (r.active) out[k] = r.tier as TireTier;
+    if (r.active) out[k] = globalBrandTier(r.brand) ?? (r.tier as TireTier);
     else if (!(k in out)) out[k] = null;
   }
   return out;
@@ -1246,13 +1268,13 @@ export function availabilityRank(availability: string | null | undefined): numbe
  * même règle que le repli de buildSevenOffers. Jamais déduite du prix.
  */
 export function tierOfOffer(brands: BrandTierRow[], offer: Pick<TireOffer, "brand" | "tier">): TireTier | null {
+  const k = normalizeBrandKey(offer.brand);
+  const rows = brands.filter((r) => normalizeBrandKey(r.brand) === k);
+  if (rows.length && !rows.some((r) => r.active)) return null; // marque désactivée par le garage
+  const global = globalBrandTier(offer.brand);
+  if (global) return global; // référentiel mondial : identique pour tous fournisseurs
   const configured = tierOfBrand(brands, offer.brand);
-  if (configured) return configured;
-  const isListed = brands.some((r) => r.brand.trim().toLowerCase() === offer.brand.trim().toLowerCase());
-  if (isListed) return null; // marque paramétrée mais désactivée : pas de gamme
-  // Correction DDA explicite (prioritaire sur la gamme source, jamais sur le paramétrage).
-  const override = TOP_PRICE_TIER_OVERRIDES[offer.brand.trim().toLowerCase()];
-  if (override) return override;
+  if (configured) return configured; // provisoire (marque hors référentiel)
   return offer.tier === "entree" || offer.tier === "milieu" || offer.tier === "haut" ? offer.tier : null;
 }
 
@@ -1264,9 +1286,6 @@ export function tierOfOffer(brands: BrandTierRow[], offer: Pick<TireOffer, "bran
  * puis ordre déterministe (fournisseur, marque, modèle, id). Chiffrage via
  * priceOffer/priceTireLine : marge et montage inchangés.
  */
-/** Corrections de gamme DDA (voir tire-top-price-source). */
-export const TOP_PRICE_TIER_OVERRIDES: Record<string, TireTier> = SOURCE_TIER_OVERRIDES;
-
 type TopRequired = { size: string | null; load: string | null; speed: string | null };
 
 /** Offres consultées conformes (commandables, dimension, saison, indices minima). */
@@ -1303,7 +1322,7 @@ export function compareTopPrice(a: TireOffer, b: TireOffer): number {
   );
 }
 
-export const brandKeyOf = (b: string | null | undefined) => (b ?? "").trim().toUpperCase();
+export const brandKeyOf = (b: string | null | undefined) => normalizeBrandKey(b);
 
 /**
  * Alternatives d'une case Top prix : une offre par MARQUE (la moins chère
