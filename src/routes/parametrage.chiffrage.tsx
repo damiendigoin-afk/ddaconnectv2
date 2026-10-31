@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { CommercialSettings, PaintElementRule } from "@/lib/pricing-engine";
 import { PackagesSection } from "@/components/PackagesSection";
+import { TireWebQuoteSettings } from "@/components/TireWebQuoteSettings";
 import type { PackageRow } from "@/lib/packages-import";
 import {
   GRADE_LABEL,
@@ -348,6 +349,8 @@ function PricingSettings() {
             </button>
           </div>
         </section>
+
+        <TireWebQuoteSettings />
 
         <section className="card-surface space-y-3 p-4">
           <h2 className="text-sm font-bold uppercase tracking-widest">Règles peinture par élément</h2>
