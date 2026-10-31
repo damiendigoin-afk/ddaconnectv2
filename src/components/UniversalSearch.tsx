@@ -28,6 +28,7 @@ export function UniversalSearch({
   const [term, setTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<SearchResult | null>(null);
+  const [resFor, setResFor] = useState("");
   const [invoices, setInvoices] = useState<Awaited<ReturnType<typeof searchInvoices>>>([]);
   // Recherche multi-sites pour tous : chaque résultat affiche son site / sa société.
   const { sites } = useSite();
@@ -46,7 +47,11 @@ export function UniversalSearch({
       // Factures WinMotor : n° exact, à partir de 3 caractères, résultat limité.
       searchInvoices(t, 5).then((r) => alive && setInvoices(r)).catch(() => alive && setInvoices([]));
       universalSearch(t)
-        .then((r) => alive && setRes(r))
+        .then((r) => {
+          if (!alive) return;
+          setRes(r);
+          setResFor(t);
+        })
         .catch(() => alive && setRes(null))
         .finally(() => alive && setLoading(false));
     }, 250);
@@ -77,7 +82,7 @@ export function UniversalSearch({
         />
       </div>
 
-      {renderUnknownPlate && !loading && unknownPlateOf(term, res)
+      {renderUnknownPlate && !loading && resFor === term.trim() && unknownPlateOf(term, res)
         ? renderUnknownPlate(unknownPlateOf(term, res)!)
         : null}
 
