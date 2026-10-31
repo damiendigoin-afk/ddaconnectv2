@@ -107,6 +107,7 @@ import { Route as TourTourIdRapportRouteImport } from './routes/tour.$tourId.rap
 import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/emails.ingest'
 import { Route as ApiPublicGmailCallbackRouteImport } from './routes/api/public/gmail/callback'
 import { Route as ApiPublicHooksGmailSyncRouteImport } from './routes/api/public/hooks/gmail-sync'
+import { Route as ApiPublicTyresQuotesRouteImport } from './routes/api/public/tyres/quotes'
 import { Route as DevisPneusQuoteIdPdfRouteImport } from './routes/devis.pneus.$quoteId.pdf'
 
 const IndexRoute = IndexRouteImport.update({
@@ -608,6 +609,11 @@ const ApiPublicHooksGmailSyncRoute = ApiPublicHooksGmailSyncRouteImport.update({
   path: '/api/public/hooks/gmail-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTyresQuotesRoute = ApiPublicTyresQuotesRouteImport.update({
+  id: '/api/public/tyres/quotes',
+  path: '/api/public/tyres/quotes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DevisPneusQuoteIdPdfRoute = DevisPneusQuoteIdPdfRouteImport.update({
   id: '/pdf',
   path: '/pdf',
@@ -713,6 +719,7 @@ export interface FileRoutesByFullPath {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRoutesByTo {
@@ -813,6 +820,7 @@ export interface FileRoutesByTo {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRoutesById {
@@ -915,6 +923,7 @@ export interface FileRoutesById {
   '/api/public/emails/ingest': typeof ApiPublicEmailsIngestRoute
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
+  '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRouteTypes {
@@ -1018,6 +1027,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/api/public/tyres/quotes'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1118,6 +1128,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/api/public/tyres/quotes'
     | '/devis/pneus/$quoteId/pdf'
   id:
     | '__root__'
@@ -1219,6 +1230,7 @@ export interface FileRouteTypes {
     | '/api/public/emails/ingest'
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
+    | '/api/public/tyres/quotes'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesById: FileRoutesById
 }
@@ -1318,6 +1330,7 @@ export interface RootRouteChildren {
   ApiPublicEmailsIngestRoute: typeof ApiPublicEmailsIngestRoute
   ApiPublicGmailCallbackRoute: typeof ApiPublicGmailCallbackRoute
   ApiPublicHooksGmailSyncRoute: typeof ApiPublicHooksGmailSyncRoute
+  ApiPublicTyresQuotesRoute: typeof ApiPublicTyresQuotesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2008,6 +2021,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksGmailSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tyres/quotes': {
+      id: '/api/public/tyres/quotes'
+      path: '/api/public/tyres/quotes'
+      fullPath: '/api/public/tyres/quotes'
+      preLoaderRoute: typeof ApiPublicTyresQuotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/devis/pneus/$quoteId/pdf': {
       id: '/devis/pneus/$quoteId/pdf'
       path: '/pdf'
@@ -2142,6 +2162,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicEmailsIngestRoute: ApiPublicEmailsIngestRoute,
   ApiPublicGmailCallbackRoute: ApiPublicGmailCallbackRoute,
   ApiPublicHooksGmailSyncRoute: ApiPublicHooksGmailSyncRoute,
+  ApiPublicTyresQuotesRoute: ApiPublicTyresQuotesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
