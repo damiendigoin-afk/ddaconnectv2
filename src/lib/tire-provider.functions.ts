@@ -5,6 +5,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const input = z.object({
   size: z.string().min(3),
@@ -73,6 +74,7 @@ const allInput = z.object({
  * écriture d'état fournisseur, aucune liste de marques présélectionnée).
  */
 export const fetchPublicTireOffersAllBrands = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => allInput.parse(data))
   .handler(async ({ data }) => {
     const { fetchPublicTiresAllBrands } = await import("./tire-provider.server");

@@ -8,7 +8,8 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { CommercialSettings, ServicePackage } from "./pricing-engine";
-import { fetchPublicTireOffers } from "./tire-provider.functions";
+import { fetchPublicTireOffers, fetchPublicTireOffersAllBrands } from "./tire-provider.functions";
+import { unclassifiedBrands } from "./tire-top-price-source";
 import { districashExclusions, districashRowsToOffers } from "./districash";
 import { fetchDistricashQuoteRows } from "./districash-quote.functions";
 import type { QuoteTireSupplierKey } from "./tires";
@@ -20,6 +21,8 @@ import {
   fetchBrandTiers,
   normalizeTireSize,
   publicItemsToOffers,
+  publicItemsToTopPriceOffers,
+  configuredTierMap,
   type BrandTierRow,
   type PublicTireItem,
   type SevenOffer,
@@ -208,17 +211,47 @@ export async function quoteTopPriceTires(args: {
   siteId?: string | null;
 }): Promise<ManualQuoteResult> {
   const base = { ...args, requestedBrand: null };
-  // CentralePneus inclut déjà le catalogue local : pas de double lecture.
-  const parts = await Promise.all(
-    (["centralepneus", "districash"] as QuoteTireSupplierKey[]).map((supplier) =>
-      collectSupplierOffers({ ...base, supplier }).catch((e) => ({
-        offers: [] as TireOffer[],
-        warning: `${supplier} : ${e instanceof Error ? e.message : "consultation impossible"}`,
-      })),
-    ),
+  // CentralePneus : toutes marques (dimension + saison, tri prix), sans liste
+  // de marques présélectionnée. Catalogue local : toutes ses offres.
+  // Districash : la recherche par dimension renvoie déjà toutes les marques.
+  const centrale = (async () => {
+    const res = await fetchPublicTireOffersAllBrands({
+      data: {
+        size: args.size,
+        season: args.season,
+        load: args.load,
+        speed: args.speed,
+        configured: configuredTierMap(args.engine.brands),
+      },
+    });
+    const offers = [
+      ...(res.ok ? publicItemsToTopPriceOffers(res.items as PublicTireItem[], args.engine.brands) : []),
+      ...args.engine.catalog,
+    ];
+    const warning = !res.ok
+      ? `CentralePneus : ${res.error}`
+      : res.truncated
+        ? `CentralePneus : consultation limitée aux ${res.pagesRead * 50} pneus les moins chers de la saison.`
+        : "";
+    return { offers, warning };
+  })().catch((e) => ({
+    offers: [...args.engine.catalog] as TireOffer[],
+    warning: `centralepneus : ${e instanceof Error ? e.message : "consultation impossible"}`,
+  }));
+  const districash = collectSupplierOffers({ ...base, supplier: "districash" }).catch((e) => ({
+    offers: [] as TireOffer[],
+    warning: `districash : ${e instanceof Error ? e.message : "consultation impossible"}`,
+  }));
+  const parts = await Promise.all([centrale, districash]);
+  const all = parts.flatMap((p) => p.offers);
+  const unclassified = unclassifiedBrands(
+    all.filter((o) => o.season === args.season).map((o) => ({ brand: o.brand, tier: o.tier })),
   );
+  if (unclassified.length) {
+    parts.push({ offers: [], warning: `Marques non classées (exclues du Top prix) : ${unclassified.join(", ")}.` });
+  }
   const grid = pickTopPriceOffers({
-    offers: parts.flatMap((p) => p.offers),
+    offers: all,
     brands: args.engine.brands,
     settings: args.engine.settings,
     quantity: args.quantity,
