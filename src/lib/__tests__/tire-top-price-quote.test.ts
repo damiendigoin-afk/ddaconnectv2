@@ -48,11 +48,11 @@ describe("Option fournisseur « Top prix » : même devis 6/7 offres", () => {
     expect(top.grid.map((o) => [o.slot, o.title])).toEqual(manual.grid.map((o) => [o.slot, o.title]));
     expect(top.grid).toHaveLength(6);
     const by = Object.fromEntries(top.grid.map((o) => [o.slot, o]));
-    expect(by.entree_ete!.brand).toBe("Linglong"); // marque hors paramétrage, gamme source fiable
-    expect(by.milieu_ete!.brand).toBe("Nokian"); // 94W accepté pour 91V
-    expect(by.haut_ete!.brand).toBe("Pirelli"); // moins cher que Michelin
-    expect(by.entree_quatre_saisons!.brand).toBe("Linglong");
-    expect(by.milieu_quatre_saisons!.brand).toBe("Hankook");
+    expect(by["entree_ete"]!.brand).toBe("Linglong"); // marque hors paramétrage, gamme source fiable
+    expect(by["milieu_ete"]!.brand).toBe("Nokian"); // 94W accepté pour 91V
+    expect(by["haut_ete"]!.brand).toBe("Pirelli"); // moins cher que Michelin
+    expect(by["entree_quatre_saisons"]!.brand).toBe("Linglong");
+    expect(by["milieu_quatre_saisons"]!.brand).toBe("Hankook");
     expect(top.grid.some((o) => o.brand === "Inconnue" || o.brand === "Bad")).toBe(false);
     expect(top.warning).toMatch(/non classées.*INCONNUE/);
     expect(quoteOffers(top)).toHaveLength(6);
