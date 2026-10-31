@@ -48,7 +48,7 @@ export function TireQuoteSheet({
   /** Devis enregistré source (traçabilité de la commande interne). */
   quoteId?: string | null;
   /** Top prix, écran interne : « Autre marque, même gamme » (null = pas de bouton). */
-  rotate?: (slot: string) => { disabled: boolean; reason: string; onClick: () => void } | null;
+  rotate?: ((slot: string) => { disabled: boolean; reason: string; onClick: () => void } | null) | undefined;
 }) {
   const h = siteHeader(header.site);
   const date = new Date(header.createdAt).toLocaleDateString("fr-FR", {
