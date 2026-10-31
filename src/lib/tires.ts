@@ -1057,6 +1057,8 @@ export type PublicTireItem = {
   sourceUrl: string;
   productUrl?: string | null;
   consultedAt: string;
+  /** Gamme déclarée par la source (Top prix uniquement). */
+  sourceTier?: TireTier | null;
 };
 
 /** Gamme d'une marque d'après le paramétrage (aucune gamme inventée). */
@@ -1192,6 +1194,32 @@ export function mountPackageLevel0(
 
 
 /* ------------------------------- Top prix --------------------------------- */
+
+/**
+ * Offres CentralePneus pour Top prix : gamme du paramétrage DDA si la marque y
+ * figure (désactivée => aucune gamme), sinon gamme déclarée par la source.
+ * Le mode manuel continue d'utiliser publicItemsToOffers (inchangé).
+ */
+export function publicItemsToTopPriceOffers(items: PublicTireItem[], brands: BrandTierRow[]): TireOffer[] {
+  const base = publicItemsToOffers(items, brands);
+  return base.map((o, i) => {
+    const listed = brands.some((r) => r.brand.trim().toLowerCase() === o.brand.trim().toLowerCase());
+    const tier = tierOfBrand(brands, o.brand) ?? (listed ? null : (items[i]!.sourceTier ?? null));
+    return { ...o, tier: tier ?? "" };
+  });
+}
+
+/** Paramétrage DDA sous forme marque (minuscule) → gamme active ou null. */
+export function configuredTierMap(brands: BrandTierRow[]): Record<string, TireTier | null> {
+  const out: Record<string, TireTier | null> = {};
+  for (const r of brands) {
+    const k = r.brand.trim().toLowerCase();
+    if (!k) continue;
+    if (r.active) out[k] = r.tier as TireTier;
+    else if (!(k in out)) out[k] = null;
+  }
+  return out;
+}
 
 /** Une offre explicitement signalée indisponible / non commandable est écartée. */
 export function offerIsOrderable(offer: Pick<TireOffer, "active" | "availability">): boolean {
