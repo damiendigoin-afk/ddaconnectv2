@@ -27,7 +27,6 @@ const it_ = (brand: string, ttc: number, season: "ete" | "quatre_saisons", sourc
 const legacyItems = [
   it_("Kumho", 72, "ete", "entree", "k1"), it_("Hankook", 96, "ete", "milieu", "h1"), it_("Michelin", 144, "ete", "haut", "m1"),
   it_("Kumho", 78, "quatre_saisons", "entree", "k2"), it_("Hankook", 102, "quatre_saisons", "milieu", "h2"), it_("Michelin", 150, "quatre_saisons", "haut", "m2"),
-  it_("Pirelli", 130, "ete", "haut", "p1"),
 ];
 const args = { size: "205/55R16", load: "91", speed: "V", requestedBrand: null as string | null, quantity: 4, engine };
 
@@ -37,7 +36,7 @@ beforeEach(() => {
   allBrands.mockImplementation(async ({ data }: { data: { season: string } }) => ({
     ok: true, error: "", truncated: false, pagesRead: 1,
     items: data.season === "ete"
-      ? [it_("Linglong", 48, "ete", "entree", "l1"), it_("Nokian", 84, "ete", "milieu", "n1", "94", "W"), it_("Inconnue", 20, "ete", null, "x1"), it_("Bad", 30, "ete", "entree", "b1", "88")]
+      ? [it_("Linglong", 48, "ete", "entree", "l1"), it_("Nokian", 84, "ete", "milieu", "n1", "94", "W"), it_("Inconnue", 20, "ete", null, "x1"), it_("Bad", 30, "ete", "entree", "b1", "88"), it_("Pirelli", 130, "ete", "haut", "p1")]
       : [it_("Linglong", 54, "quatre_saisons", "entree", "l2")],
   }));
 });
