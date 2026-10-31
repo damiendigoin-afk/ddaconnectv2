@@ -109,6 +109,7 @@ import { Route as ApiPublicGmailCallbackRouteImport } from './routes/api/public/
 import { Route as ApiPublicHooksGmailSyncRouteImport } from './routes/api/public/hooks/gmail-sync'
 import { Route as ApiPublicTyresAppointmentRequestsRouteImport } from './routes/api/public/tyres/appointment-requests'
 import { Route as ApiPublicTyresQuotesRouteImport } from './routes/api/public/tyres/quotes'
+import { Route as ApiPublicTyresSiteSuggestionRouteImport } from './routes/api/public/tyres/site-suggestion'
 import { Route as DevisPneusQuoteIdPdfRouteImport } from './routes/devis.pneus.$quoteId.pdf'
 
 const IndexRoute = IndexRouteImport.update({
@@ -621,6 +622,12 @@ const ApiPublicTyresQuotesRoute = ApiPublicTyresQuotesRouteImport.update({
   path: '/api/public/tyres/quotes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTyresSiteSuggestionRoute =
+  ApiPublicTyresSiteSuggestionRouteImport.update({
+    id: '/api/public/tyres/site-suggestion',
+    path: '/api/public/tyres/site-suggestion',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DevisPneusQuoteIdPdfRoute = DevisPneusQuoteIdPdfRouteImport.update({
   id: '/pdf',
   path: '/pdf',
@@ -728,6 +735,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
+  '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRoutesByTo {
@@ -830,6 +838,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
+  '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRoutesById {
@@ -934,6 +943,7 @@ export interface FileRoutesById {
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
+  '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
 export interface FileRouteTypes {
@@ -1039,6 +1049,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/gmail-sync'
     | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/quotes'
+    | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1141,6 +1152,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/gmail-sync'
     | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/quotes'
+    | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
   id:
     | '__root__'
@@ -1244,6 +1256,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/gmail-sync'
     | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/quotes'
+    | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesById: FileRoutesById
 }
@@ -1345,6 +1358,7 @@ export interface RootRouteChildren {
   ApiPublicHooksGmailSyncRoute: typeof ApiPublicHooksGmailSyncRoute
   ApiPublicTyresAppointmentRequestsRoute: typeof ApiPublicTyresAppointmentRequestsRoute
   ApiPublicTyresQuotesRoute: typeof ApiPublicTyresQuotesRoute
+  ApiPublicTyresSiteSuggestionRoute: typeof ApiPublicTyresSiteSuggestionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2049,6 +2063,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTyresQuotesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tyres/site-suggestion': {
+      id: '/api/public/tyres/site-suggestion'
+      path: '/api/public/tyres/site-suggestion'
+      fullPath: '/api/public/tyres/site-suggestion'
+      preLoaderRoute: typeof ApiPublicTyresSiteSuggestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/devis/pneus/$quoteId/pdf': {
       id: '/devis/pneus/$quoteId/pdf'
       path: '/pdf'
@@ -2186,6 +2207,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicTyresAppointmentRequestsRoute:
     ApiPublicTyresAppointmentRequestsRoute,
   ApiPublicTyresQuotesRoute: ApiPublicTyresQuotesRoute,
+  ApiPublicTyresSiteSuggestionRoute: ApiPublicTyresSiteSuggestionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
