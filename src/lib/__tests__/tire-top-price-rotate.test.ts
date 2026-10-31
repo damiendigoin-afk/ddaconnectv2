@@ -79,12 +79,26 @@ import { brandReferenceOf, normalizeBrandKey } from "@/lib/tire-brand-reference"
 import { districashOffersOf } from "@/lib/tire-top-price-core";
 
 describe("Référentiel mondial des marques", () => {
-  it("Nokian : milieu selon les sources (TheTyreLab upper-middle + CentralePneus quality), sources tracées", () => {
+  it("Nokian : haut de gamme, contesté, divergence tracée", () => {
     const r = brandReferenceOf("NOKIAN")!;
-    expect(r.tier).toBe("milieu");
-    expect(r.status).toBe("concordant");
-    expect(r.evidence.map((e) => e.source).sort()).toEqual(["centralepneus", "thetyrelab"]);
+    expect(r.tier).toBe("haut");
+    expect(r.status).toBe("conteste");
+    expect(r.evidence.map((e) => e.source).sort()).toEqual(["centralepneus", "syndicatdupneu", "thetyrelab"]);
+    expect(r.evidence.find((e) => e.source === "syndicatdupneu")?.tier).toBe("haut");
+    expect(r.evidence.filter((e) => e.tier === "milieu")).toHaveLength(2);
+    expect(r.note).toMatch(/contest/);
     expect(r.checkedOn).toBe("2026-10-31");
+  });
+
+  it("Nokian classée haut quel que soit le fournisseur ou sa gamme déclarée", () => {
+    const cp = offer({ brand: "Nokian", purchase_price_ht: 70, tier: "milieu", supplier_key: "centralepneus" });
+    const dc = offer({ brand: "NOKIAN", purchase_price_ht: 72, tier: "entree", supplier_key: "districash" });
+    const loc = offer({ brand: "nokian ", purchase_price_ht: 74, tier: "", supplier_key: "catalogue_local" });
+    expect([cp, dc, loc].map((o) => tierOfOffer(brands, o))).toEqual(["haut", "haut", "haut"]);
+    expect(brandReferenceOf("ROADKING")?.tier).toBe("entree");
+    expect(brandReferenceOf("NANKANG")?.tier).toBe("entree");
+    expect(brandReferenceOf("VREDESTEIN")?.tier).toBe("milieu");
+    expect(brandReferenceOf("VREDESTEIN")?.status).toBe("conteste");
   });
 
   it("même marque = même gamme quel que soit le fournisseur ou la gamme qu'il déclare", () => {

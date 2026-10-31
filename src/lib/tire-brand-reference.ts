@@ -168,7 +168,7 @@ const ROWS: Row[] = [
   ["NANKANG", "Nankang", "entree", "concordant", [["thetyrelab", "lowcost", "entree"], ["tyreshopper", "Low Cost Budget", "entree"]]],
   ["NEOLIN", "Neolin", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["NEXEN", "Nexen", null, "divergent", [["centralepneus", "quality", "milieu"], ["thetyrelab", "lowcost", "entree"]]],
-  ["NOKIAN", "Nokian", "milieu", "concordant", [["centralepneus", "quality", "milieu"], ["thetyrelab", "upper-middle", "milieu"]]],
+  ["NOKIAN", "Nokian", "haut", "conteste", [["syndicatdupneu", "Marques A ou Premium", "haut"], ["centralepneus", "quality", "milieu"], ["thetyrelab", "upper-middle", "milieu"]], "Haut retenu sur décision de la direction (2026-10-31), conformément au Syndicat du Pneu/GfK (Premium) ; CentralePneus (quality) et TheTyreLab (upper-middle) la placent milieu : classement contesté, à revoir."],
   ["NORAUTO", "Norauto", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["NORDEXX", "Nordexx", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
   ["NOVEX", "Novex", "entree", "source_unique", [["thetyrelab", "lowcost", "entree"]]],
