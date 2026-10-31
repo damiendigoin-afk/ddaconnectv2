@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { MarginLever } from "@/components/MarginLever";
 import { TireQuoteSheet } from "@/components/TireQuoteSheet";
+import { nextTopPriceAlternative, topPriceBrandAlternatives, topPriceSlotWith } from "@/lib/tires";
 import { adjustOffersMargin } from "@/lib/tires";
 import { useAuth } from "@/lib/auth";
 import { blobToDataUrl, compressImage } from "@/lib/photo";
@@ -202,6 +203,33 @@ function TireQuotePage() {
     [result, adjust],
   );
 
+  /** Top prix : alternatives par marque (offres déjà consultées, aucune nouvelle recherche). */
+  const [gridRev, setGridRev] = useState(0);
+  const rotateFor = (slotKey: string) => {
+    if (!result?.pool || !result.required || !engine.data) return null;
+    const slot = result.grid.find((g) => g.slot === slotKey);
+    if (!slot || !slot.tier || !slot.season) return null;
+    const alts = topPriceBrandAlternatives({
+      offers: result.pool, brands: engine.data.brands, tier: slot.tier, season: slot.season, required: result.required,
+    });
+    const next = nextTopPriceAlternative(alts, slot.available ? slot.brand : null);
+    if (!next) {
+      return { disabled: true, reason: "Aucune autre marque conforme dans cette gamme et saison", onClick: () => {} };
+    }
+    return {
+      disabled: false,
+      reason: "",
+      onClick: () => {
+        const settings = engine.data?.settings ?? null;
+        const req = result.required!;
+        setResult((r) =>
+          r ? { ...r, grid: r.grid.map((g) => (g.slot === slotKey ? topPriceSlotWith(g, next, r.quantity, settings, req) : g)) } : r,
+        );
+        setGridRev((n) => n + 1);
+      },
+    };
+  };
+
   /* Enregistrement automatique : création unique, puis mise à jour de la même
      ligne à chaque mouvement du levier (petit délai anti-rafale). */
   useEffect(() => {
@@ -233,7 +261,7 @@ function TireQuotePage() {
     }, 500);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedId, adjust]);
+  }, [savedId, adjust, gridRev]);
 
 
   /** Impression : le devis est déjà auto-enregistré, on ouvre le PDF A4. */
@@ -451,6 +479,7 @@ function TireQuotePage() {
                 speedIndex: form.speed.trim().toUpperCase() || null,
               }}
               offers={offers}
+              rotate={result.pool ? rotateFor : undefined}
             />
 
             <button
