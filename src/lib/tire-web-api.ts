@@ -177,6 +177,10 @@ const SLOT = z
 export const webAppointmentInput = z
   .object({
     quoteId: z.string().uuid(),
+    /** Garage choisi explicitement par le client (affiché et modifiable avant envoi). */
+    site: z.enum(["castillon", "lalinde"]),
+    siteChoiceMethod: z.enum(["default", "geolocation", "postal", "manual"]),
+    suggestedSite: z.enum(["castillon", "lalinde"]).optional(),
     tier: z.enum(["entree", "milieu", "haut"]),
     season: z.enum(["ete", "quatre_saisons"]),
     name: z.string().trim().min(2).max(100),
