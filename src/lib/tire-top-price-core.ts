@@ -15,6 +15,7 @@ import {
   publicItemsToTopPriceOffers,
   quoteBrandsOf,
   divergentSourceBrands,
+  tierOfBrand,
   type BrandTierRow,
   type PublicTireItem,
   type SevenOffer,
@@ -65,7 +66,7 @@ export function districashOffersOf(
   brands: BrandTierRow[],
 ): { offers: TireOffer[]; warning: string } {
   if (!res.ok) return { offers: [], warning: res.error };
-  const tierOf = (b: string) => brands.find((r) => r.active && r.brand.trim().toUpperCase() === b)?.tier ?? null;
+  const tierOf = (b: string) => tierOfBrand(brands, b);
   const offers = districashRowsToOffers(res.rows, tierOf, res.consultedAt) as unknown as TireOffer[];
   const x = districashExclusions(res.rows);
   const noSeason = offers.filter((o) => !o.season).length;
