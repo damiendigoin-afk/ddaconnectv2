@@ -74,3 +74,28 @@ describe("Top prix — autre marque, même gamme", () => {
     expect(tierOfOffer(brands, { brand: "Nexen", tier: "milieu" } as TireOffer)).toBe("milieu");
   });
 });
+
+import { unclassifiedBrands } from "@/lib/tire-top-price-source";
+
+describe("Nokian haut de gamme", () => {
+  it("haut même sans gamme source, en sélection et pagination", () => {
+    expect(tierOfOffer(brands, { brand: "Nokian", tier: "" } as unknown as TireOffer)).toBe("haut");
+    expect(tierOfOffer(brands, { brand: "NOKIAN", tier: "milieu" } as TireOffer)).toBe("haut");
+    expect(effectiveTier("Nokian", null, {})).toBe("haut");
+  });
+  it("le paramétrage du garage reste prioritaire", () => {
+    const set = [{ brand: "Nokian", tier: "milieu", active: true }] as unknown as BrandTierRow[];
+    expect(tierOfOffer(set, { brand: "Nokian", tier: "" } as unknown as TireOffer)).toBe("milieu");
+    expect(effectiveTier("Nokian", null, { nokian: "milieu" })).toBe("milieu");
+  });
+  it("disparaît du diagnostic « marques non classées », les vraies inconnues restent", () => {
+    expect(unclassifiedBrands([{ brand: "Nokian", tier: "" }, { brand: "Foo", tier: "" }])).toEqual(["FOO"]);
+  });
+  it("gagne la case haut si moins chère", () => {
+    const [, , haut] = pickTopPriceOffers({
+      offers: [offer({ brand: "Nokian", purchase_price_ht: 60, tier: "" }), offer({ brand: "Michelin", purchase_price_ht: 90, tier: "haut" })],
+      brands, settings: null, quantity: 4, season: "ete", required: req,
+    });
+    expect(haut!.brand).toBe("Nokian");
+  });
+});

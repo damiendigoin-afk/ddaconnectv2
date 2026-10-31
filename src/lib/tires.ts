@@ -1207,7 +1207,7 @@ export function publicItemsToTopPriceOffers(items: PublicTireItem[], brands: Bra
   const base = publicItemsToOffers(items, brands);
   return base.map((o, i) => {
     const listed = brands.some((r) => r.brand.trim().toLowerCase() === o.brand.trim().toLowerCase());
-    const tier = tierOfBrand(brands, o.brand) ?? (listed ? null : (items[i]!.sourceTier ?? null));
+    const tier = tierOfBrand(brands, o.brand) ?? (listed ? null : (TOP_PRICE_TIER_OVERRIDES[o.brand.trim().toLowerCase()] ?? items[i]!.sourceTier ?? null));
     return { ...o, tier: tier ?? "" };
   });
 }
