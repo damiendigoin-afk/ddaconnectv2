@@ -6776,8 +6776,10 @@ export type Database = {
           email_from_name: string
           id: string
           is_default: boolean
+          latitude: number | null
           legal_name: string | null
           logo_url: string | null
+          longitude: number | null
           name: string
           phone: string | null
           postal_code: string | null
@@ -6794,8 +6796,10 @@ export type Database = {
           email_from_name?: string
           id?: string
           is_default?: boolean
+          latitude?: number | null
           legal_name?: string | null
           logo_url?: string | null
+          longitude?: number | null
           name: string
           phone?: string | null
           postal_code?: string | null
@@ -6812,8 +6816,10 @@ export type Database = {
           email_from_name?: string
           id?: string
           is_default?: boolean
+          latitude?: number | null
           legal_name?: string | null
           logo_url?: string | null
+          longitude?: number | null
           name?: string
           phone?: string | null
           postal_code?: string | null
@@ -7730,6 +7736,9 @@ export type Database = {
           internal_note: string | null
           ip_hash: string | null
           message: string | null
+          notification_error: string | null
+          notification_status: string
+          notified_at: string | null
           offer_snapshot: Json
           origin: string | null
           phone: string | null
@@ -7738,8 +7747,10 @@ export type Database = {
           quote_id: string
           selected_season: string
           selected_tier: string
+          site_choice_method: string | null
           site_id: string | null
           status: string
+          suggested_site_id: string | null
         }
         Insert: {
           consent_at: string
@@ -7752,6 +7763,9 @@ export type Database = {
           internal_note?: string | null
           ip_hash?: string | null
           message?: string | null
+          notification_error?: string | null
+          notification_status?: string
+          notified_at?: string | null
           offer_snapshot: Json
           origin?: string | null
           phone?: string | null
@@ -7760,8 +7774,10 @@ export type Database = {
           quote_id: string
           selected_season: string
           selected_tier: string
+          site_choice_method?: string | null
           site_id?: string | null
           status?: string
+          suggested_site_id?: string | null
         }
         Update: {
           consent_at?: string
@@ -7774,6 +7790,9 @@ export type Database = {
           internal_note?: string | null
           ip_hash?: string | null
           message?: string | null
+          notification_error?: string | null
+          notification_status?: string
+          notified_at?: string | null
           offer_snapshot?: Json
           origin?: string | null
           phone?: string | null
@@ -7782,8 +7801,10 @@ export type Database = {
           quote_id?: string
           selected_season?: string
           selected_tier?: string
+          site_choice_method?: string | null
           site_id?: string | null
           status?: string
+          suggested_site_id?: string | null
         }
         Relationships: [
           {
@@ -7796,6 +7817,13 @@ export type Database = {
           {
             foreignKeyName: "tire_web_appointment_requests_site_id_fkey"
             columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_web_appointment_requests_suggested_site_id_fkey"
+            columns: ["suggested_site_id"]
             isOneToOne: false
             referencedRelation: "sites"
             referencedColumns: ["id"]

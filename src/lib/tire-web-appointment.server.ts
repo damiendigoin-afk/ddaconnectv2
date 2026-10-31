@@ -18,6 +18,8 @@ import {
   type WebQuoteConfig,
 } from "./tire-web-api";
 import { clientIp, err, json, readBounded, sha } from "./tire-web-facade.server";
+import { WEB_SITES } from "./tire-web-sites";
+import { buildFrontOfficeEmail, type FrontOfficeSite } from "./tire-web-notify";
 
 export type StoredQuote = { expires_at: string; cases: WebQuoteCase[] };
 
@@ -26,6 +28,10 @@ export type AppointmentDeps = {
   quotaHit: (bucket: string, windowSeconds: number, limit: number) => Promise<boolean>;
   loadQuote: (id: string) => Promise<StoredQuote | null>;
   insertRequest: (row: Record<string, unknown>) => Promise<string>;
+  /** Garage actif par code interne, avec son adresse d'accueil configurée (sites.contact_email). */
+  loadSite: (code: string) => Promise<FrontOfficeSite | null>;
+  sendEmail: (m: { to: string; subject: string; html: string; replyTo?: string; idempotencyKey: string }) => Promise<{ ok: boolean; error?: string | undefined }>;
+  updateNotification: (id: string, patch: { notification_status: string; notification_error: string | null; notified_at: string | null }) => Promise<void>;
   now: () => Date;
 };
 
@@ -97,6 +103,18 @@ export async function handleAppointmentPost(req: Request, deps: AppointmentDeps)
     return json(503, unavailable(), cors);
   }
 
+  // Garage : uniquement l'un des deux garages publics, actif en base.
+  const pick = (k: string | undefined) => WEB_SITES.find((w) => w.key === k);
+  let site: FrontOfficeSite | null;
+  let suggested: FrontOfficeSite | null = null;
+  try {
+    site = await deps.loadSite(pick(input.site)!.code);
+    if (input.suggestedSite) suggested = await deps.loadSite(pick(input.suggestedSite)!.code);
+  } catch {
+    return json(503, unavailable(), cors);
+  }
+  if (!site) return json(422, { ...err("invalid_site", "Garage indisponible."), fields: ["site"] }, cors);
+
   let quote: StoredQuote | null;
   try {
     quote = await deps.loadQuote(input.quoteId);
@@ -109,8 +127,9 @@ export async function handleAppointmentPost(req: Request, deps: AppointmentDeps)
   if (!offer || offer.status !== "available")
     return json(422, err("offer_unavailable", "Cette proposition n'est pas disponible dans le devis."), cors);
 
+  let id: string;
   try {
-    const id = await deps.insertRequest({
+    id = await deps.insertRequest({
       status: "a_confirmer",
       quote_id: input.quoteId,
       selected_tier: input.tier,
@@ -125,13 +144,51 @@ export async function handleAppointmentPost(req: Request, deps: AppointmentDeps)
       consent_at: now.toISOString(),
       ip_hash: ipHash,
       origin,
-      site_id: cfg.site_id,
+      site_id: site.id,
+      site_choice_method: input.siteChoiceMethod,
+      suggested_site_id: suggested?.id ?? null,
+      notification_status: "pending",
     });
     console.info("[tyres-web] appt_created");
-    return json(201, { requestId: id, ...ACCEPTED }, cors);
   } catch {
     console.warn("[tyres-web] appt_insert_failed");
     return json(500, err("internal_error", "Demande momentanément impossible."), cors);
+  }
+
+  // Notification au front office du garage choisi. La demande est déjà conservée :
+  // un échec n'annule rien, il est tracé pour l'administration (jamais de faux succès).
+  const label = WEB_SITES.find((w) => w.key === input.site)!.label;
+  await notifyFrontOffice(deps, id, site, label, { ...input, offer, createdAt: now });
+  return json(201, { requestId: id, ...ACCEPTED, site: input.site }, cors);
+}
+
+async function notifyFrontOffice(
+  deps: AppointmentDeps,
+  id: string,
+  site: FrontOfficeSite,
+  label: string,
+  data: Parameters<typeof buildFrontOfficeEmail>[0]["request"],
+) {
+  const to = (site.contact_email ?? "").trim();
+  let patch: { notification_status: string; notification_error: string | null; notified_at: string | null };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    patch = { notification_status: "not_configured", notification_error: "Adresse d'accueil du garage non renseignée.", notified_at: null };
+  } else {
+    try {
+      const mail = buildFrontOfficeEmail({ requestId: id, siteLabel: label, request: data });
+      const r = await deps.sendEmail({ to, ...mail, ...(data.email ? { replyTo: data.email } : {}), idempotencyKey: `tyres-appt-${id}` });
+      patch = r.ok
+        ? { notification_status: "sent", notification_error: null, notified_at: deps.now().toISOString() }
+        : { notification_status: "failed", notification_error: (r.error ?? "Envoi refusé").slice(0, 300), notified_at: null };
+    } catch {
+      patch = { notification_status: "failed", notification_error: "Envoi impossible.", notified_at: null };
+    }
+  }
+  console.info(`[tyres-web] appt_notify_${patch.notification_status}`);
+  try {
+    await deps.updateNotification(id, patch);
+  } catch {
+    console.warn("[tyres-web] appt_notify_status_not_saved");
   }
 }
 
@@ -164,6 +221,20 @@ export async function realAppointmentDeps(): Promise<AppointmentDeps> {
       const { data, error } = await db.from("tire_web_appointment_requests").insert(row).select("id").single();
       if (error || !data) throw new Error("insert");
       return data.id as string;
+    },
+    loadSite: async (code) => {
+      const { data, error } = await db.from("sites").select("id, contact_email").eq("code", code).eq("active", true).maybeSingle();
+      if (error) throw new Error("site");
+      return (data ?? null) as FrontOfficeSite | null;
+    },
+    sendEmail: async (m) => {
+      const { sendEmail } = await import("./email.server");
+      const r = await sendEmail(m);
+      return { ok: r.ok, error: r.error };
+    },
+    updateNotification: async (id, patch) => {
+      const { error } = await db.from("tire_web_appointment_requests").update(patch).eq("id", id);
+      if (error) throw new Error("notify");
     },
     now: () => new Date(),
   };
