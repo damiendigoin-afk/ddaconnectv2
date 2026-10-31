@@ -1190,3 +1190,94 @@ export function mountPackageLevel0(
 }
 
 
+
+/* ------------------------------- Top prix --------------------------------- */
+
+/** Une offre explicitement signalée indisponible / non commandable est écartée. */
+export function offerIsOrderable(offer: Pick<TireOffer, "active" | "availability">): boolean {
+  if (!offer.active) return false;
+  const a = (offer.availability ?? "").toLowerCase();
+  return !/indispon|rupture|[ée]puis[ée]|non command|sur commande uniquement|arr[êe]t/.test(a);
+}
+
+/** Rang de disponibilité (plus petit = plus rapide) ; inconnu en dernier. */
+export function availabilityRank(availability: string | null | undefined): number {
+  const a = (availability ?? "").toLowerCase();
+  if (!a) return 9;
+  if (/j\+|48|demain|24 ?h/.test(a)) return 1;
+  if (/stock|disponible j|imm[ée]diat|\bj\b/.test(a)) return 0;
+  return 5;
+}
+
+/**
+ * Gamme d'une offre : celle de la marque paramétrée (tire_brand_tiers) ;
+ * pour une marque non paramétrée, la gamme vérifiée portée par l'offre —
+ * même règle que le repli de buildSevenOffers. Jamais déduite du prix.
+ */
+export function tierOfOffer(brands: BrandTierRow[], offer: Pick<TireOffer, "brand" | "tier">): TireTier | null {
+  const configured = tierOfBrand(brands, offer.brand);
+  if (configured) return configured;
+  const isListed = brands.some((r) => r.brand.trim().toLowerCase() === offer.brand.trim().toLowerCase());
+  if (isListed) return null; // marque paramétrée mais désactivée : pas de gamme
+  return offer.tier === "entree" || offer.tier === "milieu" || offer.tier === "haut" ? offer.tier : null;
+}
+
+/**
+ * « Top prix » : parmi toutes les offres consultées (tous fournisseurs), le pneu
+ * le moins cher de chaque gamme pour la saison demandée, quelle que soit la
+ * marque. Comparaison sur la base HT normalisée (sourceHtOf), mêmes filtres de
+ * conformité que buildSevenOffers ; égalité => disponibilité la plus rapide,
+ * puis ordre déterministe (fournisseur, marque, modèle, id). Chiffrage via
+ * priceOffer/priceTireLine : marge et montage inchangés.
+ */
+export function pickTopPriceOffers(args: {
+  offers: TireOffer[];
+  brands: BrandTierRow[];
+  settings: CommercialSettings | null;
+  quantity: number;
+  season: TireSeason;
+  required: { size: string | null; load: string | null; speed: string | null };
+}): SevenOffer[] {
+  const { offers, brands, settings, quantity, season, required } = args;
+  const reqSize = normalizeTireSize(required.size);
+  const eligible = offers.filter((o) => {
+    const ht = sourceHtOf(o);
+    return (
+      offerIsOrderable(o) &&
+      (!reqSize || (!!o.size && normalizeTireSize(o.size) === reqSize)) &&
+      o.season === season &&
+      Number.isFinite(ht) &&
+      ht > 0 &&
+      offerMeetsRequirement({
+        offerLoad: o.load_index,
+        offerSpeed: o.speed_index,
+        season,
+        is3pmsf: offerIs3pmsf(o),
+        requiredLoad: required.load,
+        requiredSpeed: required.speed,
+      })
+    );
+  });
+  const key = (o: TireOffer) =>
+    [o.supplier_key ?? o.source ?? "", o.brand, o.model, String(o.id)].join("|").toLowerCase();
+  const compare = (a: TireOffer, b: TireOffer) =>
+    sourceHtOf(a) - sourceHtOf(b) ||
+    availabilityRank(a.availability) - availabilityRank(b.availability) ||
+    (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+
+  return (["entree", "milieu", "haut"] as TireTier[]).map((tier) => {
+    const best = eligible.filter((o) => tierOfOffer(brands, o) === tier).sort(compare)[0] ?? null;
+    const base = { slot: `${tier}_${season}`, kind: "gamme" as const, title: `Top prix · ${TIER_LABEL[tier]} · ${SEASON_LABEL[season]}`, tier, season, quantity };
+    if (best) return { ...base, available: true, unavailableReason: "", ...priceOffer(best, quantity, settings, required) };
+    return {
+      ...base,
+      available: false,
+      unavailableReason: "Aucune offre disponible et conforme chez les fournisseurs consultés",
+      brand: null, model: null, size: required.size, loadIndex: required.load, speedIndex: required.speed,
+      unitSourceHt: null, marginHt: null, unitSellHt: null, tiresHt: null, tiresTtc: null,
+      mountLabel: null, mountTtc: null, totalHt: null, totalVat: null, totalTtc: null,
+      availability: null, compatibility: "a_confirmer" as const, compatibilityMessage: "Compatibilité à confirmer",
+      supplier: null, supplierRef: null, consultedAt: null, offerId: null,
+    };
+  });
+}
