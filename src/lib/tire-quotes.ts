@@ -14,6 +14,8 @@ import { fetchDistricashQuoteRows } from "./districash-quote.functions";
 import type { QuoteTireSupplierKey } from "./tires";
 import {
   buildSevenOffers,
+  pickTopPriceOffers,
+  type TireSeason,
   quoteBrandsOf,
   fetchBrandTiers,
   normalizeTireSize,
@@ -137,25 +139,21 @@ export type ManualQuoteResult = {
   warning: string;
 };
 
-/**
- * Chiffrage d'une dimension saisie manuellement.
- * `buildSevenOffers` renvoie l'offre « à l'identique » (ici : la marque
- * demandée) puis les 6 gammes ; les 6 gammes restent toujours affichées.
- */
-export async function quoteManualTires(args: {
+
+type SupplierFetchArgs = {
   size: string;
   load: string | null;
   speed: string | null;
   requestedBrand: string | null;
   quantity: number;
   engine: TireEngineData;
-  /** Fournisseur choisi (défaut : comportement historique CentralePneus + catalogue). */
-  supplier?: QuoteTireSupplierKey;
-  /** Site du devis : identifiants Districash propres au site. */
+  supplier: QuoteTireSupplierKey;
   siteId?: string | null;
-}): Promise<ManualQuoteResult> {
-  const { engine } = args;
-  const supplier = args.supplier ?? "centralepneus";
+};
+
+/** Offres réellement consultées chez UN fournisseur (aucun prix simulé). */
+async function collectSupplierOffers(args: SupplierFetchArgs): Promise<{ offers: TireOffer[]; warning: string }> {
+  const { engine, supplier } = args;
   let warning = "";
   let items: PublicTireItem[] = [];
   let catalog = engine.catalog;
@@ -192,8 +190,74 @@ export async function quoteManualTires(args: {
     }
   }
 
+  return { offers: [...publicItemsToOffers(items, engine.brands), ...catalog], warning };
+}
+
+/**
+ * Mode « Top prix » : interroge tous les fournisseurs intégrés (CentralePneus,
+ * catalogue local, Districash du site) puis retient le moins cher de chaque
+ * gamme pour la saison choisie, marque indifférente.
+ */
+export async function quoteTopPriceTires(args: {
+  size: string;
+  load: string | null;
+  speed: string | null;
+  quantity: number;
+  season: TireSeason;
+  engine: TireEngineData;
+  siteId?: string | null;
+}): Promise<ManualQuoteResult> {
+  const base = { ...args, requestedBrand: null };
+  // CentralePneus inclut déjà le catalogue local : pas de double lecture.
+  const parts = await Promise.all(
+    (["centralepneus", "districash"] as QuoteTireSupplierKey[]).map((supplier) =>
+      collectSupplierOffers({ ...base, supplier }).catch((e) => ({
+        offers: [] as TireOffer[],
+        warning: `${supplier} : ${e instanceof Error ? e.message : "consultation impossible"}`,
+      })),
+    ),
+  );
+  const grid = pickTopPriceOffers({
+    offers: parts.flatMap((p) => p.offers),
+    brands: args.engine.brands,
+    settings: args.engine.settings,
+    quantity: args.quantity,
+    season: args.season,
+    required: { size: args.size, load: args.load, speed: args.speed },
+  });
+  return {
+    size: args.size,
+    quantity: args.quantity,
+    requestedBrand: null,
+    requested: null,
+    grid,
+    warning: parts.map((p) => p.warning).filter(Boolean).join(" "),
+  };
+}
+
+/**
+ * Chiffrage d'une dimension saisie manuellement.
+ * `buildSevenOffers` renvoie l'offre « à l'identique » (ici : la marque
+ * demandée) puis les 6 gammes ; les 6 gammes restent toujours affichées.
+ */
+export async function quoteManualTires(args: {
+  size: string;
+  load: string | null;
+  speed: string | null;
+  requestedBrand: string | null;
+  quantity: number;
+  engine: TireEngineData;
+  /** Fournisseur choisi (défaut : comportement historique CentralePneus + catalogue). */
+  supplier?: QuoteTireSupplierKey;
+  /** Site du devis : identifiants Districash propres au site. */
+  siteId?: string | null;
+}): Promise<ManualQuoteResult> {
+  const { engine } = args;
+  const supplier = args.supplier ?? "centralepneus";
+  const { offers: consulted, warning } = await collectSupplierOffers({ ...args, supplier });
+
   const offers = buildSevenOffers({
-    offers: [...publicItemsToOffers(items, engine.brands), ...catalog],
+    offers: consulted,
     brands: engine.brands,
     packages: engine.packages,
     settings: engine.settings,
