@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { IxellioVehicleLookup } from "@/components/IxellioVehicleLookup";
 import { UniversalSearch } from "@/components/UniversalSearch";
 import { useAuth } from "@/lib/auth";
 import { fetchMissingReports, periodLabel } from "@/lib/stats";
@@ -125,7 +126,32 @@ function Hub() {
       <main className="mx-auto max-w-4xl space-y-3 px-4 py-5">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <UniversalSearch />
+            <UniversalSearch
+              renderUnknownPlate={(plate) => (
+                <IxellioVehicleLookup
+                  key={plate}
+                  plate={plate}
+                  variant="home"
+                  renderSaved={(vehicleId) => (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {can("tour") ? (
+                        <Link to="/tour-vehicule" search={{ vehicle_id: vehicleId }} className="rounded-lg bg-brand px-3 py-3 text-center text-xs font-extrabold uppercase text-brand-foreground">
+                          Tour véhicule
+                        </Link>
+                      ) : null}
+                      {can("tour") ? (
+                        <Link to="/or/nouveau" search={{ plate }} className="rounded-lg border-2 border-border px-3 py-3 text-center text-xs font-extrabold uppercase">
+                          Intervention / OR
+                        </Link>
+                      ) : null}
+                      <Link to="/vehicule/$vehId" params={{ vehId: vehicleId }} className="rounded-lg border-2 border-border px-3 py-3 text-center text-xs font-extrabold uppercase">
+                        Fiche véhicule
+                      </Link>
+                    </div>
+                  )}
+                />
+              )}
+            />
           </div>
           {can("tour") ? (
             <Link
