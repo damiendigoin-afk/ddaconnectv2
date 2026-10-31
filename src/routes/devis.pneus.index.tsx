@@ -325,6 +325,7 @@ function TireQuotePage() {
                   {s.shortLabel}
                 </option>
               ))}
+              <option value={TOP_PRICE_OPTION}>Top prix</option>
             </select>
           </label>
 
