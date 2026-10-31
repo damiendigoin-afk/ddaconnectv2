@@ -196,7 +196,8 @@ export function TireWebQuoteSettings() {
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground sm:col-span-3">
           Origines autorisées (une par ligne)
-          <input
+          <textarea
+            rows={2}
             value={origin}
             onChange={(e) => { setOrigin(e.target.value); setDirty(true); }}
             disabled={!loaded || saving}
