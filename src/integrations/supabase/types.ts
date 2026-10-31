@@ -7718,29 +7718,56 @@ export type Database = {
           },
         ]
       }
+      tire_web_quote_quota: {
+        Row: {
+          bucket: string
+          hits: number
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          hits?: number
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          hits?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       tire_web_quote_settings: {
         Row: {
+          allowed_origin: string | null
           created_at: string
           enabled: boolean
           id: boolean
+          quota_global_per_hour: number
+          quota_ip_per_10min: number
           site_id: string | null
           updated_at: string
           updated_by: string | null
           web_supplier: string | null
         }
         Insert: {
+          allowed_origin?: string | null
           created_at?: string
           enabled?: boolean
           id?: boolean
+          quota_global_per_hour?: number
+          quota_ip_per_10min?: number
           site_id?: string | null
           updated_at?: string
           updated_by?: string | null
           web_supplier?: string | null
         }
         Update: {
+          allowed_origin?: string | null
           created_at?: string
           enabled?: boolean
           id?: boolean
+          quota_global_per_hour?: number
+          quota_ip_per_10min?: number
           site_id?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -9669,6 +9696,10 @@ export type Database = {
       sync_part_order_or: {
         Args: { _order: string; _user_name?: string }
         Returns: Json
+      }
+      tire_web_quota_hit: {
+        Args: { p_bucket: string; p_limit: number; p_window_seconds: number }
+        Returns: boolean
       }
       unaccent: { Args: { "": string }; Returns: string }
       update_part_order: {
