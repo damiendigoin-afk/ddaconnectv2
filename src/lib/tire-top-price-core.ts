@@ -163,7 +163,10 @@ export async function runTopPrice(
   });
 
   const warnings = [ete.warning, qs.warning, leg.warning, dist.warning].filter(Boolean);
-  const unclassified = unclassifiedBrands(offers.map((o) => ({ brand: o.brand, tier: o.tier })));
+  const unclassified = unclassifiedBrands(
+    offers.map((o) => ({ brand: o.brand, tier: o.tier })),
+    Object.fromEntries(engine.brands.map((r) => [r.brand.trim().toLowerCase(), tierOfBrand(engine.brands, r.brand)])),
+  );
   if (unclassified.length) warnings.push(`Top prix — marques non classées (exclues) : ${unclassified.join(", ")}.`);
   const requested =
     args.requestedBrand && identical ? { ...identical, title: `Marque demandée : ${args.requestedBrand}` } : null;
