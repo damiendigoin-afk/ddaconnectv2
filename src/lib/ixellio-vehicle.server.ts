@@ -12,6 +12,7 @@ const RAW_KEYS = [
   "ptac",
   "masseVide",
   "co2",
+  "co2Cycle",
   "cylindree",
 ] as const;
 
