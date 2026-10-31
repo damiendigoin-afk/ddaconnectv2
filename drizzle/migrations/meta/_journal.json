@@ -435,6 +435,13 @@
       "when": 1793263894051,
       "tag": "0061_expense_delivery_audit_and_manual_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793451247170,
+      "tag": "0062_tire_web_quote_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -7718,6 +7718,44 @@ export type Database = {
           },
         ]
       }
+      tire_web_quote_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: boolean
+          site_id: string | null
+          updated_at: string
+          updated_by: string | null
+          web_supplier: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: boolean
+          site_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          web_supplier?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: boolean
+          site_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          web_supplier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_web_quote_settings_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tour_notification_recipients: {
         Row: {
           active: boolean
