@@ -7718,6 +7718,90 @@ export type Database = {
           },
         ]
       }
+      tire_web_appointment_requests: {
+        Row: {
+          consent_at: string
+          created_at: string
+          customer_name: string
+          email: string | null
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          internal_note: string | null
+          ip_hash: string | null
+          message: string | null
+          offer_snapshot: Json
+          origin: string | null
+          phone: string | null
+          plate: string | null
+          preferred_slots: Json
+          quote_id: string
+          selected_season: string
+          selected_tier: string
+          site_id: string | null
+          status: string
+        }
+        Insert: {
+          consent_at: string
+          created_at?: string
+          customer_name: string
+          email?: string | null
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          internal_note?: string | null
+          ip_hash?: string | null
+          message?: string | null
+          offer_snapshot: Json
+          origin?: string | null
+          phone?: string | null
+          plate?: string | null
+          preferred_slots?: Json
+          quote_id: string
+          selected_season: string
+          selected_tier: string
+          site_id?: string | null
+          status?: string
+        }
+        Update: {
+          consent_at?: string
+          created_at?: string
+          customer_name?: string
+          email?: string | null
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          internal_note?: string | null
+          ip_hash?: string | null
+          message?: string | null
+          offer_snapshot?: Json
+          origin?: string | null
+          phone?: string | null
+          plate?: string | null
+          preferred_slots?: Json
+          quote_id?: string
+          selected_season?: string
+          selected_tier?: string
+          site_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tire_web_appointment_requests_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "tire_web_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tire_web_appointment_requests_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tire_web_quote_quota: {
         Row: {
           bucket: string
@@ -7739,6 +7823,7 @@ export type Database = {
       tire_web_quote_settings: {
         Row: {
           allowed_origin: string | null
+          allowed_origins: string[]
           created_at: string
           enabled: boolean
           id: boolean
@@ -7751,6 +7836,7 @@ export type Database = {
         }
         Insert: {
           allowed_origin?: string | null
+          allowed_origins?: string[]
           created_at?: string
           enabled?: boolean
           id?: boolean
@@ -7763,6 +7849,7 @@ export type Database = {
         }
         Update: {
           allowed_origin?: string | null
+          allowed_origins?: string[]
           created_at?: string
           enabled?: boolean
           id?: boolean
@@ -7782,6 +7869,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tire_web_quotes: {
+        Row: {
+          cases: Json
+          created_at: string
+          expires_at: string
+          id: string
+          request: Json
+        }
+        Insert: {
+          cases: Json
+          created_at?: string
+          expires_at: string
+          id: string
+          request: Json
+        }
+        Update: {
+          cases?: Json
+          created_at?: string
+          expires_at?: string
+          id?: string
+          request?: Json
+        }
+        Relationships: []
       }
       tour_notification_recipients: {
         Row: {
