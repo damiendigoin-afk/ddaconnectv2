@@ -461,7 +461,7 @@ describe("V10 PDF — mise en page", () => {
     const long = {
       ...base, preview: true,
       customer: { name: "N".repeat(100), email: `${"e".repeat(243)}@exemple.fr`, phone: "0600" },
-      offer: { ...offer, model: "M".repeat(300), includedServices: Array.from({ length: 60 }, (_, k) => ({ code: `s${k}`, label: `Prestation fournisseur très longue numéro ${k}` })), compatibilityMessage: "C ".repeat(400) },
+      offer: { ...offer, model: "M".repeat(300), includedServices: Array.from({ length: 60 }, (_, k) => ({ code: "montage" as const, label: `Prestation fournisseur très longue numéro ${k}` })), compatibilityMessage: "C ".repeat(400) },
     };
     const L: PdfLayoutItem[] = [];
     const b = await buildCommercialPdf(long, { renault: null }, L);
