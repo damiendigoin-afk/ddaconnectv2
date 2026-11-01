@@ -24,6 +24,10 @@ import {
   deliveryOverall,
   eurCents,
   eventsBatch,
+  FRONT_OFFICE_RECIPIENTS,
+  REQUEST_STALE_MS,
+  fetchAllPages,
+  loadBelowRequested,
   formatParisDate,
   normalizeEvents,
   parisParts,
@@ -52,8 +56,12 @@ export type GateDeps = {
   now: () => Date;
 };
 
+export type PrevRequest = {
+  payload_hash: string; response_status: number | null; response_body: unknown;
+  delivery_status?: string | null; created_at?: string | null; reference?: string | null;
+};
 export type CommercialDeps = GateDeps & {
-  findRequest: (requestId: string) => Promise<{ payload_hash: string; response_status: number | null; response_body: unknown } | null>;
+  findRequest: (requestId: string) => Promise<PrevRequest | null>;
   loadQuote: (id: string) => Promise<StoredQuoteV10 | null>;
   /** Recalcul frais du devis (même moteur, sans cache). */
   revalidate: (input: WebQuoteInput, siteId: string) => Promise<{ status: number; body: unknown }>;
@@ -185,6 +193,7 @@ export async function handleCommercialPreview(req: Request, deps: CommercialDeps
     return json(409, err("quote_expired", "Devis expiré : relancez une recherche."), g.cors);
   const offer = quote.cases.find((c) => c.tier === i.tier && c.season === i.season);
   if (!offer || offer.status !== "available") return json(422, err("offer_unavailable", "Proposition indisponible."), g.cors);
+  if (loadBelowRequested(offer.loadIndex, quote.request.loadIndex)) return json(422, loadErr(), g.cors);
   const pdf = await buildCommercialPdf(
     {
       reference: "APERCU", issuedAt: now, validUntil: validUntil(now), preview: true,
@@ -199,6 +208,8 @@ export async function handleCommercialPreview(req: Request, deps: CommercialDeps
 }
 
 /* ---------------------------- commercial-requests ---------------------------- */
+
+const loadErr = () => err("offer_load_insufficient", "Indice de charge de l'offre inférieur à celui demandé : proposition refusée.");
 
 function b64(bytes: Uint8Array): string {
   let s = "";
@@ -240,7 +251,7 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
   // 1. Idempotence : même requestId => réponse rejouée, jamais de second envoi.
   try {
     const prev = await deps.findRequest(i.requestId);
-    if (prev) return replay(prev, hash, cors);
+    if (prev) return replay(prev, hash, cors, deps.now());
   } catch {
     return json(503, unavailable(), cors);
   }
@@ -267,6 +278,7 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
   if (!site) return json(422, { ...err("invalid_site", "Garage indisponible."), fields: ["site"] }, cors);
   const accepted = quote.cases.find((c) => c.tier === i.tier && c.season === i.season);
   if (!accepted || accepted.status !== "available") return json(422, err("offer_unavailable", "Proposition indisponible."), cors);
+  if (loadBelowRequested(accepted.loadIndex, quote.request.loadIndex)) return json(422, loadErr(), cors);
 
   // 3. Google (facultatif) : vérifié serveur ; aucun droit accordé.
   let googleVerified = false;
@@ -289,6 +301,8 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
     return json(503, err("revalidation_unavailable", "Vérification du prix impossible pour le moment. Réessayez."), cors);
   const freshBody = fresh.body as WebQuoteResponse;
   const freshCase = freshBody.cases.find((c) => c.tier === i.tier && c.season === i.season);
+  // Contrôle de charge sur l'offre FRAÎCHE, avant tout enregistrement.
+  if (freshCase && freshCase.status === "available" && loadBelowRequested(freshCase.loadIndex, q.loadIndex)) return json(422, loadErr(), cors);
   const cmp = compareOffers(accepted, freshCase);
   if (!cmp.same)
     return json(
@@ -322,7 +336,7 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
   }
   if (!claimed) {
     const prev = await deps.findRequest(i.requestId).catch(() => null);
-    return prev ? replay(prev, hash, cors) : json(409, err("request_in_progress", "Demande déjà en cours."), cors);
+    return prev ? replay(prev, hash, cors, deps.now()) : json(409, err("request_in_progress", "Demande déjà en cours."), cors);
   }
 
   // 6. PDF archivé privé. Échec => enregistré, aucun e-mail.
@@ -341,9 +355,22 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
   let fo: ChannelStatus = "not_sent";
   let deliveryError: string | null = null;
   const sender = senderFor(i.site, deps.verifiedDomains());
+  // Destinataire FO validé uniquement ; sites.contact_email divergent => signalé, jamais utilisé.
+  const foTo = FRONT_OFFICE_RECIPIENTS[i.site];
+  const siteMail = (site.contact_email ?? "").trim().toLowerCase();
+  const foMismatch = siteMail !== "" && siteMail !== foTo;
+  if (foMismatch) console.warn("[tyres-v10] fo_recipient_mismatch", i.site);
   if (!pdf) deliveryError = "pdf_failed";
   else if (!sender.ok) deliveryError = "sender_not_verified";
   else {
+    // Marque « envoi en cours » AVANT tout e-mail : si cette écriture échoue, aucun envoi (pas d'état inconnu).
+    try {
+      await deps.updateRequest(i.requestId, { pdf_path: pdfPath, delivery_status: "sending", emails_attempted_at: now.toISOString(), fo_recipient: foTo });
+    } catch {
+      deliveryError = "status_not_saved";
+    }
+  }
+  if (!deliveryError && pdf && sender.ok) {
     const mails = buildCommercialEmails({ reference, site: i.site, offer: accepted, validUntil: until, name: i.name, email: i.email, phone: i.phone, message: i.message });
     const att = [{ filename: `devis-pneus-${reference}.pdf`, content: b64(pdf) }];
     const send = async (m: Mail): Promise<ChannelStatus> => {
@@ -354,10 +381,7 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
       }
     };
     client = await send({ from: sender.from, to: i.email, ...mails.client, replyTo: SITE_SENDERS[i.site].address, idempotencyKey: `tyres-v10-client-${i.requestId}`, attachments: att });
-    const foTo = (site.contact_email ?? "").trim();
-    fo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(foTo)
-      ? await send({ from: sender.from, to: foTo, ...mails.frontOffice, replyTo: i.email, idempotencyKey: `tyres-v10-fo-${i.requestId}`, attachments: att })
-      : "not_configured";
+    fo = await send({ from: sender.from, to: foTo, ...mails.frontOffice, replyTo: i.email, idempotencyKey: `tyres-v10-fo-${i.requestId}`, attachments: att });
   }
   const overall = deliveryOverall(client, fo);
   const responseBody = {
@@ -367,20 +391,28 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
     prospectStatus: "nouveau",
     validUntil: until.toISOString(),
     totalTtcCents: accepted.totalTtcCents,
-    delivery: { overall, client, frontOffice: fo, reason: deliveryError },
+    delivery: { overall, client, frontOffice: fo, reason: deliveryError, frontOfficeRecipientMismatch: foMismatch },
     message:
       overall === "delivered"
-        ? "Demande enregistrée. Votre devis vous a été envoyé par e-mail."
+        ? "Demande enregistrée. Votre devis a été transmis au service d'envoi d'e-mails."
         : "Demande enregistrée. L'envoi du devis par e-mail n'a pas pu être confirmé : le garage vous recontactera.",
   };
-  try {
-    await deps.updateRequest(i.requestId, {
-      pdf_path: pdf ? pdfPath : null, delivery_status: overall, client_email_status: client, fo_email_status: fo,
-      delivery_error: deliveryError, response_status: 201, response_body: responseBody,
-    });
-  } catch {
-    console.warn("[tyres-v10] request_status_not_saved");
+  const finalPatch = {
+    pdf_path: pdf ? pdfPath : null, delivery_status: overall, client_email_status: client, fo_email_status: fo,
+    delivery_error: deliveryError, fo_recipient: foTo, response_status: 201, response_body: responseBody,
+  };
+  // Écriture finale : 3 tentatives. Échec persistant => la ligne reste « sending »/« pending » ;
+  // un rejeu renverra 202 « statut inconnu » SANS renvoi (reprise administrative, voir contrat).
+  let saved = false;
+  for (let k = 0; k < 3 && !saved; k++) {
+    try {
+      await deps.updateRequest(i.requestId, finalPatch);
+      saved = true;
+    } catch {
+      /* réessai */
+    }
   }
+  if (!saved) console.warn("[tyres-v10] request_final_status_not_saved");
   const pp = parisParts(now);
   await deps
     .recordServerEvent({
@@ -392,9 +424,19 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
   return json(201, responseBody, cors);
 }
 
-function replay(prev: { payload_hash: string; response_status: number | null; response_body: unknown }, hash: string, cors: Record<string, string>) {
+function replay(prev: PrevRequest, hash: string, cors: Record<string, string>, now: Date = new Date()) {
   if (prev.payload_hash !== hash) return json(409, err("idempotency_conflict", "Identifiant de demande déjà utilisé pour un autre contenu."), cors);
-  if (!prev.response_body) return json(409, err("request_in_progress", "Demande déjà en cours."), cors);
+  if (!prev.response_body) {
+    const age = prev.created_at ? now.getTime() - new Date(prev.created_at).getTime() : 0;
+    if (prev.delivery_status === "sending" || age > REQUEST_STALE_MS)
+      // Enregistrée, issue d'envoi inconnue : jamais de renvoi automatique.
+      return json(202, {
+        status: "recorded", reference: prev.reference ?? null,
+        delivery: { overall: "unknown", client: "unknown", frontOffice: "unknown", reason: "status_unknown" },
+        message: "Demande enregistrée. L'envoi du devis par e-mail n'est pas confirmé : le garage vous recontactera.",
+      }, cors, { "Idempotent-Replay": "true" });
+    return json(409, err("request_in_progress", "Demande déjà en cours."), cors);
+  }
   return json(prev.response_status ?? 201, prev.response_body, cors, { "Idempotent-Replay": "true" });
 }
 
@@ -404,8 +446,9 @@ export type ReportDeps = {
   v10Enabled: () => boolean;
   secret: () => string | null;
   now: () => Date;
-  loadPeriod: (start: Date, end: Date) => Promise<{ events: EventRow[]; requests: RequestLite[]; pending: RequestLite[] }>;
-  claimReport: (reportDate: string) => Promise<boolean>;
+  loadPeriod: (start: Date, end: Date) => Promise<{ events: EventRow[]; requests: RequestLite[]; pending: RequestLite[]; truncated?: boolean }>;
+  /** Prise atomique : nouvelle date, échec confirmé ou « running » abandonné. null => déjà envoyé / en cours. */
+  claimReport: (reportDate: string) => Promise<{ sendKey: string } | null>;
   finishReport: (reportDate: string, patch: { status: "sent" | "failed"; error: string | null }) => Promise<void>;
   sendEmail: (m: Omit<Mail, "attachments" | "replyTo">) => Promise<{ ok: boolean; error?: string | undefined }>;
   verifiedDomains: () => string[];
@@ -418,14 +461,14 @@ function safeEqual(a: string, b: string): boolean {
   return r === 0;
 }
 
-export function buildDailyReportHtml(date: string, agg: ReturnType<typeof aggregateTraffic>, pending: RequestLite[]): string {
+export function buildDailyReportHtml(date: string, agg: ReturnType<typeof aggregateTraffic>, pending: RequestLite[], truncated = false): string {
   const row = (k: string, v: string | number) => `<tr><td>${esc(k)}</td><td><strong>${esc(String(v))}</strong></td></tr>`;
   const pct = (x: number) => `${Math.round(x * 100)} %`;
   return `<h2>DDA Pneus — rapport du ${esc(date)}</h2><table>
 ${row("Pages vues", agg.totals.pageViews)}${row("Sessions démarrées", agg.totals.sessionStarts)}${row("Devis générés", agg.totals.quotes)}${row("Offres choisies", agg.totals.offerSelected)}
 ${row("Nouvelles demandes", agg.totals.requests)}${row("Demandes Castillon", agg.requestsBySite['castillon'] ?? 0)}${row("Demandes Lalinde", agg.requestsBySite['lalinde'] ?? 0)}
 ${row("Prospects à traiter (nouveau / à contacter)", pending.length)}${row("Couverture du consentement", pct(agg.consentCoverage.ratio))}</table>
-<p>Visiteurs distincts comptés uniquement parmi les visiteurs ayant consenti : ce n'est pas le total des visiteurs.</p>`;
+<p>Couverture = part des événements reçus avec consentement ; ce n'est pas une proportion des visiteurs totaux (les visiteurs sans consentement ou bloquant la mesure ne sont pas tous comptés). Visiteurs distincts comptés uniquement parmi les consentants.</p>${truncated ? "<p><strong>Attention : volume supérieur au plafond de lecture, chiffres incomplets.</strong></p>" : ""}`;
 }
 
 export async function handleDailyReport(req: Request, deps: ReportDeps): Promise<Response> {
@@ -439,13 +482,19 @@ export async function handleDailyReport(req: Request, deps: ReportDeps): Promise
   if (!w.shouldRun && !force) return json(200, { skipped: "not_7am_paris", reportDate: w.reportDate });
   const from = senderFor("castillon", deps.verifiedDomains());
   if (!from.ok) return json(503, err("sender_not_verified", "Expéditeur non vérifié."));
-  if (!(await deps.claimReport(w.reportDate))) return json(200, { skipped: "already_done", reportDate: w.reportDate });
+  let claim: { sendKey: string } | null;
+  try {
+    claim = await deps.claimReport(w.reportDate);
+  } catch {
+    return json(503, unavailable());
+  }
+  if (!claim) return json(200, { skipped: "already_done", reportDate: w.reportDate });
   try {
     const d = await deps.loadPeriod(w.start, w.end);
     const agg = aggregateTraffic(d.events, d.requests);
     const r = await deps.sendEmail({
       from: from.from, to: REPORT_RECIPIENT, subject: `DDA Pneus — rapport du ${w.reportDate}`,
-      html: buildDailyReportHtml(w.reportDate, agg, d.pending), idempotencyKey: dailyReportIdempotencyKey(w.reportDate),
+      html: buildDailyReportHtml(w.reportDate, agg, d.pending, !!d.truncated), idempotencyKey: claim.sendKey,
     });
     await deps.finishReport(w.reportDate, r.ok ? { status: "sent", error: null } : { status: "failed", error: (r.error ?? "refus").slice(0, 300) });
     return json(r.ok ? 200 : 502, { reportDate: w.reportDate, sent: r.ok });
@@ -476,7 +525,7 @@ export async function realV10Deps(req: Request): Promise<CommercialDeps & Report
     now: () => new Date(),
     ipHash: async (r) => sha(`${new Date().toISOString().slice(0, 10)}|${clientIp(r)}`),
     findRequest: async (id) => {
-      const { data, error } = await db.from("tyre_commercial_requests").select("payload_hash, response_status, response_body").eq("request_id", id).maybeSingle();
+      const { data, error } = await db.from("tyre_commercial_requests").select("payload_hash, response_status, response_body, delivery_status, created_at, reference").eq("request_id", id).maybeSingle();
       if (error) throw new Error("find");
       return data ?? null;
     },
@@ -534,18 +583,36 @@ export async function realV10Deps(req: Request): Promise<CommercialDeps & Report
     },
     secret: () => env("TYRES_REPORT_SECRET"),
     loadPeriod: async (start, end) => {
+      const cols = "created_at, site_key, prospect_status, delivery_status";
       const [e, r, p] = await Promise.all([
-        db.from("tyre_web_events").select("*").gte("occurred_at", start.toISOString()).lt("occurred_at", end.toISOString()).limit(20000),
-        db.from("tyre_commercial_requests").select("created_at, site_key, prospect_status, delivery_status").gte("created_at", start.toISOString()).lt("created_at", end.toISOString()),
-        db.from("tyre_commercial_requests").select("created_at, site_key, prospect_status, delivery_status").in("prospect_status", ["nouveau", "a_contacter"]),
+        fetchAllPages<EventRow>((a, b) => db.from("tyre_web_events").select("*").gte("occurred_at", start.toISOString()).lt("occurred_at", end.toISOString()).order("occurred_at").order("event_id").range(a, b)),
+        fetchAllPages<RequestLite>((a, b) => db.from("tyre_commercial_requests").select(cols).gte("created_at", start.toISOString()).lt("created_at", end.toISOString()).order("created_at").order("request_id").range(a, b)),
+        fetchAllPages<RequestLite>((a, b) => db.from("tyre_commercial_requests").select(cols).in("prospect_status", ["nouveau", "a_contacter"]).order("created_at").order("request_id").range(a, b)),
       ]);
-      if (e.error || r.error || p.error) throw new Error("period");
-      return { events: e.data ?? [], requests: r.data ?? [], pending: p.data ?? [] };
+      return { events: e.rows, requests: r.rows, pending: p.rows, truncated: e.truncated || r.truncated || p.truncated };
     },
     claimReport: async (date) => {
-      const { data, error } = await db.from("tyre_daily_reports").upsert({ report_date: date, status: "running" }, { onConflict: "report_date", ignoreDuplicates: true }).select("report_date");
-      if (error) throw new Error("claim");
-      return Array.isArray(data) && data.length === 1;
+      const { reportSendKey, REPORT_STALE_MS } = await import("./tire-v10");
+      const startedAt = new Date().toISOString();
+      const firstKey = reportSendKey(date, "none", 1, null);
+      const ins = await db.from("tyre_daily_reports")
+        .upsert({ report_date: date, status: "running", attempts: 1, send_key: firstKey, started_at: startedAt }, { onConflict: "report_date", ignoreDuplicates: true })
+        .select("report_date");
+      if (ins.error) throw new Error("claim");
+      if (Array.isArray(ins.data) && ins.data.length === 1) return { sendKey: firstKey };
+      const cur = await db.from("tyre_daily_reports").select("status, attempts, send_key, started_at").eq("report_date", date).maybeSingle();
+      if (cur.error || !cur.data) throw new Error("claim");
+      const row = cur.data as { status: string; attempts: number; send_key: string | null; started_at: string | null };
+      const stale = row.status === "running" && (!row.started_at || Date.now() - new Date(row.started_at).getTime() > REPORT_STALE_MS);
+      if (row.status !== "failed" && !stale) return null; // envoyé ou en cours
+      const attempt = row.attempts + 1;
+      const sendKey = reportSendKey(date, row.status === "failed" ? "failed" : "stale", attempt, row.send_key);
+      // Mise à jour optimiste (même status/attempts) : une seule reprise gagne.
+      const upd = await db.from("tyre_daily_reports")
+        .update({ status: "running", attempts: attempt, send_key: sendKey, started_at: startedAt, error: null, finished_at: null })
+        .eq("report_date", date).eq("status", row.status).eq("attempts", row.attempts).select("report_date");
+      if (upd.error) throw new Error("claim");
+      return Array.isArray(upd.data) && upd.data.length === 1 ? { sendKey } : null;
     },
     finishReport: async (date, patch) => {
       await db.from("tyre_daily_reports").update({ ...patch, finished_at: new Date().toISOString() }).eq("report_date", date);
