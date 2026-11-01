@@ -23,6 +23,7 @@ import {
   deliveryOverall,
   eurCents,
   eventsBatch,
+  enrichFromQuote,
   FRONT_OFFICE_RECIPIENTS,
   REQUEST_STALE_MS,
   fetchAllPages,
@@ -143,7 +144,15 @@ export async function handlePublicConfig(req: Request, deps: GateDeps & { google
 
 /* ---------------------------------- events ---------------------------------- */
 
-export async function handleEvents(req: Request, deps: GateDeps & { insertEvents: (rows: EventRow[]) => Promise<number>; ipHash: (r: Request) => Promise<string> }): Promise<Response> {
+export async function handleEvents(
+  req: Request,
+  deps: GateDeps & {
+    insertEvents: (rows: EventRow[]) => Promise<number>;
+    ipHash: (r: Request) => Promise<string>;
+    /** Lecture du devis conservé (jamais le moteur de prix) ; facultative, échec = pas d'enrichissement. */
+    loadQuote?: (id: string) => Promise<StoredQuoteV10 | null>;
+  },
+): Promise<Response> {
   const g = await gate(req, deps, { requireQuotes: false });
   if ("stop" in g) return g.stop as Response;
   const body = await readJson(req, EVENTS_MAX_BODY_BYTES, g.cors);
@@ -156,13 +165,26 @@ export async function handleEvents(req: Request, deps: GateDeps & { insertEvents
   } catch {
     return json(503, unavailable(), g.cors);
   }
-  const rows = normalizeEvents(parsed.data, deps.now());
+  const rows = await enrichRows(normalizeEvents(parsed.data, deps.now()), deps.loadQuote);
   try {
     const inserted = await deps.insertEvents(rows);
     return json(202, { accepted: rows.length, inserted, duplicates: rows.length - inserted }, g.cors);
   } catch {
     return json(503, unavailable(), g.cors);
   }
+}
+
+/** Enrichissement borné (≤ 5 devis distincts, 1,5 s) : n'empêche jamais l'enregistrement des événements. */
+async function enrichRows(rows: EventRow[], loadQuote?: (id: string) => Promise<StoredQuoteV10 | null>): Promise<EventRow[]> {
+  if (!loadQuote) return rows;
+  const ids = [...new Set(rows.map((r) => r.quote_id).filter(Boolean) as string[])].slice(0, 5);
+  const quotes = new Map<string, StoredQuoteV10 | null>();
+  const timeout = new Promise<void>((res) => setTimeout(res, 1500));
+  await Promise.race([
+    Promise.all(ids.map(async (id) => quotes.set(id, await loadQuote(id).catch(() => null)))),
+    timeout,
+  ]);
+  return rows.map((r) => enrichFromQuote(r, r.quote_id ? quotes.get(r.quote_id) ?? null : null));
 }
 
 /* ---------------------------- commercial-preview ---------------------------- */
@@ -415,7 +437,10 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
   const pp = parisParts(now);
   await deps
     .recordServerEvent({
-      event_id: crypto.randomUUID(), type: "request_submitted", occurred_at: now.toISOString(), consent: false, visitor_id: null, session_id: null,
+      event_id: crypto.randomUUID(), type: "request_submitted", occurred_at: now.toISOString(),
+      // Corrélation pseudonyme uniquement si le visiteur a consenti (contexte analytics facultatif).
+      consent: !!i.analytics, visitor_id: i.analytics?.visitorId ?? null, session_id: i.analytics?.sessionId ?? null,
+      quote_id: i.quoteId, offer_brand: accepted.brand ?? null, offer_verified: true,
       page: null, device: null, utm_source: null, utm_medium: null, utm_campaign: null, size: q.size, quantity: q.quantity,
       tier: i.tier, season: i.season, site_key: i.site, paris_day: pp.day, paris_hour: pp.hour, paris_weekday: pp.weekday,
     })
