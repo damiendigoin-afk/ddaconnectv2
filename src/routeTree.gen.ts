@@ -108,6 +108,11 @@ import { Route as ApiPublicEmailsIngestRouteImport } from './routes/api/public/e
 import { Route as ApiPublicGmailCallbackRouteImport } from './routes/api/public/gmail/callback'
 import { Route as ApiPublicHooksGmailSyncRouteImport } from './routes/api/public/hooks/gmail-sync'
 import { Route as ApiPublicTyresAppointmentRequestsRouteImport } from './routes/api/public/tyres/appointment-requests'
+import { Route as ApiPublicTyresCommercialPreviewRouteImport } from './routes/api/public/tyres/commercial-preview'
+import { Route as ApiPublicTyresCommercialRequestsRouteImport } from './routes/api/public/tyres/commercial-requests'
+import { Route as ApiPublicTyresDailyReportRouteImport } from './routes/api/public/tyres/daily-report'
+import { Route as ApiPublicTyresEventsRouteImport } from './routes/api/public/tyres/events'
+import { Route as ApiPublicTyresPublicConfigRouteImport } from './routes/api/public/tyres/public-config'
 import { Route as ApiPublicTyresQuotesRouteImport } from './routes/api/public/tyres/quotes'
 import { Route as ApiPublicTyresSiteSuggestionRouteImport } from './routes/api/public/tyres/site-suggestion'
 import { Route as DevisPneusQuoteIdPdfRouteImport } from './routes/devis.pneus.$quoteId.pdf'
@@ -617,6 +622,35 @@ const ApiPublicTyresAppointmentRequestsRoute =
     path: '/api/public/tyres/appointment-requests',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicTyresCommercialPreviewRoute =
+  ApiPublicTyresCommercialPreviewRouteImport.update({
+    id: '/api/public/tyres/commercial-preview',
+    path: '/api/public/tyres/commercial-preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTyresCommercialRequestsRoute =
+  ApiPublicTyresCommercialRequestsRouteImport.update({
+    id: '/api/public/tyres/commercial-requests',
+    path: '/api/public/tyres/commercial-requests',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTyresDailyReportRoute =
+  ApiPublicTyresDailyReportRouteImport.update({
+    id: '/api/public/tyres/daily-report',
+    path: '/api/public/tyres/daily-report',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTyresEventsRoute = ApiPublicTyresEventsRouteImport.update({
+  id: '/api/public/tyres/events',
+  path: '/api/public/tyres/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicTyresPublicConfigRoute =
+  ApiPublicTyresPublicConfigRouteImport.update({
+    id: '/api/public/tyres/public-config',
+    path: '/api/public/tyres/public-config',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicTyresQuotesRoute = ApiPublicTyresQuotesRouteImport.update({
   id: '/api/public/tyres/quotes',
   path: '/api/public/tyres/quotes',
@@ -734,6 +768,11 @@ export interface FileRoutesByFullPath {
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
+  '/api/public/tyres/commercial-preview': typeof ApiPublicTyresCommercialPreviewRoute
+  '/api/public/tyres/commercial-requests': typeof ApiPublicTyresCommercialRequestsRoute
+  '/api/public/tyres/daily-report': typeof ApiPublicTyresDailyReportRoute
+  '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
+  '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
@@ -837,6 +876,11 @@ export interface FileRoutesByTo {
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
+  '/api/public/tyres/commercial-preview': typeof ApiPublicTyresCommercialPreviewRoute
+  '/api/public/tyres/commercial-requests': typeof ApiPublicTyresCommercialRequestsRoute
+  '/api/public/tyres/daily-report': typeof ApiPublicTyresDailyReportRoute
+  '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
+  '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
@@ -942,6 +986,11 @@ export interface FileRoutesById {
   '/api/public/gmail/callback': typeof ApiPublicGmailCallbackRoute
   '/api/public/hooks/gmail-sync': typeof ApiPublicHooksGmailSyncRoute
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
+  '/api/public/tyres/commercial-preview': typeof ApiPublicTyresCommercialPreviewRoute
+  '/api/public/tyres/commercial-requests': typeof ApiPublicTyresCommercialRequestsRoute
+  '/api/public/tyres/daily-report': typeof ApiPublicTyresDailyReportRoute
+  '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
+  '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
   '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
@@ -1048,6 +1097,11 @@ export interface FileRouteTypes {
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
     | '/api/public/tyres/appointment-requests'
+    | '/api/public/tyres/commercial-preview'
+    | '/api/public/tyres/commercial-requests'
+    | '/api/public/tyres/daily-report'
+    | '/api/public/tyres/events'
+    | '/api/public/tyres/public-config'
     | '/api/public/tyres/quotes'
     | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
@@ -1151,6 +1205,11 @@ export interface FileRouteTypes {
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
     | '/api/public/tyres/appointment-requests'
+    | '/api/public/tyres/commercial-preview'
+    | '/api/public/tyres/commercial-requests'
+    | '/api/public/tyres/daily-report'
+    | '/api/public/tyres/events'
+    | '/api/public/tyres/public-config'
     | '/api/public/tyres/quotes'
     | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
@@ -1255,6 +1314,11 @@ export interface FileRouteTypes {
     | '/api/public/gmail/callback'
     | '/api/public/hooks/gmail-sync'
     | '/api/public/tyres/appointment-requests'
+    | '/api/public/tyres/commercial-preview'
+    | '/api/public/tyres/commercial-requests'
+    | '/api/public/tyres/daily-report'
+    | '/api/public/tyres/events'
+    | '/api/public/tyres/public-config'
     | '/api/public/tyres/quotes'
     | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
@@ -1357,6 +1421,11 @@ export interface RootRouteChildren {
   ApiPublicGmailCallbackRoute: typeof ApiPublicGmailCallbackRoute
   ApiPublicHooksGmailSyncRoute: typeof ApiPublicHooksGmailSyncRoute
   ApiPublicTyresAppointmentRequestsRoute: typeof ApiPublicTyresAppointmentRequestsRoute
+  ApiPublicTyresCommercialPreviewRoute: typeof ApiPublicTyresCommercialPreviewRoute
+  ApiPublicTyresCommercialRequestsRoute: typeof ApiPublicTyresCommercialRequestsRoute
+  ApiPublicTyresDailyReportRoute: typeof ApiPublicTyresDailyReportRoute
+  ApiPublicTyresEventsRoute: typeof ApiPublicTyresEventsRoute
+  ApiPublicTyresPublicConfigRoute: typeof ApiPublicTyresPublicConfigRoute
   ApiPublicTyresQuotesRoute: typeof ApiPublicTyresQuotesRoute
   ApiPublicTyresSiteSuggestionRoute: typeof ApiPublicTyresSiteSuggestionRoute
 }
@@ -2056,6 +2125,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTyresAppointmentRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tyres/commercial-preview': {
+      id: '/api/public/tyres/commercial-preview'
+      path: '/api/public/tyres/commercial-preview'
+      fullPath: '/api/public/tyres/commercial-preview'
+      preLoaderRoute: typeof ApiPublicTyresCommercialPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tyres/commercial-requests': {
+      id: '/api/public/tyres/commercial-requests'
+      path: '/api/public/tyres/commercial-requests'
+      fullPath: '/api/public/tyres/commercial-requests'
+      preLoaderRoute: typeof ApiPublicTyresCommercialRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tyres/daily-report': {
+      id: '/api/public/tyres/daily-report'
+      path: '/api/public/tyres/daily-report'
+      fullPath: '/api/public/tyres/daily-report'
+      preLoaderRoute: typeof ApiPublicTyresDailyReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tyres/events': {
+      id: '/api/public/tyres/events'
+      path: '/api/public/tyres/events'
+      fullPath: '/api/public/tyres/events'
+      preLoaderRoute: typeof ApiPublicTyresEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tyres/public-config': {
+      id: '/api/public/tyres/public-config'
+      path: '/api/public/tyres/public-config'
+      fullPath: '/api/public/tyres/public-config'
+      preLoaderRoute: typeof ApiPublicTyresPublicConfigRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/tyres/quotes': {
       id: '/api/public/tyres/quotes'
       path: '/api/public/tyres/quotes'
@@ -2206,6 +2310,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksGmailSyncRoute: ApiPublicHooksGmailSyncRoute,
   ApiPublicTyresAppointmentRequestsRoute:
     ApiPublicTyresAppointmentRequestsRoute,
+  ApiPublicTyresCommercialPreviewRoute: ApiPublicTyresCommercialPreviewRoute,
+  ApiPublicTyresCommercialRequestsRoute: ApiPublicTyresCommercialRequestsRoute,
+  ApiPublicTyresDailyReportRoute: ApiPublicTyresDailyReportRoute,
+  ApiPublicTyresEventsRoute: ApiPublicTyresEventsRoute,
+  ApiPublicTyresPublicConfigRoute: ApiPublicTyresPublicConfigRoute,
   ApiPublicTyresQuotesRoute: ApiPublicTyresQuotesRoute,
   ApiPublicTyresSiteSuggestionRoute: ApiPublicTyresSiteSuggestionRoute,
 }
