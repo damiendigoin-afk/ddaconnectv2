@@ -8007,6 +8007,273 @@ export type Database = {
           },
         ]
       }
+      tyre_rpt_contact_log: {
+        Row: {
+          attempts: number
+          brand: string | null
+          created_at: string
+          email: string
+          error_code: string | null
+          is_test: boolean
+          last_attempt_at: string
+          load_index: string | null
+          message: string | null
+          model: string | null
+          name: string
+          phone: string
+          quantity: number | null
+          quote_id: string
+          request_id: string
+          season: string
+          site_key: string
+          size: string | null
+          speed_index: string | null
+          status: string
+          tier: string
+          total_label: string | null
+          total_ttc_cents: number | null
+          visitor_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          brand?: string | null
+          created_at?: string
+          email: string
+          error_code?: string | null
+          is_test?: boolean
+          last_attempt_at?: string
+          load_index?: string | null
+          message?: string | null
+          model?: string | null
+          name: string
+          phone: string
+          quantity?: number | null
+          quote_id: string
+          request_id: string
+          season: string
+          site_key: string
+          size?: string | null
+          speed_index?: string | null
+          status: string
+          tier: string
+          total_label?: string | null
+          total_ttc_cents?: number | null
+          visitor_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          brand?: string | null
+          created_at?: string
+          email?: string
+          error_code?: string | null
+          is_test?: boolean
+          last_attempt_at?: string
+          load_index?: string | null
+          message?: string | null
+          model?: string | null
+          name?: string
+          phone?: string
+          quantity?: number | null
+          quote_id?: string
+          request_id?: string
+          season?: string
+          site_key?: string
+          size?: string | null
+          speed_index?: string | null
+          status?: string
+          tier?: string
+          total_label?: string | null
+          total_ttc_cents?: number | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      tyre_rpt_daily_counters: {
+        Row: {
+          metric: string
+          report_date: string
+          value: number
+        }
+        Insert: {
+          metric: string
+          report_date: string
+          value: number
+        }
+        Update: {
+          metric?: string
+          report_date?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      tyre_rpt_daily_reports: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_code: string | null
+          finished_at: string | null
+          provider_id: string | null
+          report_date: string
+          send_key: string | null
+          snapshot_counters: Json | null
+          snapshot_csv: string | null
+          snapshot_html: string | null
+          snapshot_subject: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          finished_at?: string | null
+          provider_id?: string | null
+          report_date: string
+          send_key?: string | null
+          snapshot_counters?: Json | null
+          snapshot_csv?: string | null
+          snapshot_html?: string | null
+          snapshot_subject?: string | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          finished_at?: string | null
+          provider_id?: string | null
+          report_date?: string
+          send_key?: string | null
+          snapshot_counters?: Json | null
+          snapshot_csv?: string | null
+          snapshot_html?: string | null
+          snapshot_subject?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      tyre_rpt_events: {
+        Row: {
+          consent: boolean
+          device: string | null
+          event_id: string
+          is_test: boolean
+          occurred_at: string
+          offer_brand: string | null
+          offer_verified: boolean
+          page: string | null
+          paris_day: string
+          paris_hour: number
+          paris_weekday: number
+          quantity: number | null
+          quote_id: string | null
+          received_at: string
+          season: string | null
+          session_id: string | null
+          site_key: string | null
+          size: string | null
+          tier: string | null
+          type: string
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          consent: boolean
+          device?: string | null
+          event_id: string
+          is_test?: boolean
+          occurred_at: string
+          offer_brand?: string | null
+          offer_verified?: boolean
+          page?: string | null
+          paris_day: string
+          paris_hour: number
+          paris_weekday: number
+          quantity?: number | null
+          quote_id?: string | null
+          received_at?: string
+          season?: string | null
+          session_id?: string | null
+          site_key?: string | null
+          size?: string | null
+          tier?: string | null
+          type: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          consent?: boolean
+          device?: string | null
+          event_id?: string
+          is_test?: boolean
+          occurred_at?: string
+          offer_brand?: string | null
+          offer_verified?: boolean
+          page?: string | null
+          paris_day?: string
+          paris_hour?: number
+          paris_weekday?: number
+          quantity?: number | null
+          quote_id?: string | null
+          received_at?: string
+          season?: string | null
+          session_id?: string | null
+          site_key?: string | null
+          size?: string | null
+          tier?: string | null
+          type?: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      tyre_rpt_settings: {
+        Row: {
+          contact_log_enabled: boolean
+          events_enabled: boolean
+          id: number
+          instrumentation_started_at: string | null
+          report_enabled: boolean
+          retention_days: number
+          test_email_domains: string[]
+          test_emails: string[]
+          test_visitor_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          contact_log_enabled?: boolean
+          events_enabled?: boolean
+          id?: number
+          instrumentation_started_at?: string | null
+          report_enabled?: boolean
+          retention_days?: number
+          test_email_domains?: string[]
+          test_emails?: string[]
+          test_visitor_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          contact_log_enabled?: boolean
+          events_enabled?: boolean
+          id?: number
+          instrumentation_started_at?: string | null
+          report_enabled?: boolean
+          retention_days?: number
+          test_email_domains?: string[]
+          test_emails?: string[]
+          test_visitor_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_functions: {
         Row: {
           created_at: string
@@ -9838,6 +10105,24 @@ export type Database = {
       }
       tire_web_quota_hit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number }
+        Returns: boolean
+      }
+      tyre_rpt_claim_report: {
+        Args: {
+          p_max_attempts: number
+          p_report_date: string
+          p_stale_seconds: number
+        }
+        Returns: Json
+      }
+      tyre_rpt_contact_begin: { Args: { p_row: Json }; Returns: boolean }
+      tyre_rpt_contact_finish: {
+        Args: { p_error_code: string; p_request_id: string; p_status: string }
+        Returns: undefined
+      }
+      tyre_rpt_purge: { Args: { p_days?: number }; Returns: Json }
+      tyre_rpt_verify_cron_token: {
+        Args: { p_token: string }
         Returns: boolean
       }
       unaccent: { Args: { "": string }; Returns: string }
