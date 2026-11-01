@@ -258,6 +258,85 @@ describe("contact-request + journal technique", () => {
   });
 });
 
+describe("contact-request : recorded (preuve journal)", () => {
+  const good = {
+    requestId: "11111111-2222-4333-8444-555555555555", quoteId: "6f1c2a4e-1b2c-4d5e-8f90-123456789abc", tier: "milieu", season: "ete",
+    site: "castillon", name: "Jean Client", email: "jean@client.fr", phone: "06 00 00 00 00", consent: true,
+  };
+  const req = (b: unknown) => new Request("http://x/c", { method: "POST", headers: { origin: A, "content-type": "application/json" }, body: JSON.stringify(b) });
+  /** Fausse base : begin = INSERT ON CONFLICT (contenu initial conservé, attempts+1), finish ne rétrograde pas « sent ». */
+  function fakeDb(over: Partial<ContactLogDeps> = {}) {
+    const rows = new Map<string, ContactLogRow>();
+    const log: ContactLogDeps = {
+      loadSettings: async () => settings,
+      begin: async (r) => { const e = rows.get(r.request_id); if (e) { e.attempts++; return false; } rows.set(r.request_id, { ...r }); return true; },
+      finish: async (id, st, code) => { const e = rows.get(id); if (e && e.status !== "sent") { e.status = st; e.error_code = code; } },
+      insertEvents: async (r) => r.length,
+      readBack: async (id) => (rows.has(id) ? { ...rows.get(id)! } : null),
+      ...over,
+    };
+    const d: ContactDeps = {
+      loadConfig: async () => cfg, quotaHit: async () => true,
+      loadQuote: async () => ({ created_at: "2026-11-01T11:58:00Z", expires_at: "2026-11-01T12:10:00Z", cases: [offer] }),
+      sendEmail: async () => ({ ok: true, id: "re_1", status: 200 }), now: () => new Date("2026-11-01T12:00:00Z"), log,
+    };
+    return { d, rows };
+  }
+  const body = async (r: Response) => (await r.json()) as { recorded?: boolean } & Record<string, unknown>;
+  it("ligne relue sent + contenu identique : recorded true, contrat existant conservé", async () => {
+    const { d, rows } = fakeDb();
+    expect(await body(await handleContactPost(req(good), d))).toEqual({ requestId: good.requestId, status: "sent", garage: "castillon", recorded: true });
+    expect(rows.get(good.requestId)!.status).toBe("sent");
+  });
+  it("journal en échec (begin/finish) : succès mail mais recorded false", async () => {
+    const { d } = fakeDb({ begin: async () => { throw new Error("db"); } });
+    const r = await handleContactPost(req(good), d);
+    expect(r.status).toBe(200);
+    expect((await body(r)).recorded).toBe(false);
+    const f = fakeDb({ finish: async () => { throw new Error("db"); } });
+    expect((await body(await handleContactPost(req(good), f.d))).recorded).toBe(false);
+  });
+  it("journal absent, désactivé ou sans relecture : recorded false", async () => {
+    const a = fakeDb(); a.d.log = null;
+    expect((await body(await handleContactPost(req(good), a.d))).recorded).toBe(false);
+    const b = fakeDb({ loadSettings: async () => ({ ...settings, contact_log_enabled: false }) });
+    expect((await body(await handleContactPost(req(good), b.d))).recorded).toBe(false);
+    const c = fakeDb(); delete c.d.log!.readBack;
+    expect((await body(await handleContactPost(req(good), c.d))).recorded).toBe(false);
+    const e = fakeDb({ readBack: async () => { throw new Error("read"); } });
+    expect((await body(await handleContactPost(req(good), e.d))).recorded).toBe(false);
+  });
+  it("rejeu même demande : recorded true, ligne unique", async () => {
+    const { d, rows } = fakeDb();
+    await handleContactPost(req(good), d);
+    expect((await body(await handleContactPost(req(good), d))).recorded).toBe(true);
+    expect(rows.size).toBe(1);
+    expect(rows.get(good.requestId)!.attempts).toBe(2);
+  });
+  it("même requestId, contenu différent déjà journalisé : recorded false", async () => {
+    const { d } = fakeDb();
+    await handleContactPost(req(good), d);
+    expect((await body(await handleContactPost(req({ ...good, phone: "07 11 11 11 11" }), d))).recorded).toBe(false);
+  });
+  it("ligne relue non sent : recorded false", async () => {
+    const { d } = fakeDb({ finish: async () => undefined });
+    expect((await body(await handleContactPost(req(good), d))).recorded).toBe(false);
+  });
+  it("relecture trop lente (timeout 1,5 s) : recorded false", async () => {
+    const { d } = fakeDb({ readBack: () => new Promise(() => undefined) });
+    const r = await handleContactPost(req(good), d);
+    expect(r.status).toBe(200);
+    expect((await body(r)).recorded).toBe(false);
+  });
+  it("échec e-mail : jamais recorded", async () => {
+    const { d } = fakeDb();
+    d.sendEmail = async () => ({ ok: false, status: 500 });
+    const r = await handleContactPost(req(good), d);
+    expect(r.status).toBe(502);
+    expect((await body(r)).recorded).toBeUndefined();
+  });
+});
+
 describe("rapport planifié", () => {
   const AT7 = new Date("2026-11-01T06:00:00Z");
   const req = (token = "t".repeat(64)) => new Request("http://x/r", { method: "POST", headers: { authorization: `Bearer ${token}` } });

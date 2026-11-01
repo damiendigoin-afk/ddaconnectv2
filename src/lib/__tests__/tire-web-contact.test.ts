@@ -40,7 +40,7 @@ describe("contact-request pneus", () => {
       const { d, mails } = deps();
       const r = await handleContactPost(post({ ...good, site }), d);
       expect(r.status).toBe(200);
-      expect(await r.json()).toEqual({ requestId: good.requestId, status: "sent", garage: site });
+      expect(await r.json()).toEqual({ requestId: good.requestId, status: "sent", garage: site, recorded: false });
       expect(mails).toHaveLength(1);
       expect(mails[0]!.to).toBe(to);
       expect(mails[0]!.replyTo).toBe("jean@client.test");

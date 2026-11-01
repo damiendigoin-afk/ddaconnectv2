@@ -168,3 +168,12 @@ Réponses :
 - 400 invalid_request / invalid_json · 403 origin_not_allowed · 413 · 415 · 422 offer_unavailable · 429 rate_limited (5/h/IP, 60/h global)
 - 409 quote_expired, ou request_conflict (même requestId, contenu différent)
 - 502 email_failed (réessayable avec le même requestId) · 503 service_unavailable / email_busy
+
+
+### Champ `recorded` (conversion publicitaire)
+
+Succès : `{ requestId, status: "sent", garage, recorded }` (champ ajouté, non cassant).
+- `recorded: true` **uniquement** si, après acceptation du fournisseur e-mail, la ligne `tyre_rpt_contact_log` relue côté serveur porte le même `requestId`, `status = "sent"` et le même contenu métier (garage, devis, gamme, saison, nom, e-mail, téléphone, message, marque, modèle, dimension, quantité, total).
+- `recorded: false` : e-mail bien envoyé mais preuve absente (journal désactivé/indisponible, relecture > 1,5 s, contenu divergent pour ce `requestId`). Le frontend ne déclenche **aucune conversion**.
+- Rejeu identique : `recorded: true` de nouveau (même ligne) — le frontend doit dédupliquer la conversion par `requestId`.
+- Aucun GCLID ni appel Google côté serveur. Le journal n'existe qu'une fois `docs/migrations-pending/reporting-contact.sql` appliqué ; d'ici là `recorded` vaut toujours `false`.
