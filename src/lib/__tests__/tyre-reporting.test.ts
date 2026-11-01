@@ -301,7 +301,7 @@ describe("contact-request : recorded (preuve journal)", () => {
     expect((await body(await handleContactPost(req(good), a.d))).recorded).toBe(false);
     const b = fakeDb({ loadSettings: async () => ({ ...settings, contact_log_enabled: false }) });
     expect((await body(await handleContactPost(req(good), b.d))).recorded).toBe(false);
-    const c = fakeDb({ readBack: undefined });
+    const c = fakeDb(); delete c.d.log!.readBack;
     expect((await body(await handleContactPost(req(good), c.d))).recorded).toBe(false);
     const e = fakeDb({ readBack: async () => { throw new Error("read"); } });
     expect((await body(await handleContactPost(req(good), e.d))).recorded).toBe(false);
