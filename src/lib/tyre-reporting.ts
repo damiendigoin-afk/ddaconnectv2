@@ -208,11 +208,6 @@ export function buildDailyReport(p: {
     bump(tiers, e.tier ? TIER_LABEL[e.tier as keyof typeof TIER_LABEL] : null);
     bump(seasons, e.season ? SEASON_LABEL[e.season as keyof typeof SEASON_LABEL] : null);
   }
-  for (const c of contacts) {
-    // Les demandes portent l'offre serveur : complément fiable des sélections.
-    bump(tiers, null);
-    void c;
-  }
   // Cohorte consentie : visiteurs → devis → demande ; abandons par quoteId.
   const cv = consented.filter((e) => e.visitor_id);
   const visitors = new Set(cv.map((e) => e.visitor_id!));
