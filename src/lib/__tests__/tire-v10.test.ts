@@ -7,7 +7,7 @@ import {
   normalizeEvents, parisMidnightUtc, parseVerifiedDomains, senderFor, totalLabel, validUntil,
   fetchAllPages, loadBelowRequested, reportSendKey, FRONT_OFFICE_RECIPIENTS,
 } from "@/lib/tire-v10";
-import { commercialPdfLines, buildCommercialPdf } from "@/lib/tire-commercial-pdf";
+import { commercialPdfLines, buildCommercialPdf, wrapText, PDF_PAGE, PDF_IDENTITY, type PdfLayoutItem } from "@/lib/tire-commercial-pdf";
 import {
   handleCommercialRequest, handleDailyReport, handleEvents, handlePublicConfig,
   handleCommercialPreview, type CommercialDeps, type PrevRequest, type ReportDeps,
@@ -431,5 +431,48 @@ describe("V10 revue — correctifs", () => {
     expect(dailyReportWindow(new Date("2026-11-02T06:00:00Z")).shouldRun).toBe(true); // 07:00 CET
     expect(dailyReportWindow(new Date("2026-07-02T05:00:00Z")).shouldRun).toBe(true); // 07:00 CEST
     expect(dailyReportWindow(new Date("2026-07-02T06:00:00Z")).shouldRun).toBe(false);
+  });
+});
+
+describe("V10 PDF — mise en page", () => {
+  const base = { reference: "DDA-PN-1", issuedAt: NOW, validUntil: validUntil(NOW), customer: { name: "Jean Test", email: "jean@test.fr", phone: "0600" }, garageLabel: "Garage Castillon", offer };
+  const overlaps = (a: PdfLayoutItem, b: PdfLayoutItem) => a.page === b.page && a.y < b.y + b.height && b.y < a.y + a.height;
+  it("encadré total ne recouvre aucune ligne précédente, total exact", async () => {
+    const L: PdfLayoutItem[] = [];
+    await buildCommercialPdf(base, { renault: null }, L);
+    const box = L.find((i) => i.kind === "box")!;
+    const before = L.slice(0, L.indexOf(box)).filter((i) => i.kind === "text" && i.page === box.page);
+    for (const t of before) expect(overlaps(t, box)).toBe(false);
+    expect(L.some((i) => i.text === "Total TTC, montage inclus : 412,34 €".replace("€", "€"))).toBe(true);
+  });
+  it("identité imprimée même sans logo", async () => {
+    const L: PdfLayoutItem[] = [];
+    await buildCommercialPdf(base, { renault: null }, L);
+    expect(L.some((i) => i.text === PDF_IDENTITY.name)).toBe(true);
+    expect(L.some((i) => i.text === "LE SENS DU SERVICE")).toBe(true);
+  });
+  it("wrapText coupe un mot sans espace plus long que la largeur", () => {
+    const m = (t: string) => t.length * 5;
+    const out = wrapText("a".repeat(255), 100, m);
+    expect(out.every((l) => m(l) <= 100)).toBe(true);
+    expect(out.join("")).toBe("a".repeat(255));
+  });
+  it("données longues : largeur respectée, pagination, rien sous le pied/aperçu", async () => {
+    const long = {
+      ...base, preview: true,
+      customer: { name: "N".repeat(100), email: `${"e".repeat(243)}@exemple.fr`, phone: "0600" },
+      offer: { ...offer, model: "M".repeat(300), includedServices: Array.from({ length: 60 }, (_, k) => ({ code: `s${k}`, label: `Prestation fournisseur très longue numéro ${k}` })), compatibilityMessage: "C ".repeat(400) },
+    };
+    const L: PdfLayoutItem[] = [];
+    const b = await buildCommercialPdf(long, { renault: null }, L);
+    expect(new TextDecoder().decode(b.slice(0, 5))).toBe("%PDF-");
+    const body = L.filter((i) => i.text !== PDF_IDENTITY.name && i.text !== PDF_IDENTITY.tagline);
+    expect(Math.max(...L.map((i) => i.page))).toBeGreaterThan(0);
+    for (const i of body) {
+      expect(i.y).toBeGreaterThanOrEqual(PDF_PAGE.previewFooterTop - 0.01);
+      expect(i.x + i.width).toBeLessThanOrEqual(PDF_PAGE.W - PDF_PAGE.M + 0.01);
+    }
+    const box = L.find((i) => i.kind === "box")!;
+    for (const t of L.filter((i) => i.kind === "text" && i !== box && !/^Total/.test(i.text ?? ""))) expect(overlaps(t, box)).toBe(false);
   });
 });

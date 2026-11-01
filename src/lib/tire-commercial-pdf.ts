@@ -110,8 +110,9 @@ export async function buildCommercialPdf(
   const header = () => {
     page.drawRectangle({ x: 0, y: H - 110, width: W, height: 110, color: rgb(0, 0, 0) });
     if (logoImg) {
-      const w = 150, h = Math.min(80, (logoImg.height / logoImg.width) * w);
-      page.drawImage(logoImg, { x: M, y: H - 55 - h / 2, width: (h / ((logoImg.height / logoImg.width) * w)) * w, height: h });
+      const r = logoImg.height / logoImg.width;
+      const w = Math.min(150, 80 / r), h = w * r;
+      page.drawImage(logoImg, { x: M, y: H - 55 - h / 2, width: w, height: h });
     }
     const rx = W - M - 250;
     page.drawText(winAnsi("Devis pneumatiques — DDA Care"), { x: rx, y: H - 45, size: 15, font: bold, color: white });
