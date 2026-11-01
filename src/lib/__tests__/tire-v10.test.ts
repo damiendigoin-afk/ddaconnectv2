@@ -5,7 +5,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import {
   aggregateTraffic, commercialReference, compareOffers, dailyReportWindow, deliveryOverall, eventsBatch,
   normalizeEvents, parisMidnightUtc, parseVerifiedDomains, senderFor, totalLabel, validUntil,
-  fetchAllPages, loadBelowRequested, reportSendKey, FRONT_OFFICE_RECIPIENTS,
+  fetchAllPages, loadBelowRequested, consentedFunnel, dailySeries, enrichFromQuote, lastParisDays, aggregateTrafficV2, canSetProspectStatus, commercialRequestInput, type EventRow, reportSendKey, FRONT_OFFICE_RECIPIENTS,
 } from "@/lib/tire-v10";
 import { commercialPdfLines, buildCommercialPdf, wrapText, PDF_PAGE, PDF_IDENTITY, type PdfLayoutItem } from "@/lib/tire-commercial-pdf";
 import {
@@ -474,5 +474,96 @@ describe("V10 PDF — mise en page", () => {
     }
     const box = L.find((i) => i.kind === "box")!;
     for (const t of L.filter((i) => i.kind === "text" && i !== box && !/^Total/.test(i.text ?? ""))) expect(overlaps(t, box)).toBe(false);
+  });
+});
+
+describe("V10.1 analytics cohorte + CRM", () => {
+  const V = "visitor_aaaaaaaaaaaa", W = "visitor_bbbbbbbbbbbb";
+  const Q1 = "11111111-1111-4111-8111-111111111111", Q2 = "22222222-2222-4222-8222-222222222222";
+  const row = (o: Partial<EventRow>): EventRow => ({
+    event_id: crypto.randomUUID(), type: "page_view", occurred_at: NOW.toISOString(), consent: true, visitor_id: V, session_id: null,
+    page: null, device: null, utm_source: null, utm_medium: null, utm_campaign: null, size: null, quantity: null, tier: null, season: null, site_key: null,
+    paris_day: "2026-11-01", paris_hour: 14, paris_weekday: 7, quote_id: null, ...o,
+  });
+
+  it("conversion sur cohorte consentie uniquement ; non-consentis exclus", () => {
+    const ev = [
+      row({}), row({ visitor_id: W }), row({ consent: false, visitor_id: null }),
+      row({ type: "quote_generated", quote_id: Q1 }),
+      row({ type: "request_submitted", quote_id: Q1 }),
+      row({ type: "request_submitted", consent: false, visitor_id: null, quote_id: Q2 }),
+    ];
+    const f = consentedFunnel(ev);
+    expect(f.visitors).toBe(2);
+    expect(f.visitToQuote).toBe(0.5);
+    expect(f.quoteToRequest).toBe(1);
+    expect(f.visitToRequest).toBe(0.5);
+  });
+
+  it("choix répétés sur le même devis = un seul choix, pas de nouvel abandon", () => {
+    const ev = [row({}), row({ type: "quote_generated", quote_id: Q1 }),
+      row({ type: "offer_selected", quote_id: Q1, tier: "milieu" }), row({ type: "offer_selected", quote_id: Q1, tier: "haut" }), row({ type: "offer_selected", quote_id: Q1, tier: "milieu" }),
+      row({ type: "offer_selected", quote_id: Q2 })];
+    const f = consentedFunnel(ev);
+    expect(f.selectedQuotes).toBe(2);
+    expect(f.abandonedSelections).toBe(2);
+    const g = consentedFunnel(ev.concat(row({ type: "request_submitted", quote_id: Q1 })));
+    expect(g.abandonedSelections).toBe(1);
+  });
+
+  it("champs de corrélation manquants => Non calculable (null), jamais inventé", () => {
+    expect(consentedFunnel([]).visitToQuote).toBeNull();
+    const f = consentedFunnel([row({}), row({ type: "offer_selected", quote_id: null })]);
+    expect(f.abandonedSelections).toBeNull();
+    expect(f.selectedQuotes).toBeNull();
+  });
+
+  it("série 7 jours Paris : demandes enregistrées séparées des e-mails acceptés", () => {
+    const days = lastParisDays(new Date("2026-11-01T23:30:00Z")); // déjà le 2/11 à Paris
+    expect(days).toEqual(["2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]);
+    const s = dailySeries([row({ paris_day: "2026-11-02" })], [
+      { created_at: "2026-11-01T23:10:00Z", site_key: "castillon", prospect_status: "nouveau", delivery_status: "delivered" },
+      { created_at: "2026-11-01T22:50:00Z", site_key: "castillon", prospect_status: "nouveau", delivery_status: "partial" },
+    ], days);
+    expect(s.at(-1)).toMatchObject({ day: "2026-11-02", pageViews: 1, requestsRecorded: 2, requestsDelivered: 1 });
+    const a = aggregateTrafficV2([], [{ created_at: NOW.toISOString(), site_key: "lalinde", prospect_status: "nouveau", delivery_status: "sending" }], NOW);
+    expect(a.requestsGlobal).toEqual({ recorded: 1, delivered: 0 });
+  });
+
+  it("offre choisie relue côté serveur, dimensions client remplacées", () => {
+    const q = { request: { size: "205/55R16", quantity: 4 }, cases: [{ tier: "milieu", season: "ete", status: "available", brand: "Hankook" }] };
+    const e = enrichFromQuote(row({ type: "offer_selected", quote_id: Q1, tier: "milieu", season: "ete", size: "999/99R99" }), q);
+    expect(e).toMatchObject({ size: "205/55R16", quantity: 4, offer_brand: "Hankook", offer_verified: true });
+    expect(enrichFromQuote(row({ type: "offer_selected", quote_id: Q1, size: "195/65R15" }), null)).toMatchObject({ size: "195/65R15", offer_verified: false, offer_brand: null });
+  });
+
+  it("événements : quoteId accepté, coordonnées toujours refusées", () => {
+    expect(eventsBatch.safeParse({ consent: { analytics: true }, events: [{ eventId: crypto.randomUUID(), type: "offer_selected", quoteId: Q1 }] }).success).toBe(true);
+    expect(eventsBatch.safeParse({ consent: { analytics: true }, events: [{ eventId: crypto.randomUUID(), type: "offer_selected", phone: "0600" }] }).success).toBe(false);
+  });
+
+  it("enrichissement en échec n'empêche pas l'enregistrement des événements", async () => {
+    const ins = vi.fn(async (rows: EventRow[]) => rows.length);
+    const r = await handleEvents(new Request("https://x/e", { method: "POST", headers: { origin: B, "content-type": "application/json" }, body: JSON.stringify({ consent: { analytics: true }, events: [{ eventId: crypto.randomUUID(), type: "offer_selected", quoteId: Q1 }] }) }),
+      { v10Enabled: () => true, loadConfig: async () => cfg, now: () => NOW, ipHash: async () => "h", quotaHit: async () => true, insertEvents: ins, loadQuote: async () => { throw new Error("db"); } });
+    expect(r.status).toBe(202);
+    expect(ins).toHaveBeenCalledOnce();
+  });
+
+  it("demande : contexte analytics consenti relie request_submitted ; absent => anonyme", async () => {
+    const evs: EventRow[] = [];
+    const { d } = deps({ recordServerEvent: async (e) => { evs.push(e); } });
+    await handleCommercialRequest(post({ ...good, analytics: { consent: true, visitorId: V } }), d);
+    expect(evs[0]).toMatchObject({ consent: true, visitor_id: V, quote_id: QID, offer_brand: "Hankook", offer_verified: true });
+    const r2 = deps({ recordServerEvent: async (e) => { evs.push(e); } });
+    await handleCommercialRequest(post({ ...good, requestId: crypto.randomUUID() }), r2.d);
+    expect(evs[1]).toMatchObject({ consent: false, visitor_id: null });
+    expect(commercialRequestInput.safeParse({ ...good, analytics: { consent: false, visitorId: V } }).success).toBe(false);
+  });
+
+  it("statut prospect : valeurs connues uniquement", () => {
+    expect(canSetProspectStatus("nouveau", "contacte")).toBe(true);
+    expect(canSetProspectStatus("nouveau", "nouveau")).toBe(false);
+    expect(canSetProspectStatus("nouveau", "gagne")).toBe(false);
   });
 });

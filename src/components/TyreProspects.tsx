@@ -48,7 +48,7 @@ export function TyreProspects() {
   });
   const openPdf = async (path: string) => {
     const { data, error } = await supabase.storage.from(V10_BUCKET).createSignedUrl(path, 300);
-    if (error || !data?.signedUrl) return toast.error("PDF inaccessible.");
+    if (error || !data?.signedUrl) { toast.error("PDF inaccessible."); return; }
     window.open(data.signedUrl, "_blank", "noopener");
   };
   return (
