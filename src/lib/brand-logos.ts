@@ -1,11 +1,32 @@
 /**
- * Logos officiels Renault et Dacia (PNG transparents, encre noire), rasterisés proportionnellement via resvg
- * depuis les SVG extraits sans retouche des en-têtes https://www.renault.fr et https://www.dacia.fr le 01/11/2026
- * (frontend Sites : assets/renault.svg, assets/dacia.svg). Embarqués localement pour le PDF serveur
- * (aucun fetch). Ne pas redessiner ni modifier.
+ * Logos officiels de marque pour le PDF commercial (chargés localement, jamais redessinés).
+ *
+ * ÉTAT 01/11/2026 : les PNG Renault (120 px) et Dacia (240 px) transmis en base64 sont TRONQUÉS
+ * (chunk IDAT déclaré 4 648 o / 1 327 o, seulement 3 604 o / 1 297 o présents, pas de IEND) :
+ * refusés par isCompletePng, donc NON intégrés. Le PDF reste sans logo de marque, avec l'identité texte.
+ * Pour les activer : coller ici le base64 COMPLET de chaque PNG (une ligne), puis lancer les tests.
  */
-export const RENAULT_LOGO_PNG_B64 = "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"; // 120 px de large
-export const DACIA_LOGO_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAPAAAAAbCAYAAABC1gLTAAAFL0lEQVR4nNXb63HcNhiF4cMKghKUCgJ3QHbgDgJWYLkCswMrFSxUgdUBlhWE6kDpgKqAeTmcHSdj2eLH5QX7zjz2LwnQLo8040shaUAu9XjCZ/TIsa8Imu4YlW93mu76EbnUopS9RtIXvNfSz79mHt/QoUaPzSowILc6VOiRUycEfa9GVH55JDjkVItS9hrdxoA9EhzGOlTosUkFBuRYhwo9cuiEoB/7gA655JHgkFstStlrlP+APRIc/lvU9I1+kwoMyLUOFXoc2QlBbzfebbxjh6PzSHDIsRal7DXKe8AeCQ5vFbXRiAsMyLkOFXocUaP3H57xbuMdOxyVR4JDrrUoZa/R++/B2NLPf013kv7Ge6971AYjLjAg9zpU6LFnQdNP3zmNdxvv2GHvPBIccq5FKXuN8hzw+HoneMwpauURFxhwC3Wo0GOPguaP99J4t/GOHfbKYfwJcKf8a1HKXqP8Bjy+7gkelqJWHHGBAbdShwo9tizIPt5L493GO3bYOocEj1uoRSl7jfIasEOCx5KiVhpxgQG3VIcKPbYoaPl4L413G+/YYascEjxupRal7DXKZ8AOCR7XFLXCiAscXZT0JyxFrfDFv1HQ9eO91KNCh7VzSPCwVCPq9mqUx4AdEjzWKGp6TxZXIIeijh9x0HrjvdTjd4y/r5VDgoelGlG3WaPjB+yQ4LFmn/GARRXIpajjRhy0/ngvdajQ49ocEjws1Yi63RodO2CHBI8tqhG1oAI59YBPsPQX7rG0j/iGLetQocc1jQ9RKVs1om67RscN2CHBY8tqRBkrkFPjizSO6U7za1FqWeN545vjMLdnRE3/UcBShwo9ljZ+7G+Y24umf+o5ftwt1+i4AZ8QZOszgqQ/YKlGlKECueSR4DC3V5SaxmHNw3reM0pNgwia3lxLHSr0WFLQ/mfmUKNjBnxCkK0aUdNzddbGIy6QQx4JDnN7RanpAbXmYT3vGaX+P4Sg6U221KFCjyUF7X/m0TXaf8AnBNmqEfU9h7M2HHGBo/NIcJjbK0pND6Y1D+t5zyj19gCCpjfbUocKPZYUtP+ZR9Zo3wGfEGSrRtSPOZy10YgLfMGR3cNhbq8oNT2Q1jwSHOY2nnenXz/4QdObbqlDhR5LCrKf+aIZD8WG/YMoe43mPactSl3XCUG2PuMBP8vhrA1GXGDALVUjyp5HgsPcXlFqGtt7PeATLHX4gKUFTQ/crdSilL1G+wz4hCBbjwh6P4+zbH8IOVbhrJ9UYMCtVCPK3vjiJTjM7RWlppHNLWr/v8sOmh68W6hFKXuNth/wCUG2HhE0P4+zbCPuUaHDDxUYcAvViLLnkeAwtyXjvRS1/4ij7GfuXYtS9hptN+B7fIWlRwQtz+OsFUZcYEDO1Yiy55DgMbc1xnspyj6oqOnrXVqU/cw9a1HKXqNtBhw0/fS19Iig6/M468oRFxiQazWi7DkkeFj6gA5rFWUfVNT0dS8tyn7mXrUoZa/R+gMOOm68lzzOumLEBQbkWI0oew4JHpaWnvdeUfZBRU33WVqU/cw9alHKXqN1BxxkH+8zSk0DWjOPsxaOuOCXAblVI8qeQ4KHpaXnza3DH7AUNd1raQ/4hJxqUcpeo/UGHJTPeC8F2e803qUq+KVRPo2XesKLlvURHpY6PGHLHO5h7QkdluZRajo/h140fWOyVmryXi/69ecfX4d7WHtAjy37CA9L/b85X3vLqMHyJwAAAABJRU5ErkJggg=="; // 240 px de large
+export const RENAULT_LOGO_PNG_B64: string | null = null;
+export const DACIA_LOGO_PNG_B64: string | null = null;
+
+const SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+
+/** PNG structurellement complet : signature, IHDR en tête, chunks dans les bornes, IEND final. */
+export function isCompletePng(b: Uint8Array | null | undefined): boolean {
+  if (!b || b.length < 8 + 25 + 12 || !SIG.every((v, i) => b[i] === v)) return false;
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let i = 8, first = true;
+  while (i + 12 <= b.length) {
+    const n = dv.getUint32(i);
+    const t = String.fromCharCode(b[i + 4]!, b[i + 5]!, b[i + 6]!, b[i + 7]!);
+    if (first && t !== "IHDR") return false;
+    first = false;
+    if (i + 12 + n > b.length) return false;
+    if (t === "IEND") return i + 12 + n === b.length;
+    i += 12 + n;
+  }
+  return false;
+}
 
 export function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -14,6 +35,11 @@ export function b64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-export function officialBrandLogos(): { renault: Uint8Array; dacia: Uint8Array } {
-  return { renault: b64ToBytes(RENAULT_LOGO_PNG_B64), dacia: b64ToBytes(DACIA_LOGO_PNG_B64) };
+/** Logos validés, sinon null (jamais d'image partielle ni de substitut). */
+export function officialBrandLogos(): { renault: Uint8Array | null; dacia: Uint8Array | null } {
+  const load = (s: string | null) => {
+    if (!s) return null;
+    try { const b = b64ToBytes(s); return isCompletePng(b) ? b : null; } catch { return null; }
+  };
+  return { renault: load(RENAULT_LOGO_PNG_B64), dacia: load(DACIA_LOGO_PNG_B64) };
 }
