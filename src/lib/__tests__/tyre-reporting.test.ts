@@ -323,15 +323,10 @@ describe("contact-request : recorded (preuve journal)", () => {
     expect((await body(await handleContactPost(req(good), d))).recorded).toBe(false);
   });
   it("relecture trop lente (timeout 1,5 s) : recorded false", async () => {
-    vi.useFakeTimers();
-    try {
-      const { d } = fakeDb({ readBack: () => new Promise(() => undefined) });
-      const p = handleContactPost(req(good), d);
-      await vi.advanceTimersByTimeAsync(2000);
-      const r = await p;
-      expect(r.status).toBe(200);
-      expect((await body(r)).recorded).toBe(false);
-    } finally { vi.useRealTimers(); }
+    const { d } = fakeDb({ readBack: () => new Promise(() => undefined) });
+    const r = await handleContactPost(req(good), d);
+    expect(r.status).toBe(200);
+    expect((await body(r)).recorded).toBe(false);
   });
   it("échec e-mail : jamais recorded", async () => {
     const { d } = fakeDb();
