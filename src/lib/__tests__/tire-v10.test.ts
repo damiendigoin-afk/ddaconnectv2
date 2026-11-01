@@ -5,11 +5,12 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import {
   aggregateTraffic, commercialReference, compareOffers, dailyReportWindow, deliveryOverall, eventsBatch,
   normalizeEvents, parisMidnightUtc, parseVerifiedDomains, senderFor, totalLabel, validUntil,
+  fetchAllPages, loadBelowRequested, reportSendKey, FRONT_OFFICE_RECIPIENTS,
 } from "@/lib/tire-v10";
 import { commercialPdfLines, buildCommercialPdf } from "@/lib/tire-commercial-pdf";
 import {
   handleCommercialRequest, handleDailyReport, handleEvents, handlePublicConfig,
-  type CommercialDeps, type ReportDeps,
+  handleCommercialPreview, type CommercialDeps, type PrevRequest, type ReportDeps,
 } from "@/lib/tire-v10.server";
 import { verifyGoogleIdToken } from "@/lib/google-id-token";
 import type { WebQuoteCase, WebQuoteConfig } from "@/lib/tire-web-api";
@@ -26,7 +27,7 @@ const offer: WebQuoteCase = {
 const good = { requestId: RID, quoteId: QID, tier: "milieu", season: "ete", site: "castillon", name: "Jean Test", email: "jean@test.fr", phone: "06 00 00 00 00", consent: true };
 
 function deps(over: Partial<CommercialDeps> = {}) {
-  const store = new Map<string, { payload_hash: string; response_status: number | null; response_body: unknown }>();
+  const store = new Map<string, PrevRequest>();
   const mails: { to: string; from: string; attachments: unknown[] }[] = [];
   const updates: Record<string, unknown>[] = [];
   const d: CommercialDeps = {
@@ -37,11 +38,11 @@ function deps(over: Partial<CommercialDeps> = {}) {
     loadSite: async () => ({ id: "cas", contact_email: "fo@castillon.test" }),
     claimRequest: async (row) => {
       if (store.has(row['request_id'] as string)) return false;
-      store.set(row['request_id'] as string, { payload_hash: row['payload_hash'] as string, response_status: null, response_body: null });
+      store.set(row['request_id'] as string, { payload_hash: row['payload_hash'] as string, response_status: null, response_body: null, delivery_status: "pending", created_at: NOW.toISOString() });
       return true;
     },
     storePdf: async () => undefined,
-    updateRequest: async (id, p) => { updates.push(p); const r = store.get(id)!; r.response_status = p['response_status'] as number; r.response_body = p['response_body']; },
+    updateRequest: async (id, p) => { updates.push(p); Object.assign(store.get(id)!, p); },
     recordServerEvent: async () => undefined,
     sendEmail: async (m) => { mails.push(m); return { ok: true }; },
     verifiedDomains: () => ["garagecastillon.fr"],
@@ -71,7 +72,7 @@ describe("V10 commercial request", () => {
     expect(b.totalTtcCents).toBe(41234);
     expect(b.validUntil).toBe("2026-11-08T13:00:00.000Z");
     expect(b.delivery.overall).toBe("delivered");
-    expect(mails.map((m) => m.to)).toEqual(["jean@test.fr", "fo@castillon.test"]);
+    expect(mails.map((m) => m.to)).toEqual(["jean@test.fr", "contact@garagecastillon.fr"]);
     expect(mails.every((m) => m.from.includes("contact@garagecastillon.fr") && m.attachments.length === 1)).toBe(true);
   });
 
@@ -266,7 +267,7 @@ describe("V10 daily report", () => {
     const d: ReportDeps = {
       v10Enabled: () => true, secret: () => "x".repeat(40), now: () => new Date("2026-11-02T06:05:00Z"),
       loadPeriod: async () => ({ events: [], requests: [{ created_at: "", site_key: "lalinde", prospect_status: "nouveau", delivery_status: "delivered" }], pending: [] }),
-      claimReport: async (k) => (done.has(k) ? false : (done.add(k), true)),
+      claimReport: async (k) => (done.has(k) ? null : (done.add(k), { sendKey: `tyres-daily-report-${k}` })),
       finishReport: async () => undefined,
       sendEmail: async (m) => { mails.push(m); return { ok: true }; },
       verifiedDomains: () => ["garagecastillon.fr"],
@@ -309,5 +310,126 @@ describe("Google id_token", () => {
       if (expected === true) expect(r).toEqual({ ok: true, identity: { email: "jean@test.fr", name: "Jean" } });
       else expect(r).toEqual({ ok: false, reason: expected });
     }
+  });
+});
+
+describe("V10 revue — correctifs", () => {
+  const weak: WebQuoteCase = { ...offer, loadIndex: "88" };
+  const quoteWith = (c: WebQuoteCase) => async () => ({ expires_at: "2026-11-01T14:00:00Z", request: { size: "205/55R16", loadIndex: 91, speedIndex: "V", quantity: 4 }, cases: [c] });
+
+  it("loadBelowRequested: connu inférieur refusé, inconnu/égal/supérieur non", () => {
+    expect(loadBelowRequested("88", 91)).toBe(true);
+    expect(loadBelowRequested("94/90", 91)).toBe(true);
+    expect(loadBelowRequested("91", 91)).toBe(false);
+    expect(loadBelowRequested("95", 91)).toBe(false);
+    expect(loadBelowRequested(null, 91)).toBe(false);
+  });
+
+  it("request: offre acceptée sous la charge demandée => 422, rien enregistré ni envoyé", async () => {
+    const { d, mails, store } = deps({ loadQuote: quoteWith(weak) });
+    const r = await handleCommercialRequest(post(good), d);
+    expect(r.status).toBe(422);
+    expect(((await r.json()) as { error: { code: string } }).error.code).toBe("offer_load_insufficient");
+    expect(store.size).toBe(0);
+    expect(mails).toHaveLength(0);
+  });
+
+  it("request: offre FRAÎCHE sous la charge => 422 avant enregistrement", async () => {
+    const { d, mails, store } = deps({ revalidate: async () => ({ status: 200, body: { quoteId: "n", expiresAt: "x", cases: [weak] } }) });
+    expect((await handleCommercialRequest(post(good), d)).status).toBe(422);
+    expect(store.size).toBe(0);
+    expect(mails).toHaveLength(0);
+  });
+
+  it("preview: offre sous la charge => 422, pas de PDF", async () => {
+    const { d } = deps({ loadQuote: quoteWith(weak) });
+    const req = new Request("https://x/p", { method: "POST", headers: { origin: B, "content-type": "application/json" }, body: JSON.stringify({ quoteId: QID, tier: "milieu", season: "ete", site: "castillon", name: "J T", email: "j@t.fr", phone: "06 00 00 00 00" }) });
+    const r = await handleCommercialPreview(req, d);
+    expect(r.status).toBe(422);
+  });
+
+  it("Front Office: destinataire validé exact même si sites.contact_email diffère", async () => {
+    expect(FRONT_OFFICE_RECIPIENTS).toEqual({ castillon: "contact@garagecastillon.fr", lalinde: "contact@dda-lalinde.fr" });
+    const { d, mails } = deps({ loadSite: async () => ({ id: "lal", contact_email: "autre@exemple.fr" }), verifiedDomains: () => ["dda-lalinde.fr"] });
+    const r = await handleCommercialRequest(post({ ...good, site: "lalinde" }), d);
+    const b = (await r.json()) as { delivery: { frontOfficeRecipientMismatch: boolean } };
+    expect(mails.map((m) => m.to)).toEqual(["jean@test.fr", "contact@dda-lalinde.fr"]);
+    expect(b.delivery.frontOfficeRecipientMismatch).toBe(true);
+  });
+
+  it("échec persistant de l'écriture finale: rejeu => 202 statut inconnu, aucun renvoi", async () => {
+    let n = 0;
+    const ctx = deps();
+    const base = ctx.d.updateRequest;
+    ctx.d.updateRequest = async (id, p) => { n++; if (p["response_body"]) throw new Error("db"); return base(id, p); };
+    const r1 = await handleCommercialRequest(post(good), ctx.d);
+    expect(r1.status).toBe(201);
+    expect(n).toBe(4); // 1 « sending » + 3 tentatives finales
+    expect(ctx.mails).toHaveLength(2);
+    const r2 = await handleCommercialRequest(post(good), ctx.d);
+    expect(r2.status).toBe(202);
+    expect(((await r2.json()) as { delivery: { overall: string } }).delivery.overall).toBe("unknown");
+    expect(ctx.mails).toHaveLength(2);
+  });
+
+  it("marquage « sending » impossible => aucun e-mail", async () => {
+    const ctx = deps();
+    const base = ctx.d.updateRequest;
+    ctx.d.updateRequest = async (id, p) => { if (p["delivery_status"] === "sending") throw new Error("db"); return base(id, p); };
+    const b = (await (await handleCommercialRequest(post(good), ctx.d)).json()) as { delivery: { reason: string; overall: string } };
+    expect(ctx.mails).toHaveLength(0);
+    expect(b.delivery).toMatchObject({ reason: "status_not_saved", overall: "not_delivered" });
+  });
+
+  it("succès: message sans prétendre la réception en boîte", async () => {
+    const { d } = deps();
+    const b = (await (await handleCommercialRequest(post(good), d)).json()) as { message: string };
+    expect(b.message).not.toMatch(/vous a été envoyé/);
+  });
+
+  it("fetchAllPages: lit au-delà de 1000 et signale le plafond", async () => {
+    const all = Array.from({ length: 2500 }, (_, k) => k);
+    const page = async (a: number, b: number) => ({ data: all.slice(a, Math.min(b, a + 999) + 1), error: null });
+    const full = await fetchAllPages(page);
+    expect(full).toMatchObject({ truncated: false });
+    expect(full.rows).toHaveLength(2500);
+    const capped = await fetchAllPages(page, { maxRows: 2000 });
+    expect(capped.rows).toHaveLength(2000);
+    expect(capped.truncated).toBe(true);
+  });
+
+  it("rapport: réessai après échec confirmé avec nouvelle clé, issue inconnue garde la clé", async () => {
+    expect(reportSendKey("2026-11-01", "none", 1, null)).toBe("tyres-daily-report-2026-11-01");
+    expect(reportSendKey("2026-11-01", "failed", 2, "tyres-daily-report-2026-11-01")).toBe("tyres-daily-report-2026-11-01-r2");
+    expect(reportSendKey("2026-11-01", "stale", 3, "tyres-daily-report-2026-11-01-r2")).toBe("tyres-daily-report-2026-11-01-r2");
+    // Simulation claim : échec puis reprise.
+    let status: "none" | "running" | "failed" | "sent" = "none";
+    let attempts = 0;
+    const keys: string[] = [];
+    const d: ReportDeps = {
+      v10Enabled: () => true, secret: () => "x".repeat(40), now: () => new Date("2026-11-02T06:00:00Z"),
+      loadPeriod: async () => ({ events: [], requests: [], pending: [] }),
+      claimReport: async (k) => {
+        if (status === "running" || status === "sent") return null;
+        attempts++;
+        const prev = status === "failed" ? "failed" : "none";
+        status = "running";
+        return { sendKey: reportSendKey(k, prev, attempts, null) };
+      },
+      finishReport: async (_k, p) => { status = p.status; },
+      sendEmail: async (m) => { keys.push(m.idempotencyKey); return keys.length === 1 ? { ok: false, error: "x" } : { ok: true }; },
+      verifiedDomains: () => ["garagecastillon.fr"],
+    };
+    const call = () => new Request("https://x/r", { method: "POST", headers: { authorization: `Bearer ${"x".repeat(40)}` } });
+    expect((await handleDailyReport(call(), d)).status).toBe(502);
+    expect((await handleDailyReport(call(), d)).status).toBe(200);
+    expect(((await (await handleDailyReport(call(), d)).json()) as { skipped: string }).skipped).toBe("already_done");
+    expect(keys).toEqual(["tyres-daily-report-2026-11-01", "tyres-daily-report-2026-11-01-r2"]);
+  });
+
+  it("garde 7 h Paris pour un appel horaire 0 * * * * UTC", () => {
+    expect(dailyReportWindow(new Date("2026-11-02T06:00:00Z")).shouldRun).toBe(true); // 07:00 CET
+    expect(dailyReportWindow(new Date("2026-07-02T05:00:00Z")).shouldRun).toBe(true); // 07:00 CEST
+    expect(dailyReportWindow(new Date("2026-07-02T06:00:00Z")).shouldRun).toBe(false);
   });
 });

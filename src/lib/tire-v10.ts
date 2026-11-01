@@ -329,3 +329,64 @@ export function dailyReportWindow(now: Date): { shouldRun: boolean; reportDate: 
 export function dailyReportIdempotencyKey(reportDate: string): string {
   return `tyres-daily-report-${reportDate}`;
 }
+
+/* ------------------------- Correctifs revue V10 ------------------------- */
+
+/**
+ * Destinataires Front Office VALIDÉS (gérant). Jamais remplacés par sites.contact_email :
+ * une divergence est seulement signalée (fo_recipient_mismatch).
+ */
+export const FRONT_OFFICE_RECIPIENTS: Record<WebSiteKey, string> = {
+  castillon: "contact@garagecastillon.fr",
+  lalinde: "contact@dda-lalinde.fr",
+};
+
+/**
+ * true si l'indice de charge de l'offre est CONNU et inférieur à la charge demandée.
+ * Indice double (« 94/92 ») : la valeur la plus faible fait foi. Inconnu => false (réserve, pas refus).
+ */
+export function loadBelowRequested(offerLoad: string | number | null | undefined, requested: number | null | undefined): boolean {
+  if (requested == null || !Number.isFinite(requested)) return false;
+  const nums = String(offerLoad ?? "").match(/\d{2,3}/g)?.map(Number) ?? [];
+  if (!nums.length) return false;
+  return Math.min(...nums) < requested;
+}
+
+/** Lecture paginée (plafond 1000/requête côté API) avec plafond dur explicite : jamais de troncature silencieuse. */
+export const STATS_PAGE_SIZE = 1000;
+export const STATS_MAX_ROWS = 50_000;
+export async function fetchAllPages<T>(
+  page: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>,
+  opts: { pageSize?: number; maxRows?: number } = {},
+): Promise<{ rows: T[]; truncated: boolean }> {
+  const size = opts.pageSize ?? STATS_PAGE_SIZE;
+  const max = opts.maxRows ?? STATS_MAX_ROWS;
+  const rows: T[] = [];
+  for (let from = 0; from < max; from += size) {
+    const { data, error } = await page(from, Math.min(from + size, max) - 1);
+    if (error) throw new Error("page");
+    const d = data ?? [];
+    rows.push(...d);
+    if (d.length < Math.min(size, max - from)) return { rows, truncated: false };
+  }
+  // Plafond atteint : vérifier s'il reste des lignes.
+  const { data, error } = await page(max, max);
+  if (error) throw new Error("page");
+  return { rows, truncated: (data ?? []).length > 0 };
+}
+
+/** Demande sans réponse finale considérée bloquée après ce délai (reprise administrative). */
+export const REQUEST_STALE_MS = 10 * 60_000;
+/** Rapport « running » considéré abandonné après ce délai. */
+export const REPORT_STALE_MS = 30 * 60_000;
+
+/**
+ * Clé d'envoi du rapport : conservée si l'issue précédente est inconnue (running abandonné),
+ * nouvelle seulement après un échec CONFIRMÉ. Évite double envoi tout en permettant le réessai.
+ */
+export function reportSendKey(reportDate: string, previous: "none" | "failed" | "stale", attempt: number, prevKey: string | null): string {
+  const base = dailyReportIdempotencyKey(reportDate);
+  if (previous === "failed") return `${base}-r${attempt}`;
+  if (previous === "stale") return prevKey ?? base;
+  return base;
+}

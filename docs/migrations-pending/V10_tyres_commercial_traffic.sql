@@ -26,7 +26,9 @@ CREATE TABLE public.tyre_commercial_requests (
   prospect_status text NOT NULL DEFAULT 'nouveau'
     CHECK (prospect_status IN ('nouveau','a_contacter','contacte','rdv_pris','vendu','perdu')),
   delivery_status text NOT NULL DEFAULT 'pending'
-    CHECK (delivery_status IN ('pending','delivered','partial','not_delivered')),
+    CHECK (delivery_status IN ('pending','sending','delivered','partial','not_delivered')),
+  emails_attempted_at timestamptz,   -- posé AVANT tout envoi ; rejeu => jamais de renvoi
+  fo_recipient text,                 -- destinataire Front Office validé réellement utilisé
   client_email_status text CHECK (client_email_status IN ('sent','failed','not_configured','not_sent')),
   fo_email_status text CHECK (fo_email_status IN ('sent','failed','not_configured','not_sent')),
   delivery_error text,
@@ -78,6 +80,9 @@ CREATE POLICY "managers read tyre events" ON public.tyre_web_events
 CREATE TABLE public.tyre_daily_reports (
   report_date date PRIMARY KEY,
   status text NOT NULL CHECK (status IN ('running','sent','failed')),
+  attempts integer NOT NULL DEFAULT 1,
+  send_key text,                     -- clé d'idempotence d'envoi (conservée si issue inconnue)
+  started_at timestamptz,
   error text,
   created_at timestamptz NOT NULL DEFAULT now(),
   finished_at timestamptz

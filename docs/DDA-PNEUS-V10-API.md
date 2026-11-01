@@ -62,7 +62,15 @@ Réponse 201 :
                 "reason": null|"pdf_failed"|"sender_not_verified" },
   "message": "…" }
 ```
-`status: recorded` signifie enregistré ; seul `delivery.overall = delivered` signifie e-mails acceptés par le fournisseur.
+`status: recorded` signifie enregistré ; `delivery.overall = delivered` signifie seulement que les deux e-mails ont été **acceptés par le fournisseur d'envoi** — pas qu'ils sont arrivés en boîte de réception.
+`delivery.frontOfficeRecipientMismatch: true` signale que `sites.contact_email` diffère de l'adresse validée (non utilisée).
+
+Contrôle de charge : si l'indice de charge **connu** de l'offre (conservée ou fraîche) est inférieur à celui demandé (indice double : la plus faible valeur), 422 `offer_load_insufficient`, sans enregistrement ni e-mail (aussi sur `/commercial-preview`). Indice inconnu : réserve de compatibilité, pas de refus.
+
+Destinataires Front Office **fixes et validés** : Castillon `contact@garagecastillon.fr`, Lalinde `contact@dda-lalinde.fr` (`FRONT_OFFICE_RECIPIENTS`, `src/lib/tire-v10.ts`). `sites.contact_email` n'est jamais utilisé à leur place.
+
+États et reprise : enregistrement (`pending`) → marquage `sending` + `emails_attempted_at` **avant** tout e-mail (si ce marquage échoue : aucun envoi, `reason: "status_not_saved"`) → envoi (clés d'idempotence `tyres-v10-client-<requestId>` / `tyres-v10-fo-<requestId>`) → écriture finale (3 tentatives). Si l'écriture finale échoue, un rejeu du même `requestId` (ligne `sending`, ou sans réponse depuis > 10 min) renvoie **202** `{ status: "recorded", delivery: { overall: "unknown" } }` et **ne renvoie jamais** d'e-mail.
+Reprise administrative sûre (manager, lecture du journal du fournisseur d'e-mail par `requestId`/clé) : mettre à jour la ligne `delivery_status`, `client_email_status`, `fo_email_status`, `response_status`, `response_body` d'après le constat réel ; aucun renvoi automatique. Un renvoi manuel éventuel doit réutiliser les mêmes clés d'idempotence.
 Statuts prospect (CRM) : `nouveau`, `a_contacter`, `contacte`, `rdv_pris`, `vendu`, `perdu`.
 
 ## POST /events
@@ -80,7 +88,9 @@ Réponse 202 `{ "accepted": n, "inserted": n, "duplicates": n }` (dédoublonnage
 
 ## POST /daily-report (planificateur, NON activé)
 `Authorization: Bearer <TYRES_REPORT_SECRET>`. Peut être appelé chaque heure : n'agit qu'à 07 h Europe/Paris (changements d'heure gérés, veille de 23 h ou 25 h). Idempotent par date (table + clé d'envoi). Destinataire unique `damien@garagecastillon.fr`. Contenu : trafic agrégé, nouvelles demandes, prospects à traiter, comparatif Castillon/Lalinde, couverture du consentement. Réponses : 200 `{skipped:"not_7am_paris"|"already_done"}` ou `{reportDate, sent}`, 401, 502, 503.
-Planification suggérée (à NE créer qu'après validation) : `5 * * * *` UTC.
+Planification (à NE créer qu'après validation) : **`0 * * * *` UTC** ; la garde serveur n'agit qu'à l'heure 07 Europe/Paris (06:00 UTC l'hiver, 05:00 UTC l'été).
+Reprise : la date est prise atomiquement (`tyre_daily_reports`). `sent` ou `running` récent → `already_done`. `failed` (échec confirmé) → réessai à l'appel suivant avec une **nouvelle** clé d'envoi (`…-r<n>`). `running` abandonné (> 30 min, issue inconnue) → réessai avec la **même** clé, pour que le fournisseur d'e-mail dédoublonne. `?force=1` (même secret) permet une relance manuelle hors 7 h.
+Si le volume dépasse le plafond de lecture (50 000 lignes, pagination par 1 000), le rapport le signale explicitement.
 
 ## Tableau de bord managers
 Paramètres > Chiffrage : bloc « Trafic du site pneus » (RLS managers ; affiche « non encore activé » tant que la migration manque). PDF archivés lisibles uniquement par les managers du garage via URL signée.
@@ -97,6 +107,9 @@ Réutilisable tel quel : `src/lib/tire-ocr-parse.ts` (pur, sans dépendance). En
 - Correctifs nécessaires (non faits) : la présence réelle du marquage 3PMSF n'est pas toujours fournie par les sources ; il faudrait l'exiger de la source et sinon refuser la dérogation ; vérifier le fondement réglementaire de la dérogation ; saisir les indices d'origine du véhicule (carte grise/plaque) pour lever la réserve.
 
 ## Limites connues
-- Réessai d'envoi après échec : le même `requestId` rejoue la réponse sans renvoyer ; un renvoi manuel par le garage reste à ajouter.
+- Réessai d'envoi après échec : le même `requestId` rejoue la réponse sans renvoyer ; aucun bouton de renvoi manager n'existe encore (reprise administrative décrite ci-dessus).
 - Le domaine `dda-lalinde.fr` n'est pas vérifié à ce jour : Lalinde restera `sender_not_verified` sans e-mail tant qu'il ne l'est pas.
 - Logo récupéré par l'URL de l'application ; s'il échoue, PDF sans logo.
+- **Logo Dacia officiel : BLOQUÉ.** Aucun fichier officiel Dacia n'est présent dans le projet ; aucun logo n'est dessiné ni recréé. Le PDF porte seulement le logo DDA/Renault existant (`src/assets/dda-renault-logo.jpeg.asset.json`). Pour l'ajouter : fournir le fichier officiel (charte Dacia/Renault Group, PNG/JPG avec droit d'usage), l'enregistrer comme asset, puis l'injecter dans `loadLogo` et l'en-tête.
+- Générateur PDF : `src/lib/tire-commercial-pdf.ts` (`buildCommercialPdf(data, logo)`, lignes texte testables via `commercialPdfLines`), appelé par `handleCommercialPreview` / `handleCommercialRequest` dans `src/lib/tire-v10.server.ts`.
+- Statistiques : couverture = part des **événements reçus** avec consentement, pas une proportion des visiteurs totaux.
