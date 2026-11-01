@@ -7,7 +7,8 @@ import {
   RPT_RECIPIENT, buildDailyReport, contactsCsv, csvCell, escHtml, isTestContact, isTestEvent, measureState,
   renderReportHtml, requestEventId, schedulerDecision, type ContactLogRow, type ReportingSettings, type RptEventRow,
 } from "@/lib/tyre-reporting";
-import { handleDailyReportCron, handleRptEvents, type ContactLogDeps, type ReportDeps, type RptEventsDeps } from "@/lib/tyre-reporting.server";
+import { enrichRptRows, handleDailyReportCron, handleRptEvents, type ContactLogDeps, type ReportDeps, type ReportSnapshot, type RptEventsDeps } from "@/lib/tyre-reporting.server";
+import { quoteDimension } from "@/lib/tyre-reporting";
 import { handleContactPost, type ContactDeps } from "@/lib/tire-web-contact.server";
 import type { WebQuoteCase, WebQuoteConfig } from "@/lib/tire-web-api";
 
@@ -104,12 +105,13 @@ describe("agrégation du rapport", () => {
     expect(r.traffic.byHour[18]).toBe(1);
     expect(r.selections.count).toBe(2);
     expect(r.selections.brands).toEqual([["Hankook", 1], ["Michelin", 1]]);
-    expect(r.funnel.abandonedQuotes).toBe(1); // q2 sélectionné sans demande
+    expect(r.funnel.abandonedQuotes).toBe(1); // visiteur b / q2 sans demande
     expect(r.contacts.bySite.castillon).toEqual({ total: 1, sent: 1, failed: 0, pending: 0 });
     expect(r.contacts.bySite.lalinde.failed).toBe(1);
     expect(r.tests.contacts).toHaveLength(1);
     expect(r.tests.events).toBe(1);
-    expect(r.quotes).toMatchObject({ count: 1, offersAvailable: 1, offersUnavailable: 1 });
+    expect(r.quotes).toMatchObject({ count: 1, offersAvailable: 1, offersUnavailable: 1, testOnly: 1, sharedWithTests: 0 });
+    expect(r.quotes.sizes).toEqual([["205/55R16", 1]]);
     expect(r.comparison["page_views"]).toMatchObject({ today: 2, previousDay: 5, daysAvailable: 1 });
     expect(r.comparison["contacts_sent"]!.previousDay).toBeNull();
     const html = renderReportHtml(r);
@@ -117,6 +119,32 @@ describe("agrégation du rapport", () => {
     expect(html).toContain("Tests techniques (exclus)");
     expect(html).not.toMatch(/purchase|margin|cost_|ip_hash/i);
     expect(html).toContain("conservés 30 jours");
+  });
+  it("devis partagé entre 2 visiteurs : l'un envoie, l'autre abandonne ; un test sur le même devis ne l'exclut pas", () => {
+    const sel = (v: string) => ev({ type: "offer_selected", visitor_id: v, quote_id: "qs", tier: "milieu", season: "ete" });
+    const r = buildDailyReport({
+      ...base,
+      events: [sel("visitor_aaaaaaaaaaaa1"), sel("visitor_aaaaaaaaaaaa1"), sel("visitor_bbbbbbbbbbbb2"), ev({ type: "offer_selected", quote_id: "qs", is_test: true, tier: "milieu", season: "ete" })],
+      contacts: [contact({ quote_id: "qs", visitor_id: "visitor_aaaaaaaaaaaa1" })],
+      quotes: [{ id: "qs", created_at: "", request: { size: "205/55R16", loadIndex: 91, speedIndex: "V", quantity: 4 }, cases: [] }],
+      history: [],
+    });
+    expect(r.selections.count).toBe(2);
+    expect(r.funnel.selectedQuotes).toBe(2);
+    expect(r.funnel.abandonedQuotes).toBe(1);
+    expect(r.quotes).toMatchObject({ count: 1, testOnly: 0, sharedWithTests: 1 });
+    expect(r.quotes.sizes).toEqual([["205/55R16 91V", 1]]);
+  });
+  it("dimension : size réel prioritaire, sinon width/ratio/rim, sinon null", () => {
+    expect(quoteDimension({ size: "205/55R16", loadIndex: 91, speedIndex: "V" })).toBe("205/55R16 91V");
+    expect(quoteDimension({ width: 225, ratio: 45, rim: 17 })).toBe("225/45R17");
+    expect(quoteDimension({ size: "<b>" })).toBeNull();
+  });
+  it("mesure inactive : pas de compteur d'audience enregistré (pas de faux 0)", () => {
+    const r = buildDailyReport({ ...base, settings: { ...settings, instrumentation_started_at: null }, events: [], contacts: [], quotes: [], history: [] });
+    expect(r.counters).not.toHaveProperty("page_views");
+    expect(r.counters).toHaveProperty("contacts_sent", 0);
+    expect(r.comparison["page_views"]!.inactive).toBe(true);
   });
   it("mesure non active vs aucune donnée", () => {
     const off = renderReportHtml(buildDailyReport({ ...base, settings: { ...settings, instrumentation_started_at: null }, events: [], contacts: [], quotes: [], history: [] }));
@@ -142,12 +170,24 @@ describe("POST /events (indépendant de V10)", () => {
     expect((await handleRptEvents(req(batch), deps({ loadSettings: async () => ({ ...settings, events_enabled: false }) }))).status).toBe(503);
     expect((await handleRptEvents(req(batch, "https://evil.test"), deps())).status).toBe(403);
   });
-  it("sans consentement : pseudonymes supprimés", async () => {
+  it("sans consentement : rien n'est enregistré", async () => {
     const d = deps();
     const r = await handleRptEvents(req(batch), d);
     expect(r.status).toBe(202);
     expect(r.headers.get("access-control-allow-origin")).toBe(A);
-    expect(d.rows[0]!.visitor_id).toBeNull();
+    expect(await r.json()).toMatchObject({ accepted: 0, ignored: 1 });
+    expect(d.rows).toHaveLength(0);
+  });
+  it("marque relue dans le devis serveur (quoteId + gamme + saison), jamais du client", async () => {
+    const qid = "6f1c2a4e-1b2c-4d5e-8f90-123456789abc";
+    const d = deps({ loadQuotes: async (ids) => ids.map((id) => ({ id, created_at: "", request: { size: "205/55R16", quantity: 4 }, cases: [{ tier: "haut", season: "ete", status: "available", brand: "Michelin" }] })) });
+    const b = { consent: { analytics: true }, events: [{ eventId: crypto.randomUUID(), type: "offer_selected", visitorId: "visitor_aaaaaaaaaaaa1", quoteId: qid, tier: "haut", season: "ete" }] };
+    await handleRptEvents(req(b), d);
+    expect(d.rows[0]).toMatchObject({ offer_brand: "Michelin", offer_verified: true, size: "205/55R16", quantity: 4 });
+  });
+  it("devis illisible : marque non vérifiée", async () => {
+    const rows = await enrichRptRows([ev({ type: "offer_selected", quote_id: "q", tier: "haut", season: "ete", offer_brand: "Fake" })], async () => { throw new Error("db"); });
+    expect(rows[0]).toMatchObject({ offer_brand: null, offer_verified: false });
   });
   it("champ non listé refusé", async () => {
     const bad = { ...batch, events: [{ ...batch.events[0], email: "a@b.fr" }] };
@@ -225,15 +265,18 @@ describe("rapport planifié", () => {
     const mails: Parameters<ReportDeps["sendEmail"]>[0][] = [];
     const finished: unknown[] = [];
     const counters: unknown[] = [];
+    const store = new Map<string, ReportSnapshot>();
     const d: ReportDeps = {
       verifyToken: async (t) => t === "t".repeat(64), loadSettings: async () => settings,
-      claim: async () => ({ claimed: true, attempt: 1, previous: "none", prevKey: null }), saveKey: async () => undefined,
+      claim: async () => ({ claimed: true, attempt: 1, previous: "none", prevKey: null }),
+      loadSnapshot: async () => store.get("2026-10-31") ?? null,
+      saveSnapshot: async (date, _k, snap) => void store.set(date, snap),
       finish: async (...a) => void finished.push(a),
       loadEvents: async () => ({ rows: [ev({})], truncated: false }), loadContacts: async () => ({ rows: [contact({})], truncated: false }),
       loadQuotes: async () => ({ rows: [], truncated: false }), loadHistory: async () => [], saveCounters: async (...a) => void counters.push(a),
       sendEmail: async (m) => (mails.push(m), { ok: true, id: "re_r", status: 200 }), now: () => AT7, ...over,
     };
-    return { d, mails, finished, counters };
+    return { d, mails, finished, counters, store };
   }
   it("bearer refusé", async () => {
     expect((await handleDailyReportCron(req("x".repeat(64)), mk().d)).status).toBe(401);
@@ -269,13 +312,43 @@ describe("rapport planifié", () => {
     await handleDailyReportCron(req(), f.d);
     expect(f.mails[0]!.idempotencyKey).toBe("tyres-rpt-2026-10-31-r2");
     const s = mk({ claim: async () => ({ claimed: true, attempt: 2, previous: "stale", prevKey: "tyres-rpt-2026-10-31" }) });
+    s.store.set("2026-10-31", { subject: "S", html: "<p>figé</p>", csv: null, counters: {} });
     await handleDailyReportCron(req(), s.d);
+    expect(s.mails[0]!.html).toBe("<p>figé</p>");
     expect(s.mails[0]!.idempotencyKey).toBe("tyres-rpt-2026-10-31");
   });
-  it("échec fournisseur => failed ; exception => reste running", async () => {
-    const f = mk({ sendEmail: async () => ({ ok: false, status: 500 }) });
+  it("reprise même clé = snapshot identique, sans relire les contacts modifiés", async () => {
+    const m = mk({ sendEmail: async () => { throw new Error("net"); } });
+    await handleDailyReportCron(req(), m.d);
+    const first = m.store.get("2026-10-31")!;
+    const loadContacts = vi.fn(async () => ({ rows: [contact({ name: "Modifié" })], truncated: false }));
+    const mails: Parameters<ReportDeps["sendEmail"]>[0][] = [];
+    m.d.claim = async () => ({ claimed: true, attempt: 2, previous: "stale", prevKey: "tyres-rpt-2026-10-31" });
+    m.d.loadContacts = loadContacts;
+    m.d.sendEmail = async (x) => (mails.push(x), { ok: true, id: "re", status: 200 });
+    await handleDailyReportCron(req(), m.d);
+    expect(loadContacts).not.toHaveBeenCalled();
+    expect(mails[0]!.html).toBe(first.html);
+    expect(mails[0]!.idempotencyKey).toBe("tyres-rpt-2026-10-31");
+  });
+  it("reprise stale sans snapshot : échec avant envoi", async () => {
+    const m = mk({ claim: async () => ({ claimed: true, attempt: 2, previous: "stale", prevKey: "k" }) });
+    expect((await handleDailyReportCron(req(), m.d)).status).toBe(503);
+    expect(m.mails).toHaveLength(0);
+    expect(m.finished[0]).toEqual(["2026-10-31", "failed", "snapshot_missing", null]);
+  });
+  it("snapshot non persisté : rien envoyé", async () => {
+    const m = mk({ saveSnapshot: async () => { throw new Error("db"); } });
+    await handleDailyReportCron(req(), m.d);
+    expect(m.mails).toHaveLength(0);
+  });
+  it("4xx => failed confirmé ; 5xx/exception => issue inconnue (running conservé)", async () => {
+    const f = mk({ sendEmail: async () => ({ ok: false, status: 422 }) });
     expect((await handleDailyReportCron(req(), f.d)).status).toBe(502);
-    expect(f.finished[0]).toEqual(["2026-10-31", "failed", "provider_500", null]);
+    expect(f.finished[0]).toEqual(["2026-10-31", "failed", "provider_422", null]);
+    const g = mk({ sendEmail: async () => ({ ok: false, status: 503 }) });
+    await handleDailyReportCron(req(), g.d);
+    expect(g.finished).toHaveLength(0);
     const x = mk({ sendEmail: async () => { throw new Error("net"); } });
     await handleDailyReportCron(req(), x.d);
     expect(x.finished).toHaveLength(0);
@@ -294,6 +367,11 @@ describe("contrat SQL d'installation", () => {
     expect(active).not.toMatch(/\bDROP\s+TABLE\b|\bTRUNCATE\b|ALTER TABLE public\.(?!tyre_rpt_)/i);
     expect(active).not.toMatch(/tyre_web_events|tyre_daily_reports|tyre_commercial_requests/);
     expect((active.match(/CREATE TABLE /g) ?? []).length).toBe((active.match(/CREATE TABLE IF NOT EXISTS public\.tyre_rpt_/g) ?? []).length);
+  });
+  it("URL de production du planificateur", () => {
+    expect(sql).toContain("url := 'https://ddaconnectv2.lovable.app/api/public/tyres/reporting-daily'");
+    expect(sql).not.toContain("project--");
+    expect(active).toMatch(/snapshot_html = NULL/);
   });
   it("aucune tâche planifiée active, aucun secret en clair", () => {
     expect(active).not.toMatch(/cron\.schedule|cron\.alter_job|cron\.unschedule/);

@@ -95,6 +95,7 @@ export type RptEventRow = EventRow & { is_test: boolean };
 
 /** Normalisation V10 réutilisée (pseudonymes supprimés sans consentement) + marquage test serveur. */
 export function normalizeRptEvents(b: z.infer<typeof rptEventsBatch>, now: Date, s: ReportingSettings): RptEventRow[] {
+  if (!b.consent.analytics) return []; // opt-in : rien n'est enregistré sans consentement
   return normalizeEvents(b, now).map((r) => ({ ...r, is_test: isTestEvent(r, s) }));
 }
 
@@ -150,7 +151,20 @@ export function measureState(startedAt: string | null, eventsEnabled: boolean, d
 
 /* ------------------------------ Agrégation ------------------------------ */
 
-export type QuoteLite = { id: string; created_at: string; request: { size?: string; quantity?: number } | null; cases: { tier: string; season: string; status: string; brand: string | null }[] | null };
+/** Schéma réel tire_web_quotes.request : { size: "205/55R16", loadIndex, speedIndex, quantity }. */
+export type QuoteRequestLite = { size?: string; width?: number; ratio?: number; rim?: number; loadIndex?: number | string; speedIndex?: string; quantity?: number };
+/** Dimension lisible « 205/55R16 91V » (size prioritaire, sinon width/ratio/rim) ; null si inexploitable. */
+export function quoteDimension(q: QuoteRequestLite | null | undefined): string | null {
+  if (!q) return null;
+  const base = typeof q.size === "string" && /^\d{3}\/\d{2}R\d{2}$/.test(q.size.trim().toUpperCase().replace(/\s+/g, ""))
+    ? q.size.trim().toUpperCase().replace(/\s+/g, "")
+    : q.width && q.ratio && q.rim ? `${q.width}/${q.ratio}R${q.rim}` : null;
+  if (!base) return null;
+  const li = q.loadIndex != null && /^\d{2,3}$/.test(String(q.loadIndex)) ? String(q.loadIndex) : "";
+  const si = q.speedIndex && /^[A-Z]{1,2}$/.test(q.speedIndex) ? q.speedIndex : "";
+  return li || si ? `${base} ${li}${si}` : base;
+}
+export type QuoteLite = { id: string; created_at: string; request: QuoteRequestLite | null; cases: { tier: string; season: string; status: string; brand: string | null }[] | null };
 export type CounterRow = { report_date: string; metric: string; value: number };
 
 const bump = (m: Record<string, number>, k: string | null | undefined) => {
@@ -169,8 +183,13 @@ export function buildDailyReport(p: {
   const evTest = p.events.filter((e) => e.is_test);
   const contacts = p.contacts.filter((c) => !c.is_test);
   const contactsTest = p.contacts.filter((c) => c.is_test);
-  const testQuoteIds = new Set<string>([...evTest, ...contactsTest].map((x) => ("quote_id" in x ? x.quote_id : null)).filter(Boolean) as string[]);
-  const quotes = p.quotes.filter((q) => !testQuoteIds.has(q.id));
+  // Un quoteId peut être partagé (cache 5 min) entre visiteurs : on n'exclut un devis que s'il n'est utilisé QUE par des tests.
+  const ids = (xs: { quote_id?: string | null }[]) => new Set(xs.map((x) => x.quote_id).filter(Boolean) as string[]);
+  const testQ = ids([...evTest, ...contactsTest]);
+  const realQ = ids([...ev, ...contacts]);
+  const testOnlyQuotes = [...testQ].filter((q) => !realQ.has(q));
+  const sharedTestQuotes = [...testQ].filter((q) => realQ.has(q));
+  const quotes = p.quotes.filter((q) => !testOnlyQuotes.includes(q.id));
   const state = measureState(p.settings.instrumentation_started_at, p.settings.events_enabled, p.start, p.end);
 
   const consented = ev.filter((e) => e.consent);
@@ -193,15 +212,16 @@ export function buildDailyReport(p: {
   const sizes: Record<string, number> = {}, qty: Record<string, number> = {};
   let offersAvail = 0, offersUnavail = 0;
   for (const q of quotes) {
-    bump(sizes, q.request?.size ?? null);
+    bump(sizes, quoteDimension(q.request));
     bump(qty, q.request?.quantity != null ? String(q.request.quantity) : null);
     for (const c of q.cases ?? []) c.status === "available" ? offersAvail++ : offersUnavail++;
   }
-  // Sélections (dédupliquées par devis+gamme+saison : un re-clic n'est pas une nouvelle sélection).
+  // Sélections dédupliquées par visiteur+devis+gamme+saison (devis partagé entre visiteurs => sélections distinctes).
   const selKeys = new Set<string>();
+  const who = (e: RptEventRow) => e.visitor_id ?? `anon:${e.event_id}`;
   const brands: Record<string, number> = {}, tiers: Record<string, number> = {}, seasons: Record<string, number> = {};
   for (const e of sel) {
-    const k = `${e.quote_id ?? e.event_id}|${e.tier}|${e.season}`;
+    const k = `${who(e)}|${e.quote_id ?? e.event_id}|${e.tier}|${e.season}`;
     if (selKeys.has(k)) continue;
     selKeys.add(k);
     if (e.offer_verified) bump(brands, e.offer_brand);
@@ -214,8 +234,9 @@ export function buildDailyReport(p: {
   const quoteVisitors = new Set(cv.filter((e) => e.type === "quote_generated").map((e) => e.visitor_id!));
   const reqConsented = contacts.filter((c) => c.visitor_id && c.status === "sent");
   const reqVisitors = new Set(reqConsented.map((c) => c.visitor_id!));
-  const selectedQuotes = new Set(cv.filter((e) => e.type === "offer_selected" && e.quote_id).map((e) => e.quote_id!));
-  const requestedQuotes = new Set(contacts.filter((c) => c.status === "sent").map((c) => c.quote_id));
+  // Abandon = couple visiteur+devis avec sélection mais sans demande envoyée par CE visiteur sur CE devis.
+  const selectedQuotes = new Set(cv.filter((e) => e.type === "offer_selected" && e.quote_id).map((e) => `${e.visitor_id}|${e.quote_id}`));
+  const requestedQuotes = new Set(contacts.filter((c) => c.status === "sent" && c.visitor_id).map((c) => `${c.visitor_id}|${c.quote_id}`));
   const abandoned = [...selectedQuotes].filter((q) => !requestedQuotes.has(q));
   const rate = (n: number, d: number) => (d > 0 ? n / d : null);
 
@@ -228,7 +249,7 @@ export function buildDailyReport(p: {
     }),
   ) as Record<(typeof sites)[number], { total: number; sent: number; failed: number; pending: number }>;
 
-  const counters: Record<string, number> = {
+  const allCounters: Record<string, number> = {
     page_views: pv.length,
     sessions_consented: new Set(consented.map((e) => e.session_id).filter(Boolean)).size,
     visitors_consented: visitors.size,
@@ -241,6 +262,9 @@ export function buildDailyReport(p: {
     tests_events: evTest.length,
     tests_contacts: contactsTest.length,
   };
+  // Mesure d'audience inactive : les compteurs issus des événements ne sont PAS enregistrés (pas de faux 0).
+  const EVENT_METRICS = ["page_views", "sessions_consented", "visitors_consented", "quote_events", "selections", "tests_events"];
+  const counters = Object.fromEntries(Object.entries(allCounters).filter(([k]) => state !== "inactive" || !EVENT_METRICS.includes(k)));
 
   // Comparatif : 7 jours précédents depuis les compteurs cumulés (sans PII), seulement si disponibles.
   const prevDays = Array.from({ length: 7 }, (_, k) => shiftDay(p.reportDate, -(k + 1)));
@@ -248,15 +272,15 @@ export function buildDailyReport(p: {
     ["page_views", "visitors_consented", "quotes_server", "contacts_sent"].map((m) => {
       const vals = prevDays.map((d) => p.history.find((h) => h.report_date === d && h.metric === m)?.value).filter((v): v is number => v != null);
       const yesterday = p.history.find((h) => h.report_date === prevDays[0] && h.metric === m)?.value ?? null;
-      return [m, { today: counters[m]!, previousDay: yesterday, avg7: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, daysAvailable: vals.length }];
+      return [m, { today: allCounters[m]!, inactive: state === "inactive" && EVENT_METRICS.includes(m), previousDay: yesterday, avg7: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, daysAvailable: vals.length }];
     }),
   );
 
   return {
     reportDate: p.reportDate, start: p.start.toISOString(), end: p.end.toISOString(),
     measure: { state, retentionDays: p.settings.retention_days, startedAt: p.settings.instrumentation_started_at, eventsReceived: ev.length, contactLogEnabled: p.settings.contact_log_enabled },
-    traffic: { pageViews: pv.length, sessionsConsented: counters["sessions_consented"]!, visitorsConsented: visitors.size, consentedEvents: consented.length, totalEvents: ev.length, byHour, bySource: sortDesc(bySource), byMedium: sortDesc(byMedium), byCampaign: sortDesc(byCampaign), byDevice: sortDesc(byDevice), byPage: sortDesc(byPage) },
-    quotes: { count: quotes.length, offersAvailable: offersAvail, offersUnavailable: offersUnavail, sizes: sortDesc(sizes), quantities: sortDesc(qty), quoteEvents: quoteEv.length },
+    traffic: { pageViews: pv.length, sessionsConsented: allCounters["sessions_consented"]!, visitorsConsented: visitors.size, consentedEvents: consented.length, totalEvents: ev.length, byHour, bySource: sortDesc(bySource), byMedium: sortDesc(byMedium), byCampaign: sortDesc(byCampaign), byDevice: sortDesc(byDevice), byPage: sortDesc(byPage) },
+    quotes: { testOnly: testOnlyQuotes.length, sharedWithTests: sharedTestQuotes.length, count: quotes.length, offersAvailable: offersAvail, offersUnavailable: offersUnavail, sizes: sortDesc(sizes), quantities: sortDesc(qty), quoteEvents: quoteEv.length },
     selections: { count: selKeys.size, brands: sortDesc(brands), tiers: sortDesc(tiers), seasons: sortDesc(seasons) },
     funnel: { visitors: visitors.size, quoteVisitors: [...quoteVisitors].filter((v) => visitors.has(v)).length, requestVisitors: reqVisitors.size, visitToQuote: rate([...quoteVisitors].filter((v) => visitors.has(v)).length, visitors.size), quoteToRequest: rate([...quoteVisitors].filter((v) => reqVisitors.has(v)).length, quoteVisitors.size), selectedQuotes: selectedQuotes.size, abandonedQuotes: abandoned.length },
     contacts: { bySite: contactsBySite, rows: [...contacts].sort((a, b) => a.created_at.localeCompare(b.created_at)) },
@@ -301,7 +325,7 @@ export function renderReportHtml(r: DailyReport): string {
   const list = (rows: [string, number][], empty = "Aucune donnée") => (rows.length ? `<ul>${rows.slice(0, 15).map(([k, v]) => `<li>${escHtml(k)} : <b>${v}</b></li>`).join("")}</ul>` : `<p style="color:#666">${empty}</p>`);
   const cmpRow = (label: string, m: string) => {
     const c = r.comparison[m]!;
-    return `<tr><td>${escHtml(label)}</td><td><b>${c.today}</b></td><td>${c.previousDay ?? "Non disponible"}</td><td>${c.avg7 == null ? "Non disponible" : `${c.avg7.toFixed(1).replace(".", ",")} (${c.daysAvailable} j)`}</td></tr>`;
+    return `<tr><td>${escHtml(label)}</td><td><b>${c.inactive ? "Mesure non active" : c.today}</b></td><td>${c.previousDay ?? "Non disponible"}</td><td>${c.avg7 == null ? "Non disponible" : `${c.avg7.toFixed(1).replace(".", ",")} (${c.daysAvailable} j)`}</td></tr>`;
   };
   const contactRow = (c: ContactLogRow) =>
     `<tr><td>${hhmm(c.created_at)}</td><td>${escHtml(c.site_key)}</td><td>${escHtml(c.status === "sent" ? "Mail accepté" : c.status === "failed" ? "Échec" : "En cours / inconnu")}${c.error_code ? ` — ${escHtml(CONTACT_ERROR_LABEL[c.error_code] ?? "Erreur")}` : ""}</td><td>${escHtml(c.name)}<br/>${escHtml(c.email)}<br/>${escHtml(c.phone)}</td><td>${escHtml([c.brand, c.model].filter(Boolean).join(" "))}<br/>${escHtml(c.size ?? "")} ${escHtml(`${c.load_index ?? ""}${c.speed_index ?? ""}`)} · ${escHtml(TIER_LABEL[c.tier as keyof typeof TIER_LABEL] ?? c.tier)} · ${escHtml(SEASON_LABEL[c.season as keyof typeof SEASON_LABEL] ?? c.season)} · x${c.quantity ?? "?"}<br/>${escHtml(c.total_label ?? "Total TTC")} : <b>${eur(c.total_ttc_cents)}</b></td><td>${c.message ? escHtml(c.message).replace(/\n/g, "<br/>") : ""}</td></tr>`;
@@ -310,17 +334,17 @@ export function renderReportHtml(r: DailyReport): string {
   const stateTxt = st === "inactive" ? "Mesure d'audience non active sur cette journée." : st === "partial" ? `Mesure activée en cours de journée (${escHtml(r.measure.startedAt ? new Date(r.measure.startedAt).toLocaleString("fr-FR", { timeZone: PARIS_TZ }) : "")}) : chiffres partiels.` : `Mesure active depuis le ${escHtml(r.measure.startedAt ? new Date(r.measure.startedAt).toLocaleDateString("fr-FR", { timeZone: PARIS_TZ }) : "")}.`;
   return `<!DOCTYPE html><html lang="fr"><body style="font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;font-size:14px;">
 <h2>DDA Pneus — rapport du ${escHtml(r.reportDate)} (journée Paris)</h2>
-<p style="color:#555">${stateTxt} Tests techniques exclus des chiffres (listés en fin de rapport). Visiteurs et sessions : uniquement parmi les personnes ayant accepté la mesure d'audience.</p>
+<p style="color:#555">${stateTxt} Tests techniques exclus des chiffres (listés en fin de rapport). Audience : uniquement les visiteurs ayant accepté la mesure (aucun événement enregistré sans consentement).</p>
 <h3>Audience</h3>
 <table><tr><td>Pages vues</td><td><b>${val(r.traffic.pageViews)}</b></td></tr><tr><td>Visiteurs consentis</td><td><b>${val(r.traffic.visitorsConsented)}</b></td></tr><tr><td>Sessions consenties</td><td><b>${val(r.traffic.sessionsConsented)}</b></td></tr><tr><td>Événements consentis / reçus</td><td>${val(r.traffic.consentedEvents)} / ${val(r.traffic.totalEvents)}</td></tr></table>
 <h4>Pages</h4>${list(r.traffic.byPage)}<h4>Sources (UTM)</h4>${list(r.traffic.bySource)}${r.traffic.byMedium.length ? `<h4>Supports</h4>${list(r.traffic.byMedium)}` : ""}${r.traffic.byCampaign.length ? `<h4>Campagnes</h4>${list(r.traffic.byCampaign)}` : ""}<h4>Appareils</h4>${list(r.traffic.byDevice)}
 <h4>Pages vues par heure (Paris)</h4><table style="border-collapse:collapse;font-size:11px;"><tr>${hours}</tr></table>
 <h3>Devis (6 offres Top prix)</h3>
-<table><tr><td>Devis générés (serveur)</td><td><b>${r.quotes.count}</b></td></tr><tr><td>Offres disponibles / indisponibles</td><td>${r.quotes.offersAvailable} / ${r.quotes.offersUnavailable}</td></tr></table>
+<table><tr><td>Calculs de devis serveur distincts (≠ consultations : un devis identique est partagé 5 min entre visiteurs)</td><td><b>${r.quotes.count}</b></td></tr><tr><td>Devis vus uniquement par des tests (exclus) / partagés test et réel (conservés, attribution ambiguë)</td><td>${r.quotes.testOnly} / ${r.quotes.sharedWithTests}</td></tr><tr><td>Offres disponibles / indisponibles</td><td>${r.quotes.offersAvailable} / ${r.quotes.offersUnavailable}</td></tr></table>
 <h4>Dimensions</h4>${list(r.quotes.sizes)}<h4>Quantités</h4>${list(r.quotes.quantities)}
-<h3>Sélections d'offres</h3><p>Sélections distinctes : <b>${val(r.selections.count)}</b></p><h4>Marques (offre serveur)</h4>${list(r.selections.brands)}<h4>Gammes</h4>${list(r.selections.tiers)}<h4>Saisons</h4>${list(r.selections.seasons)}
+<h3>Sélections d'offres</h3><p>Sélections distinctes (visiteur + devis + gamme + saison) : <b>${val(r.selections.count)}</b></p><h4>Marques (offre serveur)</h4>${list(r.selections.brands)}<h4>Gammes</h4>${list(r.selections.tiers)}<h4>Saisons</h4>${list(r.selections.seasons)}
 <h3>Conversion (cohorte consentie)</h3>
-<table><tr><td>Visiteurs</td><td>${r.funnel.visitors}</td></tr><tr><td>→ ayant généré un devis</td><td>${r.funnel.quoteVisitors} (${pct(r.funnel.visitToQuote)})</td></tr><tr><td>→ ayant envoyé une demande</td><td>${r.funnel.requestVisitors} (${pct(r.funnel.quoteToRequest)} des devis)</td></tr><tr><td>Devis avec offre choisie / sans demande (abandons)</td><td>${r.funnel.selectedQuotes} / ${r.funnel.abandonedQuotes}</td></tr></table>
+${st === "inactive" ? `<p>Mesure non active.</p>` : ""}<table><tr><td>Visiteurs</td><td>${val(r.funnel.visitors)}</td></tr><tr><td>→ ayant généré un devis</td><td>${r.funnel.quoteVisitors} (${pct(r.funnel.visitToQuote)})</td></tr><tr><td>→ ayant envoyé une demande</td><td>${r.funnel.requestVisitors} (${pct(r.funnel.quoteToRequest)} des devis)</td></tr><tr><td>Devis avec offre choisie / sans demande (abandons)</td><td>${r.funnel.selectedQuotes} / ${r.funnel.abandonedQuotes}</td></tr></table>
 <h3>Comparatif</h3><table border="1" cellpadding="4" style="border-collapse:collapse;"><tr><th></th><th>Ce jour</th><th>Veille</th><th>Moyenne 7 j précédents</th></tr>${cmpRow("Pages vues", "page_views")}${cmpRow("Visiteurs consentis", "visitors_consented")}${cmpRow("Devis", "quotes_server")}${cmpRow("Demandes envoyées", "contacts_sent")}</table>
 <h3>Demandes de contact</h3>
 ${r.measure.contactLogEnabled ? "" : `<p style="color:#a00">Journal des demandes non actif : détail indisponible.</p>`}

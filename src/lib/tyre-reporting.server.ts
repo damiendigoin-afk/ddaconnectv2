@@ -10,7 +10,7 @@
  */
 import { corsHeaders, originAllowed, type WebQuoteCase, type WebQuoteConfig } from "./tire-web-api";
 import { clientIp, err, json, readBounded, sha } from "./tire-web-facade.server";
-import { fetchAllPages, parisParts, totalLabel, type EventRow } from "./tire-v10";
+import { enrichFromQuote, fetchAllPages, parisParts, totalLabel, type EventRow } from "./tire-v10";
 import {
   RPT_EVENTS_MAX_BODY, RPT_MAX_ATTEMPTS, RPT_RECIPIENT, buildDailyReport, contactsCsv, isTestContact,
   normalizeRptEvents, renderReportHtml, reportSendKey, requestEventId, rptEventsBatch, schedulerDecision,
@@ -27,8 +27,28 @@ export type RptEventsDeps = {
   loadSettings: () => Promise<ReportingSettings | null>;
   quotaHit: (bucket: string, windowSeconds: number, limit: number) => Promise<boolean>;
   insertEvents: (rows: RptEventRow[]) => Promise<number>;
+  /** Lecture des devis SERVEUR (cases) par id — jamais le moteur, jamais de prix d'achat. */
+  loadQuotes?: (ids: string[]) => Promise<QuoteLite[]>;
   now: () => Date;
 };
+
+/** Marque/dimension relues dans le devis serveur (quoteId + gamme + saison). Échec de lecture = non vérifié. */
+export async function enrichRptRows(rows: RptEventRow[], loadQuotes?: (ids: string[]) => Promise<QuoteLite[]>): Promise<RptEventRow[]> {
+  const ids = [...new Set(rows.map((r) => r.quote_id).filter(Boolean) as string[])];
+  if (!loadQuotes || !ids.length) return rows.map((r) => ({ ...r, offer_brand: null, offer_verified: false }));
+  let quotes: QuoteLite[] = [];
+  try {
+    quotes = await Promise.race([loadQuotes(ids), new Promise<QuoteLite[]>((res) => setTimeout(() => res([]), 2000))]);
+  } catch {
+    quotes = [];
+  }
+  const byId = new Map(quotes.map((q) => [q.id, q]));
+  return rows.map((r) => {
+    const q = r.quote_id ? byId.get(r.quote_id) : undefined;
+    if (!q || !q.request?.size || !q.cases) return { ...r, offer_brand: null, offer_verified: false };
+    return { ...enrichFromQuote(r, { request: { size: q.request.size, quantity: q.request.quantity ?? 0 }, cases: q.cases }), is_test: r.is_test };
+  });
+}
 
 const unavailable = () => err("service_unavailable", "Service momentanément indisponible.");
 
@@ -77,7 +97,8 @@ export async function handleRptEvents(req: Request, deps: RptEventsDeps): Promis
   } catch {
     return json(503, unavailable(), cors);
   }
-  const rows = normalizeRptEvents(parsed.data, now, settings);
+  if (!parsed.data.consent.analytics) return json(202, { accepted: 0, inserted: 0, duplicates: 0, ignored: parsed.data.events.length }, cors);
+  const rows = await enrichRptRows(normalizeRptEvents(parsed.data, now, settings), deps.loadQuotes);
   try {
     const inserted = await deps.insertEvents(rows);
     return json(202, { accepted: rows.length, inserted, duplicates: rows.length - inserted }, cors);
@@ -156,11 +177,15 @@ export type ReportClaim =
   | { claimed: true; attempt: number; previous: "none" | "failed" | "stale"; prevKey: string | null }
   | { claimed: false; reason: "already_sent" | "running" | "max_attempts" };
 
+export type ReportSnapshot = { subject: string; html: string; csv: string | null; counters: Record<string, number> };
+
 export type ReportDeps = {
   verifyToken: (token: string) => Promise<boolean>;
   loadSettings: () => Promise<ReportingSettings | null>;
   claim: (reportDate: string, staleMs: number, maxAttempts: number) => Promise<ReportClaim>;
-  saveKey: (reportDate: string, key: string) => Promise<void>;
+  /** Snapshot figé (HTML/CSV/compteurs) persisté AVANT envoi ; réutilisé tel quel à chaque nouvel essai. */
+  loadSnapshot: (reportDate: string) => Promise<ReportSnapshot | null>;
+  saveSnapshot: (reportDate: string, key: string, snap: ReportSnapshot) => Promise<void>;
   finish: (reportDate: string, status: "sent" | "failed", errorCode: string | null, providerId: string | null) => Promise<void>;
   loadEvents: (start: Date, end: Date) => Promise<{ rows: RptEventRow[]; truncated: boolean }>;
   loadContacts: (start: Date, end: Date) => Promise<{ rows: ContactLogRow[]; truncated: boolean }>;
@@ -207,46 +232,68 @@ export async function handleDailyReportCron(req: Request, deps: ReportDeps): Pro
   if (!claim.claimed) return json(200, { status: "skipped", reason: claim.reason, reportDate: d.reportDate });
   const key = reportSendKey(d.reportDate, claim.previous, claim.attempt, claim.prevKey).replace("tyres-daily-report-", "tyres-rpt-");
 
-  let html: string, csv: string, counters: Record<string, number>, truncated: boolean;
+  let snap: ReportSnapshot | null;
   try {
-    await deps.saveKey(d.reportDate, key);
-    const [ev, ct, qt, hist] = await Promise.all([
-      deps.loadEvents(d.start, d.end),
-      deps.loadContacts(d.start, d.end),
-      deps.loadQuotes(d.start, d.end),
-      deps.loadHistory(shift(d.reportDate, -7), shift(d.reportDate, -1)),
-    ]);
-    truncated = ev.truncated || ct.truncated || qt.truncated;
-    const report = buildDailyReport({ reportDate: d.reportDate, start: d.start, end: d.end, settings, events: ev.rows, contacts: ct.rows, quotes: qt.rows, history: hist });
-    html = renderReportHtml(report).replace("</h2>", truncated ? "</h2><p style=\"color:#a00\"><b>Attention : volume plafonné, chiffres tronqués.</b></p>" : "</h2>");
-    csv = contactsCsv([...report.contacts.rows, ...report.tests.contacts]);
-    counters = report.counters;
+    snap = claim.previous === "none" ? null : await deps.loadSnapshot(d.reportDate);
   } catch {
-    // Échec CONFIRMÉ avant tout envoi : nouvelle clé au prochain essai.
-    await deps.finish(d.reportDate, "failed", "build_failed", null).catch(() => undefined);
-    return json(503, { status: "failed", reason: "build_failed", reportDate: d.reportDate });
+    snap = null;
+  }
+  if (!snap && claim.previous === "stale") {
+    // Issue précédente inconnue : renvoyer un contenu différent sous la même clé est interdit.
+    await deps.finish(d.reportDate, "failed", "snapshot_missing", null).catch(() => undefined);
+    return json(503, { status: "failed", reason: "snapshot_missing", reportDate: d.reportDate });
+  }
+  if (!snap) {
+    try {
+      const [ev, ct, qt, hist] = await Promise.all([
+        deps.loadEvents(d.start, d.end),
+        deps.loadContacts(d.start, d.end),
+        deps.loadQuotes(d.start, d.end),
+        deps.loadHistory(shift(d.reportDate, -7), shift(d.reportDate, -1)),
+      ]);
+      const truncated = ev.truncated || ct.truncated || qt.truncated;
+      const report = buildDailyReport({ reportDate: d.reportDate, start: d.start, end: d.end, settings, events: ev.rows, contacts: ct.rows, quotes: qt.rows, history: hist });
+      const csv = contactsCsv([...report.contacts.rows, ...report.tests.contacts]);
+      snap = {
+        subject: `DDA Pneus — rapport quotidien du ${d.reportDate}`,
+        html: renderReportHtml(report).replace("</h2>", truncated ? "</h2><p style=\"color:#a00\"><b>Attention : volume plafonné, chiffres tronqués.</b></p>" : "</h2>"),
+        csv: csv.split("\r\n").length > 1 ? csv : null,
+        counters: report.counters,
+      };
+    } catch {
+      await deps.finish(d.reportDate, "failed", "build_failed", null).catch(() => undefined);
+      return json(503, { status: "failed", reason: "build_failed", reportDate: d.reportDate });
+    }
+  }
+  try {
+    await deps.saveSnapshot(d.reportDate, key, snap);
+  } catch {
+    // Rien n'est envoyé sans snapshot persistant.
+    await deps.finish(d.reportDate, "failed", "snapshot_save_failed", null).catch(() => undefined);
+    return json(503, { status: "failed", reason: "snapshot_save_failed", reportDate: d.reportDate });
   }
 
   let r: Awaited<ReturnType<ReportDeps["sendEmail"]>>;
   try {
     r = await deps.sendEmail({
-      to: RPT_RECIPIENT,
-      subject: `DDA Pneus — rapport quotidien du ${d.reportDate}`,
-      html,
-      idempotencyKey: key,
-      attachments: csv.split("\r\n").length > 1 ? [{ filename: `dda-pneus-demandes-${d.reportDate}.csv`, content: b64(csv) }] : [],
+      to: RPT_RECIPIENT, subject: snap.subject, html: snap.html, idempotencyKey: key,
+      attachments: snap.csv ? [{ filename: `dda-pneus-demandes-${d.reportDate}.csv`, content: b64(snap.csv) }] : [],
     });
   } catch {
-    // Issue inconnue : on laisse « running » ; après 30 min, même clé => le fournisseur déduplique.
+    // Issue inconnue : « running » conservé ; reprise après 30 min, même clé + même snapshot.
     console.warn("[tyres-report] send_exception");
     return json(502, { status: "unknown", reportDate: d.reportDate });
   }
   if (r.ok && r.id) {
-    await deps.saveCounters(d.reportDate, counters).catch(() => console.warn("[tyres-report] counters_failed"));
+    await deps.saveCounters(d.reportDate, snap.counters).catch(() => console.warn("[tyres-report] counters_failed"));
     await deps.finish(d.reportDate, "sent", null, r.id).catch(() => console.warn("[tyres-report] finish_failed"));
     return json(200, { status: "sent", reportDate: d.reportDate, attempt: claim.attempt });
   }
   console.warn(`[tyres-report] send_failed status=${r.status}`);
+  if (r.status === 0 || r.status >= 500) {
+    // 5xx / pas de réponse : peut-être accepté => issue inconnue, même clé/snapshot plus tard.
+    return json(502, { status: "unknown", reportDate: d.reportDate, attempt: claim.attempt });
+  }
   await deps.finish(d.reportDate, "failed", `provider_${r.status}`, null).catch(() => undefined);
   return json(502, { status: "failed", reportDate: d.reportDate, attempt: claim.attempt });
 }
@@ -297,6 +344,15 @@ export async function realRptEventsDeps(loadConfig: () => Promise<WebQuoteConfig
       return data === true;
     },
     insertEvents: (rows) => insertEventsInto(db, rows),
+    loadQuotes: async (ids) => {
+      const out: QuoteLite[] = [];
+      for (let i = 0; i < ids.length; i += 50) {
+        const { data, error } = await db.from("tire_web_quotes").select("id, created_at, request, cases").in("id", ids.slice(i, i + 50));
+        if (error) throw new Error("quotes");
+        out.push(...((data ?? []) as QuoteLite[]));
+      }
+      return out;
+    },
     now: () => new Date(),
   };
 }
@@ -321,8 +377,9 @@ export async function realContactLogDeps(): Promise<ContactLogDeps> {
 export async function realReportDeps(): Promise<ReportDeps> {
   const db = await admin();
   const { sendEmailWithAttachments } = await import("./email.server");
-  const range = <T>(table: string, cols: string, col: string, start: Date, end: Date) =>
-    fetchAllPages<T>((from, to) => db.from(table).select(cols).gte(col, start.toISOString()).lt(col, end.toISOString()).order(col).range(from, to));
+  // Ordre stable : horodatage puis clé primaire (aucune ligne sautée/dupliquée entre pages).
+  const range = <T>(table: string, cols: string, col: string, key: string, start: Date, end: Date) =>
+    fetchAllPages<T>((from, to) => db.from(table).select(cols).gte(col, start.toISOString()).lt(col, end.toISOString()).order(col, { ascending: true }).order(key, { ascending: true }).range(from, to));
   return {
     verifyToken: async (token) => {
       const { data, error } = await db.rpc("tyre_rpt_verify_cron_token", { p_token: token });
@@ -338,17 +395,25 @@ export async function realReportDeps(): Promise<ReportDeps> {
         ? { claimed: true, attempt: r.attempt ?? 1, previous: (r.previous ?? "none") as "none" | "failed" | "stale", prevKey: r.prev_key ?? null }
         : { claimed: false, reason: (r.reason ?? "running") as "already_sent" | "running" | "max_attempts" };
     },
-    saveKey: async (date, key) => {
-      const { error } = await db.from("tyre_rpt_daily_reports").update({ send_key: key }).eq("report_date", date);
-      if (error) throw new Error("key");
+    loadSnapshot: async (date) => {
+      const { data, error } = await db.from("tyre_rpt_daily_reports").select("snapshot_subject, snapshot_html, snapshot_csv, snapshot_counters").eq("report_date", date).maybeSingle();
+      if (error) throw new Error("snapshot");
+      if (!data?.snapshot_html || !data.snapshot_subject) return null;
+      return { subject: data.snapshot_subject, html: data.snapshot_html, csv: data.snapshot_csv ?? null, counters: data.snapshot_counters ?? {} };
+    },
+    saveSnapshot: async (date, key, snap) => {
+      const { error } = await db.from("tyre_rpt_daily_reports").update({
+        send_key: key, snapshot_subject: snap.subject, snapshot_html: snap.html, snapshot_csv: snap.csv, snapshot_counters: snap.counters,
+      }).eq("report_date", date);
+      if (error) throw new Error("snapshot");
     },
     finish: async (date, status, code, providerId) => {
       const { error } = await db.from("tyre_rpt_daily_reports").update({ status, error_code: code, provider_id: providerId, finished_at: new Date().toISOString() }).eq("report_date", date);
       if (error) throw new Error("finish");
     },
-    loadEvents: (s, e) => range<RptEventRow>("tyre_rpt_events", "*", "occurred_at", s, e),
-    loadContacts: (s, e) => range<ContactLogRow>("tyre_rpt_contact_log", "*", "created_at", s, e),
-    loadQuotes: (s, e) => range<QuoteLite>("tire_web_quotes", "id, created_at, request, cases", "created_at", s, e),
+    loadEvents: (s, e) => range<RptEventRow>("tyre_rpt_events", "*", "occurred_at", "event_id", s, e),
+    loadContacts: (s, e) => range<ContactLogRow>("tyre_rpt_contact_log", "*", "created_at", "request_id", s, e),
+    loadQuotes: (s, e) => range<QuoteLite>("tire_web_quotes", "id, created_at, request, cases", "created_at", "id", s, e),
     loadHistory: async (from, to) => {
       const { data, error } = await db.from("tyre_rpt_daily_counters").select("report_date, metric, value").gte("report_date", from).lte("report_date", to).limit(1000);
       if (error) throw new Error("history");

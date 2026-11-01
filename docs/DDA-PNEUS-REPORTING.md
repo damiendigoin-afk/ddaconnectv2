@@ -26,7 +26,7 @@ CORS = `allowed_origins` du devis web. `Content-Type: application/json`, ≤ 16 
     "quantity": 1, "tier": "entree|milieu|haut?", "season": "ete|quatre_saisons?",
     "site": "castillon|lalinde?", "quoteId": "uuid?" } ] }
 ```
-1 à 25 événements, champs inconnus refusés (400). Sans consentement, `visitorId`/`sessionId` sont supprimés côté serveur.
+1 à 25 événements, champs inconnus refusés (400). Sans consentement (`analytics:false`), RIEN n'est enregistré (réponse 202 `ignored`) : n'envoyer qu'après opt-in. Marque/dimension relues dans le devis serveur (`quoteId`+gamme+saison).
 Réponse 202 `{ accepted, inserted, duplicates }` (rejeu du même `eventId` = doublon ignoré).
 Jamais de nom, e-mail, téléphone ni URL libre. UTM réduites à `[a-z0-9_.-]{1,40}`.
 
@@ -56,12 +56,12 @@ sinon), demandes par garage (acceptées / échecs / en cours) et détail de chaq
 marge, IP ni secret. Distingue « Mesure non active », « Aucune donnée reçue » et 0.
 
 ## Planificateur (phase 2, après revue)
-- `pg_cron` `dda-tyres-reporting-daily` à `0 * * * *` UTC → `POST /api/public/tyres/reporting-daily` (URL stable du projet publié).
+- `pg_cron` `dda-tyres-reporting-daily` à `0 * * * *` UTC → `POST /api/public/tyres/reporting-daily` `https://ddaconnectv2.lovable.app/api/public/tyres/reporting-daily`.
 - Bearer = secret Vault `tyre_reporting_cron_token`, généré par le SQL, lu par la tâche au moment de l'appel ;
   le serveur le vérifie via `tyre_rpt_verify_cron_token` (service_role uniquement).
 - N'agit que de 7 h à 10 h Paris pour la seule veille ; `tyre_rpt_claim_report` garantit une émission par date.
-  Échec fournisseur confirmé → nouvelle clé au créneau suivant (3 tentatives max) ; issue inconnue → ligne
-  « running », reprise après 30 min avec la MÊME clé (dédupliquée par le fournisseur). Aucun rattrapage d'autres dates.
+  Le HTML/CSV/compteurs sont figés et persistés AVANT envoi (snapshot purgé après la rétention) ; tout nouvel essai réutilise ce snapshot (aucune relecture des demandes). Refus 4xx confirmé → nouvelle clé au créneau suivant (3 tentatives max) ; exception réseau ou 5xx = issue inconnue → ligne
+  « running », reprise après 30 min avec la MÊME clé (dédupliquée par le fournisseur) ; snapshot absent = échec sans envoi. Aucun rattrapage d'autres dates.
 - `dda-tyres-reporting-purge` quotidien : `tyre_rpt_purge(NULL)` supprime événements et journaux contact plus vieux
   que `retention_days` ; compteurs anonymes et historique d'émission conservés.
 
@@ -73,3 +73,5 @@ marge, IP ni secret. Distingue « Mesure non active », « Aucune donnée reçue
 - Le fournisseur d'e-mail ne déduplique une clé que pendant une durée limitée (24 h).
 - Le rapport est plafonné à 50 000 lignes par source ; au-delà, un avertissement « tronqué » apparaît.
 - Les routes `/events` V10 (`handleEvents`) restent dans le code mais la route publique utilise désormais le reporting.
+- Devis : « calculs serveur distincts » ≠ consultations (un quoteId est partagé 5 min via le cache). Sélections dédupliquées par visiteur+devis+gamme+saison, abandons par visiteur+devis. Un devis n'est exclu que s'il n'est utilisé que par des tests ; les devis partagés test/réel sont comptés et signalés « attribution ambiguë ».
+- Mesure inactive : les compteurs d'audience ne sont pas enregistrés (pas de faux 0 dans l'historique).
