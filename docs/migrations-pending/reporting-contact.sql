@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS public.tyre_rpt_events (
   quote_id uuid, offer_brand text, offer_verified boolean NOT NULL DEFAULT false,
   is_test boolean NOT NULL DEFAULT false
 );
-CREATE INDEX IF NOT EXISTS tyre_rpt_events_occurred ON public.tyre_rpt_events (occurred_at);
+CREATE INDEX IF NOT EXISTS tyre_rpt_events_occurred ON public.tyre_rpt_events (occurred_at, event_id);
 CREATE INDEX IF NOT EXISTS tyre_rpt_events_quote ON public.tyre_rpt_events (quote_id) WHERE quote_id IS NOT NULL;
 GRANT SELECT ON public.tyre_rpt_events TO authenticated;
 GRANT ALL ON public.tyre_rpt_events TO service_role;
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS public.tyre_rpt_contact_log (
   total_ttc_cents integer, total_label text,
   visitor_id text                                    -- seulement si contexte analytics consenti
 );
-CREATE INDEX IF NOT EXISTS tyre_rpt_contact_log_created ON public.tyre_rpt_contact_log (created_at);
+CREATE INDEX IF NOT EXISTS tyre_rpt_contact_log_created ON public.tyre_rpt_contact_log (created_at, request_id);
 GRANT SELECT ON public.tyre_rpt_contact_log TO authenticated;
 GRANT ALL ON public.tyre_rpt_contact_log TO service_role;
 ALTER TABLE public.tyre_rpt_contact_log ENABLE ROW LEVEL SECURITY;
@@ -117,11 +117,17 @@ CREATE TABLE IF NOT EXISTS public.tyre_rpt_daily_reports (
   attempts integer NOT NULL DEFAULT 1,
   send_key text,
   provider_id text,
+  -- Snapshot figé avant envoi (contient des coordonnées) : réutilisé à l'identique par tout nouvel essai, purgé après retention_days.
+  snapshot_subject text, snapshot_html text, snapshot_csv text, snapshot_counters jsonb,
   error_code text,
   started_at timestamptz NOT NULL DEFAULT now(),
   finished_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE public.tyre_rpt_daily_reports ADD COLUMN IF NOT EXISTS snapshot_subject text;
+ALTER TABLE public.tyre_rpt_daily_reports ADD COLUMN IF NOT EXISTS snapshot_html text;
+ALTER TABLE public.tyre_rpt_daily_reports ADD COLUMN IF NOT EXISTS snapshot_csv text;
+ALTER TABLE public.tyre_rpt_daily_reports ADD COLUMN IF NOT EXISTS snapshot_counters jsonb;
 GRANT SELECT ON public.tyre_rpt_daily_reports TO authenticated;
 GRANT ALL ON public.tyre_rpt_daily_reports TO service_role;
 ALTER TABLE public.tyre_rpt_daily_reports ENABLE ROW LEVEL SECURITY;
@@ -200,6 +206,8 @@ BEGIN
   GET DIAGNOSTICS ne = ROW_COUNT;
   DELETE FROM public.tyre_rpt_contact_log WHERE created_at < now() - make_interval(days => d);
   GET DIAGNOSTICS nc = ROW_COUNT;
+  UPDATE public.tyre_rpt_daily_reports SET snapshot_html = NULL, snapshot_csv = NULL, snapshot_subject = NULL
+   WHERE report_date < (now() - make_interval(days => d))::date AND snapshot_html IS NOT NULL;
   RETURN jsonb_build_object('retention_days', d, 'events_deleted', ne, 'contacts_deleted', nc);
 END $$;
 
@@ -231,7 +239,7 @@ END $$;
 -- =====================================================================
 -- SELECT cron.schedule('dda-tyres-reporting-daily', '0 * * * *', $job$
 --   SELECT net.http_post(
---     url := 'https://project--fb7b13a3-0362-4023-ab5a-40c0904e11b3.lovable.app/api/public/tyres/reporting-daily',
+--     url := 'https://ddaconnectv2.lovable.app/api/public/tyres/reporting-daily',
 --     headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization',
 --       'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'tyre_reporting_cron_token')),
 --     body := '{}'::jsonb, timeout_milliseconds := 60000);
