@@ -45,7 +45,7 @@ import { WEB_SITES, type WebSiteKey } from "./tire-web-sites";
 import type { GoogleIdentity } from "./google-id-token";
 
 export type StoredQuoteV10 = { expires_at: string; request: WebQuoteResponse["request"]; cases: WebQuoteCase[] };
-export type SiteRow = { id: string; contact_email: string | null };
+export type SiteRow = { id: string; contact_email: string | null; address?: string | null; phone?: string | null };
 export type MailAttachment = { filename: string; content: string };
 export type Mail = { from: string; to: string; subject: string; html: string; replyTo?: string; idempotencyKey: string; attachments: MailAttachment[] };
 
@@ -75,7 +75,7 @@ export type CommercialDeps = GateDeps & {
   verifiedDomains: () => string[];
   googleClientId: () => string | null;
   verifyGoogle: (token: string, clientId: string) => Promise<GoogleIdentity | null>;
-  loadLogo: () => Promise<{ renault: Uint8Array | null }>;
+  loadLogo: () => Promise<{ renault: Uint8Array | null; dacia?: Uint8Array | null }>;
   ipHash: (req: Request) => Promise<string>;
 };
 
@@ -219,6 +219,7 @@ export async function handleCommercialPreview(req: Request, deps: CommercialDeps
     {
       reference: "APERCU", issuedAt: now, validUntil: validUntil(now), preview: true,
       customer: { name: i.name, email: i.email, phone: i.phone }, garageLabel: SITE_SENDERS[i.site].label, offer,
+      garageContact: await garageContactFor(i.site, deps),
     },
     await deps.loadLogo().catch(() => ({ renault: null })),
   );
@@ -229,6 +230,12 @@ export async function handleCommercialPreview(req: Request, deps: CommercialDeps
 }
 
 /* ---------------------------- commercial-requests ---------------------------- */
+
+/** E-mail validé fixe ; adresse/téléphone uniquement depuis la fiche garage (null si absents ou illisibles). */
+async function garageContactFor(site: WebSiteKey, deps: Pick<CommercialDeps, "loadSite">) {
+  const row = await deps.loadSite(WEB_SITES.find((w) => w.key === site)!.code).catch(() => null);
+  return { email: FRONT_OFFICE_RECIPIENTS[site], address: row?.address ?? null, phone: row?.phone ?? null };
+}
 
 const loadErr = () => err("offer_load_insufficient", "Indice de charge de l'offre inférieur à celui demandé : proposition refusée.");
 
@@ -364,7 +371,8 @@ export async function handleCommercialRequest(req: Request, deps: CommercialDeps
   let pdf: Uint8Array | null = null;
   try {
     pdf = await buildCommercialPdf(
-      { reference, issuedAt: now, validUntil: until, customer: { name: i.name, email: i.email, phone: i.phone }, garageLabel: SITE_SENDERS[i.site].label, offer: accepted },
+      { reference, issuedAt: now, validUntil: until, customer: { name: i.name, email: i.email, phone: i.phone }, garageLabel: SITE_SENDERS[i.site].label, offer: accepted,
+        garageContact: { email: FRONT_OFFICE_RECIPIENTS[i.site], address: site.address ?? null, phone: site.phone ?? null } },
       await deps.loadLogo().catch(() => ({ renault: null })),
     );
     await deps.storePdf(pdfPath, pdf);
@@ -560,7 +568,7 @@ export async function realV10Deps(req: Request): Promise<CommercialDeps & Report
     },
     revalidate: (input, siteId) => freshWebQuote(input, siteId, facade),
     loadSite: async (code) => {
-      const { data, error } = await db.from("sites").select("id, contact_email").eq("code", code).eq("active", true).maybeSingle();
+      const { data, error } = await db.from("sites").select("id, contact_email, address, phone").eq("code", code).eq("active", true).maybeSingle();
       if (error) throw new Error("site");
       return data ?? null;
     },
@@ -601,9 +609,13 @@ export async function realV10Deps(req: Request): Promise<CommercialDeps & Report
       return r.ok ? r.identity : null;
     },
     loadLogo: async () => {
+      // Logos officiels locaux validés en priorité ; sinon logo DDA/Renault existant (Dacia jamais substitué).
+      const { officialBrandLogos } = await import("./brand-logos");
+      const off = officialBrandLogos();
+      if (off.renault) return off;
       const asset = (await import("@/assets/dda-renault-logo.jpeg.asset.json")).default as { url: string };
       const r = await fetch(new URL(asset.url, new URL(req.url).origin));
-      return { renault: r.ok ? new Uint8Array(await r.arrayBuffer()) : null };
+      return { renault: r.ok ? new Uint8Array(await r.arrayBuffer()) : null, dacia: off.dacia };
     },
     secret: () => env("TYRES_REPORT_SECRET"),
     loadPeriod: async (start, end) => {

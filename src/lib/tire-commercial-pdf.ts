@@ -5,6 +5,7 @@
  */
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
+import { isCompletePng } from "./brand-logos";
 import type { WebQuoteCase } from "./tire-web-api";
 import { COMMERCIAL_VALIDITY_DAYS, SEASON_LABEL, SIGNATURE, TIER_LABEL, eurCents, formatParisDate, totalLabel } from "./tire-v10";
 
@@ -14,6 +15,8 @@ export type CommercialPdfData = {
   validUntil: Date;
   customer: { name: string; email: string; phone: string };
   garageLabel: string;
+  /** Coordonnées du garage : e-mail validé fixe ; adresse/téléphone seulement s'ils existent en données garage. */
+  garageContact?: { email: string; address?: string | null; phone?: string | null };
   offer: WebQuoteCase;
   preview?: boolean;
 };
@@ -84,9 +87,18 @@ export function wrapText(s: string, maxWidth: number, measure: (t: string) => nu
 /** Élément positionné (exposé pour les tests de mise en page). */
 export type PdfLayoutItem = { page: number; kind: "text" | "box"; text?: string; x: number; y: number; width: number; height: number };
 
+/** Lignes de coordonnées garage réellement disponibles (rien d'inventé). */
+export function garageContactLines(c: CommercialPdfData["garageContact"]): string[] {
+  if (!c) return [];
+  return [c.address?.trim() ? c.address.trim() : null, c.phone?.trim() ? `Tél. ${c.phone.trim()}` : null, `E-mail : ${c.email}`].filter(Boolean) as string[];
+}
+
+export type PdfLogos = { renault: Uint8Array | null; dacia?: Uint8Array | null };
+const isJpeg = (b: Uint8Array) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+
 export async function buildCommercialPdf(
   d: CommercialPdfData,
-  logo: { renault: Uint8Array | null },
+  logo: PdfLogos,
   layoutOut?: PdfLayoutItem[],
 ): Promise<Uint8Array> {
   if (d.offer.status !== "available" || d.offer.totalTtcCents == null) throw new Error("offer_unavailable");
@@ -97,27 +109,36 @@ export async function buildCommercialPdf(
   const { W, H, M } = PDF_PAGE;
   const CW = W - 2 * M;
   const bottom = d.preview ? PDF_PAGE.previewFooterTop : PDF_PAGE.footerTop;
-  const ink = rgb(0.1, 0.1, 0.1), muted = rgb(0.4, 0.4, 0.4), accent = rgb(0.98, 0.78, 0.0), white = rgb(1, 1, 1);
-  let logoImg: Awaited<ReturnType<typeof pdf.embedJpg>> | null = null;
-  if (logo.renault) {
-    try { logoImg = await pdf.embedJpg(logo.renault); } catch { logoImg = null; }
-  }
+  const ink = rgb(0.1, 0.1, 0.1), muted = rgb(0.4, 0.4, 0.4), accent = rgb(0.98, 0.78, 0.0);
+  type Img = Awaited<ReturnType<typeof pdf.embedPng>>;
+  const embed = async (b: Uint8Array | null | undefined): Promise<Img | null> => {
+    if (!b) return null;
+    try {
+      if (isCompletePng(b)) return await pdf.embedPng(b);
+      if (isJpeg(b)) return await pdf.embedJpg(b);
+    } catch { /* image illisible : ignorée */ }
+    return null; // PNG tronqué ou format inconnu : jamais intégré
+  };
+  const logos = [await embed(logo.renault), await embed(logo.dacia)].filter(Boolean) as Img[];
   const log = (it: PdfLayoutItem) => layoutOut?.push(it);
   let pageNo = 0;
   let page = pdf.addPage([W, H]);
   let y = 0;
 
   const header = () => {
-    page.drawRectangle({ x: 0, y: H - 110, width: W, height: 110, color: rgb(0, 0, 0) });
-    if (logoImg) {
-      const r = logoImg.height / logoImg.width;
-      const w = Math.min(150, 80 / r), h = w * r;
-      page.drawImage(logoImg, { x: M, y: H - 55 - h / 2, width: w, height: h });
+    // En-tête sur fond BLANC : logos officiels à encre noire lisibles (jamais noir sur noir).
+    let lx = M;
+    for (const img of logos) {
+      const r = img.height / img.width;
+      const h = Math.min(56, 110 * r), w = h / r;
+      page.drawImage(img, { x: lx, y: H - 57 - h / 2, width: w, height: h });
+      log({ page: pageNo, kind: "box", text: "logo", x: lx, y: H - 57 - h / 2, width: w, height: h });
+      lx += w + 18;
     }
     const rx = W - M - 250;
-    page.drawText(winAnsi("Devis pneumatiques — DDA Care"), { x: rx, y: H - 45, size: 15, font: bold, color: white });
-    page.drawText(winAnsi(PDF_IDENTITY.name), { x: rx, y: H - 68, size: 12, font: bold, color: white });
-    page.drawText(winAnsi(PDF_IDENTITY.tagline), { x: rx, y: H - 86, size: 9, font: bold, color: accent });
+    page.drawText(winAnsi("Devis pneumatiques — DDA Care"), { x: rx, y: H - 45, size: 15, font: bold, color: ink });
+    page.drawText(winAnsi(PDF_IDENTITY.name), { x: rx, y: H - 68, size: 12, font: bold, color: ink });
+    page.drawText(winAnsi(PDF_IDENTITY.tagline), { x: rx, y: H - 86, size: 9, font: bold, color: muted });
     log({ page: pageNo, kind: "text", text: PDF_IDENTITY.name, x: rx, y: H - 68, width: 0, height: 12 });
     log({ page: pageNo, kind: "text", text: PDF_IDENTITY.tagline, x: rx, y: H - 86, width: 0, height: 9 });
     page.drawRectangle({ x: 0, y: H - 114, width: W, height: 4, color: accent });
@@ -152,7 +173,9 @@ export async function buildCommercialPdf(
   section("Client");
   text(lines[3]!); text(lines[4]!); text(lines[5]!, { gap: 10 });
   section("Garage");
-  text(lines[6]!, { gap: 10 });
+  const contact = garageContactLines(d.garageContact);
+  text(lines[6]!, { gap: contact.length ? 4 : 10 });
+  contact.forEach((c, k) => text(c, { c: muted, gap: k === contact.length - 1 ? 10 : 4 }));
   section("Offre retenue");
   text(lines[7]!, { size: 13, f: bold });
   text(lines[8]!); text(lines[9]!); text(lines[10]!, { gap: 6 });
