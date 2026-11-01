@@ -72,6 +72,8 @@ export function buildContactEmail(input: ContactRequestInput, offer: WebQuoteCas
     v ? `<tr><td style="padding:4px 12px 4px 0;color:#555;">${esc(k)}</td><td style="padding:4px 0;"><b>${esc(v)}</b></td></tr>` : "";
   const dims = [offer.size, [offer.loadIndex, offer.speedIndex].filter(Boolean).join("")].filter(Boolean).join(" ");
   const services = offer.includedServices.map((s) => s.label).join(", ");
+  const hasMount = offer.includedServices.some((s) => s.code === "montage");
+  const totalLabel = hasMount ? "Total TTC monté" : "Total TTC";
   const html = `<!DOCTYPE html><html lang="fr"><body style="font-family:Arial,sans-serif;color:#1a1a1a;background:#ffffff;">
 <h2 style="margin:0 0 12px 0;">Demande de contact pneus — site web</h2>
 <p>Garage choisi par le client : <b>${esc(label)}</b>. Demande à confirmer par le garage : aucun rendez-vous réservé, aucun paiement, aucune commande fournisseur.</p>
