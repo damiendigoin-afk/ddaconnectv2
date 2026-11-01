@@ -7,7 +7,8 @@ import {
   normalizeEvents, parisMidnightUtc, parseVerifiedDomains, senderFor, totalLabel, validUntil,
   fetchAllPages, loadBelowRequested, consentedFunnel, dailySeries, enrichFromQuote, lastParisDays, aggregateTrafficV2, canSetProspectStatus, commercialRequestInput, type EventRow, reportSendKey, FRONT_OFFICE_RECIPIENTS,
 } from "@/lib/tire-v10";
-import { commercialPdfLines, buildCommercialPdf, wrapText, PDF_PAGE, PDF_IDENTITY, type PdfLayoutItem } from "@/lib/tire-commercial-pdf";
+import { isCompletePng, b64ToBytes, officialBrandLogos } from "@/lib/brand-logos";
+import { garageContactLines, commercialPdfLines, buildCommercialPdf, wrapText, PDF_PAGE, PDF_IDENTITY, type PdfLayoutItem } from "@/lib/tire-commercial-pdf";
 import {
   handleCommercialRequest, handleDailyReport, handleEvents, handlePublicConfig,
   handleCommercialPreview, type CommercialDeps, type PrevRequest, type ReportDeps,
@@ -567,5 +568,46 @@ describe("V10.1 analytics cohorte + CRM", () => {
     expect(canSetProspectStatus("nouveau", "contacte")).toBe(true);
     expect(canSetProspectStatus("nouveau", "nouveau")).toBe(false);
     expect(canSetProspectStatus("nouveau", "gagne")).toBe(false);
+  });
+});
+
+describe("V10 PDF — logos officiels et coordonnées", () => {
+  const OK_PNG = "iVBORw0KGgoAAAANSUhEUgAAACgAAAAKCAYAAADGmhxQAAAAJ0lEQVR4nGNkYGD4zzCIAdNAO4AQGHUgpWDUgZSCUQdSCkYdSCkAAIVCARPejBXXAAAAAElFTkSuQmCC";
+  // Base64 Dacia tel que transmis le 01/11/2026 : IDAT tronqué, sans IEND.
+  const TRUNC_DACIA = "iVBORw0KGgoAAAANSUhEUgAAAPAAAAAbCAYAAABC1gLTAAAFL0lEQVR4nNXb63HcNhiF4cMKghKUCgJ3QHbgDgJWYLkCswMrFSxUgdUBlhWE6kDpgKqAeTmcHSdj2eLH5QX7zjz2LwnQLo8040shaUAu9XjCZ/TIsa8Imu4YlW93mu76EbnUopS9RtIXvNfSz79mHt/QoUaPzSowILc6VOiRUycEfa9GVH55JDjkVItS9hrdxoA9EhzGOlTosUkFBuRYhwo9cuiEoB/7gA655JHgkFstStlrlP+APRIc/lvU9I1+kwoMyLUOFXoc2QlBbzfebbxjh6PzSHDIsRal7DXKe8AeCQ5vFbXRiAsMyLkOFXocUaP3H57xbuMdOxyVR4JDrrUoZa/R++/B2NLPf013kv7Ge6971AYjLjAg9zpU6LFnQdNP3zmNdxvv2GHvPBIccq5FKXuN8hzw+HoneMwpauURFxhwC3Wo0GOPguaP99J4t/GOHfbKYfwJcKf8a1HKXqP8Bjy+7gkelqJWHHGBAbdShwo9tizIPt5L493GO3bYOocEj1uoRSl7jfIasEOCx5KiVhpxgQG3VIcKPbYoaPl4L413G+/YYascEjxupRal7DXKZ8AOCR7XFLXCiAscXZT0JyxFrfDFv1HQ9eO91KNCh7VzSPCwVCPq9mqUx4AdEjzWKGp6TxZXIIeijh9x0HrjvdTjd4y/r5VDgoelGlG3WaPjB+yQ4LFmn/GARRXIpajjRhy0/ngvdajQ49ocEjws1Yi63RodO2CHBI8tqhG1oAI59YBPsPQX7rG0j/iGLetQocc1jQ9RKVs1om67RscN2CHBY8tqRBkrkFPjizSO6U7za1FqWeN545vjMLdnRE3/UcBShwo9ljZ+7G+Y24umf+o5ftwt1+i4AZ8QZOszgqQ/YKlGlKECueSR4DC3V5SaxmHNw3reM0pNgwia3lxLHSr0WFLQ/mfmUKNjBnxCkK0aUdNzddbGIy6QQx4JDnN7RanpAbXmYT3vGaX+P4Sg6U221KFCjyUF7X/m0TXaf8AnBNmqEfU9h7M2HHGBo/NIcJjbK0pND6Y1D+t5zyj19gCCpjfbUocKPZYUtP+ZR9Zo3wGfEGSrRtSPOZy10YgLfMGR3cNhbq8oNT2Q1jwSHOY2nnenXz/4QdObbqlDhR5LCrKf+aIZD8WG/YMoe43mPactSl3XCUG2PuMBP8vhrA1GXGDALVUjyp5HgsPcXlFqGtt7PeATLHX4gKUFTQ/crdSilL1G+wz4hCBbjwh6P4+zbH8IOVbhrJ9UYMCtVCPK3vjiJTjM7RWlppHNLWr/v8sOmh68W6hFKXuNth/wCUG2HhE0P4+zbCPuUaHDDxUYcAvViLLnkeAwtyXjvRS1/4ij7GfuXYtS9hptN+B7fIWlRwQtz+OsFUZcYEDO1Yiy55DgMbc1xnspyj6oqOnrXVqU/cw9a1HKXqNtBhw0/fS19Iig6/M468oRFxiQazWi7DkkeFj6gA5rFWUfVNT0dS8tyn7mXrUoZa/R+gMOOm68lzzOumLEBQbkWI0oew4JHpaWnvdeUfZBRU33WVqU/cw9alHKXqN1BxxkH+8zSk0DWjOPsxaOuOCXAblVI8qeQ4KHpaXnza3DH7AUNd1raQ/4hJxqUcpeo/UGHJTPeC8F2e803qUq+KVRPo2XesKLlvURHpY6PGHLHO5h7QkdluZRajo/h140fWOyVmryXi/69ecfX4d7WHtAjy37CA9L/b85X3vLqMHyJwAAAABJRU5ErkJggg==";
+  const base = { reference: "DDA-PN-1", issuedAt: NOW, validUntil: validUntil(NOW), customer: { name: "Jean Test", email: "jean@test.fr", phone: "0600" }, garageLabel: "Garage Castillon", offer };
+
+  it("PNG tronqué refusé, PNG complet accepté", () => {
+    expect(isCompletePng(b64ToBytes(TRUNC_DACIA))).toBe(false);
+    expect(isCompletePng(b64ToBytes(OK_PNG))).toBe(true);
+    expect(officialBrandLogos()).toEqual({ renault: null, dacia: null });
+  });
+
+  it("logos valides intégrés (fond blanc), tronqués ignorés, identité toujours présente", async () => {
+    const A: PdfLayoutItem[] = [];
+    await buildCommercialPdf(base, { renault: b64ToBytes(OK_PNG), dacia: b64ToBytes(OK_PNG) }, A);
+    expect(A.filter((i) => i.text === "logo")).toHaveLength(2);
+    const B: PdfLayoutItem[] = [];
+    await buildCommercialPdf(base, { renault: null, dacia: b64ToBytes(TRUNC_DACIA) }, B);
+    expect(B.filter((i) => i.text === "logo")).toHaveLength(0);
+    expect(B.some((i) => i.text === "Damien DIGOIN Automobile")).toBe(true);
+    expect(B.some((i) => i.text === "LE SENS DU SERVICE")).toBe(true);
+  });
+
+  it("coordonnées : e-mail validé seul si adresse/téléphone absents, rien d'inventé", async () => {
+    expect(garageContactLines({ email: "contact@garagecastillon.fr", address: null, phone: "  " })).toEqual(["E-mail : contact@garagecastillon.fr"]);
+    expect(garageContactLines({ email: "contact@dda-lalinde.fr", address: "1 rue X", phone: "05 00" })).toEqual(["1 rue X", "Tél. 05 00", "E-mail : contact@dda-lalinde.fr"]);
+    const L: PdfLayoutItem[] = [];
+    await buildCommercialPdf({ ...base, garageContact: { email: "contact@garagecastillon.fr" } }, { renault: null }, L);
+    expect(L.some((i) => i.text === "E-mail : contact@garagecastillon.fr")).toBe(true);
+    expect(L.some((i) => /^Tél\./.test(i.text ?? ""))).toBe(false);
+  });
+
+  it("demande : PDF reçoit l'e-mail Front Office validé, pas sites.contact_email", async () => {
+    const { d } = deps({ loadSite: async () => ({ id: "cas", contact_email: "autre@x.fr", address: null, phone: null }) });
+    let pdfText = "";
+    d.storePdf = async (_p, bytes) => { pdfText = new TextDecoder("latin1").decode(bytes); };
+    expect((await handleCommercialRequest(post(good), d)).status).toBe(201);
+    expect(pdfText.length).toBeGreaterThan(0);
   });
 });
