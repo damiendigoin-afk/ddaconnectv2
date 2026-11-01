@@ -42,16 +42,14 @@ CREATE TABLE public.tyre_commercial_requests (
 );
 CREATE INDEX tyre_commercial_requests_site_created ON public.tyre_commercial_requests (site_id, created_at DESC);
 CREATE INDEX tyre_commercial_requests_status ON public.tyre_commercial_requests (prospect_status);
-GRANT SELECT, UPDATE ON public.tyre_commercial_requests TO authenticated;
+-- Utilisateurs : LECTURE seule. Aucun UPDATE direct (total, offre, consentement, empreinte, request_id,
+-- états d'envoi restent réservés au serveur / service_role). Statut CRM : RPC set_tyre_prospect_status (§7).
+GRANT SELECT ON public.tyre_commercial_requests TO authenticated;
 GRANT ALL ON public.tyre_commercial_requests TO service_role;
 ALTER TABLE public.tyre_commercial_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "managers read tyre requests of their sites" ON public.tyre_commercial_requests
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'manager') AND public.user_can_access_site(auth.uid(), site_id));
-CREATE POLICY "managers update tyre requests of their sites" ON public.tyre_commercial_requests
-  FOR UPDATE TO authenticated
-  USING (public.has_role(auth.uid(), 'manager') AND public.user_can_access_site(auth.uid(), site_id))
-  WITH CHECK (public.has_role(auth.uid(), 'manager') AND public.user_can_access_site(auth.uid(), site_id));
 -- Pas d'INSERT/DELETE côté utilisateurs : création uniquement par le serveur (service_role).
 CREATE TRIGGER tyre_commercial_requests_updated BEFORE UPDATE ON public.tyre_commercial_requests
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
@@ -120,8 +118,8 @@ CREATE INDEX tyre_web_events_visitor ON public.tyre_web_events (visitor_id) WHER
 
 -- 7. CRM : le statut prospect ne change QUE par RPC (manager + accès au site) ; plus d'UPDATE direct
 --    (évite qu'un manager modifie offre, total, coordonnées ou statut d'envoi).
-DROP POLICY "managers update tyre requests of their sites" ON public.tyre_commercial_requests;
-REVOKE UPDATE ON public.tyre_commercial_requests FROM authenticated;
+-- (Défensif : aucun UPDATE accordé à authenticated en §1 ; on s'en assure.)
+REVOKE INSERT, UPDATE, DELETE ON public.tyre_commercial_requests FROM authenticated, anon;
 ALTER TABLE public.tyre_commercial_requests
   ADD COLUMN status_changed_at timestamptz,
   ADD COLUMN status_changed_by uuid;

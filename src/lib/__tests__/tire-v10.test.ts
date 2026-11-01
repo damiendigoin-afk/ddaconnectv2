@@ -604,3 +604,23 @@ describe("V10 PDF — logos officiels et coordonnées", () => {
   });
 
 });
+
+describe("V10 — contexte analytics hors empreinte d'idempotence", () => {
+  const V = "visitor_aaaaaaaaaaaa";
+  it("retrait du consentement au réessai : même demande rejouée, aucun nouvel envoi ni événement", async () => {
+    const evs: EventRow[] = [];
+    const ctx = deps({ recordServerEvent: async (e) => { evs.push(e); } });
+    expect((await handleCommercialRequest(post({ ...good, analytics: { consent: true, visitorId: V } }), ctx.d)).status).toBe(201);
+    const r2 = await handleCommercialRequest(post(good), ctx.d);
+    expect(r2.status).toBe(201);
+    expect(r2.headers.get("Idempotent-Replay")).toBe("true");
+    expect(ctx.mails).toHaveLength(2);
+    expect(evs).toHaveLength(1);
+  });
+  it("sans consentement analytics dans la tentative courante : aucun identifiant pseudonyme", async () => {
+    const evs: EventRow[] = [];
+    const ctx = deps({ recordServerEvent: async (e) => { evs.push(e); } });
+    await handleCommercialRequest(post(good), ctx.d);
+    expect(evs[0]).toMatchObject({ consent: false, visitor_id: null, session_id: null });
+  });
+});

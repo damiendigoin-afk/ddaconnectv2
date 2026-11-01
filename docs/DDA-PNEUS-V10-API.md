@@ -148,3 +148,7 @@ Exemple :
 ### CRM prospects (écran Paramètres > Chiffrage & pneumatiques)
 Liste (sites accessibles, RLS manager+site), filtre garage, contact (tél/e-mail cliquables), référence, date Paris, offre, total, état d'envoi, statut modifiable, PDF privé par URL signée 5 min.
 Changement de statut **uniquement** par la RPC `set_tyre_prospect_status(_request uuid, _status text)` (manager + `user_can_access_site`, verrou de ligne, horodatage/auteur) ; l'UPDATE direct est retiré (la migration V10.1 révoque `UPDATE` et supprime la politique). Voir `docs/migrations-pending/V10_tyres_commercial_traffic.sql` §6–7 (non appliqué).
+
+### Droits sur les prospects (migration préparée)
+`authenticated` : **SELECT uniquement** (RLS manager + site). Aucun UPDATE/INSERT/DELETE direct : total, offre, consentement, empreinte, `request_id`, états d'envoi restent écrits par le serveur (`service_role`). Le statut CRM change seulement par `set_tyre_prospect_status`, qui ne touche que `prospect_status`, `status_changed_at`, `status_changed_by`. Contrat vérifié par `src/lib/__tests__/tire-v10-migration-contract.test.ts`.
+Le contexte `analytics` n'entre pas dans l'empreinte d'idempotence : un réessai avec ou sans ce contexte rejoue la même demande (pas de nouvel envoi, pas de nouvel événement) ; seule la tentative qui enregistre la demande peut relier un identifiant pseudonyme, et seulement si elle porte `analytics.consent = true`.
