@@ -312,7 +312,9 @@ describe("rapport planifié", () => {
     await handleDailyReportCron(req(), f.d);
     expect(f.mails[0]!.idempotencyKey).toBe("tyres-rpt-2026-10-31-r2");
     const s = mk({ claim: async () => ({ claimed: true, attempt: 2, previous: "stale", prevKey: "tyres-rpt-2026-10-31" }) });
+    s.store.set("2026-10-31", { subject: "S", html: "<p>figé</p>", csv: null, counters: {} });
     await handleDailyReportCron(req(), s.d);
+    expect(s.mails[0]!.html).toBe("<p>figé</p>");
     expect(s.mails[0]!.idempotencyKey).toBe("tyres-rpt-2026-10-31");
   });
   it("reprise même clé = snapshot identique, sans relire les contacts modifiés", async () => {
