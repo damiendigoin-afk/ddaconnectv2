@@ -126,4 +126,12 @@ describe("contact-request pneus", () => {
     for (const bad of ["pdf-lib", "buildCommercialPdf", "freshWebQuote", "runTopPrice", "quoteTopPrice", "insert(", "upsert(", "storage", "sendEmailWithAttachments"])
       expect(src).not.toContain(bad);
   });
+  it("libellé du total : « monté » seulement si le montage est réellement inclus", async () => {
+    const { d, mails } = deps({ loadQuote: async () => ({ created_at: "2026-11-01T11:58:00Z", expires_at: "2026-11-01T12:10:00Z", cases: [{ ...offer, includedServices: [] }] }) });
+    await handleContactPost(post(good), d);
+    const h = mails[0]!.html;
+    expect(h).toContain("Total TTC</td>");
+    expect(h).not.toContain("Total TTC mont\u00e9");
+    expect(h).toContain("412,34");
+  });
 });
