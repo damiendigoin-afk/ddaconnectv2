@@ -523,9 +523,11 @@ describe("V10.1 analytics cohorte + CRM", () => {
     expect(days).toEqual(["2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]);
     const s = dailySeries([row({ paris_day: "2026-11-02" })], [
       { created_at: "2026-11-01T23:10:00Z", site_key: "castillon", prospect_status: "nouveau", delivery_status: "delivered" },
-      { created_at: "2026-11-01T22:50:00Z", site_key: "castillon", prospect_status: "nouveau", delivery_status: "partial" },
+      { created_at: "2026-11-01T23:20:00Z", site_key: "castillon", prospect_status: "nouveau", delivery_status: "partial" },
+      { created_at: "2026-11-01T22:50:00Z", site_key: "castillon", prospect_status: "nouveau", delivery_status: "delivered" }, // 23:50 Paris le 1er
     ], days);
     expect(s.at(-1)).toMatchObject({ day: "2026-11-02", pageViews: 1, requestsRecorded: 2, requestsDelivered: 1 });
+    expect(s.at(-2)).toMatchObject({ day: "2026-11-01", requestsRecorded: 1, requestsDelivered: 1 });
     const a = aggregateTrafficV2([], [{ created_at: NOW.toISOString(), site_key: "lalinde", prospect_status: "nouveau", delivery_status: "sending" }], NOW);
     expect(a.requestsGlobal).toEqual({ recorded: 1, delivered: 0 });
   });
