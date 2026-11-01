@@ -180,8 +180,9 @@ export async function handleContactPost(req: Request, deps: ContactDeps): Promis
   }
   if (r.ok && r.id) {
     console.info(`[tyres-contact] sent site=${input.site}`);
-    await log.finish(input, offer, "sent", null);
-    return json(200, { requestId: input.requestId, status: "sent", garage: input.site }, cors);
+    const recorded = await log.finish(input, offer, "sent", null);
+    // recorded:true seulement sur preuve relue du journal ; sinon l'e-mail reste un succès mais sans conversion.
+    return json(200, { requestId: input.requestId, status: "sent", garage: input.site, recorded }, cors);
   }
   console.warn(`[tyres-contact] send_failed status=${r.status}`);
   await log.finish(input, offer, "failed", r.status === 409 ? "request_conflict" : r.status === 429 ? "email_busy" : "email_failed");

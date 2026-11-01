@@ -116,7 +116,18 @@ export type ContactLogDeps = {
   /** Ne rétrograde jamais un statut « sent ». */
   finish: (requestId: string, status: ContactLogStatus, errorCode: string | null) => Promise<void>;
   insertEvents: (rows: RptEventRow[]) => Promise<number>;
+  /** Relecture de la ligne journal (preuve d'enregistrement). Absente => jamais « recorded ». */
+  readBack?: (requestId: string) => Promise<ContactLogRow | null>;
 };
+
+/** Vrai seulement si la ligne relue est « sent » ET porte exactement le contenu métier de cette demande. */
+export function contactRowMatches(row: ContactLogRow | null | undefined, i: ContactLogInput, offer: WebQuoteCase): boolean {
+  if (!row) return false;
+  return row.request_id === i.requestId && row.status === "sent" && row.site_key === i.site && row.quote_id === i.quoteId
+    && row.tier === i.tier && row.season === i.season && row.name === i.name && row.email === i.email && row.phone === i.phone
+    && (row.message ?? null) === (i.message ?? null) && row.brand === offer.brand && row.model === offer.model && row.size === offer.size
+    && row.quantity === offer.quantity && row.total_ttc_cents === offer.totalTtcCents;
+}
 
 export type ContactLogInput = {
   requestId: string; quoteId: string; site: "castillon" | "lalinde"; tier: string; season: string;
@@ -150,10 +161,16 @@ export function contactLogger(deps: ContactLogDeps | null | undefined, now: () =
         }),
       );
     },
-    async finish(i: ContactLogInput, offer: WebQuoteCase | null, status: ContactLogStatus, errorCode: string | null) {
-      if (!deps || !settings?.contact_log_enabled) return;
+    /** Renvoie true uniquement si le journal relu confirme l'enregistrement (status sent + contenu identique). */
+    async finish(i: ContactLogInput, offer: WebQuoteCase | null, status: ContactLogStatus, errorCode: string | null): Promise<boolean> {
+      if (!deps || !settings?.contact_log_enabled) return false;
       const s = settings;
-      await safe(() => deps.finish(i.requestId, status, errorCode));
+      const finished = await safe(async () => (await deps.finish(i.requestId, status, errorCode), true as const));
+      let recorded = false;
+      if (status === "sent" && finished && offer && deps.readBack) {
+        const row = await safe(() => deps.readBack!(i.requestId));
+        recorded = contactRowMatches(row, i, offer);
+      }
       // Événement de conversion : seulement si consenti, sans nom/e-mail/téléphone, id déterministe (rejeu = doublon ignoré).
       if (status === "sent" && i.analytics && s.events_enabled) {
         const at = now();
@@ -167,6 +184,7 @@ export function contactLogger(deps: ContactLogDeps | null | undefined, now: () =
         };
         await safe(() => deps.insertEvents([{ ...row, is_test: isTestContact(i, s) || s.test_visitor_ids.includes(i.analytics!.visitorId) }]));
       }
+      return recorded;
     },
   };
 }
@@ -371,6 +389,11 @@ export async function realContactLogDeps(): Promise<ContactLogDeps> {
       if (error) throw new Error("finish");
     },
     insertEvents: (rows) => insertEventsInto(db, rows),
+    readBack: async (id) => {
+      const { data, error } = await db.from("tyre_rpt_contact_log").select("*").eq("request_id", id).maybeSingle();
+      if (error) throw new Error("read");
+      return (data ?? null) as ContactLogRow | null;
+    },
   };
 }
 
