@@ -106,3 +106,43 @@ CREATE POLICY "managers read tyre commercial pdfs" ON storage.objects
     )
   );
 -- Aucune politique anon : pas de listing ni de lecture publique.
+
+-- ============================================================================
+-- V10.1 — corrélation analytics consentie + CRM prospects (TOUJOURS NON APPLIQUÉ)
+-- ============================================================================
+-- 6. Événements : devis serveur associé, offre relue côté serveur (aucune coordonnée).
+ALTER TABLE public.tyre_web_events
+  ADD COLUMN quote_id uuid,
+  ADD COLUMN offer_brand text,
+  ADD COLUMN offer_verified boolean NOT NULL DEFAULT false;
+CREATE INDEX tyre_web_events_quote ON public.tyre_web_events (quote_id) WHERE quote_id IS NOT NULL;
+CREATE INDEX tyre_web_events_visitor ON public.tyre_web_events (visitor_id) WHERE visitor_id IS NOT NULL;
+
+-- 7. CRM : le statut prospect ne change QUE par RPC (manager + accès au site) ; plus d'UPDATE direct
+--    (évite qu'un manager modifie offre, total, coordonnées ou statut d'envoi).
+DROP POLICY "managers update tyre requests of their sites" ON public.tyre_commercial_requests;
+REVOKE UPDATE ON public.tyre_commercial_requests FROM authenticated;
+ALTER TABLE public.tyre_commercial_requests
+  ADD COLUMN status_changed_at timestamptz,
+  ADD COLUMN status_changed_by uuid;
+
+CREATE OR REPLACE FUNCTION public.set_tyre_prospect_status(_request uuid, _status text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE _site uuid; _cur text;
+BEGIN
+  IF _status NOT IN ('nouveau','a_contacter','contacte','rdv_pris','vendu','perdu') THEN
+    RAISE EXCEPTION 'invalid_status';
+  END IF;
+  SELECT site_id, prospect_status INTO _site, _cur FROM tyre_commercial_requests WHERE id = _request FOR UPDATE;
+  IF _site IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
+  IF NOT (has_role(auth.uid(), 'manager') AND user_can_access_site(auth.uid(), _site)) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  IF _cur = _status THEN RETURN _cur; END IF;
+  UPDATE tyre_commercial_requests
+     SET prospect_status = _status, status_changed_at = now(), status_changed_by = auth.uid()
+   WHERE id = _request;
+  RETURN _status;
+END $$;
+REVOKE ALL ON FUNCTION public.set_tyre_prospect_status(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_tyre_prospect_status(uuid, text) TO authenticated;

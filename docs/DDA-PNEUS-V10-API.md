@@ -113,3 +113,36 @@ Réutilisable tel quel : `src/lib/tire-ocr-parse.ts` (pur, sans dépendance). En
 - **Logo Dacia officiel : BLOQUÉ.** Aucun fichier officiel Dacia n'est présent dans le projet ; aucun logo n'est dessiné ni recréé. Le PDF porte seulement le logo DDA/Renault existant (`src/assets/dda-renault-logo.jpeg.asset.json`). Pour l'ajouter : fournir le fichier officiel (charte Dacia/Renault Group, PNG/JPG avec droit d'usage), l'enregistrer comme asset, puis l'injecter dans `loadLogo` et l'en-tête.
 - Générateur PDF : `src/lib/tire-commercial-pdf.ts` (`buildCommercialPdf(data, logo)`, lignes texte testables via `commercialPdfLines`), appelé par `handleCommercialPreview` / `handleCommercialRequest` dans `src/lib/tire-v10.server.ts`.
 - Statistiques : couverture = part des **événements reçus** avec consentement, pas une proportion des visiteurs totaux.
+
+## V10.1 — Champs facultatifs pour le frontend Sites (analytics consenti)
+Tous **facultatifs** ; les omettre ne bloque rien (configurateur, devis, demande). Aucune coordonnée (nom, e-mail, téléphone, adresse, URL) n'est jamais acceptée dans `/events` : champ inconnu => 400.
+
+### `/events` — champ ajouté par événement
+- `quoteId` (uuid) : `quoteId` renvoyé par `POST /quotes`. À envoyer sur `quote_generated` et `offer_selected` (avec `tier`, `season`).
+  Le serveur relit le **devis conservé** (jamais le moteur de prix ; lecture bornée à 1,5 s, échec ignoré) : taille et quantité viennent du devis serveur, la marque de l'offre choisie (tier+saison) aussi (`offer_verified=true`). Les `width/ratio/rim` client sont alors remplacés. Sans devis lisible : dimensions client gardées, `offer_verified=false`, exclues des statistiques de marques.
+- `visitorId` / `sessionId` : seulement si `consent.analytics = true` (sinon supprimés côté serveur, déjà en place).
+
+Exemple :
+```json
+{ "consent": { "analytics": true },
+  "events": [{ "eventId": "uuid", "type": "offer_selected", "visitorId": "v_0123456789abcdef", "sessionId": "s_0123456789abcdef",
+               "quoteId": "uuid du devis", "tier": "milieu", "season": "ete", "site": "castillon" }] }
+```
+
+### `/commercial-requests` — champ ajouté
+```json
+"analytics": { "consent": true, "visitorId": "v_0123456789abcdef", "sessionId": "s_0123456789abcdef" }
+```
+À envoyer **uniquement** si le visiteur a consenti à la mesure ; sinon omettre l'objet (`consent:false` => 400). `sessionId` facultatif. N'entre pas dans l'empreinte d'idempotence. L'événement serveur `request_submitted` porte alors `visitor_id`, `session_id`, `quote_id` et la marque de l'offre acceptée ; sans ce champ il reste anonyme (compté dans les demandes globales, hors cohorte).
+
+### Calculs du tableau de bord (DDA Connect, managers)
+- Série par **date Paris** sur 7 jours : pages vues, devis, demandes **enregistrées**, demandes avec **e-mails acceptés par le service d'envoi** (distinct ; pas une preuve de réception en boîte).
+- Demandes globales (tous visiteurs) affichées à part, par garage.
+- Taux visite→devis, devis→demande, visite→demande : **cohorte consentie uniquement** (visiteurs pseudonymes distincts). Dénominateur nul => « Non calculable ».
+- Choix sans demande : dédupliqués **par devis** (`quoteId`) ; plusieurs choix sur le même devis = un seul. Si un `offer_selected` consenti n'a pas de `quoteId` => « Non calculable ».
+- Marques choisies : seulement offres relues côté serveur.
+- Lecture analytique 100 % découplée du moteur de prix ; pagination 1 000 lignes, plafond signalé.
+
+### CRM prospects (écran Paramètres > Chiffrage & pneumatiques)
+Liste (sites accessibles, RLS manager+site), filtre garage, contact (tél/e-mail cliquables), référence, date Paris, offre, total, état d'envoi, statut modifiable, PDF privé par URL signée 5 min.
+Changement de statut **uniquement** par la RPC `set_tyre_prospect_status(_request uuid, _status text)` (manager + `user_can_access_site`, verrou de ligne, horodatage/auteur) ; l'UPDATE direct est retiré (la migration V10.1 révoque `UPDATE` et supprime la politique). Voir `docs/migrations-pending/V10_tyres_commercial_traffic.sql` §6–7 (non appliqué).

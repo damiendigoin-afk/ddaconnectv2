@@ -83,6 +83,18 @@ export const commercialRequestInput = z
     consent: z.literal(true),
     /** Facultatif : jeton Google Identity (vérifié côté serveur, nom/e-mail uniquement). */
     googleIdToken: z.string().min(20).max(4096).optional(),
+    /**
+     * Facultatif : contexte analytics strict, envoyé UNIQUEMENT si le visiteur a consenti à la mesure.
+     * Sert seulement à relier la demande à son parcours pseudonyme ; n'entre pas dans l'empreinte d'idempotence.
+     */
+    analytics: z
+      .object({
+        consent: z.literal(true),
+        visitorId: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+        sessionId: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type CommercialRequestInput = z.infer<typeof commercialRequestInput>;
@@ -165,6 +177,8 @@ export const eventItem = z
     tier: z.enum(["entree", "milieu", "haut"]).optional(),
     season: z.enum(["ete", "quatre_saisons"]).optional(),
     site: z.enum(["castillon", "lalinde"]).optional(),
+    /** quoteId serveur (devis généré) : déduplication et lecture de l'offre côté serveur. */
+    quoteId: z.string().uuid().optional(),
   })
   .strict();
 
@@ -201,6 +215,11 @@ export type EventRow = {
   utm_source: string | null; utm_medium: string | null; utm_campaign: string | null;
   size: string | null; quantity: number | null; tier: string | null; season: string | null; site_key: string | null;
   paris_day: string; paris_hour: number; paris_weekday: number;
+  /** Devis serveur associé (facultatif). */
+  quote_id?: string | null;
+  /** Marque/taille relues dans l'offre serveur ; jamais du texte client libre. */
+  offer_brand?: string | null;
+  offer_verified?: boolean;
 };
 
 /**
@@ -229,6 +248,7 @@ export function normalizeEvents(b: EventsBatch, now: Date): EventRow[] {
       utm_source: sanitizeUtm(e.utmSource), utm_medium: sanitizeUtm(e.utmMedium), utm_campaign: sanitizeUtm(e.utmCampaign),
       size, quantity: e.quantity ?? null, tier: e.tier ?? null, season: e.season ?? null, site_key: e.site ?? null,
       paris_day: pp.day, paris_hour: pp.hour, paris_weekday: pp.weekday,
+      quote_id: e.quoteId ?? null, offer_brand: null, offer_verified: false,
     });
   }
   return out;
@@ -276,12 +296,6 @@ export function aggregateTraffic(events: EventRow[], requests: RequestLite[]) {
     byDevice: count(pageViews, (r) => r.device ?? "inconnu"),
     bySize: count(quotes, (r) => r.size),
     byTier: count(selected, (r) => r.tier),
-    funnel: {
-      quoteToSelection: quotes.length ? selected.length / quotes.length : 0,
-      selectionToRequest: selected.length ? requests.length / selected.length : 0,
-      abandonsAfterQuote: Math.max(0, quotes.length - selected.length),
-      abandonsAfterSelection: Math.max(0, selected.length - requests.length),
-    },
     requestsBySite: requests.reduce<Record<string, number>>((m, r) => ((m[r.site_key] = (m[r.site_key] ?? 0) + 1), m), {}),
     soldBySite: requests
       .filter((r) => r.prospect_status === "vendu")
@@ -390,3 +404,105 @@ export function reportSendKey(reportDate: string, previous: "none" | "failed" | 
   if (previous === "stale") return prevKey ?? base;
   return base;
 }
+
+/* ----------------------- Analytics V10.1 : cohorte consentie ----------------------- */
+
+type StoredQuoteLite = { request: { size: string; quantity: number }; cases: { tier: string; season: string; status: string; brand: string | null }[] };
+
+/**
+ * Enrichit un événement depuis le devis SERVEUR (quoteId) : taille/quantité du devis, marque de l'offre
+ * choisie (tier+saison). Les dimensions envoyées par le client sont remplacées. Sans devis lisible :
+ * dimensions client conservées, offer_verified=false.
+ */
+export function enrichFromQuote(row: EventRow, quote: StoredQuoteLite | null): EventRow {
+  if (!quote || !row.quote_id) return { ...row, offer_verified: false, offer_brand: null };
+  const c = row.tier && row.season ? quote.cases.find((x) => x.tier === row.tier && x.season === row.season && x.status === "available") : undefined;
+  return {
+    ...row,
+    size: quote.request.size,
+    quantity: quote.request.quantity,
+    offer_brand: row.type === "offer_selected" ? c?.brand ?? null : null,
+    offer_verified: row.type === "offer_selected" ? !!c : true,
+  };
+}
+
+export type RequestLiteV2 = RequestLite & { quote_id?: string | null };
+
+const rate = (num: number, den: number): number | null => (den > 0 ? num / den : null);
+
+/** Les 7 derniers jours Paris (inclus aujourd'hui), du plus ancien au plus récent. */
+export function lastParisDays(now: Date, n = 7): string[] {
+  const today = parisParts(now).day;
+  const [y, m, d] = today.split("-").map(Number) as [number, number, number];
+  return Array.from({ length: n }, (_, k) => new Date(Date.UTC(y, m - 1, d - (n - 1 - k))).toISOString().slice(0, 10));
+}
+
+/**
+ * Entonnoir sur la SEULE cohorte consentie (visiteurs pseudonymes) ; demandes globales à part.
+ * Un taux vaut null (« Non calculable ») si les champs de corrélation manquent.
+ */
+export function consentedFunnel(events: EventRow[]) {
+  const c = events.filter((e) => e.consent && e.visitor_id);
+  const visitors = new Set(c.filter((e) => e.type === "page_view" || e.type === "session_start").map((e) => e.visitor_id!));
+  const quoteEv = c.filter((e) => e.type === "quote_generated");
+  const quoteVisitors = new Set(quoteEv.map((e) => e.visitor_id!));
+  const reqEv = c.filter((e) => e.type === "request_submitted");
+  const reqVisitors = new Set(reqEv.map((e) => e.visitor_id!));
+  const quoteToReqVisitors = [...quoteVisitors].filter((v) => reqVisitors.has(v)).length;
+  // Choix d'offre : dédupliqués par devis (répéter le choix sur le même devis n'est pas un nouvel abandon).
+  const sel = c.filter((e) => e.type === "offer_selected");
+  const selWithQuote = sel.filter((e) => e.quote_id);
+  const selectedQuotes = new Set(selWithQuote.map((e) => e.quote_id!));
+  const requestedQuotes = new Set(reqEv.map((e) => e.quote_id).filter(Boolean) as string[]);
+  const correlationComplete = sel.length > 0 && selWithQuote.length === sel.length;
+  const abandonedSelections = correlationComplete ? [...selectedQuotes].filter((q) => !requestedQuotes.has(q)).length : null;
+  return {
+    visitors: visitors.size,
+    quoteVisitors: [...quoteVisitors].filter((v) => visitors.has(v)).length,
+    requestVisitors: reqVisitors.size,
+    selectedQuotes: correlationComplete ? selectedQuotes.size : null,
+    visitToQuote: rate([...quoteVisitors].filter((v) => visitors.has(v)).length, visitors.size),
+    quoteToRequest: rate(quoteToReqVisitors, quoteVisitors.size),
+    visitToRequest: rate([...reqVisitors].filter((v) => visitors.has(v)).length, visitors.size),
+    abandonedSelections,
+  };
+}
+
+/** Série par date Paris (7 jours) : trafic tous événements, demandes enregistrées vs e-mails acceptés. */
+export function dailySeries(events: EventRow[], requests: RequestLite[], days: string[]) {
+  return days.map((day) => {
+    const ev = events.filter((e) => e.paris_day === day);
+    const rq = requests.filter((r) => parisParts(new Date(r.created_at)).day === day);
+    return {
+      day,
+      pageViews: ev.filter((e) => e.type === "page_view").length,
+      quotes: ev.filter((e) => e.type === "quote_generated").length,
+      requestsRecorded: rq.length,
+      requestsDelivered: rq.filter((r) => r.delivery_status === "delivered").length,
+    };
+  });
+}
+
+export function aggregateTrafficV2(events: EventRow[], requests: RequestLite[], now: Date) {
+  const base = aggregateTraffic(events, requests);
+  const verifiedSel = events.filter((e) => e.type === "offer_selected" && e.offer_verified && e.offer_brand);
+  const byBrand: Record<string, number> = {};
+  for (const e of verifiedSel) byBrand[e.offer_brand!] = (byBrand[e.offer_brand!] ?? 0) + 1;
+  return {
+    ...base,
+    requestsGlobal: { recorded: requests.length, delivered: requests.filter((r) => r.delivery_status === "delivered").length },
+    cohort: consentedFunnel(events),
+    daily: dailySeries(events, requests, lastParisDays(now)),
+    byOfferBrandVerified: byBrand,
+  };
+}
+
+/* --------------------------------- CRM prospects --------------------------------- */
+
+/** Changement de statut autorisé : statut connu, différent de l'actuel. Droits vérifiés en base (RPC). */
+export function canSetProspectStatus(current: string, next: string): boolean {
+  return (PROSPECT_STATUSES as readonly string[]).includes(next) && current !== next;
+}
+export const PROSPECT_LABEL: Record<ProspectStatus, string> = {
+  nouveau: "Nouveau", a_contacter: "À contacter", contacte: "Contacté", rdv_pris: "RDV pris", vendu: "Vendu", perdu: "Perdu",
+};
