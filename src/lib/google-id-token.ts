@@ -38,12 +38,12 @@ export async function verifyGoogleIdToken(
     "RSASSA-PKCS1-v1_5", key, b64urlToBytes(parts[2]!), new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
   );
   if (!valid) return { ok: false, reason: "signature" };
-  if (!ISS.has(String(claims.iss))) return { ok: false, reason: "iss" };
-  const aud = claims.aud;
+  if (!ISS.has(String(claims['iss']))) return { ok: false, reason: "iss" };
+  const aud = claims['aud'];
   if (!(aud === opts.clientId || (Array.isArray(aud) && aud.includes(opts.clientId)))) return { ok: false, reason: "aud" };
-  if (typeof claims.exp !== "number" || claims.exp * 1000 <= opts.now.getTime()) return { ok: false, reason: "expired" };
-  if (claims.email_verified !== true || typeof claims.email !== "string") return { ok: false, reason: "email_unverified" };
-  return { ok: true, identity: { email: claims.email.toLowerCase(), name: typeof claims.name === "string" ? claims.name.slice(0, 100) : null } };
+  if (typeof claims['exp'] !== "number" || claims['exp'] * 1000 <= opts.now.getTime()) return { ok: false, reason: "expired" };
+  if (claims['email_verified'] !== true || typeof claims['email'] !== "string") return { ok: false, reason: "email_unverified" };
+  return { ok: true, identity: { email: claims['email'].toLowerCase(), name: typeof claims['name'] === "string" ? claims['name'].slice(0, 100) : null } };
 }
 
 export async function fetchGoogleKeys(): Promise<GoogleJwk[]> {

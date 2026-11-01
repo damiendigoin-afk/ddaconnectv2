@@ -191,8 +191,8 @@ export function parisParts(d: Date): { day: string; hour: number; weekday: numbe
       .formatToParts(d)
       .map((x) => [x.type, x.value]),
   );
-  const wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(p.weekday as string) + 1;
-  return { day: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour), weekday: wd };
+  const wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(p['weekday'] as string) + 1;
+  return { day: `${p['year']}-${p['month']}-${p['day']}`, hour: Number(p['hour']), weekday: wd };
 }
 
 export type EventRow = {
@@ -300,7 +300,7 @@ function parisOffsetMin(at: Date): number {
       .formatToParts(at)
       .map((x) => [x.type, x.value]),
   );
-  const asUtc = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute));
+  const asUtc = Date.UTC(Number(p['year']), Number(p['month']) - 1, Number(p['day']), Number(p['hour']), Number(p['minute']));
   return Math.round((asUtc - at.getTime()) / 60000);
 }
 

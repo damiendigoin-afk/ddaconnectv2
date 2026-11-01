@@ -423,7 +423,7 @@ export function buildDailyReportHtml(date: string, agg: ReturnType<typeof aggreg
   const pct = (x: number) => `${Math.round(x * 100)} %`;
   return `<h2>DDA Pneus — rapport du ${esc(date)}</h2><table>
 ${row("Pages vues", agg.totals.pageViews)}${row("Sessions démarrées", agg.totals.sessionStarts)}${row("Devis générés", agg.totals.quotes)}${row("Offres choisies", agg.totals.offerSelected)}
-${row("Nouvelles demandes", agg.totals.requests)}${row("Demandes Castillon", agg.requestsBySite.castillon ?? 0)}${row("Demandes Lalinde", agg.requestsBySite.lalinde ?? 0)}
+${row("Nouvelles demandes", agg.totals.requests)}${row("Demandes Castillon", agg.requestsBySite['castillon'] ?? 0)}${row("Demandes Lalinde", agg.requestsBySite['lalinde'] ?? 0)}
 ${row("Prospects à traiter (nouveau / à contacter)", pending.length)}${row("Couverture du consentement", pct(agg.consentCoverage.ratio))}</table>
 <p>Visiteurs distincts comptés uniquement parmi les visiteurs ayant consenti : ce n'est pas le total des visiteurs.</p>`;
 }
