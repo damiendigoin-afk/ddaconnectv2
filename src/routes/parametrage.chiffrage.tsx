@@ -12,6 +12,7 @@ import { PackagesSection } from "@/components/PackagesSection";
 import { TireWebQuoteSettings } from "@/components/TireWebQuoteSettings";
 import { TireWebAppointments } from "@/components/TireWebAppointments";
 import { TyreWebTrafficDashboard } from "@/components/TyreWebTrafficDashboard";
+import { TyreProspects } from "@/components/TyreProspects";
 import type { PackageRow } from "@/lib/packages-import";
 import {
   GRADE_LABEL,
@@ -354,6 +355,7 @@ function PricingSettings() {
 
         <TireWebQuoteSettings />
         <TireWebAppointments />
+        <TyreProspects />
         <TyreWebTrafficDashboard />
 
         <section className="card-surface space-y-3 p-4">
