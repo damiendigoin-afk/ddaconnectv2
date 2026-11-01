@@ -282,7 +282,7 @@ describe("contact-request : recorded (preuve journal)", () => {
     };
     return { d, rows };
   }
-  const body = async (r: Response) => (await r.json()) as Record<string, unknown>;
+  const body = async (r: Response) => (await r.json()) as { recorded?: boolean } & Record<string, unknown>;
   it("ligne relue sent + contenu identique : recorded true, contrat existant conservé", async () => {
     const { d, rows } = fakeDb();
     expect(await body(await handleContactPost(req(good), d))).toEqual({ requestId: good.requestId, status: "sent", garage: "castillon", recorded: true });
