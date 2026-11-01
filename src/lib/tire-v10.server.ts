@@ -552,3 +552,11 @@ export async function realV10Deps(req: Request): Promise<CommercialDeps & Report
     },
   };
 }
+
+export async function handleV10Options(req: Request, deps: Pick<GateDeps, "loadConfig">, methods = "POST, OPTIONS"): Promise<Response> {
+  const origin = req.headers.get("origin");
+  const allowed = await deps.loadConfig().then((c) => c?.allowed_origins ?? null).catch(() => null);
+  const h = corsHeaders(origin, allowed);
+  if (h["Access-Control-Allow-Methods"]) h["Access-Control-Allow-Methods"] = methods;
+  return new Response(null, { status: originAllowed(origin, allowed) ? 204 : 403, headers: h });
+}
