@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
-import { aggregateTraffic, type EventRow, type RequestLite } from "@/lib/tire-v10";
+import { aggregateTraffic, fetchAllPages, type EventRow, type RequestLite } from "@/lib/tire-v10";
 
 const WD = ["", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -15,12 +15,12 @@ export function TyreWebTrafficDashboard({ days = 7 }: { days?: number }) {
     queryFn: async () => {
       const since = new Date(Date.now() - days * 86_400_000).toISOString();
       const db = supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+      // Pagination explicite (plafond API 1000 lignes/requête) ; plafond dur signalé, jamais silencieux.
       const [e, r] = await Promise.all([
-        db.from("tyre_web_events").select("*").gte("occurred_at", since).limit(20000),
-        db.from("tyre_commercial_requests").select("created_at, site_key, prospect_status, delivery_status").gte("created_at", since),
+        fetchAllPages<EventRow>((a, b) => db.from("tyre_web_events").select("*").gte("occurred_at", since).order("occurred_at").order("event_id").range(a, b)),
+        fetchAllPages<RequestLite>((a, b) => db.from("tyre_commercial_requests").select("created_at, site_key, prospect_status, delivery_status").gte("created_at", since).order("created_at").order("request_id").range(a, b)),
       ]);
-      if (e.error || r.error) throw new Error("unavailable");
-      return aggregateTraffic((e.data ?? []) as EventRow[], (r.data ?? []) as RequestLite[]);
+      return { ...aggregateTraffic(e.rows, r.rows), truncated: e.truncated || r.truncated };
     },
     retry: false,
   });
@@ -34,8 +34,9 @@ export function TyreWebTrafficDashboard({ days = 7 }: { days?: number }) {
         <div className="space-y-1 text-sm">
           <p>Pages vues {q.data.totals.pageViews} · sessions {q.data.totals.sessionStarts} · devis {q.data.totals.quotes} · offres choisies {q.data.totals.offerSelected} · demandes {q.data.totals.requests}</p>
           <p className="text-muted-foreground">
-            Consentement : {Math.round(q.data.consentCoverage.ratio * 100)} % des événements. Visiteurs distincts ({q.data.consentCoverage.distinctVisitorsConsented}) comptés seulement parmi les consentants.
+            Couverture du consentement : {Math.round(q.data.consentCoverage.ratio * 100)} % des événements reçus (et non des visiteurs totaux). Visiteurs distincts ({q.data.consentCoverage.distinctVisitorsConsented}) comptés seulement parmi les consentants.
           </p>
+          {q.data.truncated ? <p className="text-sm font-semibold text-destructive">Volume au-delà du plafond de lecture : chiffres incomplets.</p> : null}
           <p>Heures : {top(q.data.byHour, (k) => `${k} h`)}</p>
           <p>Jours : {top(q.data.byWeekday, (k) => WD[Number(k)] ?? k)}</p>
           <p>Provenance : {top(q.data.bySource)} — Appareils : {top(q.data.byDevice)}</p>
