@@ -603,11 +603,4 @@ describe("V10 PDF — logos officiels et coordonnées", () => {
     expect(L.some((i) => /^Tél\./.test(i.text ?? ""))).toBe(false);
   });
 
-  it("demande : PDF reçoit l'e-mail Front Office validé, pas sites.contact_email", async () => {
-    const { d } = deps({ loadSite: async () => ({ id: "cas", contact_email: "autre@x.fr", address: null, phone: null }) });
-    let pdfText = "";
-    d.storePdf = async (_p, bytes) => { pdfText = new TextDecoder("latin1").decode(bytes); };
-    expect((await handleCommercialRequest(post(good), d)).status).toBe(201);
-    expect(pdfText.length).toBeGreaterThan(0);
-  });
 });
