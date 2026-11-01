@@ -55,52 +55,97 @@ export function commercialPdfLines(d: CommercialPdfData): string[] {
   ];
 }
 
-export async function buildCommercialPdf(d: CommercialPdfData, logo: { renault: Uint8Array | null }): Promise<Uint8Array> {
+/** Identité toujours imprimée (texte), même si le logo est indisponible. */
+export const PDF_IDENTITY = { name: "Damien DIGOIN Automobile", tagline: "LE SENS DU SERVICE" } as const;
+
+export const PDF_PAGE = { W: 595.28, H: 841.89, M: 48, headerBottom: 841.89 - 114, footerTop: 90, previewFooterTop: 150 } as const;
+
+/** Découpe en lignes ≤ maxWidth ; un mot plus long que la largeur est coupé par caractères. */
+export function wrapText(s: string, maxWidth: number, measure: (t: string) => number): string[] {
+  const out: string[] = [];
+  let line = "";
+  const pushLong = (w: string) => {
+    let chunk = "";
+    for (const ch of w) {
+      if (chunk && measure(chunk + ch) > maxWidth) { out.push(chunk); chunk = ch; } else chunk += ch;
+    }
+    return chunk;
+  };
+  for (const w of s.split(/\s+/).filter(Boolean)) {
+    const t = line ? `${line} ${w}` : w;
+    if (measure(t) <= maxWidth) { line = t; continue; }
+    if (line) out.push(line);
+    line = measure(w) <= maxWidth ? w : pushLong(w);
+  }
+  if (line) out.push(line);
+  return out.length ? out : [""];
+}
+
+/** Élément positionné (exposé pour les tests de mise en page). */
+export type PdfLayoutItem = { page: number; kind: "text" | "box"; text?: string; x: number; y: number; width: number; height: number };
+
+export async function buildCommercialPdf(
+  d: CommercialPdfData,
+  logo: { renault: Uint8Array | null },
+  layoutOut?: PdfLayoutItem[],
+): Promise<Uint8Array> {
   if (d.offer.status !== "available" || d.offer.totalTtcCents == null) throw new Error("offer_unavailable");
   const pdf = await PDFDocument.create();
   pdf.setTitle(winAnsi(`Devis pneumatiques ${d.reference}`));
-  const page = pdf.addPage([595.28, 841.89]);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const W = 595.28, M = 48;
-  const ink = rgb(0.1, 0.1, 0.1), muted = rgb(0.4, 0.4, 0.4), accent = rgb(0.98, 0.78, 0.0);
-
-  page.drawRectangle({ x: 0, y: 841.89 - 110, width: W, height: 110, color: rgb(0, 0, 0) });
+  const { W, H, M } = PDF_PAGE;
+  const CW = W - 2 * M;
+  const bottom = d.preview ? PDF_PAGE.previewFooterTop : PDF_PAGE.footerTop;
+  const ink = rgb(0.1, 0.1, 0.1), muted = rgb(0.4, 0.4, 0.4), accent = rgb(0.98, 0.78, 0.0), white = rgb(1, 1, 1);
+  let logoImg: Awaited<ReturnType<typeof pdf.embedJpg>> | null = null;
   if (logo.renault) {
-    try {
-      const img = await pdf.embedJpg(logo.renault);
-      const w = 170, h = (img.height / img.width) * w;
-      page.drawImage(img, { x: M, y: 841.89 - 55 - h / 2, width: w, height: h });
-    } catch {
-      /* logo illisible : en-tête sans image */
-    }
+    try { logoImg = await pdf.embedJpg(logo.renault); } catch { logoImg = null; }
   }
-  page.drawText(winAnsi("Devis pneumatiques — DDA Care"), { x: W - M - 230, y: 841.89 - 62, size: 15, font: bold, color: rgb(1, 1, 1) });
-  page.drawRectangle({ x: 0, y: 841.89 - 114, width: W, height: 4, color: accent });
+  const log = (it: PdfLayoutItem) => layoutOut?.push(it);
+  let pageNo = 0;
+  let page = pdf.addPage([W, H]);
+  let y = 0;
 
-  const lines = commercialPdfLines(d);
-  let y = 841.89 - 150;
-  const text = (s: string, o: { size?: number; f?: typeof font; c?: typeof ink; gap?: number } = {}) => {
-    const size = o.size ?? 10.5;
-    // Retour à la ligne simple.
-    const words = winAnsi(s).split(" ");
-    let line = "";
-    for (const w of words) {
-      const t = line ? `${line} ${w}` : w;
-      if ((o.f ?? font).widthOfTextAtSize(t, size) > W - 2 * M) {
-        page.drawText(line, { x: M, y, size, font: o.f ?? font, color: o.c ?? ink });
-        y -= size + 4;
-        line = w;
-      } else line = t;
+  const header = () => {
+    page.drawRectangle({ x: 0, y: H - 110, width: W, height: 110, color: rgb(0, 0, 0) });
+    if (logoImg) {
+      const r = logoImg.height / logoImg.width;
+      const w = Math.min(150, 80 / r), h = w * r;
+      page.drawImage(logoImg, { x: M, y: H - 55 - h / 2, width: w, height: h });
     }
-    if (line) page.drawText(line, { x: M, y, size, font: o.f ?? font, color: o.c ?? ink });
-    y -= size + (o.gap ?? 6);
+    const rx = W - M - 250;
+    page.drawText(winAnsi("Devis pneumatiques — DDA Care"), { x: rx, y: H - 45, size: 15, font: bold, color: white });
+    page.drawText(winAnsi(PDF_IDENTITY.name), { x: rx, y: H - 68, size: 12, font: bold, color: white });
+    page.drawText(winAnsi(PDF_IDENTITY.tagline), { x: rx, y: H - 86, size: 9, font: bold, color: accent });
+    log({ page: pageNo, kind: "text", text: PDF_IDENTITY.name, x: rx, y: H - 68, width: 0, height: 12 });
+    log({ page: pageNo, kind: "text", text: PDF_IDENTITY.tagline, x: rx, y: H - 86, width: 0, height: 9 });
+    page.drawRectangle({ x: 0, y: H - 114, width: W, height: 4, color: accent });
+    y = H - 150;
   };
-  const section = (t: string) => {
-    y -= 6;
-    text(t.toUpperCase(), { size: 9, f: bold, c: muted, gap: 4 });
+  const footer = () => {
+    if (d.preview) page.drawText(winAnsi("APERÇU — NON ENVOYÉ"), { x: M, y: 110, size: 28, font: bold, color: rgb(0.85, 0.85, 0.85) });
+    page.drawText(winAnsi(SIGNATURE), { x: M, y: 60, size: 10, font: bold, color: ink });
+    page.drawText(`${pageNo + 1}`, { x: W - M - 10, y: 60, size: 9, font, color: muted });
   };
+  const newPage = () => { footer(); page = pdf.addPage([W, H]); pageNo++; header(); };
+  const ensure = (h: number) => { if (y - h < bottom) newPage(); };
 
+  type F = typeof font;
+  const text = (s: string, o: { size?: number; f?: F; c?: typeof ink; gap?: number } = {}) => {
+    const size = o.size ?? 10.5, f = o.f ?? font, lh = size + 4;
+    for (const ln of wrapText(winAnsi(s), CW, (t) => f.widthOfTextAtSize(t, size))) {
+      ensure(lh);
+      page.drawText(ln, { x: M, y, size, font: f, color: o.c ?? ink });
+      log({ page: pageNo, kind: "text", text: ln, x: M, y, width: f.widthOfTextAtSize(ln, size), height: size });
+      y -= lh;
+    }
+    y -= (o.gap ?? 6) - 4;
+  };
+  const section = (t: string) => { y -= 6; ensure(9 + 4 + 20); text(t.toUpperCase(), { size: 9, f: bold, c: muted, gap: 4 }); };
+
+  header();
+  const lines = commercialPdfLines(d);
   text(lines[0]!, { size: 13, f: bold });
   text(lines[1]!);
   text(lines[2]!, { f: bold, gap: 12 });
@@ -110,19 +155,28 @@ export async function buildCommercialPdf(d: CommercialPdfData, logo: { renault: 
   text(lines[6]!, { gap: 10 });
   section("Offre retenue");
   text(lines[7]!, { size: 13, f: bold });
-  text(lines[8]!); text(lines[9]!); text(lines[10]!, { gap: 14 });
+  text(lines[8]!); text(lines[9]!); text(lines[10]!, { gap: 6 });
 
-  page.drawRectangle({ x: M, y: y - 14, width: W - 2 * M, height: 40, color: rgb(0.96, 0.96, 0.96) });
-  y += 2;
-  text(lines[11]!, { size: 16, f: bold, gap: 26 });
+  // Bloc total : encadré dimensionné sur son contenu, sous la dernière ligne (aucun recouvrement).
+  const tSize = 16, pad = 10;
+  const tLines = wrapText(winAnsi(lines[11]!), CW - 2 * pad, (t) => bold.widthOfTextAtSize(t, tSize));
+  const boxH = pad * 2 + tLines.length * (tSize + 4) - 4;
+  y -= 8; // marge au-dessus de l'encadré
+  ensure(boxH + 12);
+  const boxTop = y;
+  page.drawRectangle({ x: M, y: boxTop - boxH, width: CW, height: boxH, color: rgb(0.96, 0.96, 0.96) });
+  log({ page: pageNo, kind: "box", x: M, y: boxTop - boxH, width: CW, height: boxH });
+  let ty = boxTop - pad - tSize * 0.8;
+  for (const ln of tLines) {
+    page.drawText(ln, { x: M + pad, y: ty, size: tSize, font: bold, color: ink });
+    log({ page: pageNo, kind: "text", text: ln, x: M + pad, y: ty, width: bold.widthOfTextAtSize(ln, tSize), height: tSize });
+    ty -= tSize + 4;
+  }
+  y = boxTop - boxH - 18;
 
   section("Réserve");
   text(lines[12]!, { c: muted });
   if (d.offer.compatibilityMessage) text(d.offer.compatibilityMessage, { c: muted });
-
-  if (d.preview) {
-    page.drawText("APERÇU — NON ENVOYÉ", { x: M, y: 120, size: 28, font: bold, color: rgb(0.85, 0.85, 0.85) });
-  }
-  page.drawText(winAnsi(SIGNATURE), { x: M, y: 60, size: 10, font: bold, color: ink });
+  footer();
   return pdf.save();
 }
