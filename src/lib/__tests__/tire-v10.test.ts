@@ -7,7 +7,8 @@ import {
   normalizeEvents, parisMidnightUtc, parseVerifiedDomains, senderFor, totalLabel, validUntil,
   fetchAllPages, loadBelowRequested, consentedFunnel, dailySeries, enrichFromQuote, lastParisDays, aggregateTrafficV2, canSetProspectStatus, commercialRequestInput, type EventRow, reportSendKey, FRONT_OFFICE_RECIPIENTS,
 } from "@/lib/tire-v10";
-import { isCompletePng, b64ToBytes, officialBrandLogos } from "@/lib/brand-logos";
+import { isCompletePng, b64ToBytes, officialBrandLogos, RENAULT_LOGO_SHA256, DACIA_LOGO_SHA256 } from "@/lib/brand-logos";
+import { createHash } from "node:crypto";
 import { garageContactLines, commercialPdfLines, buildCommercialPdf, wrapText, PDF_PAGE, PDF_IDENTITY, type PdfLayoutItem } from "@/lib/tire-commercial-pdf";
 import {
   handleCommercialRequest, handleDailyReport, handleEvents, handlePublicConfig,
@@ -580,7 +581,9 @@ describe("V10 PDF — logos officiels et coordonnées", () => {
   it("PNG tronqué refusé, PNG complet accepté", () => {
     expect(isCompletePng(b64ToBytes(TRUNC_DACIA))).toBe(false);
     expect(isCompletePng(b64ToBytes(OK_PNG))).toBe(true);
-    expect(officialBrandLogos()).toEqual({ renault: null, dacia: null });
+    const off = officialBrandLogos();
+    expect(off.renault?.length).toBe(4705);
+    expect(off.dacia?.length).toBe(1384);
   });
 
   it("logos valides intégrés (fond blanc), tronqués ignorés, identité toujours présente", async () => {
@@ -622,5 +625,19 @@ describe("V10 — contexte analytics hors empreinte d'idempotence", () => {
     const ctx = deps({ recordServerEvent: async (e) => { evs.push(e); } });
     await handleCommercialRequest(post(good), ctx.d);
     expect(evs[0]).toMatchObject({ consent: false, visitor_id: null, session_id: null });
+  });
+});
+
+describe("V10 PDF — logos officiels intégrés", () => {
+  it("octets identiques aux fichiers officiels (sha256) et intégrés dans le PDF", async () => {
+    const off = officialBrandLogos();
+    const h = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+    expect(h(off.renault!)).toBe(RENAULT_LOGO_SHA256);
+    expect(h(off.dacia!)).toBe(DACIA_LOGO_SHA256);
+    const L: PdfLayoutItem[] = [];
+    await buildCommercialPdf({ reference: "R", issuedAt: NOW, validUntil: validUntil(NOW), customer: { name: "Jean Test", email: "j@t.fr", phone: "0600" }, garageLabel: "G", offer }, off, L);
+    const logos = L.filter((i) => i.text === "logo");
+    expect(logos).toHaveLength(2);
+    for (const l of logos) expect(l.y + l.height).toBeLessThanOrEqual(PDF_PAGE.H);
   });
 });
