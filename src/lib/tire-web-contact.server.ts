@@ -78,7 +78,7 @@ export function buildContactEmail(input: ContactRequestInput, offer: WebQuoteCas
 <h2 style="margin:0 0 12px 0;">Demande de contact pneus — site web</h2>
 <p>Garage choisi par le client : <b>${esc(label)}</b>. Demande à confirmer par le garage : aucun rendez-vous réservé, aucun paiement, aucune commande fournisseur.</p>
 <h3>Offre affichée au client</h3>
-<table>${row("Gamme", TIER[offer.tier])}${row("Saison", SEASON[offer.season])}${row("Marque", offer.brand)}${row("Modèle", offer.model)}${row("Dimension", dims)}${row("Quantité", String(offer.quantity))}${row("Total TTC monté", offer.totalTtcCents != null ? euros(offer.totalTtcCents) : null)}${row("Prestations incluses", services)}${row("Compatibilité", offer.compatibilityMessage)}</table>
+<table>${row("Gamme", TIER[offer.tier])}${row("Saison", SEASON[offer.season])}${row("Marque", offer.brand)}${row("Modèle", offer.model)}${row("Dimension", dims)}${row("Quantité", String(offer.quantity))}${row(totalLabel, offer.totalTtcCents != null ? euros(offer.totalTtcCents) : null)}${row("Prestations incluses", services)}${row("Compatibilité", offer.compatibilityMessage)}</table>
 <p style="color:#555;">Tarif observé le ${esc(parisDate(quote.created_at))} (heure de Paris), sous réserve de disponibilité et de confirmation par le garage. Devis ${esc(input.quoteId)}.</p>
 <h3>Client</h3>
 <table>${row("Nom", input.name)}${row("E-mail", input.email)}${row("Téléphone", input.phone)}</table>
