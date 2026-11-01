@@ -110,6 +110,7 @@ import { Route as ApiPublicHooksGmailSyncRouteImport } from './routes/api/public
 import { Route as ApiPublicTyresAppointmentRequestsRouteImport } from './routes/api/public/tyres/appointment-requests'
 import { Route as ApiPublicTyresCommercialPreviewRouteImport } from './routes/api/public/tyres/commercial-preview'
 import { Route as ApiPublicTyresCommercialRequestsRouteImport } from './routes/api/public/tyres/commercial-requests'
+import { Route as ApiPublicTyresContactRequestRouteImport } from './routes/api/public/tyres/contact-request'
 import { Route as ApiPublicTyresDailyReportRouteImport } from './routes/api/public/tyres/daily-report'
 import { Route as ApiPublicTyresEventsRouteImport } from './routes/api/public/tyres/events'
 import { Route as ApiPublicTyresPublicConfigRouteImport } from './routes/api/public/tyres/public-config'
@@ -634,6 +635,12 @@ const ApiPublicTyresCommercialRequestsRoute =
     path: '/api/public/tyres/commercial-requests',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicTyresContactRequestRoute =
+  ApiPublicTyresContactRequestRouteImport.update({
+    id: '/api/public/tyres/contact-request',
+    path: '/api/public/tyres/contact-request',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicTyresDailyReportRoute =
   ApiPublicTyresDailyReportRouteImport.update({
     id: '/api/public/tyres/daily-report',
@@ -770,6 +777,7 @@ export interface FileRoutesByFullPath {
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/commercial-preview': typeof ApiPublicTyresCommercialPreviewRoute
   '/api/public/tyres/commercial-requests': typeof ApiPublicTyresCommercialRequestsRoute
+  '/api/public/tyres/contact-request': typeof ApiPublicTyresContactRequestRoute
   '/api/public/tyres/daily-report': typeof ApiPublicTyresDailyReportRoute
   '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
   '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
@@ -878,6 +886,7 @@ export interface FileRoutesByTo {
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/commercial-preview': typeof ApiPublicTyresCommercialPreviewRoute
   '/api/public/tyres/commercial-requests': typeof ApiPublicTyresCommercialRequestsRoute
+  '/api/public/tyres/contact-request': typeof ApiPublicTyresContactRequestRoute
   '/api/public/tyres/daily-report': typeof ApiPublicTyresDailyReportRoute
   '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
   '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
@@ -988,6 +997,7 @@ export interface FileRoutesById {
   '/api/public/tyres/appointment-requests': typeof ApiPublicTyresAppointmentRequestsRoute
   '/api/public/tyres/commercial-preview': typeof ApiPublicTyresCommercialPreviewRoute
   '/api/public/tyres/commercial-requests': typeof ApiPublicTyresCommercialRequestsRoute
+  '/api/public/tyres/contact-request': typeof ApiPublicTyresContactRequestRoute
   '/api/public/tyres/daily-report': typeof ApiPublicTyresDailyReportRoute
   '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
   '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
@@ -1099,6 +1109,7 @@ export interface FileRouteTypes {
     | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/commercial-preview'
     | '/api/public/tyres/commercial-requests'
+    | '/api/public/tyres/contact-request'
     | '/api/public/tyres/daily-report'
     | '/api/public/tyres/events'
     | '/api/public/tyres/public-config'
@@ -1207,6 +1218,7 @@ export interface FileRouteTypes {
     | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/commercial-preview'
     | '/api/public/tyres/commercial-requests'
+    | '/api/public/tyres/contact-request'
     | '/api/public/tyres/daily-report'
     | '/api/public/tyres/events'
     | '/api/public/tyres/public-config'
@@ -1316,6 +1328,7 @@ export interface FileRouteTypes {
     | '/api/public/tyres/appointment-requests'
     | '/api/public/tyres/commercial-preview'
     | '/api/public/tyres/commercial-requests'
+    | '/api/public/tyres/contact-request'
     | '/api/public/tyres/daily-report'
     | '/api/public/tyres/events'
     | '/api/public/tyres/public-config'
@@ -1423,6 +1436,7 @@ export interface RootRouteChildren {
   ApiPublicTyresAppointmentRequestsRoute: typeof ApiPublicTyresAppointmentRequestsRoute
   ApiPublicTyresCommercialPreviewRoute: typeof ApiPublicTyresCommercialPreviewRoute
   ApiPublicTyresCommercialRequestsRoute: typeof ApiPublicTyresCommercialRequestsRoute
+  ApiPublicTyresContactRequestRoute: typeof ApiPublicTyresContactRequestRoute
   ApiPublicTyresDailyReportRoute: typeof ApiPublicTyresDailyReportRoute
   ApiPublicTyresEventsRoute: typeof ApiPublicTyresEventsRoute
   ApiPublicTyresPublicConfigRoute: typeof ApiPublicTyresPublicConfigRoute
@@ -2139,6 +2153,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTyresCommercialRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tyres/contact-request': {
+      id: '/api/public/tyres/contact-request'
+      path: '/api/public/tyres/contact-request'
+      fullPath: '/api/public/tyres/contact-request'
+      preLoaderRoute: typeof ApiPublicTyresContactRequestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/tyres/daily-report': {
       id: '/api/public/tyres/daily-report'
       path: '/api/public/tyres/daily-report'
@@ -2312,6 +2333,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicTyresAppointmentRequestsRoute,
   ApiPublicTyresCommercialPreviewRoute: ApiPublicTyresCommercialPreviewRoute,
   ApiPublicTyresCommercialRequestsRoute: ApiPublicTyresCommercialRequestsRoute,
+  ApiPublicTyresContactRequestRoute: ApiPublicTyresContactRequestRoute,
   ApiPublicTyresDailyReportRoute: ApiPublicTyresDailyReportRoute,
   ApiPublicTyresEventsRoute: ApiPublicTyresEventsRoute,
   ApiPublicTyresPublicConfigRoute: ApiPublicTyresPublicConfigRoute,
