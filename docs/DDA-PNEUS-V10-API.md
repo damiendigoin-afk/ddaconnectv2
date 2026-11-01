@@ -109,7 +109,7 @@ Réutilisable tel quel : `src/lib/tire-ocr-parse.ts` (pur, sans dépendance). En
 ## Limites connues
 - Réessai d'envoi après échec : le même `requestId` rejoue la réponse sans renvoyer ; aucun bouton de renvoi manager n'existe encore (reprise administrative décrite ci-dessus).
 - Le domaine `dda-lalinde.fr` n'est pas vérifié à ce jour : Lalinde restera `sender_not_verified` sans e-mail tant qu'il ne l'est pas.
-- Logo récupéré par l'URL de l'application ; s'il échoue, PDF sans logo.
+- Logo récupéré par l’URL de l’application ; s’il échoue, le PDF garde l’identité texte « Damien DIGOIN Automobile / LE SENS DU SERVICE » (jamais de PDF sans identité). Mots longs coupés, pagination automatique au-dessus du pied/aperçu.
 - **Logo Dacia officiel : BLOQUÉ.** Aucun fichier officiel Dacia n'est présent dans le projet ; aucun logo n'est dessiné ni recréé. Le PDF porte seulement le logo DDA/Renault existant (`src/assets/dda-renault-logo.jpeg.asset.json`). Pour l'ajouter : fournir le fichier officiel (charte Dacia/Renault Group, PNG/JPG avec droit d'usage), l'enregistrer comme asset, puis l'injecter dans `loadLogo` et l'en-tête.
 - Générateur PDF : `src/lib/tire-commercial-pdf.ts` (`buildCommercialPdf(data, logo)`, lignes texte testables via `commercialPdfLines`), appelé par `handleCommercialPreview` / `handleCommercialRequest` dans `src/lib/tire-v10.server.ts`.
 - Statistiques : couverture = part des **événements reçus** avec consentement, pas une proportion des visiteurs totaux.
