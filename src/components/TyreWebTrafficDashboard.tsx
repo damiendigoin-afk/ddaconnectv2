@@ -41,7 +41,7 @@ export function TyreWebTrafficDashboard({ days = 7 }: { days?: number }) {
           <p>Provenance : {top(q.data.bySource)} — Appareils : {top(q.data.byDevice)}</p>
           <p>Dimensions : {top(q.data.bySize)} — Gammes : {top(q.data.byTier)}</p>
           <p>Abandons après devis {q.data.funnel.abandonsAfterQuote} · après choix {q.data.funnel.abandonsAfterSelection}</p>
-          <p>Demandes Castillon {q.data.requestsBySite.castillon ?? 0} · Lalinde {q.data.requestsBySite.lalinde ?? 0} — Vendus Castillon {q.data.soldBySite.castillon ?? 0} · Lalinde {q.data.soldBySite.lalinde ?? 0}</p>
+          <p>Demandes Castillon {q.data.requestsBySite['castillon'] ?? 0} · Lalinde {q.data.requestsBySite['lalinde'] ?? 0} — Vendus Castillon {q.data.soldBySite['castillon'] ?? 0} · Lalinde {q.data.soldBySite['lalinde'] ?? 0}</p>
         </div>
       ) : null}
     </section>

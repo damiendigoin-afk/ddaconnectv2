@@ -9,7 +9,7 @@ export type GoogleIdentity = { email: string; name: string | null };
 const ISS = new Set(["accounts.google.com", "https://accounts.google.com"]);
 export const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 
-function b64urlToBytes(s: string): Uint8Array {
+function b64urlToBytes(s: string): Uint8Array<ArrayBuffer> {
   const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4));
   return Uint8Array.from(b, (c) => c.charCodeAt(0));
 }

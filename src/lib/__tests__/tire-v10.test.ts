@@ -36,12 +36,12 @@ function deps(over: Partial<CommercialDeps> = {}) {
     revalidate: async () => ({ status: 200, body: { quoteId: "new-q", expiresAt: "x", cases: [offer] } }),
     loadSite: async () => ({ id: "cas", contact_email: "fo@castillon.test" }),
     claimRequest: async (row) => {
-      if (store.has(row.request_id as string)) return false;
-      store.set(row.request_id as string, { payload_hash: row.payload_hash as string, response_status: null, response_body: null });
+      if (store.has(row['request_id'] as string)) return false;
+      store.set(row['request_id'] as string, { payload_hash: row['payload_hash'] as string, response_status: null, response_body: null });
       return true;
     },
     storePdf: async () => undefined,
-    updateRequest: async (id, p) => { updates.push(p); const r = store.get(id)!; r.response_status = p.response_status as number; r.response_body = p.response_body; },
+    updateRequest: async (id, p) => { updates.push(p); const r = store.get(id)!; r.response_status = p['response_status'] as number; r.response_body = p['response_body']; },
     recordServerEvent: async () => undefined,
     sendEmail: async (m) => { mails.push(m); return { ok: true }; },
     verifiedDomains: () => ["garagecastillon.fr"],
@@ -243,8 +243,8 @@ describe("V10 public config", () => {
   it("google disabled explicitly, no secrets", async () => {
     const r = await handlePublicConfig(new Request("https://x", { headers: { origin: B } }), { v10Enabled: () => false, loadConfig: async () => cfg, quotaHit: async () => true, now: () => NOW, googleClientId: () => null });
     const b = (await r.json()) as Record<string, unknown>;
-    expect(b.enabled).toBe(false);
-    expect(b.google).toEqual({ enabled: false, clientId: null });
+    expect(b['enabled']).toBe(false);
+    expect(b['google']).toEqual({ enabled: false, clientId: null });
     expect(JSON.stringify(b)).not.toMatch(/secret|password|api_?key|token/i);
   });
 });
