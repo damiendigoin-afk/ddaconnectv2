@@ -189,6 +189,14 @@ async function compute(input: WebQuoteInput, siteId: string, deps: FacadeDeps): 
   }
 }
 
+/**
+ * V10 : recalcul FRAIS (sans cache ni déduplication) via le même moteur, pour
+ * revalider une offre avant envoi d'un devis commercial. Aucun changement de calcul.
+ */
+export function freshWebQuote(input: WebQuoteInput, siteId: string, deps: FacadeDeps): Promise<{ status: number; body: unknown }> {
+  return compute(input, siteId, deps);
+}
+
 /* ------------------------------ Dépendances réelles ------------------------------ */
 
 export async function realFacadeDeps(): Promise<FacadeDeps> {

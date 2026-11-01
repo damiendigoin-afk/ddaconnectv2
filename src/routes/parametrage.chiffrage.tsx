@@ -11,6 +11,7 @@ import type { CommercialSettings, PaintElementRule } from "@/lib/pricing-engine"
 import { PackagesSection } from "@/components/PackagesSection";
 import { TireWebQuoteSettings } from "@/components/TireWebQuoteSettings";
 import { TireWebAppointments } from "@/components/TireWebAppointments";
+import { TyreWebTrafficDashboard } from "@/components/TyreWebTrafficDashboard";
 import type { PackageRow } from "@/lib/packages-import";
 import {
   GRADE_LABEL,
@@ -353,6 +354,7 @@ function PricingSettings() {
 
         <TireWebQuoteSettings />
         <TireWebAppointments />
+        <TyreWebTrafficDashboard />
 
         <section className="card-surface space-y-3 p-4">
           <h2 className="text-sm font-bold uppercase tracking-widest">Règles peinture par élément</h2>
