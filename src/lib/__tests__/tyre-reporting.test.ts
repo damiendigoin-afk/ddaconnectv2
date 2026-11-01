@@ -115,7 +115,8 @@ describe("agrégation du rapport", () => {
     const html = renderReportHtml(r);
     expect(html).toContain("Non disponible");
     expect(html).toContain("Tests techniques (exclus)");
-    expect(html).not.toMatch(/marge|prix d'achat :/i);
+    expect(html).not.toMatch(/purchase|margin|cost_|ip_hash/i);
+    expect(html).toContain("conservés 30 jours");
   });
   it("mesure non active vs aucune donnée", () => {
     const off = renderReportHtml(buildDailyReport({ ...base, settings: { ...settings, instrumentation_started_at: null }, events: [], contacts: [], quotes: [], history: [] }));

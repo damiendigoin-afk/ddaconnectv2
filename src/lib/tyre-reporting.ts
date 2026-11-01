@@ -254,7 +254,7 @@ export function buildDailyReport(p: {
 
   return {
     reportDate: p.reportDate, start: p.start.toISOString(), end: p.end.toISOString(),
-    measure: { state, startedAt: p.settings.instrumentation_started_at, eventsReceived: ev.length, contactLogEnabled: p.settings.contact_log_enabled },
+    measure: { state, retentionDays: p.settings.retention_days, startedAt: p.settings.instrumentation_started_at, eventsReceived: ev.length, contactLogEnabled: p.settings.contact_log_enabled },
     traffic: { pageViews: pv.length, sessionsConsented: counters["sessions_consented"]!, visitorsConsented: visitors.size, consentedEvents: consented.length, totalEvents: ev.length, byHour, bySource: sortDesc(bySource), byMedium: sortDesc(byMedium), byCampaign: sortDesc(byCampaign), byDevice: sortDesc(byDevice), byPage: sortDesc(byPage) },
     quotes: { count: quotes.length, offersAvailable: offersAvail, offersUnavailable: offersUnavail, sizes: sortDesc(sizes), quantities: sortDesc(qty), quoteEvents: quoteEv.length },
     selections: { count: selKeys.size, brands: sortDesc(brands), tiers: sortDesc(tiers), seasons: sortDesc(seasons) },
@@ -328,7 +328,7 @@ ${r.measure.contactLogEnabled ? "" : `<p style="color:#a00">Journal des demandes
 ${r.contacts.rows.length ? `<table border="1" cellpadding="4" style="border-collapse:collapse;font-size:12px;"><tr><th>Heure</th><th>Garage</th><th>Statut</th><th>Client</th><th>Offre affichée</th><th>Message</th></tr>${r.contacts.rows.map(contactRow).join("")}</table>` : `<p>Aucune demande.</p>`}
 <h3>Tests techniques (exclus)</h3><p>Événements de test : ${r.tests.events} · Demandes de test : ${r.tests.contacts.length}</p>
 ${r.tests.contacts.length ? `<table border="1" cellpadding="4" style="border-collapse:collapse;font-size:12px;"><tr><th>Heure</th><th>Garage</th><th>Statut</th><th>Client</th><th>Offre affichée</th><th>Message</th></tr>${r.tests.contacts.map(contactRow).join("")}</table>` : ""}
-<p style="color:#777;font-size:11px;">Détails des demandes et événements conservés ${"30"} jours (journal technique), puis purgés ; seuls des compteurs anonymes sont gardés. Aucun prix d'achat, marge, IP ni secret dans ce rapport.</p>
+<p style="color:#777;font-size:11px;">Détails des demandes et événements conservés ${r.measure.retentionDays} jours (journal technique), puis purgés ; seuls des compteurs anonymes sont gardés. Aucun prix d'achat, marge, IP ni secret dans ce rapport.</p>
 </body></html>`;
 }
 
