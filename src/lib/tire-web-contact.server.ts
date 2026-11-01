@@ -15,6 +15,8 @@
 import { z } from "zod";
 import { corsHeaders, originAllowed, type WebQuoteCase, type WebQuoteConfig } from "./tire-web-api";
 import { clientIp, err, json, readBounded, sha } from "./tire-web-facade.server";
+import { contactAnalytics } from "./tyre-reporting";
+import { contactLogger, type ContactLogDeps } from "./tyre-reporting.server";
 
 export const CONTACT_MAX_BODY_BYTES = 4096;
 export const CONTACT_QUOTA_IP_PER_HOUR = 5;
@@ -40,6 +42,8 @@ export const contactRequestInput = z
     message: z.string().trim().max(500).optional(),
     consent: z.literal(true),
     website: z.string().max(200).optional(),
+    /** Contexte analytics FACULTATIF et consenti : conversion seulement, hors e-mail et hors idempotence. */
+    analytics: contactAnalytics.optional(),
   })
   .strict();
 export type ContactRequestInput = z.infer<typeof contactRequestInput>;
@@ -52,6 +56,8 @@ export type ContactDeps = {
   loadQuote: (id: string) => Promise<StoredContactQuote | null>;
   sendEmail: (m: { to: string; subject: string; html: string; replyTo: string; idempotencyKey: string }) => Promise<{ ok: boolean; id?: string | undefined; status: number; error?: string | undefined }>;
   now: () => Date;
+  /** Journal technique (30 j). Absent ou en échec : n'affecte jamais l'envoi ni la réponse. */
+  log?: ContactLogDeps | null;
 };
 
 const unavailable = () => err("service_unavailable", "Demande momentanément indisponible.");
@@ -156,6 +162,8 @@ export async function handleContactPost(req: Request, deps: ContactDeps): Promis
   if (!offer || offer.status !== "available" || offer.totalTtcCents == null)
     return json(422, err("offer_unavailable", "Cette proposition n'est pas disponible dans le devis."), cors);
 
+  const log = contactLogger(deps.log, deps.now);
+  await log.start(input, offer);
   const mail = buildContactEmail(input, offer, quote);
   let r: Awaited<ReturnType<ContactDeps["sendEmail"]>>;
   try {
@@ -167,13 +175,16 @@ export async function handleContactPost(req: Request, deps: ContactDeps): Promis
     });
   } catch {
     console.warn("[tyres-contact] send_exception");
+    await log.finish(input, offer, "unknown", "send_exception");
     return json(502, err("email_failed", "Envoi impossible, réessayez."), cors);
   }
   if (r.ok && r.id) {
     console.info(`[tyres-contact] sent site=${input.site}`);
+    await log.finish(input, offer, "sent", null);
     return json(200, { requestId: input.requestId, status: "sent", garage: input.site }, cors);
   }
   console.warn(`[tyres-contact] send_failed status=${r.status}`);
+  await log.finish(input, offer, "failed", r.status === 409 ? "request_conflict" : r.status === 429 ? "email_busy" : "email_failed");
   if (r.status === 409)
     return json(409, err("request_conflict", "Cette demande a déjà été envoyée avec un contenu différent."), cors);
   if (r.status === 429) return json(503, err("email_busy", "Envoi momentanément impossible, réessayez."), cors, { "Retry-After": "60" });
@@ -209,5 +220,6 @@ export async function realContactDeps(): Promise<ContactDeps> {
     // FROM_DEFAULT (garagecastillon.fr, domaine vérifié) pour les deux garages : notification interne.
     sendEmail: (m) => sendEmail(m),
     now: () => new Date(),
+    log: await import("./tyre-reporting.server").then((m) => m.realContactLogDeps()).catch(() => null),
   };
 }

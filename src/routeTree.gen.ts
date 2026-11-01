@@ -115,6 +115,7 @@ import { Route as ApiPublicTyresDailyReportRouteImport } from './routes/api/publ
 import { Route as ApiPublicTyresEventsRouteImport } from './routes/api/public/tyres/events'
 import { Route as ApiPublicTyresPublicConfigRouteImport } from './routes/api/public/tyres/public-config'
 import { Route as ApiPublicTyresQuotesRouteImport } from './routes/api/public/tyres/quotes'
+import { Route as ApiPublicTyresReportingDailyRouteImport } from './routes/api/public/tyres/reporting-daily'
 import { Route as ApiPublicTyresSiteSuggestionRouteImport } from './routes/api/public/tyres/site-suggestion'
 import { Route as DevisPneusQuoteIdPdfRouteImport } from './routes/devis.pneus.$quoteId.pdf'
 
@@ -663,6 +664,12 @@ const ApiPublicTyresQuotesRoute = ApiPublicTyresQuotesRouteImport.update({
   path: '/api/public/tyres/quotes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTyresReportingDailyRoute =
+  ApiPublicTyresReportingDailyRouteImport.update({
+    id: '/api/public/tyres/reporting-daily',
+    path: '/api/public/tyres/reporting-daily',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicTyresSiteSuggestionRoute =
   ApiPublicTyresSiteSuggestionRouteImport.update({
     id: '/api/public/tyres/site-suggestion',
@@ -782,6 +789,7 @@ export interface FileRoutesByFullPath {
   '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
   '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
+  '/api/public/tyres/reporting-daily': typeof ApiPublicTyresReportingDailyRoute
   '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
@@ -891,6 +899,7 @@ export interface FileRoutesByTo {
   '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
   '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
+  '/api/public/tyres/reporting-daily': typeof ApiPublicTyresReportingDailyRoute
   '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
@@ -1002,6 +1011,7 @@ export interface FileRoutesById {
   '/api/public/tyres/events': typeof ApiPublicTyresEventsRoute
   '/api/public/tyres/public-config': typeof ApiPublicTyresPublicConfigRoute
   '/api/public/tyres/quotes': typeof ApiPublicTyresQuotesRoute
+  '/api/public/tyres/reporting-daily': typeof ApiPublicTyresReportingDailyRoute
   '/api/public/tyres/site-suggestion': typeof ApiPublicTyresSiteSuggestionRoute
   '/devis/pneus/$quoteId/pdf': typeof DevisPneusQuoteIdPdfRoute
 }
@@ -1114,6 +1124,7 @@ export interface FileRouteTypes {
     | '/api/public/tyres/events'
     | '/api/public/tyres/public-config'
     | '/api/public/tyres/quotes'
+    | '/api/public/tyres/reporting-daily'
     | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesByTo: FileRoutesByTo
@@ -1223,6 +1234,7 @@ export interface FileRouteTypes {
     | '/api/public/tyres/events'
     | '/api/public/tyres/public-config'
     | '/api/public/tyres/quotes'
+    | '/api/public/tyres/reporting-daily'
     | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
   id:
@@ -1333,6 +1345,7 @@ export interface FileRouteTypes {
     | '/api/public/tyres/events'
     | '/api/public/tyres/public-config'
     | '/api/public/tyres/quotes'
+    | '/api/public/tyres/reporting-daily'
     | '/api/public/tyres/site-suggestion'
     | '/devis/pneus/$quoteId/pdf'
   fileRoutesById: FileRoutesById
@@ -1441,6 +1454,7 @@ export interface RootRouteChildren {
   ApiPublicTyresEventsRoute: typeof ApiPublicTyresEventsRoute
   ApiPublicTyresPublicConfigRoute: typeof ApiPublicTyresPublicConfigRoute
   ApiPublicTyresQuotesRoute: typeof ApiPublicTyresQuotesRoute
+  ApiPublicTyresReportingDailyRoute: typeof ApiPublicTyresReportingDailyRoute
   ApiPublicTyresSiteSuggestionRoute: typeof ApiPublicTyresSiteSuggestionRoute
 }
 
@@ -2188,6 +2202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTyresQuotesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tyres/reporting-daily': {
+      id: '/api/public/tyres/reporting-daily'
+      path: '/api/public/tyres/reporting-daily'
+      fullPath: '/api/public/tyres/reporting-daily'
+      preLoaderRoute: typeof ApiPublicTyresReportingDailyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/tyres/site-suggestion': {
       id: '/api/public/tyres/site-suggestion'
       path: '/api/public/tyres/site-suggestion'
@@ -2338,6 +2359,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicTyresEventsRoute: ApiPublicTyresEventsRoute,
   ApiPublicTyresPublicConfigRoute: ApiPublicTyresPublicConfigRoute,
   ApiPublicTyresQuotesRoute: ApiPublicTyresQuotesRoute,
+  ApiPublicTyresReportingDailyRoute: ApiPublicTyresReportingDailyRoute,
   ApiPublicTyresSiteSuggestionRoute: ApiPublicTyresSiteSuggestionRoute,
 }
 export const routeTree = rootRouteImport
