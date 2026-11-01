@@ -66,8 +66,8 @@ describe("règles pures", () => {
   it("planificateur : 7 h Paris en hiver et en été, veille Paris (DST 25 h)", () => {
     const w = schedulerDecision(new Date("2026-11-01T06:00:00Z"));
     expect(w).toMatchObject({ act: true, firstSlot: true, reportDate: "2026-10-31" });
-    expect(w.end.getTime() - w.start.getTime()).toBe(25 * 3600_000); // passage heure d'hiver le 25/10 ? non : 31/10 = 24 h
-  }); 
+    expect(w.end.getTime() - w.start.getTime()).toBe(24 * 3600_000);
+  });
   it("planificateur : fenêtres", () => {
     expect(schedulerDecision(new Date("2026-07-01T05:00:00Z"))).toMatchObject({ act: true, firstSlot: true, reportDate: "2026-06-30" });
     expect(schedulerDecision(new Date("2026-07-01T04:00:00Z")).act).toBe(false);
