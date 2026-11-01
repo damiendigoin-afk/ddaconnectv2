@@ -152,3 +152,19 @@ Changement de statut **uniquement** par la RPC `set_tyre_prospect_status(_reques
 ### Droits sur les prospects (migration préparée)
 `authenticated` : **SELECT uniquement** (RLS manager + site). Aucun UPDATE/INSERT/DELETE direct : total, offre, consentement, empreinte, `request_id`, états d'envoi restent écrits par le serveur (`service_role`). Le statut CRM change seulement par `set_tyre_prospect_status`, qui ne touche que `prospect_status`, `status_changed_at`, `status_changed_by`. Contrat vérifié par `src/lib/__tests__/tire-v10-migration-contract.test.ts`.
 Le contexte `analytics` n'entre pas dans l'empreinte d'idempotence : un réessai avec ou sans ce contexte rejoue la même demande (pas de nouvel envoi, pas de nouvel événement) ; seule la tentative qui enregistre la demande peut relier un identifiant pseudonyme, et seulement si elle porte `analytics.consent = true`.
+
+## Demande de contact simplifiée (active avec le devis web, hors V10)
+
+`POST /api/public/tyres/contact-request` (+ `OPTIONS`). Gardée par `tire_web_quote_settings.enabled` et `allowed_origins` (CORS exact), indépendante de `TYRES_V10_ENABLED`. Code : `src/lib/tire-web-contact.server.ts`.
+
+Entrée stricte (JSON ≤ 4 Ko, champ inconnu => 400) :
+`{ requestId: uuid, quoteId: uuid, tier: "entree"|"milieu"|"haut", season: "ete"|"quatre_saisons", site: "castillon"|"lalinde", name (2–100), email (≤255), phone (6–30), message? (≤500), consent: true, website? (pot de miel) }`
+
+Comportement : offre relue dans `tire_web_quotes` (aucun recalcul, aucun PDF, aucune écriture prospect/CRM/archive) ; un seul e-mail au garage (castillon → contact@garagecastillon.fr, lalinde → contact@dda-lalinde.fr), expéditeur `FROM_DEFAULT` (garagecastillon.fr), Reply-To = e-mail client, aucune pièce jointe, aucun mail client. Clé d'idempotence fournisseur `tyres-contact-{requestId}` et corps déterministe.
+
+Réponses :
+- 200 `{ requestId, status: "sent", garage }` — uniquement si le fournisseur accepte et renvoie un id.
+- 202 `{ requestId, status: "received" }` — pot de miel rempli, rien envoyé.
+- 400 invalid_request / invalid_json · 403 origin_not_allowed · 413 · 415 · 422 offer_unavailable · 429 rate_limited (5/h/IP, 60/h global)
+- 409 quote_expired, ou request_conflict (même requestId, contenu différent)
+- 502 email_failed (réessayable avec le même requestId) · 503 service_unavailable / email_busy
