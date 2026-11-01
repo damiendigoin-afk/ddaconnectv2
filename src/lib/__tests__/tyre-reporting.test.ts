@@ -96,7 +96,7 @@ describe("agrégation du rapport", () => {
         ev({ type: "offer_selected", quote_id: "q1", tier: "milieu", season: "ete", offer_brand: "Hankook", offer_verified: true }),
         ev({ type: "offer_selected", quote_id: "q2", tier: "haut", season: "ete", visitor_id: "visitor_bbbbbbbbbbbb2", offer_brand: "Michelin", offer_verified: true }),
       ],
-      contacts: [contact({ visitor_id: "visitor_aaaaaaaaaaaa1" }), contact({ status: "failed", error_code: "email_failed", site_key: "lalinde", quote_id: "q9" }), contact({ is_test: true, email: "damien@garagecastillon.fr" })],
+      contacts: [contact({ visitor_id: "visitor_aaaaaaaaaaaa1" }), contact({ status: "failed", error_code: "email_failed", site_key: "lalinde", quote_id: "q9" }), contact({ is_test: true, email: "damien@garagecastillon.fr", quote_id: "qt" })],
       quotes: [{ id: "q1", created_at: "", request: { size: "205/55R16", quantity: 4 }, cases: [{ tier: "milieu", season: "ete", status: "available", brand: "Hankook" }, { tier: "haut", season: "ete", status: "unavailable", brand: null }] }],
       history: [{ report_date: "2026-10-30", metric: "page_views", value: 5 }],
     });
@@ -110,8 +110,8 @@ describe("agrégation du rapport", () => {
     expect(r.tests.contacts).toHaveLength(1);
     expect(r.tests.events).toBe(1);
     expect(r.quotes).toMatchObject({ count: 1, offersAvailable: 1, offersUnavailable: 1 });
-    expect(r.comparison.page_views).toMatchObject({ today: 2, previousDay: 5, daysAvailable: 1 });
-    expect(r.comparison.contacts_sent!.previousDay).toBeNull();
+    expect(r.comparison["page_views"]).toMatchObject({ today: 2, previousDay: 5, daysAvailable: 1 });
+    expect(r.comparison["contacts_sent"]!.previousDay).toBeNull();
     const html = renderReportHtml(r);
     expect(html).toContain("Non disponible");
     expect(html).toContain("Tests techniques (exclus)");
@@ -292,7 +292,7 @@ describe("contrat SQL d'installation", () => {
   it("additif, idempotent, isolé de V10", () => {
     expect(active).not.toMatch(/\bDROP\s+TABLE\b|\bTRUNCATE\b|ALTER TABLE public\.(?!tyre_rpt_)/i);
     expect(active).not.toMatch(/tyre_web_events|tyre_daily_reports|tyre_commercial_requests/);
-    for (const m of active.matchAll(/CREATE TABLE (\S+ )?(\S+)/g)) expect(m[0]).toMatch(/IF NOT EXISTS public\.tyre_rpt_/);
+    expect((active.match(/CREATE TABLE /g) ?? []).length).toBe((active.match(/CREATE TABLE IF NOT EXISTS public\.tyre_rpt_/g) ?? []).length);
   });
   it("aucune tâche planifiée active, aucun secret en clair", () => {
     expect(active).not.toMatch(/cron\.schedule|cron\.alter_job|cron\.unschedule/);

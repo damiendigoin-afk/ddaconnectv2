@@ -48,7 +48,7 @@ export const TEST_UTM_SOURCE = "dda_test";
  *  - événement : visitorId listé ou utm_source = « dda_test ».
  * Les tests sont exclus des chiffres métier et listés à part dans le rapport.
  */
-export function isTestContact(c: { email: string; name: string; message?: string | null }, s: Pick<ReportingSettings, "test_emails" | "test_email_domains">): boolean {
+export function isTestContact(c: { email: string; name: string; message?: string | null | undefined }, s: Pick<ReportingSettings, "test_emails" | "test_email_domains">): boolean {
   const email = c.email.trim().toLowerCase();
   const domain = email.split("@")[1] ?? "";
   if (s.test_emails.map((x) => x.trim().toLowerCase()).includes(email)) return true;
@@ -255,7 +255,7 @@ export function buildDailyReport(p: {
   return {
     reportDate: p.reportDate, start: p.start.toISOString(), end: p.end.toISOString(),
     measure: { state, startedAt: p.settings.instrumentation_started_at, eventsReceived: ev.length, contactLogEnabled: p.settings.contact_log_enabled },
-    traffic: { pageViews: pv.length, sessionsConsented: counters.sessions_consented!, visitorsConsented: visitors.size, consentedEvents: consented.length, totalEvents: ev.length, byHour, bySource: sortDesc(bySource), byMedium: sortDesc(byMedium), byCampaign: sortDesc(byCampaign), byDevice: sortDesc(byDevice), byPage: sortDesc(byPage) },
+    traffic: { pageViews: pv.length, sessionsConsented: counters["sessions_consented"]!, visitorsConsented: visitors.size, consentedEvents: consented.length, totalEvents: ev.length, byHour, bySource: sortDesc(bySource), byMedium: sortDesc(byMedium), byCampaign: sortDesc(byCampaign), byDevice: sortDesc(byDevice), byPage: sortDesc(byPage) },
     quotes: { count: quotes.length, offersAvailable: offersAvail, offersUnavailable: offersUnavail, sizes: sortDesc(sizes), quantities: sortDesc(qty), quoteEvents: quoteEv.length },
     selections: { count: selKeys.size, brands: sortDesc(brands), tiers: sortDesc(tiers), seasons: sortDesc(seasons) },
     funnel: { visitors: visitors.size, quoteVisitors: [...quoteVisitors].filter((v) => visitors.has(v)).length, requestVisitors: reqVisitors.size, visitToQuote: rate([...quoteVisitors].filter((v) => visitors.has(v)).length, visitors.size), quoteToRequest: rate([...quoteVisitors].filter((v) => reqVisitors.has(v)).length, quoteVisitors.size), selectedQuotes: selectedQuotes.size, abandonedQuotes: abandoned.length },
