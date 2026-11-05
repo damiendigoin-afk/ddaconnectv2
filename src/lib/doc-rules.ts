@@ -3,6 +3,7 @@
  * Entrée : texte OCR local / texte natif PDF. Sortie : champs au format des prompts historiques.
  * Règle DDA : OCR/extraction non générative -> règles -> IA seulement en ultime recours.
  */
+import { brandModelConflict, checkPlate, isPollutedModel } from "./or-scan-validate";
 import { findFrenchPlate, formatPlate, strictPlate } from "./plate";
 import { normSupplierName } from "./supplier-identify";
 import { cutGarageTail, dedupeFirstNameInLastName, isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
@@ -1379,6 +1380,12 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
     const p = strictPlate(vehicle["plate"]);
     if (!p) { rejected.push("vehicle.plate"); vehicle["plate"] = null; } else vehicle["plate"] = p;
   }
+  // Plaque = n° d'OR / n° compte : jamais une immatriculation (cas OR 50690).
+  if (vehicle["plate"] != null && checkPlate(vehicle["plate"], { orNumber: order["or_number"], account: client["account_number"] }) === "or_number") {
+    rejected.push("vehicle.plate"); vehicle["plate"] = null;
+  }
+  // Modèle pollué par e-mail / téléphone / colonnes collées : retiré => relecture ciblée.
+  if (vehicle["model"] != null && isPollutedModel(vehicle["model"])) { rejected.push("vehicle.model"); vehicle["model"] = null; }
   if (vehicle["model"] != null && (isOrParasiteValue(vehicle["model"]) || !isPlausibleModel(vehicle["model"], [client["account_number"], order["or_number"], client["postal_code"], client["phone"], client["mobile"], vehicle["plate"], vehicle["vin"]]))) {
     rejected.push("vehicle.model");
     vehicle["model"] = null;
@@ -1387,6 +1394,8 @@ export function sanitizeRepairOrder(f: Fields): { fields: Fields; rejected: stri
     const b = String(vehicle["brand"]).toUpperCase().trim();
     if (isOrParasiteValue(b) || !CAR_BRANDS.some((x) => b === x || b.startsWith(`${x} `))) { rejected.push("vehicle.brand"); vehicle["brand"] = null; }
   }
+  // Marque incompatible avec un modèle distinctif (RENAULT + CEED) : signalée, jamais corrigée => relecture ciblée.
+  if (vehicle["brand"] != null && brandModelConflict(vehicle["brand"], vehicle["model"])) { suspect.add("vehicle.brand"); suspect.add("vehicle.model"); }
   const out: Fields = { ...f };
   delete out["_suspect"];
   if (suspect.size) out["_suspect"] = [...suspect];
