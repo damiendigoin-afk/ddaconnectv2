@@ -64,6 +64,7 @@ import { Route as ParametrageMessagesRouteImport } from './routes/parametrage.me
 import { Route as ParametrageNotificationsRouteImport } from './routes/parametrage.notifications'
 import { Route as ParametrageRecetteIaRouteImport } from './routes/parametrage.recette-ia'
 import { Route as ParametrageSanteRouteImport } from './routes/parametrage.sante'
+import { Route as ParametrageScansOrRouteImport } from './routes/parametrage.scans-or'
 import { Route as ParametrageTarifsRouteImport } from './routes/parametrage.tarifs'
 import { Route as PartageTokenRouteImport } from './routes/partage.$token'
 import { Route as PiecesAchatsIndexRouteImport } from './routes/pieces-achats.index'
@@ -397,6 +398,11 @@ const ParametrageSanteRoute = ParametrageSanteRouteImport.update({
   path: '/parametrage/sante',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParametrageScansOrRoute = ParametrageScansOrRouteImport.update({
+  id: '/parametrage/scans-or',
+  path: '/parametrage/scans-or',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParametrageTarifsRoute = ParametrageTarifsRouteImport.update({
   id: '/parametrage/tarifs',
   path: '/parametrage/tarifs',
@@ -724,6 +730,7 @@ export interface FileRoutesByFullPath {
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/recette-ia': typeof ParametrageRecetteIaRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
+  '/parametrage/scans-or': typeof ParametrageScansOrRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
@@ -834,6 +841,7 @@ export interface FileRoutesByTo {
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/recette-ia': typeof ParametrageRecetteIaRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
+  '/parametrage/scans-or': typeof ParametrageScansOrRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
@@ -946,6 +954,7 @@ export interface FileRoutesById {
   '/parametrage/notifications': typeof ParametrageNotificationsRoute
   '/parametrage/recette-ia': typeof ParametrageRecetteIaRoute
   '/parametrage/sante': typeof ParametrageSanteRoute
+  '/parametrage/scans-or': typeof ParametrageScansOrRoute
   '/parametrage/tarifs': typeof ParametrageTarifsRoute
   '/partage/$token': typeof PartageTokenRoute
   '/pieces-achats/$section': typeof PiecesAchatsSectionRoute
@@ -1059,6 +1068,7 @@ export interface FileRouteTypes {
     | '/parametrage/notifications'
     | '/parametrage/recette-ia'
     | '/parametrage/sante'
+    | '/parametrage/scans-or'
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/pieces-achats/$section'
@@ -1169,6 +1179,7 @@ export interface FileRouteTypes {
     | '/parametrage/notifications'
     | '/parametrage/recette-ia'
     | '/parametrage/sante'
+    | '/parametrage/scans-or'
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/pieces-achats/$section'
@@ -1280,6 +1291,7 @@ export interface FileRouteTypes {
     | '/parametrage/notifications'
     | '/parametrage/recette-ia'
     | '/parametrage/sante'
+    | '/parametrage/scans-or'
     | '/parametrage/tarifs'
     | '/partage/$token'
     | '/pieces-achats/$section'
@@ -1392,6 +1404,7 @@ export interface RootRouteChildren {
   ParametrageNotificationsRoute: typeof ParametrageNotificationsRoute
   ParametrageRecetteIaRoute: typeof ParametrageRecetteIaRoute
   ParametrageSanteRoute: typeof ParametrageSanteRoute
+  ParametrageScansOrRoute: typeof ParametrageScansOrRoute
   ParametrageTarifsRoute: typeof ParametrageTarifsRoute
   PartageTokenRoute: typeof PartageTokenRoute
   PiecesAchatsSectionRoute: typeof PiecesAchatsSectionRoute
@@ -1845,6 +1858,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParametrageSanteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parametrage/scans-or': {
+      id: '/parametrage/scans-or'
+      path: '/parametrage/scans-or'
+      fullPath: '/parametrage/scans-or'
+      preLoaderRoute: typeof ParametrageScansOrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parametrage/tarifs': {
       id: '/parametrage/tarifs'
       path: '/parametrage/tarifs'
@@ -2295,6 +2315,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParametrageNotificationsRoute: ParametrageNotificationsRoute,
   ParametrageRecetteIaRoute: ParametrageRecetteIaRoute,
   ParametrageSanteRoute: ParametrageSanteRoute,
+  ParametrageScansOrRoute: ParametrageScansOrRoute,
   ParametrageTarifsRoute: ParametrageTarifsRoute,
   PartageTokenRoute: PartageTokenRoute,
   PiecesAchatsSectionRoute: PiecesAchatsSectionRoute,

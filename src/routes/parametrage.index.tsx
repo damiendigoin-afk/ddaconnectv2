@@ -92,6 +92,12 @@ const ENTRIES: { to: string; label: string; hint: string; icon: LucideIcon }[] =
     icon: Bot,
   },
   {
+    to: "/parametrage/scans-or",
+    label: "Scans OR — journal et banc",
+    hint: "Photos d'OR conservées 30 jours en privé, étapes de lecture, corrections et comparaison avec la lecture vision",
+    icon: Bot,
+  },
+  {
     to: "/parametrage/api",
     label: "Paramètres API",
     hint: "Services externes : OCR, email, stockage, géocodage — activation, clés masquées et test de connexion",

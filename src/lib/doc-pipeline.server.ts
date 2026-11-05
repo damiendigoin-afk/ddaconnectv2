@@ -20,6 +20,8 @@ export type ReadDocInput = {
   /** Modèle IA dédié (repli texte + vision) ; défaut VISION_MODEL. */
   model?: string | undefined;
   /** Banc de test : nouvelle analyse sans cache, métriques remontées (jamais utilisé par le métier). */
+  /** Banc OR : force la voie « vision d'abord » (jamais utilisé par le métier). */
+  forceVisionFirst?: boolean;
   bench?: { bypassCache: boolean; onAi: (route: "ai_text_fallback" | "ai_vision_fallback", r: PaidAiResult) => void };
 };
 
@@ -66,7 +68,7 @@ export async function readDocument(input: ReadDocInput): Promise<PipelineResult>
   const ctx = input.kind === "purchase" ? { suppliers: await supplierHints() } : {};
   const fp = await fingerprint(input.feature, text || input.dataUrl?.slice(0, 5000) || "");
   return runDocPipeline(
-    { kind: input.kind, text, hasImage: !!input.dataUrl, media: detectMedia(input.dataUrl, text), ctx, visionFirst: input.kind === "purchase" && !input.bench },
+    { kind: input.kind, text, hasImage: !!input.dataUrl, media: detectMedia(input.dataUrl, text), ctx, visionFirst: input.forceVisionFirst ?? (input.kind === "purchase" && !input.bench) },
     {
       fallbackEnabled: async () => (await readBudget()).fallbackAiEnabled,
       logLocal: (route, missing) =>

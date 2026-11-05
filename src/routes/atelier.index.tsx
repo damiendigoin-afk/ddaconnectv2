@@ -25,6 +25,9 @@ import { applyDossierConflict, ensureWinmotorDossier } from "@/lib/or-dossier";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { prioritizeRefVehicleIdentity } from "@/lib/refbase";
+import { useOrScanConfirm } from "@/components/OrScanConfirm";
+import { finishOrScan, prepareOrScan } from "@/lib/or-scan-flow";
+import { checkPlate, needsConfirmation } from "@/lib/or-scan-validate";
 
 export const Route = createFileRoute("/atelier/")({
   head: () => ({
@@ -58,6 +61,8 @@ function AtelierHub() {
   const [lastScan, setLastScan] = useState<ReturnType<typeof parseRepairOrderScan> | null>(null);
   const [conflicts, setConflicts] = useState<{ orId: string; items: DossierConflict[] } | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [plateChecked, setPlateChecked] = useState(false);
+  const { confirm: confirmScan, dialog: confirmDialog } = useOrScanConfirm();
   const cameraRef = useRef<HTMLInputElement>(null);
 
   const recent = useQuery({
@@ -74,22 +79,30 @@ function AtelierHub() {
     },
   });
 
-  async function ensureAndOpen(orNumber: string, plate: string | null, data: DossierData | null) {
+  async function ensureAndOpen(orNumber: string, plate: string | null, data: DossierData | null): Promise<string | null> {
     const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber, plate, data, userName: displayName || null, site });
     const a = interpretEnsure(orNumber, r);
     if (a.kind === "open") {
       if (a.created) toast.success(`Fiche dossier OR WinMotor ${orNumber} créée`);
       setNeedPlate(false);
+      if (r.capture) notifyCapture(a.orId);
       if (r.conflicts?.length) {
         // Lecture différente d'une donnée existante : jamais d'écrasement silencieux.
         setConflicts({ orId: a.orId, items: r.conflicts });
-        return;
+        return a.orId;
       }
       navigate({ to: "/or/$orId", params: { orId: a.orId } });
-      return;
+      return a.orId;
     }
-    if (a.kind === "needs_plate") setNeedPlate(true);
+    if (a.kind === "needs_plate" || r.error === "plate_unconfirmed") setNeedPlate(true);
     setOrNote(a.note);
+    return null;
+  }
+
+  function notifyCapture(orId: string) {
+    toast.message("Client non identifié : coordonnées en attente de validation.", {
+      action: { label: "Résoudre", onClick: () => navigate({ to: "/or/$orId", params: { orId } }) },
+    });
   }
 
   async function openOr() {
@@ -102,8 +115,16 @@ function AtelierHub() {
     }
     setScanning(true);
     try {
-      const data = lastScan && lastScan.or_number === n ? lastScan.data : null;
-      await ensureAndOpen(n, needPlate && plateIn.trim() ? plateIn.trim() : null, data);
+      const base = lastScan && lastScan.or_number === n ? lastScan.data : null;
+      const typed = needPlate && plateIn.trim() ? plateIn.trim() : null;
+      // Saisie manuelle de l'immatriculation : jamais le n° d'OR ; format inhabituel = vérification explicite.
+      const pc = typed ? checkPlate(typed, { orNumber: n }) : "empty";
+      if (pc === "or_number") { setOrNote("Vous avez saisi le n° d'OR : indiquez l'immatriculation du véhicule."); return; }
+      if (pc === "atypical" && !plateChecked) { setOrNote("Immatriculation au format inhabituel : vérifiez-la puis cochez « immatriculation vérifiée »."); return; }
+      const data: DossierData | null = typed && pc === "atypical"
+        ? { ...(base ?? { client: {}, order: {} , vehicle: {} }), vehicle: { ...(base?.vehicle ?? {}), plate: typed, plate_confirmed: true } }
+        : base;
+      await ensureAndOpen(n, typed, data);
     } finally {
       setScanning(false);
     }
@@ -123,15 +144,26 @@ function AtelierHub() {
         return;
       }
       const parsed = parseRepairOrderScan(res.json);
-      const scan = { ...parsed, data: { ...parsed.data, vehicle: await prioritizeRefVehicleIdentity(parsed.data.vehicle) } };
+      const read = { ...parsed.data, vehicle: await prioritizeRefVehicleIdentity(parsed.data.vehicle) };
+      // Contrôles déterministes + journal privé ; confirmation demandée seulement en cas de doute.
+      const prep = prepareOrScan({ data: read, orNumber: parsed.or_number, trace: res.trace, siteId: site?.id, entry: "atelier", userName: displayName || null, dataUrl });
+      let data = prep.data;
+      if (needsConfirmation(prep.doubts)) {
+        const c = await confirmScan(data, prep.doubts, parsed.or_number);
+        if (!c) { finishOrScan(prep.log, read, null, "cancelled"); setOrNote("Lecture annulée : rien n'a été créé."); return; }
+        data = c;
+      }
+      const scan = { ...parsed, data, plate: (data.vehicle["plate"] as string | undefined) ?? null };
       const plate = scan.plate ? formatPlate(scan.plate) : null;
       setLastScan(scan);
       if (scan.or_number) setOrNum(scan.or_number);
       if (plate) setPlateIn(plate);
       const d = decideOrScan({ or_number: scan.or_number, plate });
-      if (d.kind === "ensure") await ensureAndOpen(d.or_number, d.plate, scan.data);
-      else if (d.kind === "plate") navigate({ to: "/scan-plaque", search: { plate: d.plate, note: d.note ?? undefined } });
-      else setOrNote(d.note);
+      if (d.kind === "ensure") {
+        const orId = await ensureAndOpen(d.or_number, d.plate, scan.data);
+        finishOrScan(prep.log, read, data, orId ? "opened" : "not_opened", orId);
+      } else if (d.kind === "plate") { finishOrScan(prep.log, read, data, "plate_only"); navigate({ to: "/scan-plaque", search: { plate: d.plate, note: d.note ?? undefined } }); }
+      else { finishOrScan(prep.log, read, data, "no_or"); setOrNote(d.note); }
     } catch (e) {
       console.error(e);
       setOrNote("Analyse impossible. Saisissez le numéro manuellement.");
@@ -144,6 +176,7 @@ function AtelierHub() {
 
   return (
     <AppShell title="Atelier" back={{ to: "/" }}>
+      {confirmDialog}
       <div className="space-y-3">
         {can("tour") ? (
           <form
@@ -195,6 +228,12 @@ function AtelierHub() {
                 aria-label="Immatriculation du véhicule"
                 className="w-full rounded-lg border-2 border-border bg-card px-3 py-3 text-base uppercase outline-none focus:border-brand"
               />
+            ) : null}
+            {needPlate && plateIn.trim() && checkPlate(plateIn) === "atypical" ? (
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={plateChecked} onChange={(e) => setPlateChecked(e.target.checked)} className="h-4 w-4" />
+                Immatriculation vérifiée (format inhabituel : étrangère, W garage…)
+              </label>
             ) : null}
             {orNote ? <p className="text-xs text-muted-foreground">{orNote}</p> : null}
           </form>

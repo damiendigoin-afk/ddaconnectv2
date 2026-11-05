@@ -22,7 +22,7 @@ export function decideOrScan(input: { or_number: string | null; plate: string | 
   return { kind: "note", note: "Aucun OR ni immatriculation lisible. Saisissez le numéro manuellement." };
 }
 
-export type EnsureResult = { id?: string; created?: boolean; adopted?: boolean; needs_plate?: boolean; error?: string };
+export type EnsureResult = { id?: string; created?: boolean; adopted?: boolean; needs_plate?: boolean; error?: string; capture?: boolean };
 
 /** Traduit le retour de ensure_winmotor_dossier en action d'écran. */
 export function interpretEnsure(orNumber: string, r: EnsureResult | null):
@@ -36,6 +36,7 @@ export function interpretEnsure(orNumber: string, r: EnsureResult | null):
     site_required: "Choisissez d'abord un site actif (pas la vue Groupe).",
     invalid_or_number: "Numéro d'OR WinMotor invalide (3 à 8 chiffres).",
     invalid_plate: "Immatriculation invalide.",
+    plate_unconfirmed: "Immatriculation au format inhabituel : vérifiez-la et cochez « immatriculation vérifiée » pour continuer.",
   };
   return { kind: "error", note: map[r?.error ?? ""] ?? "Ouverture du dossier impossible." };
 }

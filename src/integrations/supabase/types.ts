@@ -4451,6 +4451,81 @@ export type Database = {
           },
         ]
       }
+      or_scan_logs: {
+        Row: {
+          ai_calls: number | null
+          bench: Json | null
+          bench_consent: boolean
+          confirmed_fields: Json | null
+          corrections: string[]
+          created_at: string
+          doubts: Json
+          entry: string
+          expires_at: string
+          id: string
+          local_text_len: number | null
+          missing: string[]
+          or_number: string | null
+          outcome: string | null
+          photo_path: string | null
+          read_fields: Json | null
+          repair_order_id: string | null
+          route: string | null
+          rules_fields: Json | null
+          site_id: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          ai_calls?: number | null
+          bench?: Json | null
+          bench_consent?: boolean
+          confirmed_fields?: Json | null
+          corrections?: string[]
+          created_at?: string
+          doubts?: Json
+          entry?: string
+          expires_at?: string
+          id?: string
+          local_text_len?: number | null
+          missing?: string[]
+          or_number?: string | null
+          outcome?: string | null
+          photo_path?: string | null
+          read_fields?: Json | null
+          repair_order_id?: string | null
+          route?: string | null
+          rules_fields?: Json | null
+          site_id: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          ai_calls?: number | null
+          bench?: Json | null
+          bench_consent?: boolean
+          confirmed_fields?: Json | null
+          corrections?: string[]
+          created_at?: string
+          doubts?: Json
+          entry?: string
+          expires_at?: string
+          id?: string
+          local_text_len?: number | null
+          missing?: string[]
+          or_number?: string | null
+          outcome?: string | null
+          photo_path?: string | null
+          read_fields?: Json | null
+          repair_order_id?: string | null
+          route?: string | null
+          rules_fields?: Json | null
+          site_id?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       or_work_state: {
         Row: {
           finished_at: string | null

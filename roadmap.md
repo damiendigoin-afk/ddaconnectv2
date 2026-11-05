@@ -183,3 +183,11 @@ Reste à faire :
 - [x] Nankang classée entrée (correction DDA, paramétrage prioritaire)
 - [x] Référentiel mondial des gammes de marques (sources, alias, à vérifier), appliqué classique + Top prix + web
 - [ ] Compléter les sources des marques « source unique » / « divergent » (Nexen, Sailun, Avon…) : recherche documentaire à valider
+
+# Scan OR WinMotor — fiabilisation (05/11)
+- [x] Contrôles plaque/modèle/marque (lecture, écran, base) + confirmation seulement en cas de doute
+- [x] Photo OR privée 30 jours + journal des étapes/corrections (gérants)
+- [x] Banc comparatif production vs vision d'abord, avec accord, métriques par champ et coût
+- [x] Client non identifié : lien « Résoudre » vers les contacts en attente ; relecture ciblée si identité/modèle douteux
+- [x] Tests de régression (50690, BK-859-HQ/HG, RENAULT CEED, modèle + e-mail, client absent)
+- Limite : aucun essai avec une vraie photo/téléphone dans cette session
