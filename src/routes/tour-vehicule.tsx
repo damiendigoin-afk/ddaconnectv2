@@ -235,6 +235,7 @@ function ModuleHome() {
 
   return (
     <div className="min-h-screen bg-background pb-16">
+      {confirmDialog}
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4">
           <Link to="/" className="-ml-2 rounded-lg p-2" aria-label="Accueil DDA Connect">
