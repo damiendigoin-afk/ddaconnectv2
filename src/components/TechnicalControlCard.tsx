@@ -9,7 +9,6 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { CT_UNAVAILABLE_SOURCE, ctPersistValues, ctUnavailableNote, firstValidCtDate, mergeCtComment } from "@/lib/ct";
-import { useAuth } from "@/lib/auth";
 import { ocrTechnicalControl } from "@/lib/ocr.functions";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 
@@ -28,6 +27,7 @@ export function TechnicalControlCard({
   initialPollution,
   gateRequest = 0,
   confirmed = true,
+  actorName,
 }: {
   pointId: string;
   tourId: string;
@@ -38,8 +38,8 @@ export function TechnicalControlCard({
   gateRequest?: number;
   /** Échéance déjà confirmée explicitement sur ce point (ct_read_at). */
   confirmed?: boolean;
+  actorName?: string | null;
 }) {
-  const { displayName } = useAuth();
   const gateRef = useRef<HTMLDivElement>(null);
   const [unavailableAsk, setUnavailableAsk] = useState(false);
   const gateOpen = gateRequest > 0 && !confirmed;
@@ -211,7 +211,7 @@ export function TechnicalControlCard({
       if (readError) throw readError;
       const now = new Date();
       const base = mergeCtComment(current?.comment ?? "", ctDate, pollutionDate);
-      const note = ctUnavailableNote(displayName, now);
+      const note = ctUnavailableNote(actorName, now);
       // Dates existantes non effacées ; fiche véhicule non modifiée.
       const { error } = await supabase.from("inspection_points").update({
         ct_read_at: now.toISOString(),

@@ -2,7 +2,7 @@ import { formatMeasure, normalizeMeasureValue } from "@/lib/measure";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { firstValidCtDate } from "@/lib/ct";
+import { firstValidCtDate, isCtConfirmed } from "@/lib/ct";
 import { Camera, ChevronLeft, ChevronRight, Loader2, LogOut, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -352,9 +352,35 @@ function Guided(props: SharedProps) {
     };
   }, [points.data]);
 
-  async function goto(nextPosition: number) {
+  // Zone « Face avant » : l'échéance CT doit être confirmée explicitement
+  // (confirmation, saisie ou « illisible ») avant de quitter la zone.
+  const ctPoint = zonePoints.find((p) => zoneDef.points.find((d) => d.key === p.point_key)?.special === "ct");
+  const ctConfirmed = !ctPoint || isCtConfirmed(ctPoint as unknown as Parameters<typeof isCtConfirmed>[0]);
+  const [ctGate, setCtGate] = useState(0);
+  const [pendingNav, setPendingNav] = useState<null | { kind: "goto"; position: number } | { kind: "finish" }>(null);
+  function guardLeave(next: { kind: "goto"; position: number } | { kind: "finish" }): boolean {
+    if (ctConfirmed) return true;
+    setPendingNav(next);
+    setCtGate((n) => n + 1);
+    return false;
+  }
+  useEffect(() => {
+    if (!ctConfirmed || !pendingNav) return;
+    const next = pendingNav;
+    setPendingNav(null);
+    setCtGate(0);
+    if (next.kind === "goto") void goto(next.position, true);
+    else runGlobalTireAnalysis(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctConfirmed, pendingNav]);
+
+  async function goto(nextPosition: number, skipGuard = false) {
     const target = zones[nextPosition - 1];
     if (!target) return;
+    if (target.index === current.index) return;
+    if (!skipGuard && !guardLeave({ kind: "goto", position: nextPosition })) return;
+    setCtGate(0);
+    setPendingNav(null);
     setZone(target.index);
     window.scrollTo({ top: 0 });
     await supabase
@@ -448,7 +474,8 @@ function Guided(props: SharedProps) {
     navigate({ to: "/tour/$tourId/rapport", params: { tourId: props.tourId }, replace: true });
   }
 
-  function runGlobalTireAnalysis() {
+  function runGlobalTireAnalysis(skipGuard = false) {
+    if (!skipGuard && !guardLeave({ kind: "finish" })) return;
     setAnalysisOpen(true);
   }
 
@@ -798,6 +825,9 @@ function Guided(props: SharedProps) {
                     pointId={p.id}
                     tourId={props.tourId}
                     vehicleId={props.vehicleId}
+                    gateRequest={ctGate}
+                    confirmed={ctConfirmed}
+                    actorName={displayName}
                     initialCt={firstValidCtDate((p as unknown as { ct_due_date?: string | null }).ct_due_date, props.ctDueDate)}
                     initialPollution={firstValidCtDate((p as unknown as { pollution_due_date?: string | null }).pollution_due_date, props.pollutionDueDate)}
                   />} />
