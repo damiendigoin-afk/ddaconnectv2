@@ -52,6 +52,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 import { TechnicalControlCard } from "@/components/TechnicalControlCard";
 import { PointCard } from "@/components/PointCard";
 import { fetchReport } from "@/lib/report";
+import { isCtConfirmed } from "@/lib/ct";
 import { Route as PdfRoute } from "@/routes/tour.$tourId.pdf";
 
 let client: QueryClient;
@@ -94,7 +95,7 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
     expect(mocks.upload).toHaveBeenCalledWith(expect.any(File), "tours/test-tour/controle-technique", { inspection_id: "test-tour", inspection_point_id: "test-point", label: "Contrôle technique" });
     expect(mocks.ocr).toHaveBeenCalledTimes(1);
     expect(mocks.point["ct_due_date"]).toBeNull(); // Pas de remplacement avant confirmation.
-    fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance CT" }));
     await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-10-29"));
     await waitFor(() => expect(screen.queryByLabelText("Échéance CT lue")).toBeNull());
     expect(mocks.vehicle["ct_due_date"]).toBe("2028-10-29");
@@ -144,9 +145,54 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
     const { container } = show(); choosePhoto(container);
     const proposal = await screen.findByLabelText("Échéance CT lue");
     fireEvent.change(proposal, { target: { value: "2028-11-15" } });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance CT" }));
     await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-11-15"));
     expect(mocks.point["ct_source"]).toBe("manuel");
     expect(mocks.point["ct_manually_corrected"]).toBe(true);
+  });
+
+  it("règle de confirmation : photo + statut OK ou date reprise de la fiche ne suffisent pas", () => {
+    expect(isCtConfirmed({ ct_due_date: null, ct_read_at: null })).toBe(false);
+    expect(isCtConfirmed({ ct_due_date: "2028-01-01", ct_read_at: null })).toBe(false);
+    expect(isCtConfirmed({ ct_due_date: null, ct_read_at: "2026-11-05T10:00:00Z", ct_source: "ocr" })).toBe(false);
+    expect(isCtConfirmed({ ct_due_date: "2028-01-01", ct_read_at: "2026-11-05T10:00:00Z", ct_source: "manuel" })).toBe(true);
+    expect(isCtConfirmed({ ct_due_date: null, ct_read_at: "2026-11-05T10:00:00Z", ct_source: "indisponible" })).toBe(true);
+  });
+
+  it("OCR lu non confirmé : aucune confirmation enregistrée", async () => {
+    const { container } = show(); choosePhoto(container);
+    await screen.findByLabelText("Échéance CT lue");
+    expect(isCtConfirmed(mocks.point)).toBe(false);
+  });
+
+  function showGate(initialCt: string | null) {
+    return render(<QueryClientProvider client={client}><TechnicalControlCard pointId="test-point" tourId="test-tour" vehicleId="test-vehicle" initialCt={initialCt} gateRequest={1} confirmed={false} actorName="Opérateur Test" /></QueryClientProvider>);
+  }
+
+  it("blocage : date connue (fiche véhicule) confirmée explicitement → point confirmé", async () => {
+    showGate("2027-06-30");
+    expect(screen.getByRole("alert").textContent).toContain("Échéance CT à confirmer");
+    fireEvent.click(screen.getByRole("button", { name: /Confirmer l’échéance CT du 30\/06\/2027/ }));
+    await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2027-06-30"));
+    expect(isCtConfirmed(mocks.point)).toBe(true);
+  });
+
+  it("blocage sans date : « Date illisible » exige une seconde confirmation et laisse une trace", async () => {
+    mocks.point["comment"] = "Vignette vérifiée";
+    showGate(null);
+    fireEvent.click(screen.getByRole("button", { name: "Date illisible / non disponible" }));
+    expect(mocks.point["ct_source"]).toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmer : date illisible" }));
+    await waitFor(() => expect(mocks.point["ct_source"]).toBe("indisponible"));
+    expect(String(mocks.point["comment"])).toContain("illisible / non disponible par Opérateur Test");
+    expect(String(mocks.point["comment"])).toContain("Vignette vérifiée");
+    expect(mocks.point["status"]).toBe("ok");
+    expect(mocks.updates.some(({ table }) => table === "vehicles")).toBe(false);
+    expect(isCtConfirmed(mocks.point)).toBe(true);
+  });
+
+  it("déjà confirmée : aucun blocage affiché", () => {
+    render(<QueryClientProvider client={client}><TechnicalControlCard pointId="test-point" tourId="test-tour" vehicleId="test-vehicle" initialCt="2027-06-30" gateRequest={1} confirmed /></QueryClientProvider>);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

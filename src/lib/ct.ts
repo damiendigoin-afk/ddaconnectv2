@@ -122,3 +122,28 @@ export function ctPersistValues(ct: string, pollution: string, manual: boolean):
 export function stripCtAuto(comment?: string | null): string {
   return (comment ?? "").split("\n").filter((l) => !AUTO_LINE.test(l)).join("\n").trim();
 }
+
+/** Source enregistrée quand l'opérateur déclare explicitement l'échéance CT illisible. */
+export const CT_UNAVAILABLE_SOURCE = "indisponible";
+
+/**
+ * Tour guidé : l'échéance CT est-elle confirmée par l'opérateur sur ce point ?
+ * Seule une action explicite (confirmation OCR, saisie manuelle ou déclaration
+ * « illisible / non disponible ») pose ct_read_at. Une photo seule ou un statut
+ * OK ne vaut pas confirmation ; une date reprise de la fiche véhicule non plus.
+ */
+export function isCtConfirmed(point?: {
+  ct_due_date?: string | null;
+  ct_read_at?: string | null;
+  ct_source?: string | null;
+} | null): boolean {
+  if (!point || !point.ct_read_at) return false;
+  if (point.ct_source === CT_UNAVAILABLE_SOURCE) return true;
+  return Boolean(firstValidCtDate(point.ct_due_date));
+}
+
+/** Trace manuelle ajoutée au commentaire quand l'échéance est déclarée indisponible. */
+export function ctUnavailableNote(actor: string | null | undefined, at: Date): string {
+  const who = (actor ?? "").trim() || "l'opérateur";
+  return `Échéance CT déclarée illisible / non disponible par ${who} le ${at.toLocaleDateString("fr-FR")}.`;
+}

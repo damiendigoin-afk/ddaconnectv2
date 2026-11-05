@@ -8,7 +8,7 @@ import { PhotoManager } from "@/components/PhotoManager";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { ctPersistValues, firstValidCtDate, mergeCtComment } from "@/lib/ct";
+import { CT_UNAVAILABLE_SOURCE, ctPersistValues, ctUnavailableNote, firstValidCtDate, mergeCtComment } from "@/lib/ct";
 import { ocrTechnicalControl } from "@/lib/ocr.functions";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 
@@ -25,13 +25,27 @@ export function TechnicalControlCard({
   vehicleId,
   initialCt,
   initialPollution,
+  gateRequest = 0,
+  confirmed = true,
+  actorName,
 }: {
   pointId: string;
   tourId: string;
   vehicleId: string;
   initialCt?: string | null;
   initialPollution?: string | null;
+  /** Incrémenté par le tour guidé quand l'opérateur tente de quitter la zone sans échéance confirmée. */
+  gateRequest?: number;
+  /** Échéance déjà confirmée explicitement sur ce point (ct_read_at). */
+  confirmed?: boolean;
+  actorName?: string | null;
 }) {
+  const gateRef = useRef<HTMLDivElement>(null);
+  const [unavailableAsk, setUnavailableAsk] = useState(false);
+  const gateOpen = gateRequest > 0 && !confirmed;
+  useEffect(() => {
+    if (gateRequest > 0 && !confirmed) gateRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, [gateRequest, confirmed]);
   const input = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -172,9 +186,79 @@ export function TechnicalControlCard({
     }
   }
 
+  async function confirmExplicit(ct: string) {
+    if (saving.current || reading.current || !firstValidCtDate(ct)) return;
+    saving.current = true;
+    setBusy(true);
+    try {
+      await persist(ct, pollutionDate);
+      saved.current = { ct, pollution: pollutionDate };
+      setCtDate(ct);
+      setProposal(null);
+      setReadMessage("Échéance confirmée et enregistrée.");
+    } catch (error) {
+      console.error(error);
+      toast.error("Échéance CT non enregistrée. Réessayez la confirmation.");
+    } finally { setBusy(false); saving.current = false; }
+  }
+
+  async function declareUnavailable() {
+    if (saving.current || reading.current) return;
+    saving.current = true;
+    setBusy(true);
+    try {
+      const { data: current, error: readError } = await supabase.from("inspection_points").select("comment").eq("id", pointId).maybeSingle();
+      if (readError) throw readError;
+      const now = new Date();
+      const base = mergeCtComment(current?.comment ?? "", ctDate, pollutionDate);
+      const note = ctUnavailableNote(actorName, now);
+      // Dates existantes non effacées ; fiche véhicule non modifiée.
+      const { error } = await supabase.from("inspection_points").update({
+        ct_read_at: now.toISOString(),
+        ct_source: CT_UNAVAILABLE_SOURCE,
+        ct_manually_corrected: true,
+        comment: `${note}\n${base}`,
+      }).eq("id", pointId);
+      if (error) throw error;
+      setUnavailableAsk(false);
+      setReadMessage("Échéance CT déclarée illisible / non disponible (tracé dans le commentaire).");
+      await refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Déclaration non enregistrée. Vérifiez la connexion puis réessayez.");
+    } finally { setBusy(false); saving.current = false; }
+  }
 
   return (
     <div className="space-y-3">
+      {gateOpen ? (
+        <div ref={gateRef} role="alert" className="space-y-2 rounded-xl border-2 border-status-defect bg-status-defect-soft p-3">
+          <p className="text-sm font-extrabold uppercase text-status-defect">Échéance CT à confirmer avant de continuer</p>
+          <p className="text-xs text-status-defect">La photo ou le statut OK ne suffisent pas : confirmez la date, saisissez-la ou déclarez-la illisible.</p>
+          {proposal ? (
+            <p className="text-sm font-semibold">Date lue : {proposal.ct ? proposal.ct.split("-").reverse().join("/") : "—"} — utilisez « Confirmer l’échéance CT » ci-dessous.</p>
+          ) : firstValidCtDate(ctDate) ? (
+            <Button type="button" disabled={busy} className="h-auto w-full whitespace-normal py-3 font-bold" onClick={() => void confirmExplicit(ctDate)}>
+              <Check /> Confirmer l’échéance CT du {ctDate.split("-").reverse().join("/")}
+            </Button>
+          ) : (
+            <p className="text-sm font-semibold">Aucune date lue : saisissez la date dans « Prochaine échéance CT » ci-dessous.</p>
+          )}
+          {unavailableAsk ? (
+            <div className="space-y-2 rounded-lg border-2 border-status-watch bg-card p-2">
+              <p className="text-xs font-semibold">Attention : le tour continuera sans échéance CT. La déclaration sera tracée avec votre nom et la date.</p>
+              <div className="flex gap-2">
+                <Button type="button" variant="destructive" disabled={busy} onClick={() => void declareUnavailable()}>Confirmer : date illisible</Button>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => setUnavailableAsk(false)}>Annuler</Button>
+              </div>
+            </div>
+          ) : (
+            <Button type="button" variant="outline" disabled={busy} className="h-auto w-full whitespace-normal py-2 text-xs" onClick={() => setUnavailableAsk(true)}>
+              Date illisible / non disponible
+            </Button>
+          )}
+        </div>
+      ) : null}
       <div className="grid gap-2 sm:grid-cols-2">
       <Button
         type="button"
@@ -234,7 +318,7 @@ export function TechnicalControlCard({
               toast.error("Échéance CT non enregistrée. Réessayez la confirmation.");
             } finally { setBusy(false); saving.current = false; }
           })();
-        }}><Check /> Confirmer l’échéance</Button>
+        }}><Check /> Confirmer l’échéance CT</Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={() => setProposal(null)}>Ignorer la lecture</Button>
       </div> : null}
       <label className="block text-xs font-bold uppercase text-muted-foreground">
