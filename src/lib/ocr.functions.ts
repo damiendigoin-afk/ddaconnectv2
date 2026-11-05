@@ -67,7 +67,7 @@ export const ocrRepairOrder = createServerFn({ method: "POST" })
     const localText = data.text ?? "";
     const rules = localText.trim() ? sanitizeRepairOrder(repairOrderRules(localText)).fields : {};
     delete (rules as Record<string, unknown>)["_suspect"];
-    const trace = { local_text_len: localText.length, local_plate: findFrenchPlate(localText), rules_fields: rules, route: result.route, missing: result.missing ?? [], ai_calls: result.ok ? result.aiCalls : null };
+    const trace = { local_text_len: localText.length, local_plate: findFrenchPlate(localText), rules_json: JSON.stringify(rules), route: result.route, missing: result.missing ?? [], ai_calls: result.ok ? result.aiCalls : null };
     if (!result.ok) return { ok: false as const, error: result.error, json: "", trace };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible.", json: "", trace };

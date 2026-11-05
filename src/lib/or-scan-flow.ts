@@ -5,7 +5,11 @@
 import { finalizeOrScan, recordOrScan } from "./or-scan-log.functions";
 import { assessOrScan, diffCritical, type OrScanData, type OrScanDoubt } from "./or-scan-validate";
 
-export type OrScanTrace = { local_text_len?: number | null; local_plate?: string | null; rules_fields?: Record<string, unknown> | null; route?: string | null; missing?: string[]; ai_calls?: number | null };
+export type OrScanTrace = { local_text_len?: number | null; local_plate?: string | null; rules_json?: string | null; route?: string | null; missing?: string[]; ai_calls?: number | null };
+
+const parseRules = (j: string | null | undefined): Record<string, unknown> | null => {
+  try { return j ? (JSON.parse(j) as Record<string, unknown>) : null; } catch { return null; }
+};
 
 export function prepareOrScan(input: {
   data: OrScanData;
@@ -21,7 +25,7 @@ export function prepareOrScan(input: {
     ? recordOrScan({
         data: {
           siteId: input.siteId, entry: input.entry, userName: input.userName, dataUrl: input.dataUrl, orNumber: input.orNumber,
-          trace: { local_text_len: input.trace?.local_text_len ?? null, route: input.trace?.route ?? null, ai_calls: input.trace?.ai_calls ?? null, missing: input.trace?.missing ?? [], rules_fields: input.trace?.rules_fields ?? null },
+          trace: { local_text_len: input.trace?.local_text_len ?? null, route: input.trace?.route ?? null, ai_calls: input.trace?.ai_calls ?? null, missing: input.trace?.missing ?? [], rules_fields: parseRules(input.trace?.rules_json) },
           readFields: input.data as unknown as Record<string, unknown>,
           doubts: a.doubts as unknown as Record<string, unknown>[],
         },

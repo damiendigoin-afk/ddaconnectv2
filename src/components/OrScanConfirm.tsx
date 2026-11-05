@@ -51,7 +51,7 @@ function OrScanConfirmDialog({ pending, onDone }: { pending: Pending; onDone: (d
     if (checkPlate(vehicle["plate"], { orNumber: pending.orNumber, account: client["account_number"] }) === "or_number") {
       setErr("Ce numéro est le n° d'OR, pas une immatriculation."); return;
     }
-    const again = assessOrScan({ data: next, orNumber: pending.orNumber, localPlate: plateEdited ? null : undefined });
+    const again = assessOrScan({ data: next, orNumber: pending.orNumber, });
     const blocking = again.doubts.filter((d) => d.blocking);
     // Doutes de plaque initiaux (deux lectures différentes) : levés seulement par vérification explicite ou correction.
     const plateDoubtLeft = !plateEdited && pending.doubts.some((d) => d.code === "plate_two_readings");

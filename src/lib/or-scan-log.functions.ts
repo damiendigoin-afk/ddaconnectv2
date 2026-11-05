@@ -62,7 +62,7 @@ export const recordOrScan = createServerFn({ method: "POST" })
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const bytes = Uint8Array.from(atob(m[2]!), (c) => c.charCodeAt(0));
         const path = `${data.siteId}/${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.${m[1] === "image/png" ? "png" : m[1] === "image/webp" ? "webp" : "jpg"}`;
-        const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: m[1], upsert: false });
+        const up = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, { contentType: m[1]!, upsert: false });
         if (!up.error) photo_path = path;
       } catch {
         console.error("or_scan photo upload failed");
@@ -155,5 +155,5 @@ export const runOrScanBench = createServerFn({ method: "POST" })
     const { runOrBenchVision } = await import("./or-scan-bench.server");
     const bench = await runOrBenchVision(row as never);
     await context.supabase.from("or_scan_logs").update({ bench: bench as never }).eq("id", data.id);
-    return bench;
+    return { ok: true, at: bench.at };
   });
