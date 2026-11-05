@@ -36,6 +36,7 @@ export function interpretEnsure(orNumber: string, r: EnsureResult | null):
     site_required: "Choisissez d'abord un site actif (pas la vue Groupe).",
     invalid_or_number: "Numéro d'OR WinMotor invalide (3 à 8 chiffres).",
     invalid_plate: "Immatriculation invalide.",
+    plate_unconfirmed: "Immatriculation au format inhabituel : vérifiez-la et cochez « immatriculation vérifiée » pour continuer.",
   };
   return { kind: "error", note: map[r?.error ?? ""] ?? "Ouverture du dossier impossible." };
 }
