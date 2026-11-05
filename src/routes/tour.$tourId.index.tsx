@@ -378,7 +378,7 @@ function Guided(props: SharedProps) {
     const target = zones[nextPosition - 1];
     if (!target) return;
     if (target.index === current.index) return;
-    if (!skipGuard && !guardLeave({ kind: "goto", position: nextPosition })) return;
+    if (!skipGuard && nextPosition > position && !guardLeave({ kind: "goto", position: nextPosition })) return;
     setCtGate(0);
     setPendingNav(null);
     setZone(target.index);
