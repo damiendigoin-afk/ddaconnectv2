@@ -5,7 +5,8 @@ import { askVision, parseJsonBlock } from "./ocr.server";
 import { OR_SCAN_MODEL } from "./or-scan-model";
 import { learnSupplierProfile, readDocument } from "./doc-pipeline.server";
 import { needsLinesRecheck, pickRecheck, reviewReasons } from "./purchase-validate";
-import { plausibleMileage, type DocKind } from "./doc-rules";
+import { plausibleMileage, repairOrderRules, sanitizeRepairOrder, type DocKind } from "./doc-rules";
+import { findFrenchPlate } from "./plate";
 import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
 
 const fileInput = z.object({
@@ -33,7 +34,7 @@ async function viaPipeline(
   if (!any && !r.visionFailed) {
     return { ok: false as const, error: "Lecture automatique sans résultat : complétez les informations manuellement.", route: r.route, content: "", missing: r.missing };
   }
-  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "", missing: r.missing, visionFirst: !!r.visionFirst, visionFailed: !!r.visionFailed };
+  return { ok: true as const, content: JSON.stringify(r.fields), route: r.route, error: "", missing: r.missing, aiCalls: r.aiCalls, visionFirst: !!r.visionFirst, visionFailed: !!r.visionFailed };
 }
 
 /**
@@ -83,10 +84,15 @@ client.address ne contient QUE la rue : jamais « restitution prévue le … »,
 entry_at / delivery_at / or_date : recopie la date et l'heure telles qu'imprimées (heure locale française, sans conversion de fuseau) ; restitution sans heure = date seule.
 vehicle.mileage est souvent manuscrit : ne le renseigne que s'il est clairement lisible, sinon null et "vehicle.mileage" dans uncertain. Ignore le schéma de carrosserie et ses annotations.`;
     const result = await viaPipeline("repair_order", prompt, data, "ocr_or", undefined, OR_SCAN_MODEL);
-    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
+    // Trace du parcours (journal privé OR) : texte local, règles seules, voie finale, appels IA. Aucun texte brut renvoyé.
+    const localText = data.text ?? "";
+    const rules = localText.trim() ? sanitizeRepairOrder(repairOrderRules(localText)).fields : {};
+    delete (rules as Record<string, unknown>)["_suspect"];
+    const trace = { local_text_len: localText.length, local_plate: findFrenchPlate(localText), rules_fields: rules, route: result.route, missing: result.missing ?? [], ai_calls: result.ok ? result.aiCalls : null };
+    if (!result.ok) return { ok: false as const, error: result.error, json: "", trace };
     const parsed = parseJsonBlock(result.content);
-    if (!parsed) return { ok: false as const, error: "Document illisible.", json: "" };
-    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+    if (!parsed) return { ok: false as const, error: "Document illisible.", json: "", trace };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed), trace };
   });
 
 export const ocrPlate = createServerFn({ method: "POST" })
