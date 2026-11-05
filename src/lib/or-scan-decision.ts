@@ -22,7 +22,7 @@ export function decideOrScan(input: { or_number: string | null; plate: string | 
   return { kind: "note", note: "Aucun OR ni immatriculation lisible. Saisissez le numéro manuellement." };
 }
 
-export type EnsureResult = { id?: string; created?: boolean; adopted?: boolean; needs_plate?: boolean; error?: string };
+export type EnsureResult = { id?: string; created?: boolean; adopted?: boolean; needs_plate?: boolean; error?: string; capture?: boolean };
 
 /** Traduit le retour de ensure_winmotor_dossier en action d'écran. */
 export function interpretEnsure(orNumber: string, r: EnsureResult | null):

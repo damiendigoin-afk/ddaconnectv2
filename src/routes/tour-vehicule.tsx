@@ -17,6 +17,9 @@ import { blobToDataUrl, compressImage } from "@/lib/photo";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
 import { afterTourEnsure, decideTourScan, parseRepairOrderScan } from "@/lib/or-scan-decision";
 import { ensureWinmotorDossier } from "@/lib/or-dossier";
+import { useOrScanConfirm } from "@/components/OrScanConfirm";
+import { finishOrScan, prepareOrScan } from "@/lib/or-scan-flow";
+import { needsConfirmation } from "@/lib/or-scan-validate";
 import { useSite } from "@/lib/site-context";
 import { useAuth } from "@/lib/auth";
 import { startQuickTour } from "@/lib/quick-tour";
@@ -58,6 +61,7 @@ function ModuleHome() {
   const { site } = useSite();
   const { displayName, user, profile } = useAuth();
   const [scanning, setScanning] = useState(false);
+  const { confirm: confirmScan, dialog: confirmDialog } = useOrScanConfirm();
 
   /** Entrée rapide : photo d'une plaque OU d'un OR papier. Le tour ne demande jamais d'OR ; DDA ne crée aucun OR. */
   async function quickScan(file: File | undefined) {
@@ -74,9 +78,23 @@ function ModuleHome() {
         const t = await startQuickTour({ plate: d.plate, userId: user?.id, userName: displayName, siteId: site?.id ?? (profile?.site_id as string | null) ?? null });
         navigate({ to: "/tour/$tourId", params: { tourId: t.id } }); return;
       }
-      const vehicle = await prioritizeRefVehicleIdentity(scan.data.vehicle);
-      const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber: d.or_number, plate: d.plate, data: { ...scan.data, vehicle }, userName: displayName || null, site });
-      const a = afterTourEnsure(d.or_number, d.plate, r);
+      const read = { ...scan.data, vehicle: await prioritizeRefVehicleIdentity(scan.data.vehicle) };
+      // Contrôles + journal privé ; confirmation seulement en cas de doute (plaque, marque/modèle, client).
+      const prep = prepareOrScan({ data: read, orNumber: d.or_number, trace: res.trace, siteId: site?.id, entry: "tour", userName: displayName || null, dataUrl });
+      let data = prep.data;
+      if (needsConfirmation(prep.doubts)) {
+        const c = await confirmScan(data, prep.doubts, d.or_number);
+        if (!c) { finishOrScan(prep.log, read, null, "cancelled"); toast.message("Lecture annulée : rien n'a été créé."); return; }
+        data = c;
+      }
+      const plate = (data.vehicle["plate"] as string | undefined) ?? null;
+      const r = await ensureWinmotorDossier({ siteId: site?.id ?? null, orNumber: d.or_number, plate, data, userName: displayName || null, site });
+      const a = afterTourEnsure(d.or_number, plate, r);
+      finishOrScan(prep.log, read, data, a.kind, a.kind === "open" ? a.orId : null);
+      if (a.kind === "open" && r.capture) {
+        const orId = a.orId;
+        toast.message("Client non identifié : coordonnées en attente de validation.", { action: { label: "Résoudre", onClick: () => navigate({ to: "/or/$orId", params: { orId } }) } });
+      }
       if (a.kind === "open") { const t = await startQuickTour({ orderId: a.orId, userId: user?.id, userName: displayName, siteId: site?.id ?? (profile?.site_id as string | null) ?? null }); navigate({ to: "/tour/$tourId", params: { tourId: t.id } }); return; }
       if (a.kind === "continue_without_or") { toast.message(a.note); const t = await startQuickTour({ plate: a.plate, userId: user?.id, userName: displayName, siteId: site?.id ?? (profile?.site_id as string | null) ?? null }); navigate({ to: "/tour/$tourId", params: { tourId: t.id } }); return; }
       toast.error(a.note);
