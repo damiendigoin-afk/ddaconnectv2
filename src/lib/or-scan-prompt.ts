@@ -1,0 +1,24 @@
+/** Consigne de lecture d'un OR WinMotor (production et banc comparatif). */
+export const OR_SCAN_PROMPT = `Tu analyses un ordre de réparation d'un garage automobile français.
+Extrais uniquement ce que tu lis réellement. Réponds STRICTEMENT en JSON avec cette forme :
+{"client":{"account_number":null,"last_name":null,"first_name":null,"address":null,"address_extra":null,"postal_code":null,"city":null,"phone":null,"mobile":null,"email":null},
+"vehicle":{"plate":null,"vin":null,"brand":null,"model":null,"mileage":null,"first_registration":null},
+"order":{"or_number":null,"or_date":null,"client_remarks":null,"requested_work":null,"entry_at":null,"delivery_at":null},
+"uncertain":["liste des chemins de champs peu lisibles, ex: vehicle.vin"]}
+Dates au format ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm). mileage = entier sans espace. Mets null si absent.
+IMPORTANT pour "client_remarks" et "requested_work" : ces zones contiennent souvent PLUSIEURS lignes
+ou plusieurs demandes distinctes (listes, tirets, numérotation, phrases successives, texte manuscrit).
+Restitue l'INTÉGRALITÉ du texte lu, sans résumer ni fusionner, une demande par ligne, séparées par des
+retours à la ligne "\\n". Conserve l'ordre du document. N'invente rien.
+ZONAGE STRICT pour "requested_work" : uniquement le texte écrit DANS la zone « Travaux à effectuer » / « Travaux demandés » (juste sous ou à droite de ce libellé, jusqu'au prochain titre de zone). Si cette zone est vide, requested_work = null. N'y recopie JAMAIS le slogan ou le branding Renault (« Renault care service », « longue vie aux voitures à vivre »), « votre conseiller », « accueilli par », le nom ou la civilité du client, une adresse, un code postal, une ville, un téléphone, un e-mail, l'en-tête du garage ni un libellé imprimé. Aucune inférence ni fallback sur le reste de la page.
+L'en-tête du garage émetteur (raison sociale, « Agent Renault », adresse, téléphone, logo) et le bloc « votre conseiller / accueilli par » ne sont JAMAIS le client ni le véhicule. Modèle = valeur du libellé « modèle véhicule » uniquement. « Mr NOM PRENOM » : last_name = NOM, first_name = PRENOM.
+Distingue strictement : vehicle.plate = immatriculation française au format AA-123-AA (2 lettres, 3 chiffres, 2 lettres) ou ancien format 123-ABC-45 — recopie-la caractère par caractère, sans ajouter de lettre ; si tu n'es pas sûr, mets null et ajoute "vehicle.plate" dans uncertain.
+vehicle.brand = constructeur (RENAULT, DACIA…) ; vehicle.model = nom commercial contenant des lettres (ex. CLIO V, CAPTUR) ; client.account_number = n° de compte / n° client (chiffres) ; order.or_number = n° d'OR / dossier.
+Sur les OR en tableau Renault/WinMotor (libellés « Immat. Marque Modèle N° compte », parfois lus « Merque » / « Modile », puis valeurs sur la ligne dessous), associe chaque valeur à sa colonne sémantique, jamais par simple proximité. Ne mets JAMAIS le n° de compte, le n° d'OR, un téléphone ou un code postal dans vehicle.model.
+Pour order.client_remarks, lis uniquement le bloc immédiatement sous « Remarques du client » jusqu'au prochain titre de zone. Ne mélange jamais travaux prévus, mentions légales, dessin carrosserie ou texte voisin. Si le bloc est incohérent, renvoie null.
+Bloc client (structure imposée) : la PREMIÈRE ligne est « Civilité NOM PRÉNOM » (ex. « Mme VIELESCOT MARIE-ANNAELLE » => last_name "VIELESCOT", first_name "MARIE-ANNAELLE") ; les lignes suivantes sont l'adresse (rue ou lieu-dit comme « LE BOURG »), puis « CP VILLE ». Ne mets JAMAIS une ligne d'adresse (LE BOURG, RUE, ROUTE, CHEMIN, LIEU-DIT, IMPASSE…) dans first_name, et ne mets jamais nom + prénom ensemble dans last_name.
+client.email : recopie visuellement l'adresse exacte, caractère par caractère, en conservant toute ponctuation visible (points, tirets, underscores). Si un caractère est douteux, mets null et ajoute "client.email" dans uncertain.
+La raison sociale du garage (SAS CASTILLON VEYSSIERE, SAS DAMIEN DIGOIN AUTOMOBILE…) n'est JAMAIS une partie du nom ou du prénom du client. Nom composé tout en capitales (« Mme SALAZAR BLANCHEZ CECILE ») : le dernier mot est le prénom, les précédents le nom ; en cas de doute ajoute "client.last_name" dans uncertain.
+client.address ne contient QUE la rue : jamais « restitution prévue le … », une date, « date d'entrée », ni un libellé de la colonne garage alignée sur la même ligne (ces valeurs vont dans order.delivery_at / entry_at).
+entry_at / delivery_at / or_date : recopie la date et l'heure telles qu'imprimées (heure locale française, sans conversion de fuseau) ; restitution sans heure = date seule.
+vehicle.mileage est souvent manuscrit : ne le renseigne que s'il est clairement lisible, sinon null et "vehicle.mileage" dans uncertain. Ignore le schéma de carrosserie et ses annotations.`;
