@@ -1,89 +1,25 @@
-# Diagnostic scan OR WinMotor → tour véhicule (lecture seule)
+# Diagnostic — devis POIRIE GH965GW (WEST LAKE 1956515HZ401XL)
 
-Aucune modification n'a été faite. Ce plan liste ce qui est démontré, ce qui reste une hypothèse, et des correctifs classés par priorité, à appliquer seulement après votre accord.
+Lecture seule. Rien n'a été modifié.
 
-## 1. Parcours réel (lu dans le code)
+## Ce qui a été démontré
+- Devis 2a6a72b1 créé le 02/11/2026 10:05 UTC, 195/65R15 95H, quantité 2, offre WEST LAKE : `unitSourceHt` 40,80, `marginHt` 10, `unitSellHt` 50,80, `consultedAt` 2026-11-02, disponibilité J+.
+- Les 6 offres Districash de ce devis ont des prix d'achat différents (41,53 / 40,80 / 59,22 / 59,85 / 64,03 / 84,16). Le moteur n'a donc pas copié une même valeur partout.
+- **Ce n'est pas le montage.** `mountTtc` = 40,80 sur toutes les offres = 17,00 HT × 2 pneus × 1,20 (`mountPriceFor`, `src/lib/tires.ts` l. 631-640). Il est ajouté après coup dans `priceTireLine` (l. 659-678) et n'entre jamais dans `unitSourceHt` (`sourceHtOf`, l. 617-621). Le fait que les deux valent 40,80 est une coïncidence.
+- Chemin du prix : `parseDistricashSearch` lit uniquement l'attribut HTML `data-filtreprixachat` de la ligne produit (`src/lib/districash.ts` l. 155), puis `districashRowsToOffers` le transmet tel quel en `purchase_price_ht` avec `price_kind: "purchase_ht"` (l. 252-253). Aucune remise, aucun PV, aucune écotaxe ni aucun « PA net » n'est lu. Il n'y a pas de cache Districash (pas de cache dans `districash*.ts` ni dans `tire-provider.server.ts`) : le prix vient de la recherche faite au moment du devis.
+- Historique de cette marque/modèle : le prix relevé varie d'un jour à l'autre (42,60 → 45,98 → 51,21 → 40,80 entre le 15/10 et le 02/11). Les références de ces anciens devis restent à confirmer une par une.
 
-```text
-Photo (compressée 1800 px) -> Tesseract local (localDocText, nouvelle passe si orScanNeedsRetry)
- -> ocrRepairOrder -> runDocPipeline("repair_order")
-     règles repairOrderRules -> sanitizeRepairOrder
-     si champ requis manquant ou suspect : IA texte (si le repli est activé) puis vision (Gemini 3.5 Flash)
-     fusion mergeAi : l'IA remplit les vides ET remplace les champs "suspects"
- -> decideOrScan / decideTourScan (n° OR = 3 à 8 chiffres)
- -> [tour seulement] prioritizeRefVehicleIdentity (référentiel)
- -> ensure_winmotor_dossier_full (SQL) -> crée véhicule/client/OR local -> startQuickTour
-```
+## Cause probable (hypothèse, non prouvée)
+Le 02/11, la valeur `data-filtreprixachat` affichée par le portail valait 40,80. Le portail ne garde pas la page lue et on ne peut pas la relire après coup. Deux explications restent possibles :
+1. **Le prix a changé** entre le 02/11 et la commande du 04/11 (prix promotionnel ou de liste plus bas ce jour-là). C'est cohérent avec les fortes variations observées.
+2. **Cet attribut n'est pas le PA net facturé** : prix « filtre » ou de liste, différent du prix net calculé au panier (60,08). L'écart de 19,28 € (+47 %) dépasse une simple écotaxe.
 
-Le scan OR n'utilise PAS le mode vision d'abord (`visionFirst` est réservé aux achats). La vision ne se lance que si les règles laissent un champ manquant ou suspect.
+Le code n'a pas mal lu ou mal calculé : il a fidèlement repris la valeur du portail. Un ancien PA est donc possible (hypothèse 1). Un PA d'une autre nature l'est aussi (hypothèse 2).
 
-## 2. Causes démontrées
+## Autres devis exposés
+Tous les devis Districash reposent sur le même attribut. Si l'hypothèse 2 est vraie, ils sont tous potentiellement sous-évalués. Si c'est l'hypothèse 1, seuls les devis émis pendant une baisse temporaire sont concernés.
 
-**A. Plaque 50690 = numéro d'OR (Castillon, OR 50690)**
-- Le contrôle strict de la plaque (`strictPlate`) n'existe que côté lecture. Le SQL `ensure_winmotor_dossier_full` accepte toute valeur de 4 à 12 caractères (`length(_plate) < 4 OR > 12`), sans format SIV/FNI et sans comparer avec le n° d'OR.
-- Seul chemin qui contourne la lecture : la saisie manuelle « plaque demandée » de l'Atelier (`plateIn`, envoyée telle quelle), ou une valeur passée par `ensureWinmotorDossier({ plate })` qui écrase un champ vide. Aucun historique WinMotor pour 50690 (vérifié) : la plaque ne vient donc pas des factures.
-- Hypothèse la plus probable : n° d'OR tapé dans le champ plaque après `needs_plate`. Non prouvable sans journal.
-
-**B. Marque incohérente avec le modèle (CX-528-KM « RENAULT CEED2 SPORT WAGON », BK-859-HG « RENAULT NAVARA »)**
-- Pas de fiche référentiel ni WinMotor pour ces plaques (vérifié) : ces valeurs viennent de la lecture.
-- `sanitizeRepairOrder` vérifie seulement que la marque est dans une liste (`CAR_BRANDS`), jamais qu'elle correspond au modèle. Sur un OR d'agent Renault, « Renault » est imprimé partout (logo, « Renault care service », « Agent Renault ») : les règles comme l'IA prennent facilement RENAULT par défaut. La consigne IA donne aussi « RENAULT, DACIA » comme seuls exemples.
-- Aucune table modèle → marque n'est consultée.
-
-**C. Modèle pollué par un e-mail (EY-499-DY « TRAFIC 1 CB LIHIP) MB emoil akocendre@hotmail.com_ »)**
-- `isPlausibleModel` refuse seulement : pas de lettre, ou égal à un n° compte/OR/CP/téléphone/plaque. Il ne refuse ni « @ », ni « email/emoil », ni une longueur excessive, ni un texte de plusieurs colonnes collées.
-- Le modèle étant non vide et jugé plausible, il n'est pas « suspect » : la vision ne le corrige pas.
-- Le SQL recopie `brand`/`model` sans aucun contrôle.
-
-**D. Plaque mal lue BK-859-HQ au lieu de HG**
-- `strictPlate` corrige les sosies seulement dans le bloc chiffres ; une lettre G/Q dans les blocs lettres est un SIV valide et passe telle quelle. Aucune vérification croisée (VIN, référentiel, deuxième lecture) n'est faite avant de créer le véhicule.
-
-**E. Client absent (8/50 tours, 7 Castillon) — mécanisme**
-- Volontaire par construction (règle « Scan OR » existante) : si le nom est pollué par l'en-tête garage ou manquant, aucun client n'est créé ; les contacts vont dans `or_client_captures`. C'est un comportement de sécurité, mais l'utilisateur n'est pas obligé de résoudre la capture avant de lancer le tour.
-- Le nettoyage d'en-tête garage contient des motifs spécifiques Castillon (`SAS CASTILLON VEYSSIERE`, `/castillon|digoin|veyssi/`) : toute lecture où le nom touche l'en-tête Castillon est vidée ou marquée suspecte.
-
-**F. Kilométrage absent (11/50) et e-mail absent (19/50)**
-- Kilométrage : volontairement lu seulement s'il est libellé et lisible (souvent manuscrit) ; aucune relance au tour (le compteur peut être photographié au tour, mais rien ne l'impose).
-- E-mail : mis à vide s'il ressemble au garage, et marqué suspect si dégradé ; normal qu'il manque souvent.
-
-**G. Aucune trace exploitable**
-- `ai_usage_log` (feature `ocr_or`, 87 appels/15 j) : `site_id` et `route` toujours vides. On ne sait pas, par garage, quelle voie (règles seules / IA texte / vision) a produit chaque fiche.
-- Aucune photo d'OR conservée dans le stockage (0 fichier) : pas de comparaison possible sur les vraies photos passées.
-- `prioritizeRefVehicleIdentity` (tour) met à jour directement `vehicles` depuis le référentiel sans conflit ni trace.
-
-## 3. Pourquoi Castillon est plus touché (démontré vs hypothèse)
-- Démontré : 25 tours chacun ; Castillon 7 sans client et 6 sans modèle contre 1 et 0 pour Digoin. Les cas 50690 et 051298 (n° d'OR à 0 initial) sont à Castillon.
-- Démontré : règles d'en-tête garage spécifiques Castillon qui vident/rendent suspects nom et modèle.
-- Hypothèse (à confirmer sur photos) : mise en page de l'OR Castillon (en-tête « Castillon Veyssière » plus large, colonnes Immat/Marque/Modèle décalées) qui fait coller les colonnes ; usage plus fréquent de la saisie manuelle de plaque ; qualité/éclairage des photos.
-- Impossible à prouver aujourd'hui, faute de journal par site et de photos.
-
-## 4. Correctifs proposés (par priorité)
-
-**P1 — Bloquer les données impossibles (déterministe, sans IA)**
-1. Contrôle plaque côté serveur et SQL : format SIV/FNI obligatoire, refus si égal au n° d'OR / n° compte ; même règle pour la saisie manuelle « plaque demandée ».
-2. Modèle : refuser « @ », mots e-mail/tél, longueur > 40, plus de 4 mots ; marquer suspect pour déclencher la vision.
-3. Cohérence marque ↔ modèle via une petite table de modèles connus (CEED→KIA, NAVARA→NISSAN, TRAFIC→RENAULT…) : en cas de conflit, marque marquée suspecte, jamais corrigée en silence.
-4. Même nettoyage repris dans `ensure_winmotor_dossier_full` (dernier rempart).
-
-**P2 — Lecture plus fiable sans revenir au seul OCR**
-5. Pour une photo d'OR, passer en vision d'abord (comme les BL) avec règles en complément, ou au minimum : vision lancée si plaque/modèle/nom suspects, même quand tous les champs sont remplis.
-6. Prompt : retirer RENAULT comme valeur implicite ; préciser que le logo/en-tête n'est jamais la marque du véhicule.
-7. Vérification croisée plaque : comparer Tesseract et vision ; si différence d'un caractère, demander confirmation avant création.
-
-**P3 — Écran de contrôle avant création**
-8. Après lecture, afficher plaque/marque/modèle/nom/km avec les champs douteux surlignés ; confirmation obligatoire si suspect, client absent ou km absent avant de lancer le tour.
-9. Au tour : proposer de résoudre la capture client et de saisir/photographier le km si absent.
-10. `prioritizeRefVehicleIdentity` : proposer le conflit au lieu d'écrire directement.
-
-**P4 — Traçabilité**
-11. Renseigner `site_id` et `route` dans `ai_usage_log` pour `ocr_or`.
-12. Conserver la photo d'OR 30 jours (stockage privé) avec la provenance par champ (règles/IA texte/vision/saisie).
-
-## 5. Plan de tests comparatifs
-- Aujourd'hui aucune vraie photo n'est conservée : il faut d'abord collecter 20–30 photos d'OR (moitié Castillon, moitié Digoin), dont celles des cas cités.
-- Banc existant (Recette IA, isolé) : pour chaque photo, comparer règles seules, voie actuelle, vision d'abord ; mesurer par champ (plaque, marque, modèle, nom, km, e-mail) contre une saisie de référence, par garage.
-- Tests automatiques sur textes figés : plaque = n° OR refusée ; modèle avec e-mail refusé ; RENAULT + CEED = suspect ; G/Q en bloc lettres demande confirmation ; SQL refuse une plaque non conforme.
-- Critère d'acceptation : zéro plaque/modèle impossible ; taux de champs complets par garage au moins égal à l'actuel.
-
-## Détails techniques
-- Fichiers concernés : `src/lib/doc-rules.ts` (`sanitizeRepairOrder`, `isPlausibleModel`, `CAR_BRANDS`, `repairOrderRules`), `src/lib/plate.ts` (`strictPlate`), `src/lib/doc-pipeline.ts` (`visionFirst` limité à `purchase`, dans `doc-pipeline.server.ts`), `src/lib/ocr.functions.ts` (prompt OR), `src/lib/or-dossier.ts`, `src/routes/atelier.index.tsx` (`plateIn`), `src/routes/tour-vehicule.tsx`, `src/lib/refbase.ts` (`prioritizeRefVehicleIdentity`), migration `0055_ensure_dossier_capture_same_identity.sql`.
-- Les corrections SQL passeraient par une nouvelle migration additive ; aucune donnée existante ne serait réécrite automatiquement (une liste de fiches suspectes peut être produite pour correction manuelle).
+## Vérifications proposées (avant tout correctif)
+1. Sur le portail, relever le même jour, pour la même référence, le prix de recherche (`data-filtreprixachat`), le prix de la fiche produit et le prix au panier.
+2. Comparer les devis Districash récents avec les factures et réceptions réelles, par référence et par date.
+3. Selon le résultat : lire le prix net (fiche ou panier) au lieu de l'attribut de filtre, ou afficher un avertissement « prix à reconfirmer » avant la commande. Ce correctif ne sera fait que sur votre accord.
