@@ -1,25 +1,37 @@
-# Diagnostic — devis POIRIE GH965GW (WEST LAKE 1956515HZ401XL)
+# Diagnostic — devis 195/55R15 95H indisponibles (06/11/2026)
 
-Lecture seule. Rien n'a été modifié.
+Lecture seule. Rien n'a été modifié. Le diagnostic West Lake du 02/11 est résumé en bas.
 
-## Ce qui a été démontré
-- Devis 2a6a72b1 créé le 02/11/2026 10:05 UTC, 195/65R15 95H, quantité 2, offre WEST LAKE : `unitSourceHt` 40,80, `marginHt` 10, `unitSellHt` 50,80, `consultedAt` 2026-11-02, disponibilité J+.
-- Les 6 offres Districash de ce devis ont des prix d'achat différents (41,53 / 40,80 / 59,22 / 59,85 / 64,03 / 84,16). Le moteur n'a donc pas copié une même valeur partout.
-- **Ce n'est pas le montage.** `mountTtc` = 40,80 sur toutes les offres = 17,00 HT × 2 pneus × 1,20 (`mountPriceFor`, `src/lib/tires.ts` l. 631-640). Il est ajouté après coup dans `priceTireLine` (l. 659-678) et n'entre jamais dans `unitSourceHt` (`sourceHtOf`, l. 617-621). Le fait que les deux valent 40,80 est une coïncidence.
-- Chemin du prix : `parseDistricashSearch` lit uniquement l'attribut HTML `data-filtreprixachat` de la ligne produit (`src/lib/districash.ts` l. 155), puis `districashRowsToOffers` le transmet tel quel en `purchase_price_ht` avec `price_kind: "purchase_ht"` (l. 252-253). Aucune remise, aucun PV, aucune écotaxe ni aucun « PA net » n'est lu. Il n'y a pas de cache Districash (pas de cache dans `districash*.ts` ni dans `tire-provider.server.ts`) : le prix vient de la recherche faite au moment du devis.
-- Historique de cette marque/modèle : le prix relevé varie d'un jour à l'autre (42,60 → 45,98 → 51,21 → 40,80 entre le 15/10 et le 02/11). Les références de ces anciens devis restent à confirmer une par une.
+## Faits observés en base
+- 07:52:22 et 07:52:46 UTC : 2 devis 195/55R15 95H, sans immatriculation ni nom client. Les 6 cases indiquent « Aucune offre conforme ».
+- 07:54:04 UTC : 1 devis 195/65R15 95H, même site. Les 6 offres sont disponibles et chiffrées (Risen, Kleber, Michelin, Hankook).
 
-## Cause probable (hypothèse, non prouvée)
-Le 02/11, la valeur `data-filtreprixachat` affichée par le portail valait 40,80. Le portail ne garde pas la page lue et on ne peut pas la relire après coup. Deux explications restent possibles :
-1. **Le prix a changé** entre le 02/11 et la commande du 04/11 (prix promotionnel ou de liste plus bas ce jour-là). C'est cohérent avec les fortes variations observées.
-2. **Cet attribut n'est pas le PA net facturé** : prix « filtre » ou de liste, différent du prix net calculé au panier (60,08). L'écart de 19,28 € (+47 %) dépasse une simple écotaxe.
+## 1) Pourquoi le message parle de 245/45 R20
+`summarizeDistricashTest` (`src/lib/districash-session.server.ts` l. 196-208) a été écrite pour le bouton « Tester » des Paramètres, qui cherche toujours 245/45 R20. Le texte « 245/45 R20 » y est écrit en dur. Le devis réutilise la même fonction (`src/lib/districash-search.server.ts` l. 28-29). Il affiche donc la mauvaise dimension. Ce n'est qu'un problème de message : la recherche, elle, envoie bien la dimension saisie (`districashSearchBody`, l. 168-182).
 
-Le code n'a pas mal lu ou mal calculé : il a fidèlement repris la valeur du portail. Un ancien PA est donc possible (hypothèse 1). Un PA d'une autre nature l'est aussi (hypothèse 2).
+## 2) Pourquoi 0 ligne lue — pas de régression
+- La connexion fonctionne : le message dit « Authentification confirmée », ce qui suppose que l'étape `GET /` a répondu « page connectée ».
+- La recherche et le parseur fonctionnent : le devis 195/65R15 lancé 1 min 20 s plus tard, même compte, même code, a lu des produits avec prix.
+- Cause probable : Districash n'a rien trouvé pour 195/55R15 indice 95. Cet indice de charge est inhabituel pour cette dimension (en général 85H, ou 88 en XL). La recherche transmet l'indice de charge (`pneu_indc`), ce qui donne un résultat vide légitime (HTTP 200, 0 ligne).
+- Défaut de logique : `districashLoginAndSearch` (l. 106-108) traite « aucun produit » comme « catalogue non validé ». `authenticated` passe alors à `false` et un résultat vide normal remonte comme une panne d'authentification ou de catalogue.
+- Non prouvé : la page HTML renvoyée n'est pas conservée. Pour confirmer, il faut faire la même recherche dans le portail.
 
-## Autres devis exposés
-Tous les devis Districash reposent sur le même attribut. Si l'hypothèse 2 est vraie, ils sont tous potentiellement sous-évalués. Si c'est l'hypothèse 1, seuls les devis émis pendant une baisse temporaire sont concernés.
+## 3) La hauteur 55 peut-elle venir du devis 195/65 d'origine ?
+Non, pas par le code. Le formulaire `devis.pneus.index.tsx` (l. 108-111) part vide, ou des seuls paramètres d'URL `w/h/d/li/si` (préremplissage depuis l'étape pneu, lecture du flanc). Il ne relit jamais un devis enregistré. Les deux devis n'ont ni plaque ni nom client : ils ne viennent pas du devis POIRIE. Deux origines possibles pour le 55 : saisie manuelle, ou lecture photo du flanc (préremplissage `h=55`), suivie d'une correction en 65 à 07:54. On ne peut pas trancher sans trace d'interface.
 
-## Vérifications proposées (avant tout correctif)
-1. Sur le portail, relever le même jour, pour la même référence, le prix de recherche (`data-filtreprixachat`), le prix de la fiche produit et le prix au panier.
-2. Comparer les devis Districash récents avec les factures et réceptions réelles, par référence et par date.
-3. Selon le résultat : lire le prix net (fiche ou panier) au lieu de l'attribut de filtre, ou afficher un avertissement « prix à reconfirmer » avant la commande. Ce correctif ne sera fait que sur votre accord.
+## 4) Correctif minimal proposé (à valider)
+1. Dans `districashLoginAndSearch`, séparer « session prouvée » et « produits trouvés » : si la connexion est confirmée et la recherche répond 200, renvoyer `authenticated: true` avec 0 ligne. Le moteur affichera alors « aucune offre », pas une erreur.
+2. Créer `summarizeDistricashSearch(r, tyre)` pour le devis : message avec la dimension réelle, par exemple « Districash : aucun pneu 195/55 R15 95H au catalogue ». Garder `summarizeDistricashTest` pour le seul bouton des Paramètres.
+3. Facultatif : avertir quand l'indice de charge est inhabituel pour la dimension, sans bloquer.
+
+Tests à ajouter :
+- recherche HTTP 200 sans ligne `ARTICLE_CONTENT` → résultat authentifié, 0 ligne, message sans « 245/45 » ;
+- le message du devis contient la dimension demandée ;
+- un échec de connexion reste une erreur ;
+- le test des Paramètres est inchangé.
+
+## Rappel — West Lake 1956515HZ401XL (devis POIRIE du 02/11)
+- Le 40,80 € n'est pas le montage : 17 € HT × 2 × 1,20 = 40,80 TTC, ajouté après coup. La coïncidence de montant est fortuite.
+- Le prix d'achat vient uniquement de l'attribut `data-filtreprixachat` de la page de recherche (`src/lib/districash.ts` l. 155, l. 252). Il n'y a ni cache ni calcul de remise.
+- Le relevé a varié de 40,80 à 51,21 € selon les jours. Deux causes possibles : prix plus bas ce jour-là, ou attribut qui n'est pas le PA net du panier (60,08 €). Tous les devis Districash utilisent cet attribut.
+- À vérifier : comparer le jour même le prix de recherche, de fiche et de panier.
