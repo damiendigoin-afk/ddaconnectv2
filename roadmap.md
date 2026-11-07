@@ -1,5 +1,8 @@
 # Suivi d'activité mensuel (01/09)
 
+## Fiche véhicule — 07/11
+- [x] Icône copier par valeur renseignée
+
 ## Ergonomie contrôle technique — 29/10
 - [x] Un seul parcours photo CT dans le point, lecture et confirmation de l’échéance, saisie manuelle indépendante
 - [x] Tests CT photo → OCR → sauvegarde → écran PDF et échecs avec mocks, 1 162 tests réussis, types/compilation automatiques OK, aucune mutation réelle ni publication

@@ -1,6 +1,6 @@
 /** Fiche véhicule éditable directement (sans modale) : enregistre uniquement les champs modifiés dans `ref_vehicles`. */
 import { useQueryClient } from "@tanstack/react-query";
-import { Car, Loader2 } from "lucide-react";
+import { Car, Check, Copy, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -43,7 +43,10 @@ export function VehicleInlineEditor({ vehicle }: { vehicle: RefVehicle & Record<
       <div className="flex items-center gap-3">
         <Car className="h-6 w-6 text-brand" />
         <div className="min-w-0 flex-1">
-          <div className="text-2xl font-extrabold tracking-wide">{plate || "—"}</div>
+          <div className="flex items-center gap-1 text-2xl font-extrabold tracking-wide">
+            {plate || "—"}
+            <CopyValue label="Immatriculation" value={plate} />
+          </div>
           <div className="text-sm text-muted-foreground">{vehicleLabel(vehicle)}</div>
         </div>
         <IxellioFillButton vehicle={vehicle as never} disabled={dirty} />
@@ -52,7 +55,7 @@ export function VehicleInlineEditor({ vehicle }: { vehicle: RefVehicle & Record<
         {EDIT_FIELDS.map((f) => (
           <div key={f.key}>
             <dt className="text-[11px] uppercase text-muted-foreground">{f.label}</dt>
-            <dd>
+            <dd className="flex items-center gap-1">
               <input
                 type={f.kind === "date" ? "date" : "text"}
                 inputMode={f.kind === "int" ? "numeric" : undefined}
@@ -60,10 +63,11 @@ export function VehicleInlineEditor({ vehicle }: { vehicle: RefVehicle & Record<
                 placeholder="—"
                 aria-label={f.label}
                 onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
-                className={`-mx-1 w-full rounded border border-transparent bg-transparent px-1 py-0.5 font-semibold outline-none placeholder:text-muted-foreground hover:border-border focus:border-brand ${
+                className={`-mx-1 w-full min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 font-semibold outline-none placeholder:text-muted-foreground hover:border-border focus:border-brand ${
                   f.key in patch ? "bg-status-watch-soft" : ""
                 }`}
               />
+              <CopyValue label={f.label} value={form[f.key] ?? ""} />
             </dd>
           </div>
         ))}
@@ -101,7 +105,38 @@ function ReadRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-[11px] uppercase text-muted-foreground">{label}</dt>
-      <dd className="py-0.5 font-semibold">{value}</dd>
+      <dd className="flex items-center gap-1 py-0.5 font-semibold">
+        <span className="min-w-0 flex-1 truncate">{value}</span>
+        <CopyValue label={label} value={value} />
+      </dd>
     </div>
+  );
+}
+
+/** Petite icône de copie de la seule valeur de la ligne ; masquée si vide ou « — ». */
+function CopyValue({ label, value }: { label: string; value: string }) {
+  const [done, setDone] = useState(false);
+  const v = value.trim();
+  if (!v || v === "—") return null;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(v);
+      setDone(true);
+      toast.success("Copié", { duration: 1200 });
+      setTimeout(() => setDone(false), 1200);
+    } catch {
+      toast.error("Copie impossible");
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      aria-label={`Copier ${label}`}
+      title={`Copier ${label}`}
+      className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+    >
+      {done ? <Check className="h-3.5 w-3.5 text-brand" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
   );
 }
