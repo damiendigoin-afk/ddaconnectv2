@@ -194,3 +194,4 @@ Reste à faire :
 - [x] Client non identifié : lien « Résoudre » vers les contacts en attente ; relecture ciblée si identité/modèle douteux
 - [x] Tests de régression (50690, BK-859-HQ/HG, RENAULT CEED, modèle + e-mail, client absent)
 - Limite : aucun essai avec une vraie photo/téléphone dans cette session
+- [x] Diagnostic réel Ixellio GY-640-HM (lecture seule, réponse brute vs écran)
