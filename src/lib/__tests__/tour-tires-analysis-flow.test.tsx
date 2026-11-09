@@ -58,6 +58,17 @@ describe("Écran Analyse des 4 pneus", () => {
     await waitFor(() => expect(screen.getByText(/Synthèse des quatre roues/)).toBeTruthy());
     expect(run).toHaveBeenLastCalledWith(true);
   });
+
+  it("incident serveur => reprise sans forcer un nouvel appel ni valider de données", async () => {
+    const run = vi.fn<(f: boolean) => Promise<TourTiresRun>>().mockRejectedValueOnce(new Error("Internal server error")).mockResolvedValueOnce(okRun());
+    const onValidate = vi.fn();
+    render(<TourTiresAnalysis plate="AZ-665-QG" tourId="t" run={run} onValidate={onValidate} onBack={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("momentanément indisponible"));
+    fireEvent.click(screen.getByText("Réessayer"));
+    await waitFor(() => expect(screen.getAllByDisplayValue("5.5")).toHaveLength(12));
+    expect(run).toHaveBeenLastCalledWith(false);
+    expect(onValidate).not.toHaveBeenCalled();
+  });
 });
 
 import { buildTireCorrections, preloadTireEdit } from "../tour-tire-correction";

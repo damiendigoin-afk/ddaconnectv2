@@ -1,5 +1,11 @@
 # Suivi d'activité mensuel (01/09)
 
+## Incident analyse 4 pneus — 09/11
+- [x] Confirmer erreur production et présence des photos, sans mutation métier
+- [x] Supprimer surcharge mémoire, sécuriser messages/reprise et couvrir par tests
+- [x] Vérifier tests/compilation et livrer le bilan, sans publication
+- Résultat : analyse serveur réelle des 12 photos réussie, rejeu depuis cache ; tour conservé en brouillon et photos inchangées. 1 396 tests suite + 3 tests serveur ; compilation automatique OK. Bilan : docs/INCIDENT-PNEUS-2026-11-09.md.
+
 ## Fiche véhicule — 07/11
 - [x] Icône copier par valeur renseignée
 

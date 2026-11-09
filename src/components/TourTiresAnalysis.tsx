@@ -1,6 +1,8 @@
 /** Écran « Analyse des 4 pneus » de fin de tour : lance UNE analyse IA groupée, attente, puis correction/validation. */
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { tourTireAnalysisError } from "@/lib/tour-tire-analysis-error";
 
 import { AppShell } from "@/components/AppShell";
 import { TireTreadOverlay } from "@/components/TireTreadOverlay";
@@ -52,7 +54,7 @@ function TourTiresInitial({ plate, tourId, run, onValidate, onBack }: Props) {
       if (!r.ok) { setError(r.error || "Analyse IA impossible."); setState("error"); return; }
       setResults(r.results); setProof(r.proof ?? {}); setProgress(100); setState("review");
     } catch (e) {
-      setError(e instanceof Error && e.message ? e.message : "Analyse IA impossible."); setState("error");
+      setError(tourTireAnalysisError(e)); setState("error");
     } finally { window.clearInterval(timer); inFlight.current = false; }
   }
 
@@ -90,8 +92,8 @@ function TourTiresInitial({ plate, tourId, run, onValidate, onBack }: Props) {
           <section className="card-surface space-y-3 border-2 border-destructive p-4" role="alert">
             <p className="font-bold text-destructive">{error}</p>
             <p className="text-sm">Vos photos sont conservées. Relancez l’analyse ou reprenez seulement les photos manquantes.</p>
-            <button onClick={() => void launch(true)} className="w-full rounded-xl bg-brand px-4 py-3 font-bold uppercase text-brand-foreground">Réessayer</button>
-            <button onClick={onBack} className="w-full rounded-xl border-2 border-border px-4 py-3 font-bold uppercase">Revenir au tour</button>
+            <Button onClick={() => void launch(/inexploitable|Réponse IA illisible/i.test(error))} className="w-full rounded-xl bg-brand px-4 py-3 font-bold uppercase text-brand-foreground">Réessayer</Button>
+            <Button variant="outline" onClick={onBack} className="w-full rounded-xl border-2 border-border px-4 py-3 font-bold uppercase">Revenir au tour</Button>
           </section>
         ) : null}
         {state === "review" ? (
@@ -160,7 +162,7 @@ function TourTiresEdit({ plate, tourId, onBack, edit }: Props & { edit: NonNulla
         return next;
       });
       setProof((p) => ({ ...p, ...(r.proof ?? {}) }));
-    } catch (e) { setError(e instanceof Error && e.message ? e.message : "Analyse IA impossible."); }
+    } catch (e) { setError(tourTireAnalysisError(e)); }
     finally { setBusy(""); }
   }
 

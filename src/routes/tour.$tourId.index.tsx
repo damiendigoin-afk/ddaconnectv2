@@ -486,9 +486,13 @@ function Guided(props: SharedProps) {
     const results = r.results as Record<TourTireKey, TireStepResult>;
     for (const key of TOUR_TIRE_KEYS) {
       const point = (points.data ?? []).find((p) => p.point_key === key);
-      if (!point) continue;
+      if (!point) throw new Error("Point pneu manquant. Revenez au tour puis réessayez ; les photos sont conservées.");
       const legacy = legacyTireAnalysis(results[key]);
-      await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, globalModel: r.model, globalMetrics: r.metrics } as never, measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm), measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
+      const { error } = await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, globalModel: r.model, globalMetrics: r.metrics } as never, measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm), measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
+      if (error) {
+        console.error("tour_tires_save", { inspectionId: props.tourId, wheel: key, code: error.code });
+        throw new Error("L’analyse n’a pas été entièrement enregistrée. Réessayez sans reprendre les photos.");
+      }
     }
     void points.refetch();
     return { ok: true, results, proof: (r.proof ?? {}) as Partial<Record<TourTireKey, { mainPhotoUrl?: string | null }>> };
