@@ -34,6 +34,8 @@ export const closeTour = createServerFn({ method: "POST" })
     const userName = data.userName?.trim() || "Utilisateur";
     let closed = false;
     try {
+      const { authorizeReport } = await import("./report-access.server");
+      await authorizeReport({ userId: context.userId, supabase: context.supabase }, data.inspectionId, "tour");
       const { error } = await context.supabase.rpc("finish_vehicle_inspection", {
         _inspection_id: data.inspectionId,
         _user_id: context.userId,

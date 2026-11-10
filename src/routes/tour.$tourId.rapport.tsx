@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Archive, ArchiveRestore, Copy, ExternalLink, FileDown, Mail, MessageSquareText, Pencil, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,8 @@ export const Route = createFileRoute("/tour/$tourId/rapport")({
       },
       { property: "og:title", content: "Rapport de tour véhicule — DDA Connect" },
       { property: "og:description", content: "Rapport atelier complet du tour véhicule." },
+      { property: "og:type", content: "article" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ReportPage,
@@ -34,6 +37,7 @@ export const Route = createFileRoute("/tour/$tourId/rapport")({
 
 function ReportPage() {
   const { tourId } = Route.useParams();
+  const sendReport = useServerFn(sendTourReport);
   const qc = useQueryClient();
   const { user, displayName, isManager } = useAuth();
   const navigate = Route.useNavigate();
@@ -80,7 +84,7 @@ function ReportPage() {
       const jobs: Promise<{ ok: boolean; error: string; to: string }>[] = [];
       if (sendToClient) {
         jobs.push(
-          sendTourReport({
+          sendReport({
             data: {
               inspectionId: tourId,
               to: clientTo.trim(),
@@ -92,7 +96,7 @@ function ReportPage() {
       }
       if (sendToMe) {
         jobs.push(
-          sendTourReport({
+          sendReport({
             data: {
               inspectionId: tourId,
               to: meTo.trim(),

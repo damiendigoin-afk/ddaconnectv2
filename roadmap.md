@@ -1,5 +1,11 @@
 # Suivi d'activité mensuel (01/09)
 
+## Incident envoi Tour GY-640-HM — 10/11
+- [x] Confirmer tour terminé, 74 contrôles et lecture anonyme vide
+- [x] Sécuriser envoi client et circuits analogues, distinguer erreurs et journaliser dès le chargement
+- [x] Tests de non-régression et vérification sans mail réel ni publication
+- Limite : livraison réelle au client et vérification sous le compte Styven non effectuées ; accès réel vérifié sous le compte du demandeur, envoi testé avec fournisseur simulé.
+
 ## Incident analyse 4 pneus — 09/11
 - [x] Confirmer erreur production et présence des photos, sans mutation métier
 - [x] Supprimer surcharge mémoire, sécuriser messages/reprise et couvrir par tests

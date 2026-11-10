@@ -1,3 +1,4 @@
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/expertise/$exId/rapport")({
 });
 
 function ExpertiseReportPage() {
+  const sendReport = useServerFn(sendExpertiseReport);
   const { exId } = Route.useParams();
   const { user } = useAuth();
   const q = useQuery({ queryKey: ["expertise", exId], queryFn: () => fetchExpertise({ id: exId }) });
@@ -49,7 +51,7 @@ function ExpertiseReportPage() {
   const e = q.data?.expertise;
 
   async function sendOne(to: string, withMessage: boolean) {
-    const res = await sendExpertiseReport({
+    const res = await sendReport({
       data: {
         expertiseId: exId,
         to,

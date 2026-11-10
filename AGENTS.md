@@ -14,6 +14,7 @@
 - Measures: all measure display/save goes through src/lib/measure.ts (NaN/Infinity/empty/non-numeric => null). Why: "NaN mm" leaked into reports.
 - Four-wheel tour AI uses short-lived signed private originals, never Worker-side base64; ordinary error retries retain the media fingerprint/cache, while explicit edit reanalysis may bypass it. Why: twelve full photos exhausted production memory.
 - Server handler unit tests use vitest.server.config.ts without TanStack RPC transforms. Why: exercise the actual handler with fake storage/AI and no business writes.
+- Client report email handlers verify managed authentication, active state, menu permission, user-RLS visibility and site access before privileged report reads; existence-only admin probes never authorize hidden rows. Why: avoid false missing reports without turning email RPCs into anonymous or cross-site relays.
 - tslib pinned to ^2 via package.json overrides. Why: pdf-lib with tslib 1.x crashed in the server bundle (__extends/__toESM).
 - Never name app modules `*.client.ts` when a route/component imports them: TanStack import-protection denies them in the server build and silently blocks every publish. Use `*.browser.ts` + browser-only APIs inside functions.
 - Recette IA (banc A/B) isolée dans src/lib/bench-*.ts + bench.server.ts : écrit seulement ai_bench_*, dda-media/benchmark/ et ai_usage_log (feature ai_document_benchmark*, budget séparé, hors budget prod), jamais learnSupplierProfile ni tables métier. Why: mesurer les modèles sans effet de bord.
