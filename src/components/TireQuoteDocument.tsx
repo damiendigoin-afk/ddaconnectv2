@@ -6,6 +6,7 @@
  */
 import type { SevenOffer } from "@/lib/tires";
 import { MOUNT_LABEL } from "@/lib/tires";
+import { offerPriceLines } from "@/lib/tire-quote-display";
 import { GROUP_LABEL, siteHeader, type Site } from "@/lib/sites";
 import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
 
@@ -107,7 +108,9 @@ export function TireQuoteDocument({
             <th className={`${cell} text-left uppercase`}>Proposition</th>
             <th className={`${cell} text-left uppercase`}>Marque / modèle</th>
             <th className={`${cell} text-left uppercase`}>Dimension</th>
-            <th className={`${cell} w-24 text-right uppercase`}>Prix TTC</th>
+            <th className={`${cell} w-28 text-right uppercase`}>PU vente HT / pneu</th>
+            <th className={`${cell} w-24 text-right uppercase`}>Montage TTC</th>
+            <th className={`${cell} w-24 text-right uppercase`}>Total TTC</th>
           </tr>
         </thead>
         <tbody>
@@ -126,6 +129,12 @@ export function TireQuoteDocument({
                       .join(" ")
                   : "—"}
               </td>
+              <td className={`${cell} text-right font-bold`}>
+                {o.available ? euro(offerPriceLines(o).unitSellHt) : "—"}
+              </td>
+              <td className={`${cell} text-right`}>
+                {o.available ? euro(o.mountTtc) : "—"}
+              </td>
               <td className={`${cell} text-right font-extrabold`}>
                 {o.available ? euro(o.totalTtc) : "—"}
               </td>
@@ -135,7 +144,8 @@ export function TireQuoteDocument({
       </table>
 
       <p className="mt-2 text-[9pt] font-bold">
-        Prix TTC pour {header.quantity} pneu{header.quantity > 1 ? "s" : ""} — {MOUNT_LABEL} compris.
+        Total TTC pour {header.quantity} pneu{header.quantity > 1 ? "s" : ""} — {MOUNT_LABEL} compris. Prix
+        unitaire HT par pneu hors montage.
       </p>
       <p className="mt-1 text-[8pt] leading-snug">
         Prix indicatifs sous réserve de disponibilité au moment de la commande. Devis valable 15

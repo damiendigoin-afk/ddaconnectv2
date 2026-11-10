@@ -130,7 +130,6 @@ describe("maquette PDF devis pneus", () => {
     const text = await pdfText(await blob.arrayBuffer());
     expect(text).not.toContain("99,99");
     expect(text).not.toContain("33,33");
-    expect(text).not.toContain("133,32");
     expect(text.toLowerCase()).not.toContain("marge");
     expect(text).toContain("DEVIS");
     expect(text).toContain("ENTR");
@@ -164,5 +163,17 @@ describe("PDF client : aucune donnée fournisseur interne", () => {
     // Pas de lien cliquable non plus.
     const raw = new TextDecoder("latin1").decode(await blob.arrayBuffer());
     expect(raw).not.toContain("/URI");
+  });
+});
+
+describe("prix de vente unitaire HT par pneu", () => {
+  it("imprime le PU vente HT, le montage et le total, jamais l'achat", async () => {
+    mockLogoFetch();
+    const text = await pdfText(await (await buildTireQuotePdf(header, six)).arrayBuffer());
+    expect(text).toContain("Prix de vente unitaire HT / pneu : 133,32");
+    expect(text).toContain("40,80");
+    expect(text).toContain("360,77");
+    expect(text).not.toContain("99,99");
+    expect(text).not.toContain("33,33");
   });
 });

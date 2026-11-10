@@ -13,6 +13,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
 import { GROUP_LABEL, siteHeader, type Site } from "@/lib/sites";
 import { MOUNT_LABEL, type SevenOffer } from "@/lib/tires";
+import { offerPriceLines, UNIT_HT_LABEL } from "@/lib/tire-quote-display";
 
 export type TireQuotePdfHeader = {
   site: Site | null;
@@ -321,14 +322,27 @@ export async function buildTireQuotePdf(
         maxWidth: cardW - 24,
       });
 
-      if (available) {
+      if (available && o) {
+        const pl = offerPriceLines(o);
+        draw(page, `${UNIT_HT_LABEL} : ${euro(pl.unitSellHt)}`, x + 12, top - 62, {
+          font: bold,
+          size: 8.5,
+          maxWidth: cardW - 24,
+        });
+        draw(
+          page,
+          `Montage (main-d'oeuvre) : ${pl.mountTtc == null ? "non paramétré" : `${euro(pl.mountTtc)} TTC`}`,
+          x + 12,
+          top - 73,
+          { font: regular, size: 7.5, color: GREY, maxWidth: cardW - 24 },
+        );
         drawRight(page, euro(o?.totalTtc), x + cardW - 12, bottom + 10, {
           font: bold,
           size: 15,
         });
         draw(
           page,
-          `${header.quantity} pneu${header.quantity > 1 ? "s" : ""} - montage inclus`,
+          `Total TTC ${header.quantity} pneu${header.quantity > 1 ? "s" : ""} + montage`,
           x + 12,
           bottom + 10,
           { font: regular, size: 7.5, color: GREY, maxWidth: cardW - 90 },
@@ -382,6 +396,11 @@ export async function buildTireQuotePdf(
     });
     if (extra.available) {
       drawRight(page, euro(extra.totalTtc), rightX - 12, y - 24, { font: bold, size: 14 });
+      draw(page, `${UNIT_HT_LABEL} : ${euro(offerPriceLines(extra).unitSellHt)}`, M + 12, y - 36, {
+        font: bold,
+        size: 7.5,
+        maxWidth: innerW - 140,
+      });
     } else {
       drawRight(page, "Indisponible", rightX - 12, y - 22, { font: bold, size: 10, color: GREY });
     }
@@ -394,7 +413,7 @@ export async function buildTireQuotePdf(
   y = Math.min(y, 108);
   page.drawLine({ start: { x: M, y: y - 2 }, end: { x: rightX, y: y - 2 }, thickness: 1, color: BLACK });
   y -= 16;
-  draw(page, `${MOUNT_LABEL} compris.`, M, y, { font: bold, size: 9.5 });
+  draw(page, `Totaux TTC ${MOUNT_LABEL} compris. Prix unitaire HT par pneu hors montage.`, M, y, { font: bold, size: 9.5 });
   y -= 12;
   draw(
     page,

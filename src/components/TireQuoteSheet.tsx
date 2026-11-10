@@ -9,6 +9,7 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { TireOrderDialog } from "@/components/TireOrderDialog";
 import { canOrderOffer } from "@/lib/tire-supplier-order";
+import { offerPriceLines, UNIT_HT_LABEL } from "@/lib/tire-quote-display";
 
 
 export type TireQuoteHeader = {
@@ -134,9 +135,17 @@ export function TireQuoteSheet({
               <div className="text-xs text-muted-foreground">{o.unavailableReason}</div>
             )}
             {o.available ? (
-              <div className="text-xs text-muted-foreground">
-                {o.quantity} pneu{o.quantity > 1 ? "s" : ""} {euro(o.tiresTtc)}
-                {o.mountTtc != null ? ` · ${MOUNT_LABEL} ${euro(o.mountTtc)}` : " · montage non paramétré"}
+              <div className="mt-1 space-y-0.5 text-xs">
+                <div className="font-bold text-foreground" data-testid="unit-ht">
+                  {UNIT_HT_LABEL} : {euro(offerPriceLines(o).unitSellHt)}
+                </div>
+                <div className="text-muted-foreground">
+                  Pneus : {o.quantity} × {euro(offerPriceLines(o).unitSellHt)} HT = {euro(offerPriceLines(o).tiresHt)} HT ({euro(o.tiresTtc)} TTC)
+                </div>
+                <div className="text-muted-foreground">
+                  {o.mountTtc != null ? `${MOUNT_LABEL} (main-d'œuvre) : ${euro(o.mountTtc)} TTC` : "Montage non paramétré"}
+                  {` · Total : ${euro(o.totalTtc)} TTC`}
+                </div>
               </div>
             ) : null}
             {internal && o.available ? <SupplierLink offer={o} order={{ size: header.size, plate: header.plate, quoteId }} /> : null}
