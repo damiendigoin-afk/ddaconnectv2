@@ -26,8 +26,8 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { prioritizeRefVehicleIdentity } from "@/lib/refbase";
 import { useOrScanConfirm } from "@/components/OrScanConfirm";
-import { finishOrScan, prepareOrScan } from "@/lib/or-scan-flow";
-import { checkPlate, needsConfirmation } from "@/lib/or-scan-validate";
+import { finishOrScan, prepareOrScan, scanIxellio } from "@/lib/or-scan-flow";
+import { checkPlate } from "@/lib/or-scan-validate";
 
 export const Route = createFileRoute("/atelier/")({
   head: () => ({
@@ -148,8 +148,11 @@ function AtelierHub() {
       // Contrôles déterministes + journal privé ; confirmation demandée seulement en cas de doute.
       const prep = prepareOrScan({ data: read, orNumber: parsed.or_number, trace: res.trace, siteId: site?.id, entry: "atelier", userName: displayName || null, dataUrl });
       let data = prep.data;
-      if (needsConfirmation(prep.doubts)) {
-        const c = await confirmScan(data, prep.doubts, parsed.or_number);
+      // Ixellio (serveur, identifiants stockés) dès que la plaque est valide ; jamais bloquant.
+      const ix = await scanIxellio(prep.data, parsed.or_number);
+      // Écran de vérification toujours affiché : les dates restent contrôlables même sans doute.
+      {
+        const c = await confirmScan(data, [...prep.doubts, ...ix.doubts], parsed.or_number, ix.cross);
         if (!c) { finishOrScan(prep.log, read, null, "cancelled"); setOrNote("Lecture annulée : rien n'a été créé."); return; }
         data = c;
       }

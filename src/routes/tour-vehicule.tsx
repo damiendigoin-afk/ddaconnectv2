@@ -18,8 +18,7 @@ import { ocrRepairOrder } from "@/lib/ocr.functions";
 import { afterTourEnsure, decideTourScan, parseRepairOrderScan } from "@/lib/or-scan-decision";
 import { ensureWinmotorDossier } from "@/lib/or-dossier";
 import { useOrScanConfirm } from "@/components/OrScanConfirm";
-import { finishOrScan, prepareOrScan } from "@/lib/or-scan-flow";
-import { needsConfirmation } from "@/lib/or-scan-validate";
+import { finishOrScan, prepareOrScan, scanIxellio } from "@/lib/or-scan-flow";
 import { useSite } from "@/lib/site-context";
 import { useAuth } from "@/lib/auth";
 import { startQuickTour } from "@/lib/quick-tour";
@@ -82,8 +81,11 @@ function ModuleHome() {
       // Contrôles + journal privé ; confirmation seulement en cas de doute (plaque, marque/modèle, client).
       const prep = prepareOrScan({ data: read, orNumber: d.or_number, trace: res.trace, siteId: site?.id, entry: "tour", userName: displayName || null, dataUrl });
       let data = prep.data;
-      if (needsConfirmation(prep.doubts)) {
-        const c = await confirmScan(data, prep.doubts, d.or_number);
+      // Ixellio (serveur, identifiants stockés) dès que la plaque est valide ; jamais bloquant.
+      const ix = await scanIxellio(prep.data, d.or_number);
+      // Écran de vérification toujours affiché : les dates restent contrôlables même sans doute.
+      {
+        const c = await confirmScan(data, [...prep.doubts, ...ix.doubts], d.or_number, ix.cross);
         if (!c) { finishOrScan(prep.log, read, null, "cancelled"); toast.message("Lecture annulée : rien n'a été créé."); return; }
         data = c;
       }

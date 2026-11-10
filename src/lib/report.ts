@@ -33,6 +33,14 @@ export type ReportData = {
     model: string | null;
     ct_due_date?: string | null;
     pollution_due_date?: string | null;
+    ct_source?: string | null;
+    first_registration?: string | null;
+    delivery_date?: string | null;
+    first_registration_source?: string | null;
+    delivery_date_source?: string | null;
+    plate_normalized?: string | null;
+    /** Catégorie du référentiel (VP, CTTE…) si lisible ; null sinon. */
+    vehicle_type?: string | null;
   } | null;
   order: {
     id: string;
@@ -49,6 +57,7 @@ export type ReportData = {
     point_key?: string | null;
     ct_due_date?: string | null;
     pollution_due_date?: string | null;
+    ct_source?: string | null;
     zone_index: number;
     zone_label: string;
     point_label: string;
@@ -76,7 +85,7 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
   let query = supabase
     .from("vehicle_inspections")
     .select(
-      "id, inspection_type, status, mileage, started_at, completed_at, finished_at, duration_seconds, completed_by_name, share_token, last_sent_at, last_sent_to, client_content_updated_at, archived_at, last_modified_at, last_modified_by_name, vehicle:vehicles(id, plate, brand, model, ct_due_date, pollution_due_date), repair_order:repair_orders(id, or_number, or_date, client:clients(first_name, last_name, email))",
+      "id, inspection_type, status, mileage, started_at, completed_at, finished_at, duration_seconds, completed_by_name, share_token, last_sent_at, last_sent_to, client_content_updated_at, archived_at, last_modified_at, last_modified_by_name, vehicle:vehicles(id, plate, plate_normalized, brand, model, ct_due_date, pollution_due_date, ct_source, first_registration, delivery_date, first_registration_source, delivery_date_source), repair_order:repair_orders(id, or_number, or_date, client:clients(first_name, last_name, email))",
     );
   query = by.id ? query.eq("id", by.id) : query.eq("share_token", by.token!);
   const { data: insp, error } = await query.single();
@@ -86,7 +95,7 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
     supabase
       .from("inspection_points")
       .select(
-        "id, point_key, ct_due_date, pollution_due_date, zone_index, zone_label, point_label, status, measure_value, measure_unit, comment, client_comment, tire_analysis",
+        "id, point_key, ct_due_date, pollution_due_date, ct_source, zone_index, zone_label, point_label, status, measure_value, measure_unit, comment, client_comment, tire_analysis",
       )
       .eq("inspection_id", insp.id)
       .order("zone_index"),
@@ -102,9 +111,25 @@ export async function fetchReport(by: { id?: string; token?: string }): Promise<
       .order("created_at"),
   ]);
 
+  const vehicle = (insp.vehicle ?? null) as ReportData["vehicle"];
+  if (vehicle?.plate_normalized) {
+    // Catégorie (VP/CTTE…) : lecture tolérante, absente pour un accès public sans session.
+    try {
+      const { data: ref } = await supabase
+        .from("ref_vehicles")
+        .select("vehicle_type")
+        .eq("registration_normalized", vehicle.plate_normalized)
+        .not("vehicle_type", "is", null)
+        .limit(1);
+      vehicle.vehicle_type = (ref?.[0]?.vehicle_type as string | undefined) ?? null;
+    } catch {
+      vehicle.vehicle_type = null;
+    }
+  }
+
   return {
     inspection: insp as ReportData["inspection"],
-    vehicle: (insp.vehicle ?? null) as ReportData["vehicle"],
+    vehicle,
     order: (insp.repair_order ?? null) as ReportData["order"],
     points: (points.data ?? []) as ReportData["points"],
     observations: (observations.data ?? []) as ReportData["observations"],

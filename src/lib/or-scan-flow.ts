@@ -3,7 +3,11 @@
  * Le journal ne bloque jamais le parcours (échecs silencieux, sans données personnelles en console).
  */
 import { finalizeOrScan, recordOrScan } from "./or-scan-log.functions";
-import { assessOrScan, diffCritical, type OrScanData, type OrScanDoubt } from "./or-scan-validate";
+import { assessOrScan, checkPlate, diffCritical, type OrScanData, type OrScanDoubt } from "./or-scan-validate";
+import { lookupIxellioVehicle } from "./ixellio.functions";
+import { cachedIxellioLookup, type IxellioLookupResponse } from "./ixellio-lookup-cache";
+import { normalizePlate } from "./plate";
+import { crossIxellio, type IxellioCross } from "./vehicle-dates";
 
 export type OrScanTrace = { local_text_len?: number | null; local_plate?: string | null; rules_json?: string | null; route?: string | null; missing?: string[]; ai_calls?: number | null };
 
@@ -39,4 +43,40 @@ export function finishOrScan(log: Promise<string | null>, read: OrScanData, conf
     if (!id) return;
     return finalizeOrScan({ data: { id, outcome, confirmedFields: confirmed as unknown as Record<string, unknown> | null, corrections: confirmed ? diffCritical(read, confirmed) : [], repairOrderId: repairOrderId ?? null } }).catch(() => undefined);
   });
+}
+
+/* ---------------- Croisement Ixellio (serveur, identifiants stockés) ---------------- */
+
+export const IXELLIO_SCAN_TIMEOUT_MS = 15000;
+
+/**
+ * Interroge Ixellio pour une plaque valide (cache onglet + une requête en vol par plaque),
+ * sans jamais bloquer le scan : échec / délai => statut « indisponible ».
+ */
+export async function scanIxellio(
+  data: OrScanData,
+  orNumber: string | null,
+  run: (plate: string) => Promise<IxellioLookupResponse> = (plate) => lookupIxellioVehicle({ data: { plate } }) as Promise<IxellioLookupResponse>,
+  timeoutMs = IXELLIO_SCAN_TIMEOUT_MS,
+): Promise<{ cross: IxellioCross; doubts: OrScanDoubt[] }> {
+  const v = data.vehicle;
+  const plate = normalizePlate(String(v["plate"] ?? ""));
+  if (!plate || checkPlate(plate, { orNumber, account: data.client["account_number"] }) !== "ok") {
+    return { cross: crossIxellio(v, null), doubts: [] };
+  }
+  let res: IxellioLookupResponse | null;
+  try {
+    res = await Promise.race([
+      cachedIxellioLookup(plate, run),
+      new Promise<IxellioLookupResponse>((resolve) => setTimeout(() => resolve({ ok: false, outcome: "timeout", message: "délai dépassé", vehicle: {} }), timeoutMs)),
+    ]);
+  } catch {
+    res = { ok: false, outcome: "network_error", message: "indisponible", vehicle: {} };
+  }
+  const cross = crossIxellio(v, res);
+  const doubts: OrScanDoubt[] = [];
+  if (cross.vinMismatch) doubts.push({ field: "vin", code: "ixellio_vin_mismatch", message: cross.message, blocking: true });
+  else if (cross.mec === "conflict") doubts.push({ field: "first_registration", code: "ixellio_mec_conflict", message: cross.message, blocking: true });
+  if (cross.status === "unavailable") doubts.push({ field: "first_registration", code: "ixellio_unavailable", message: cross.message, blocking: false });
+  return { cross, doubts };
 }

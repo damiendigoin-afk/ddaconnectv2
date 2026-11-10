@@ -4,6 +4,7 @@
  * quand la lecture est cohérente. Rien n'est corrigé en silence.
  */
 import { formatPlate, normalizePlate, wellFormedPlate } from "./plate";
+import { guardFirstRegistration } from "./vehicle-dates";
 
 /** Modèles distinctifs -> constructeur attendu (liste volontairement courte, sans ambiguïté). */
 const MODEL_BRAND: Array<[RegExp, string]> = [
@@ -71,8 +72,8 @@ export function plateNearMiss(a: unknown, b: unknown): boolean {
 }
 
 export type OrScanDoubt = {
-  field: "plate" | "brand" | "model" | "client";
-  code: "plate_or_number" | "plate_atypical" | "plate_two_readings" | "model_polluted" | "brand_model" | "client_missing";
+  field: "plate" | "brand" | "model" | "client" | "first_registration" | "vin";
+  code: "plate_or_number" | "plate_atypical" | "plate_two_readings" | "model_polluted" | "brand_model" | "client_missing" | "mec_is_delivery" | "mec_invalid" | "ixellio_vin_mismatch" | "ixellio_mec_conflict" | "ixellio_unavailable";
   message: string;
   /** Confirmation explicite requise avant création (sinon simple avertissement modifiable). */
   blocking: boolean;
@@ -103,6 +104,19 @@ export function assessOrScan(input: { data: OrScanData; orNumber: string | null;
   }
   const exp = brandModelConflict(vehicle["brand"], vehicle["model"]);
   if (exp) doubts.push({ field: "brand", code: "brand_model", message: `${String(vehicle["model"])} est un modèle ${exp}, la marque lue est ${String(vehicle["brand"])}.`, blocking: true });
+  // MEC : jamais la date de livraison / restitution / entrée lue sur l'OR.
+  const g = guardFirstRegistration({ first_registration: vehicle["first_registration"], delivery_date: vehicle["delivery_date"], delivery_at: input.data.order["delivery_at"], entry_at: input.data.order["entry_at"], or_date: input.data.order["or_date"] });
+  if (g.rejected) {
+    doubts.push({
+      field: "first_registration",
+      code: g.rejected === "delivery" || g.rejected === "order_date" ? "mec_is_delivery" : "mec_invalid",
+      message: g.rejected === "delivery" ? "La date lue comme 1re MEC est la date de livraison/restitution : MEC retirée, à vérifier (Ixellio ou saisie)."
+        : g.rejected === "order_date" ? "La date lue comme 1re MEC est la date d'entrée/de l'OR : MEC retirée."
+        : "1re MEC illisible ou future : retirée.",
+      blocking: false,
+    });
+    vehicle["first_registration"] = null;
+  } else if (g.first_registration) vehicle["first_registration"] = g.first_registration;
   if (!String(client["last_name"] ?? "").trim()) {
     doubts.push({ field: "client", code: "client_missing", message: "Aucun client identifié : les coordonnées lues seront mises en attente de validation.", blocking: false });
   }

@@ -2,7 +2,7 @@
 export const OR_SCAN_PROMPT = `Tu analyses un ordre de réparation d'un garage automobile français.
 Extrais uniquement ce que tu lis réellement. Réponds STRICTEMENT en JSON avec cette forme :
 {"client":{"account_number":null,"last_name":null,"first_name":null,"address":null,"address_extra":null,"postal_code":null,"city":null,"phone":null,"mobile":null,"email":null},
-"vehicle":{"plate":null,"vin":null,"brand":null,"model":null,"mileage":null,"first_registration":null},
+"vehicle":{"plate":null,"vin":null,"brand":null,"model":null,"mileage":null,"first_registration":null,"delivery_date":null},
 "order":{"or_number":null,"or_date":null,"client_remarks":null,"requested_work":null,"entry_at":null,"delivery_at":null},
 "uncertain":["liste des chemins de champs peu lisibles, ex: vehicle.vin"]}
 Dates au format ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm). mileage = entier sans espace. Mets null si absent.
@@ -21,4 +21,5 @@ client.email : recopie visuellement l'adresse exacte, caractère par caractère,
 La raison sociale du garage (SAS CASTILLON VEYSSIERE, SAS DAMIEN DIGOIN AUTOMOBILE…) n'est JAMAIS une partie du nom ou du prénom du client. Nom composé tout en capitales (« Mme SALAZAR BLANCHEZ CECILE ») : le dernier mot est le prénom, les précédents le nom ; en cas de doute ajoute "client.last_name" dans uncertain.
 client.address ne contient QUE la rue : jamais « restitution prévue le … », une date, « date d'entrée », ni un libellé de la colonne garage alignée sur la même ligne (ces valeurs vont dans order.delivery_at / entry_at).
 entry_at / delivery_at / or_date : recopie la date et l'heure telles qu'imprimées (heure locale française, sans conversion de fuseau) ; restitution sans heure = date seule.
+vehicle.first_registration = UNIQUEMENT la valeur du libellé « 1re mise en circulation » / « MEC » / « date de 1re immatriculation ». La « date de livraison » (véhicule vendu/livré) va dans vehicle.delivery_date ; la restitution, l'entrée et la date de l'OR vont dans order.* : aucune de ces dates n'est JAMAIS une MEC. Sans libellé MEC explicite, first_registration = null (ne déduis rien).
 vehicle.mileage est souvent manuscrit : ne le renseigne que s'il est clairement lisible, sinon null et "vehicle.mileage" dans uncertain. Ignore le schéma de carrosserie et ses annotations.`;

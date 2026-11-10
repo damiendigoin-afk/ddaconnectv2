@@ -8976,7 +8976,9 @@ export type Database = {
           ct_read_at: string | null
           ct_source: string | null
           delivery_date: string | null
+          delivery_date_source: string | null
           first_registration: string | null
+          first_registration_source: string | null
           id: string
           last_mileage: number | null
           last_mileage_at: string | null
@@ -9001,7 +9003,9 @@ export type Database = {
           ct_read_at?: string | null
           ct_source?: string | null
           delivery_date?: string | null
+          delivery_date_source?: string | null
           first_registration?: string | null
+          first_registration_source?: string | null
           id?: string
           last_mileage?: number | null
           last_mileage_at?: string | null
@@ -9026,7 +9030,9 @@ export type Database = {
           ct_read_at?: string | null
           ct_source?: string | null
           delivery_date?: string | null
+          delivery_date_source?: string | null
           first_registration?: string | null
+          first_registration_source?: string | null
           id?: string
           last_mileage?: number | null
           last_mileage_at?: string | null
@@ -9934,6 +9940,15 @@ export type Database = {
           _patch: Json
           _reason: string
           _revision: number
+        }
+        Returns: Json
+      }
+      correct_vehicle_dates: {
+        Args: {
+          _inspection: string
+          _patch: Json
+          _reason: string
+          _user_name: string
         }
         Returns: Json
       }

@@ -4,6 +4,8 @@
  * rendu écran, aperçu client et PDF.
  */
 
+import { ctStatus, THEORETICAL_PREFIX, type CtStatus } from "./vehicle-dates";
+
 export const CT_PREFIX = "Contrôle technique valable jusqu'au";
 export const POLLUTION_PREFIX = "Contrôle complémentaire pollution à effectuer avant le";
 export const CT_MISSING = "Date du contrôle technique non renseignée.";
@@ -19,18 +21,19 @@ export function formatCtDate(value?: string | null): string {
 }
 
 /** Bloc automatique injecté dans le commentaire du point « Contrôle technique ». */
-export function ctAutoComment(ct?: string | null, pollution?: string | null): string {
+export function ctAutoComment(ct?: string | null, pollution?: string | null, theoretical?: string | null): string {
   const lines: string[] = [];
   const ctDate = formatCtDate(ct);
   const pollutionDate = formatCtDate(pollution);
   if (ctDate) lines.push(`${CT_PREFIX} ${ctDate}.`);
+  else if (theoretical) lines.push(theoretical);
   else lines.push(CT_MISSING);
   if (pollutionDate) lines.push(`${POLLUTION_PREFIX} ${pollutionDate}.`);
   return lines.join("\n");
 }
 
 const AUTO_LINE = new RegExp(
-  `^\\s*(${escape(CT_PREFIX)}|${escape(POLLUTION_PREFIX)}|${escape(CT_MISSING)})`,
+  `^\\s*(${escape(CT_PREFIX)}|${escape(POLLUTION_PREFIX)}|${escape(CT_MISSING)}|${escape(THEORETICAL_PREFIX)})`,
   "i",
 );
 
@@ -46,6 +49,8 @@ export function mergeCtComment(
   existing: string | null | undefined,
   ct?: string | null,
   pollution?: string | null,
+  /** Ligne « Premier CT à réaliser avant fin … » quand aucune date réelle n'est connue. */
+  theoretical?: string | null,
 ): string {
   const manual = (existing ?? "")
     .split("\n")
@@ -53,7 +58,7 @@ export function mergeCtComment(
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const auto = ctAutoComment(ct, pollution);
+  const auto = ctAutoComment(ct, pollution, theoretical);
   return manual ? `${manual}\n${auto}` : auto;
 }
 
@@ -125,6 +130,8 @@ export function stripCtAuto(comment?: string | null): string {
 
 /** Source enregistrée quand l'opérateur déclare explicitement l'échéance CT illisible. */
 export const CT_UNAVAILABLE_SOURCE = "indisponible";
+/** Source posée quand l'utilisateur valide explicitement qu'aucun CT réel n'existe encore (premier CT théorique). */
+export const CT_THEORETICAL_SOURCE = "theorique";
 
 /**
  * Tour guidé : l'échéance CT est-elle confirmée par l'opérateur sur ce point ?
@@ -138,7 +145,7 @@ export function isCtConfirmed(point?: {
   ct_source?: string | null;
 } | null): boolean {
   if (!point || !point.ct_read_at) return false;
-  if (point.ct_source === CT_UNAVAILABLE_SOURCE) return true;
+  if (point.ct_source === CT_UNAVAILABLE_SOURCE || point.ct_source === CT_THEORETICAL_SOURCE) return true;
   return Boolean(firstValidCtDate(point.ct_due_date));
 }
 
@@ -146,4 +153,31 @@ export function isCtConfirmed(point?: {
 export function ctUnavailableNote(actor: string | null | undefined, at: Date): string {
   const who = (actor ?? "").trim() || "l'opérateur";
   return `Échéance CT déclarée illisible / non disponible par ${who} le ${at.toLocaleDateString("fr-FR")}.`;
+}
+
+/**
+ * Statut CT d'un rapport : date réelle (point puis véhicule) sinon premier CT théorique
+ * (VP/VUL, MEC connue). Utilisé par l'écran, l'aperçu client et le PDF.
+ */
+export function reportCtStatus(d: {
+  vehicle?: { ct_due_date?: string | null; pollution_due_date?: string | null; ct_source?: string | null; first_registration?: string | null; vehicle_type?: string | null } | null;
+  points?: { point_key?: string | null; ct_due_date?: string | null; pollution_due_date?: string | null; ct_source?: string | null }[];
+}, today?: string): CtStatus {
+  const point = (d.points ?? []).find((p) => p.point_key === "controle_technique");
+  const fromPoint = firstValidCtDate(point?.ct_due_date);
+  const dates = reportCtDates(d);
+  return ctStatus({
+    ctDue: dates.ct,
+    ctSource: fromPoint ? point?.ct_source ?? null : d.vehicle?.ct_source ?? null,
+    mec: d.vehicle?.first_registration ?? null,
+    vehicleType: d.vehicle?.vehicle_type ?? null,
+    today,
+  });
+}
+
+/** Ligne CT du rapport, statut théorique / vérifié explicite. */
+export function ctStatusLine(st: CtStatus, pollution?: string | null): string {
+  const pol = formatCtDate(pollution);
+  const main = st.kind === "theoretical" ? `${st.headline} (limite théorique ${formatCtDate(st.date)}, non attestée)` : st.headline.replace(/\.$/, "");
+  return [st.kind === "missing" ? CT_MISSING : main, pol ? `${POLLUTION_PREFIX} ${pol}.` : ""].filter(Boolean).join(" · ");
 }

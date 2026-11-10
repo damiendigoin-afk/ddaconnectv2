@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 
 import { fetchReport, type ReportMedia } from "@/lib/report";
-import { ctPointLine, ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates, stripCtAuto } from "@/lib/ct";
+import { ctStatusLine, formatCtDate, POLLUTION_PREFIX, reportCtDates, reportCtStatus, stripCtAuto } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { GROUP_LABEL, siteHeader } from "@/lib/sites";
@@ -244,7 +244,7 @@ function PdfPage() {
           <div>{[d.vehicle?.brand, d.vehicle?.model].filter(Boolean).join(" ")}</div>
           <div>
             {d.inspection.mileage ? `${d.inspection.mileage.toLocaleString("fr-FR")} km · ` : ""}
-            {ctSummaryLabel(ctDates.ct)}
+            {ctStatusLine(reportCtStatus(d))}{reportCtStatus(d).kind === "verified" ? " (vérifié)" : ""}
           </div>
           {formatCtDate(ctDates.pollution) ? (
             <div>{`${POLLUTION_PREFIX} ${formatCtDate(ctDates.pollution)}.`}</div>
@@ -302,7 +302,7 @@ function PdfPage() {
                   </td>
                   <td className={cell}>
                     {[
-                      p.point_key === "controle_technique" ? ctPointLine(ctDates.ct, ctDates.pollution) : "",
+                      p.point_key === "controle_technique" ? ctStatusLine(reportCtStatus(d), ctDates.pollution) : "",
                       formatMeasure(p.measure_value, p.measure_unit) ?? "",
                       // La mention CT automatique du commentaire est remplacée par la ligne ci-dessus.
                       p.point_key === "controle_technique" ? stripCtAuto(p.comment) : (p.comment ?? ""),

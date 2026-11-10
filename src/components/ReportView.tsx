@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MediaThumb } from "@/components/PhotoManager";
 import { useLightbox } from "@/components/PhotoLightbox";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
-import { ctPointLine, ctSummaryLabel, formatCtDate, POLLUTION_PREFIX, reportCtDates } from "@/lib/ct";
+import { ctStatusLine, formatCtDate, POLLUTION_PREFIX, reportCtDates, reportCtStatus } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
 import type { ReportData, ReportMedia } from "@/lib/report";
 
@@ -50,7 +50,7 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
       </div>
       <div className="font-semibold">
         {d.inspection.mileage ? `${d.inspection.mileage.toLocaleString("fr-FR")} km · ` : ""}
-        {ctSummaryLabel(ctDates.ct)}
+        {ctStatusLine(reportCtStatus(d))}{reportCtStatus(d).kind === "verified" ? " (vérifié)" : ""}
       </div>
       {formatCtDate(ctDates.pollution) ? (
         <div className="text-xs font-semibold text-muted-foreground">
@@ -234,7 +234,7 @@ export function ReportBody({
                 </div>
                 {p.point_key === "controle_technique" ? (
                   <div className="text-sm font-semibold">
-                    {ctPointLine(reportCtDates(d).ct, reportCtDates(d).pollution)}
+                    {ctStatusLine(reportCtStatus(d), reportCtDates(d).pollution)}
                   </div>
                 ) : null}
                 {editable && !clientView ? (

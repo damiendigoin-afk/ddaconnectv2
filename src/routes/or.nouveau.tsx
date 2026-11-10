@@ -18,6 +18,7 @@ import { upsertRef } from "@/lib/external-refs";
 import { refPrefill, type RefPrefill } from "@/lib/refbase";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 import { ocrRepairOrder } from "@/lib/ocr.functions";
+import { guardFirstRegistration } from "@/lib/vehicle-dates";
 
 export const Route = createFileRoute("/or/nouveau")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -175,7 +176,8 @@ function NewOrder() {
         brand: str(v["brand"]),
         model: str(v["model"]),
         mileage: str(v["mileage"]).replace(/\D/g, ""),
-        first_registration: str(v["first_registration"]).slice(0, 10),
+        // Jamais la date de livraison / restitution / entrée comme 1re MEC.
+        first_registration: guardFirstRegistration({ first_registration: v["first_registration"], delivery_date: v["delivery_date"], delivery_at: o["delivery_at"], entry_at: o["entry_at"], or_date: o["or_date"] }).first_registration ?? "",
         or_number: str(o["or_number"]),
         or_date: str(o["or_date"]).slice(0, 10) || EMPTY.or_date,
         client_remarks: str(o["client_remarks"]),

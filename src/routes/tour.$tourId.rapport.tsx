@@ -17,6 +17,7 @@ import { archiveTour, deleteTour, unarchiveTour } from "@/lib/tour-admin";
 import { ReportBody, Summary } from "@/components/ReportView";
 import { TourQuoteSection } from "@/components/TourQuoteSection";
 import { TireAxleSummary } from "@/components/TireAxleSummary";
+import { VehicleDatesCard } from "@/components/VehicleDatesCard";
 
 export const Route = createFileRoute("/tour/$tourId/rapport")({
   head: () => ({
@@ -194,6 +195,8 @@ function ReportPage() {
           onDeleted={() => navigate({ to: "/tours" })}
           actor={{ userId: user?.id ?? null, userName: displayName || null }}
         />
+
+        <VehicleDatesCard d={d} userName={displayName || null} />
 
         <TireAxleSummary points={d.points} media={d.media} />
 

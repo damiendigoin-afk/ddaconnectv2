@@ -470,6 +470,13 @@
       "when": 1793881388155,
       "tag": "0066_or_scan_journal_and_plate_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1794333685884,
+      "tag": "0067_vehicle_dates_provenance_and_correction",
+      "breakpoints": true
     }
   ]
 }
