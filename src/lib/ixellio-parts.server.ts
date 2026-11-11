@@ -4,6 +4,7 @@
  * Jamais renvoyé : identifiants, cookies, jetons, HTML brut.
  */
 import { inventoryEuroAmounts, type EuroInventory } from "./ixellio-parts-amounts";
+import { groupIxellioResults, type IxellioGrouping } from "./ixellio-parts-results";
 import { loadIxellioCredentials } from "./ixellio-store.server";
 import { openIxellioSession } from "./ixellio.server";
 import { inspectForms, inspectPageFormHints, inspectStructure, inspectTargeted, type PageFormHints, type TargetedDiag, parseIxellioParts, type FormShape, type IxellioPartsResult, type StructureShape } from "./ixellio-parts-parse";
@@ -42,6 +43,7 @@ export type IxellioPartsLookup = {
     pageHints: PageFormHints | null;
     targeted: TargetedDiag | null;
     euros: EuroInventory | null;
+    grouping: IxellioGrouping | null;
   };
   result: Omit<IxellioPartsResult, "headers" | "tableCount"> | null;
   durationMs: number;
@@ -107,6 +109,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     pageHints: null,
     targeted: null,
     euros: null,
+    grouping: null,
   };
   const out = (status: IxellioPartsLookup["status"], message: string, result: IxellioPartsLookup["result"] = null): IxellioPartsLookup => ({
     status, message, reference, trace, diagnostic, result, durationMs: Date.now() - started,
@@ -164,6 +167,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     diagnostic.response = inspectStructure(html, reference);
     diagnostic.targeted = inspectTargeted(html, reference);
     diagnostic.euros = inventoryEuroAmounts(html, reference);
+    diagnostic.grouping = groupIxellioResults(html);
     const parsed = parseIxellioParts(html, reference);
     diagnostic.tableCount = parsed.tableCount;
     diagnostic.headers = parsed.headers;

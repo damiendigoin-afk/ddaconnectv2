@@ -163,6 +163,23 @@ export function IxellioPartsDiag() {
               ))}
             </div>
           ) : null}
+          {res.diagnostic.grouping ? (
+            <div className="rounded-lg border border-border px-3 py-2 text-[11px]">
+              <div className="font-bold">
+                F. Résultats groupés : {res.diagnostic.grouping.results.length} / annoncés {res.diagnostic.grouping.announced ?? "?"} · confiance {res.diagnostic.grouping.confidence}
+              </div>
+              <div className="text-muted-foreground">{res.diagnostic.grouping.confidenceReason}</div>
+              {res.diagnostic.grouping.results.map((r) => (
+                <div key={r.index}>
+                  #{r.index} {r.category ?? "catégorie —"} · {r.designation} · Réf. {r.reference}{r.family ? ` · ${r.family}` : ""} · {r.priceDisplayed} (HT/TTC inconnu, tarif inconnu)
+                </div>
+              ))}
+              {res.diagnostic.grouping.ungrouped.map((u, i) => (
+                <div key={`u${i}`}>Non validé : {u.designation} · {u.priceDisplayed} — {u.reason}</div>
+              ))}
+              <div className="font-bold">Conversion en devis : bloquée — {res.diagnostic.grouping.quoteConversionReason}</div>
+            </div>
+          ) : null}
           {res.diagnostic.pageHints && res.diagnostic.pageHints.formOpen === 0 ? (
             <div className="text-[11px] text-muted-foreground">
               Aucun formulaire dans la page de recherche : normal pour une page pilotée par JavaScript.
