@@ -130,3 +130,12 @@ export const inspectIxellioLaborDiag = createServerFn({ method: "POST" })
     const { inspectIxellioLaborAccess } = await import("./ixellio-labor.server");
     return inspectIxellioLaborAccess();
   });
+
+/** Diagnostic manager TM v2 : un GET unique sur /Temps.html?method=search (chemin fixe), lecture seule. */
+export const inspectIxellioTempsPageDiag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertManager(context as never);
+    const { inspectIxellioTempsPage } = await import("./ixellio-labor-page.server");
+    return inspectIxellioTempsPage();
+  });

@@ -26,7 +26,7 @@ export type IxellioLaborTime = {
   confidence: "explicite";
 };
 
-export type MenuCategory = "temps_bareme" | "chiffrage" | "pieces" | "vehicule" | "documentation" | "autre";
+export type MenuCategory = "temps_bareme" | "forfaits" | "chiffrage" | "pieces" | "vehicule" | "documentation" | "autre";
 export type MenuEntry = {
   label: string;
   path: string;
@@ -88,6 +88,9 @@ const RX = {
 export function categorize(label: string, path: string): MenuCategory {
   const s = `${label} ${path}`;
   if (/redressage|r[ée]paration|peinture/i.test(label)) return "chiffrage"; // carrosserie : jamais TM mécanique
+  // Libellé exact « Temps » ou page /Temps.html : entrée temps du menu (pas une rubrique de chiffrage carrosserie).
+  if (/^temps$/i.test(label.trim()) || /^\/Temps\.html(\?|$)/i.test(path)) return "temps_bareme";
+  if (/^forfaits?$/i.test(label.trim()) || /^\/Forfait\.html(\?|$)/i.test(path)) return "forfaits";
   if (RX.temps.test(s)) return "temps_bareme";
   if (RX.chiffrage.test(s)) return "chiffrage";
   if (RX.pieces.test(s)) return "pieces";
@@ -234,4 +237,50 @@ export function laborAccessStatus(m: MenuInspection):
   if (!tm.length) return { code: "aucun_lien_tm", laborStatus: "structure_unknown" };
   const laborStatus: LaborStatus = tm.every((e) => e.needsVehicle) ? "needs_vehicle" : tm.every((e) => e.needsOperation) ? "needs_operation" : "structure_unknown";
   return { code: "menu_identifie_tm_non_recuperes", laborStatus };
+}
+
+export type TempsPageInspection = {
+  title: string;
+  isLoginPage: boolean;
+  limitations: string[];
+  headings: string[];
+  links: MenuEntry[];
+  forms: MenuForm[];
+  /** Champs de recherche (noms/types) liés à un véhicule ou une opération. */
+  searchFields: { name: string; type: string; hint: "vehicule" | "operation" | "autre" }[];
+  needsVehicle: boolean;
+  needsOperation: boolean;
+  tableCount: number;
+  /** Tableau explicite opération + temps avec unité déclarée (lignes comptées, non affichées). */
+  explicitTimeRows: number;
+  timeHeaderWithoutUnit: boolean;
+  /** TM affichables : uniquement si liaison véhicule/opération explicite — jamais à cette étape. */
+  times: IxellioLaborTime[];
+};
+
+/** Inspection PURE de la page /Temps.html?method=search (aucune valeur de champ, libellés masqués). */
+export function inspectTempsPage(html: string): TempsPageInspection {
+  const m = inspectIxellioMenu(html);
+  const doc = parse(html) as unknown as Node;
+  const headings: string[] = [];
+  let tableCount = 0;
+  walk(doc, (n) => {
+    if (n.tagName === "table") tableCount++;
+    if (n.tagName && /^(h[1-4]|legend|label|th|caption)$/.test(n.tagName) && headings.length < 30) {
+      const t = safeLabel(clean(text(n)), "", 50).replace(/\b[A-Z]{2}-?\d{3}-?[A-Z]{2}\b/g, "[immat]");
+      if (t && !headings.includes(t) && !/mot de passe|identifiant|login/i.test(t)) headings.push(t);
+    }
+  });
+  const hint = (name: string): "vehicule" | "operation" | "autre" =>
+    /immat|vin|vehic|version|motor|marque|modele|model|type/i.test(name) ? "vehicule" : /oper|interv|presta|code|libelle|temps/i.test(name) ? "operation" : "autre";
+  const searchFields = m.forms.flatMap((f) => f.fields.filter((x) => !/hidden|submit|button|image|reset/.test(x.type)).map((x) => ({ ...x, hint: hint(x.name) })));
+  const parsed = parseLaborTimes(html);
+  return {
+    title: m.title, isLoginPage: m.isLoginPage, limitations: m.limitations, headings, links: m.entries.filter((e) => e.via !== "formulaire"), forms: m.forms,
+    searchFields,
+    needsVehicle: searchFields.some((f) => f.hint === "vehicule") || m.entries.some((e) => e.via === "formulaire" && e.needsVehicle),
+    needsOperation: searchFields.some((f) => f.hint === "operation"),
+    tableCount, explicitTimeRows: parsed.times.length, timeHeaderWithoutUnit: parsed.status === "structure_unknown",
+    times: [], // liaison véhicule/opération non établie à cette étape : aucun TM affiché
+  };
 }

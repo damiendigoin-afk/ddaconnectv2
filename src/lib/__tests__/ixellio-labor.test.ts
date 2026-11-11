@@ -76,3 +76,51 @@ describe("verrou IXELLIO partagé", () => {
     releaseIxellio();
   });
 });
+
+import { categorize, inspectTempsPage } from "../ixellio-labor-parse";
+import { classifyTempsResponse } from "../ixellio-labor-page.server";
+
+describe("TM v2 — menu réel et page Temps (fixtures synthétiques)", () => {
+  it("libellé exact « Temps » /Temps.html => temps_bareme ; Forfaits séparé ; carrosserie jamais TM", () => {
+    const m = inspectIxellioMenu(`<a href="/Temps.html?method=search">Temps</a><a href="/Forfait.html?method=search">Forfaits</a>
+      <a href="/GammeUniverselle.html?method=search">Gamme IXELL</a><a href="/PieceRecherche.html">Pièces</a>`);
+    expect(m.entries.find((e) => e.path === "/Temps.html?method=search")!.category).toBe("temps_bareme");
+    expect(m.entries.find((e) => e.path.startsWith("/Forfait"))!.category).toBe("forfaits");
+    expect(laborAccessStatus(m).code).toBe("menu_identifie_tm_non_recuperes");
+    expect(categorize("Redressage | Temps", "/ChiffragePiece.html")).toBe("chiffrage");
+    expect(categorize("Réparation Temps", "/X.html")).toBe("chiffrage");
+  });
+
+  it("page avec formulaire GET : champs noms/types sans valeurs, besoin véhicule détecté, aucun TM", () => {
+    const html = `<html><head><title>Ixellio Temps</title><script>document.location='/Temps.html?method=list&_csrf=TOK9';</script></head><body>
+      <h2>Recherche de temps</h2><label>Immatriculation GY-640-HM</label>
+      <form action="/Temps.html?method=searchVehicule" method="get"><input type="hidden" name="_csrf" value="CSRF1"/>
+      <input name="immat" value="GY640HM"/><input name="vin" value="VF1RHN00072214934"/><select name="operation"><option>x</option></select><input type="submit" value="OK"/></form>
+      <p>jean@x.fr</p></body></html>`;
+    const p = inspectTempsPage(html);
+    expect(p.forms[0]).toMatchObject({ path: "/Temps.html?method=searchVehicule", httpMethod: "GET" });
+    expect(p.searchFields).toEqual([{ name: "immat", type: "text", hint: "vehicule" }, { name: "vin", type: "text", hint: "vehicule" }, { name: "operation", type: "select", hint: "operation" }]);
+    expect(p).toMatchObject({ needsVehicle: true, needsOperation: true, explicitTimeRows: 0, times: [] });
+    expect(p.links.some((l) => l.path === "/Temps.html?method=list")).toBe(true);
+    const json = JSON.stringify(p);
+    for (const s of ["CSRF1", "TOK9", "GY640HM", "GY-640-HM", "VF1RHN", "jean@", "<"]) expect(json).not.toContain(s);
+  });
+
+  it("page sans champ : rien inventé ; tableau explicite compté mais jamais affiché", () => {
+    const empty = inspectTempsPage(`<html><head><title>Temps</title></head><body><p>Bienvenue</p></body></html>`);
+    expect(empty).toMatchObject({ forms: [], searchFields: [], needsVehicle: false, needsOperation: false, explicitTimeRows: 0, times: [] });
+    const t = inspectTempsPage(`<table><tr><th>Opération</th><th>Temps (h)</th></tr><tr><td>Vidange</td><td>0,8</td></tr></table>`);
+    expect(t.explicitTimeRows).toBe(1);
+    expect(t.times).toEqual([]);
+  });
+
+  it("classement réponse : connexion, externe, 403, page de login, GET réussi sans TM", () => {
+    expect(classifyTempsResponse(302, "/index.html", "")).toMatchObject({ status: "page_connexion", redirectKind: "connexion" });
+    expect(classifyTempsResponse(302, "https://evil.example/", "")).toMatchObject({ status: "redirection", redirectKind: "externe" });
+    expect(classifyTempsResponse(403, null, "").status).toBe("acces_refuse");
+    expect(classifyTempsResponse(200, null, `<form><input name="j_username"><input name="j_password"></form>`).status).toBe("page_connexion");
+    const ok = classifyTempsResponse(200, null, `<title>Temps</title><form action="/Temps.html" method="get"><input name="immat"></form>`);
+    expect(ok.status).toBe("page_lue_tm_non_recuperes");
+    expect(ok.page!.times).toEqual([]);
+  });
+});

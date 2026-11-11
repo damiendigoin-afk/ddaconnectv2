@@ -60,7 +60,7 @@ function safePath(location: string): string {
 }
 
 /** Fusionne les cookies renvoyés par le serveur distant (jar minimaliste, en mémoire). */
-function mergeCookies(jar: Map<string, string>, res: Response) {
+export function mergeCookies(jar: Map<string, string>, res: Response) {
   const raw =
     typeof (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie === "function"
       ? (res.headers as unknown as { getSetCookie: () => string[] }).getSetCookie()
@@ -75,11 +75,11 @@ function mergeCookies(jar: Map<string, string>, res: Response) {
   }
 }
 
-function cookieHeader(jar: Map<string, string>): string {
+export function cookieHeader(jar: Map<string, string>): string {
   return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
-function looksLikeLoginPage(html: string): boolean {
+export function looksLikeLoginPage(html: string): boolean {
   const l = html.toLowerCase();
   return (
     l.includes("j_username") ||
@@ -94,7 +94,7 @@ function isLoginPath(p: string): boolean {
 }
 
 /** En-têtes « navigateur » raisonnables (aucun secret). */
-const BROWSER_HEADERS: Record<string, string> = {
+export const BROWSER_HEADERS: Record<string, string> = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "accept-language": "fr-FR,fr;q=0.9,en;q=0.8",
   "user-agent":
