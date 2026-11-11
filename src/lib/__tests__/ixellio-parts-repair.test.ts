@@ -63,3 +63,32 @@ describe("diagnostic v8 lignes Réparation", () => {
     expect(safeOptionLabel("T3")).toBe("T3");
   });
 });
+
+import { inspectReplaceControls } from "../ixellio-parts-replace";
+
+describe("v8.1 faux positif T1/T2/T3", () => {
+  const row = (rep: string) => `<table><tr><td><table><tr><td>PIECE A</td><td>26.44 €</td></tr></table>
+<table><tr><td>Réparation</td><td>Temps</td><td>${rep}</td><td><select id="s1"><option value="9">T1</option><option value="8">T2</option><option value="7">T3</option></select></td></tr></table>
+<table><tr><td>Référence : 1234X</td></tr></table></td></tr></table>`;
+  const G = [{ index: 1, category: null, designation: "PIECE A", amount: 26.44 }];
+
+  it("options T1/T2/T3 + saisie vide : aucun nombre, aucune durée", () => {
+    const html = row(`<input type="text" id="t1" value="" size="4" maxlength="5">`);
+    const d = inspectRepairRows(html, "", G, true);
+    const r = d.rows[0]!;
+    expect(r.numericInText).toBe(false);
+    expect(r.unit).toBe("aucune unité affichée");
+    expect(r.controls[0]).toMatchObject({ valuePresent: false, valueNumeric: false });
+    expect(r.optionFlags.t1t2t3).toBe(true);
+    expect(d.warnings.join(" ")).not.toMatch(/Valeur numérique présente/);
+    const h = inspectReplaceControls(html).timeRows.find((t) => t.label === "Réparation")!;
+    expect(h.numericPresent).toBe(false);
+  });
+
+  it("libellé visible « 30 min » : nombre et unité détectés, valeur non exposée", () => {
+    const d = inspectRepairRows(row("30 min"), "", G, true);
+    expect(d.rows[0]).toMatchObject({ numericInText: true, unit: "minutes" });
+    expect(JSON.stringify(d)).not.toContain("30");
+    expect(inspectReplaceControls(row("30 min")).timeRows[0]).toMatchObject({ numericPresent: true, unit: "minutes" });
+  });
+});

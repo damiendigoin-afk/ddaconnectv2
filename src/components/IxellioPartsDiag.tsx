@@ -2,8 +2,11 @@
 import { useServerFn } from "@tanstack/react-start";
 import { IXELLIO_TARIFF_LABEL } from "@/lib/ixellio-tariff";
 import { reconcileCandidates } from "@/lib/ixellio-parts-reconcile";
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, Search } from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { blockText, copyText } from "@/lib/copy-text.browser";
 
 import { Field } from "@/components/bits";
 import { lookupIxellioPartsDiag } from "@/lib/ixellio.functions";
@@ -18,6 +21,19 @@ export function IxellioPartsDiag() {
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<Res | null>(null);
   const [error, setError] = useState("");
+  const reportRef = useRef<HTMLDivElement>(null);
+  const sectionIRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<"all" | "i" | null>(null);
+
+  async function copy(kind: "all" | "i") {
+    const body = blockText(kind === "all" ? reportRef.current : sectionIRef.current);
+    const ok = body ? await copyText(`Référence recherchée : ${ref.trim().toUpperCase()}\n${body}`) : false;
+    if (ok) {
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 2000);
+      toast.success(kind === "all" ? "Diagnostic copié" : "Section I copiée");
+    } else toast.error("Copie impossible — sélectionnez le texte manuellement.");
+  }
 
   async function submit() {
     setLoading(true);
@@ -38,7 +54,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v8 — Réparation / champs et options</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v8.1 — Réparation / champs et options · copie</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -56,7 +72,19 @@ export function IxellioPartsDiag() {
       </button>
       {error ? <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
       {res ? (
-        <div className="mt-3 space-y-2 text-xs">
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" onClick={() => void copy("all")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
+            {copied === "all" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier le diagnostic
+          </button>
+          {res.diagnostic.repair ? (
+            <button type="button" onClick={() => void copy("i")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
+              {copied === "i" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier la section I
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {res ? (
+        <div ref={reportRef} className="mt-3 space-y-2 text-xs">
           <div className="rounded-lg bg-muted px-3 py-2 font-bold">
             {res.status} — {res.message} ({res.durationMs} ms)
           </div>
@@ -234,7 +262,7 @@ export function IxellioPartsDiag() {
             const ep = (e: { path: string; method: string | null }) => `${e.path}${e.method ? `?method=${e.method}` : ""}`;
             const yn = (b: boolean) => (b ? "oui" : "non");
             return (
-              <div className="rounded-lg border border-border px-3 py-2">
+              <div ref={sectionIRef} className="rounded-lg border border-border px-3 py-2">
                 <div className="font-bold">I. Lignes « Réparation » — {r.rows.length} ligne(s) · valeurs jamais affichées</div>
                 {r.rows.map((row) => (
                   <div key={row.index} className="mt-1 pl-2">
@@ -253,6 +281,7 @@ export function IxellioPartsDiag() {
                   </div>
                 ))}
                 <div className="mt-1">Hors lignes Réparation : texte « remplac » ×{r.outside.remplacTextOccurrences} · attributs ×{r.outside.remplacInAttributes} · options ×{r.outside.remplacInOptions} · cases {r.outside.checkboxInputs} · role=checkbox {r.outside.roleCheckbox} · aria-checked {r.outside.ariaChecked} · classes {r.outside.classHints.join(", ") || "—"}</div>
+                <div className="text-muted-foreground">T1/T2/T3 = catégories de MO, pas des durées.</div>
                 {r.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
               </div>
             );

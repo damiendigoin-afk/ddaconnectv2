@@ -55,6 +55,14 @@ function text(n: Node): string {
   if (n.nodeName === "#text") return n.value ?? "";
   return (n.childNodes ?? []).map(text).join(" ");
 }
+const CTL = new Set(["select", "option", "optgroup", "textarea", "button", "input"]);
+/** Texte visible direct, hors contrôles (options de liste, saisies, boutons). */
+export function visibleTextNoControls(n: { nodeName: string; value?: string; childNodes?: unknown[] }): string {
+  const rec = (x: Node): string => (SKIP.has(x.nodeName) || CTL.has(x.nodeName) ? "" : x.nodeName === "#text" ? x.value ?? "" : (x.childNodes ?? []).map(rec).join(" "));
+  return rec(n as Node);
+}
+/** Nombre réel autonome : T1/T2/T3 (catégories de MO) exclus. */
+export const hasRealNumber = (s: string) => /\d/.test(s.replace(/\bT[123]\b/gi, ""));
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
 const up = (n: Node, tag: string): Node | null => {
   for (let p = n.parentNode; p; p = p.parentNode) if (p.tagName === tag) return p;
@@ -133,7 +141,7 @@ export function inspectReplaceControls(html: string, searched = ""): ReplaceDiag
       const tm = first.match(/^(Redressage|Réparation|Peinture|Temps|Remplacement)\b/i);
       if (tm) {
         const rest = cells.slice(1).map((c) => clean(text(c)));
-        const joined = rest.join(" ");
+        const joined = cells.slice(1).map((c) => clean(visibleTextNoControls(c))).join(" ");
         const unit: TimeRow["unit"] = /\b(min|mn|minutes?)\b/i.test(joined)
           ? "minutes"
           : /\d\s*h\b|\bheures?\b/i.test(joined)
@@ -146,7 +154,7 @@ export function inspectReplaceControls(html: string, searched = ""): ReplaceDiag
           if ((x.tagName === "input" || x.tagName === "select") && inputs.length < 6) inputs.push({ type: x.tagName === "select" ? "select" : (attr(x, "type") ?? "text"), nameShape: nameShape(attr(x, "name")) });
         });
         const label = (tm[1]![0]!.toUpperCase() + tm[1]!.slice(1).toLowerCase()) as TimeRow["label"];
-        if (timeRows.length < MAX) timeRows.push({ label: label === "Réparation" || /^r.paration$/i.test(label) ? "Réparation" : label, cells: cells.length, filledCells: rest.filter((r) => /[\p{L}\d]/u.test(r)).length, numericPresent: /\d/.test(joined), unit, inputs });
+        if (timeRows.length < MAX) timeRows.push({ label: label === "Réparation" || /^r.paration$/i.test(label) ? "Réparation" : label, cells: cells.length, filledCells: rest.filter((r) => /[\p{L}\d]/u.test(r)).length, numericPresent: hasRealNumber(joined), unit, inputs });
       }
     }
     if (!["input", "button", "a", "select"].includes(n.tagName ?? "")) continue;

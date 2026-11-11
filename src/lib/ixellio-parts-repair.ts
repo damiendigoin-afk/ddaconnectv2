@@ -8,7 +8,7 @@
 import { parse } from "parse5";
 
 import { safeLabel } from "./ixellio-parts-parse";
-import { nameShape, safeEndpoints, safeFunctions, type SafeEndpoint } from "./ixellio-parts-replace";
+import { hasRealNumber, nameShape, safeEndpoints, safeFunctions, visibleTextNoControls, type SafeEndpoint } from "./ixellio-parts-replace";
 
 type Attr = { name: string; value: string };
 type Node = { nodeName: string; tagName?: string; value?: string; attrs?: Attr[]; childNodes?: Node[]; content?: Node; parentNode?: Node | null };
@@ -104,7 +104,7 @@ function controlOf(n: Node, searched: string): RepairControl {
   const v = tag === "input" || tag === "button" ? attr(n, "value") ?? "" : tag === "textarea" ? text(n) : "";
   return {
     tag, type, nameShape: nameShape(attr(n, "name")), hintCategory: hintCategory(n),
-    valuePresent: Boolean(v.trim()), valueNumeric: /\d/.test(v),
+    valuePresent: Boolean(v.trim()), valueNumeric: hasRealNumber(v),
     options, handlers: handlersOf(n),
     attrNames: [...new Set((n.attrs ?? []).map((a) => a.name.replace(/\d{3,}/g, "#")))].slice(0, 15),
   };
@@ -147,7 +147,8 @@ export function inspectRepairRows(html: string, searched = "", grouped: GroupedR
     }
     const cells = cellsOf(tr);
     const rest = cells.slice(1).map((c) => clean(text(c)));
-    const joined = rest.join(" ");
+    // Texte visible direct seulement : options de liste (T1/T2/T3), saisies et boutons exclus.
+    const joined = cells.slice(1).map((c) => clean(visibleTextNoControls(c))).join(" ");
     const controls: RepairControl[] = [];
     const custom = { roleCheckbox: 0, ariaChecked: 0, dataAttrNames: new Set<string>(), classHints: new Set<string>() };
     const scan = (scope: Node) => walk(scope, (x) => {
@@ -166,7 +167,7 @@ export function inspectRepairRows(html: string, searched = "", grouped: GroupedR
     return {
       index: i + 1, mapping, cells: cells.length,
       filledCells: rest.filter((r) => /[\p{L}\d]/u.test(r)).length,
-      numericInText: /\d/.test(joined),
+      numericInText: hasRealNumber(joined),
       unit: /\b(min|mn|minutes?)\b/i.test(joined) ? "minutes" : /\d\s*h\b|\bheures?\b/i.test(joined) ? "heures" : /\bUT\b/.test(joined) ? "UT" : "aucune unité affichée",
       controls, optionFlags: flagsOf(optText),
       customCheckbox: { roleCheckbox: custom.roleCheckbox, ariaChecked: custom.ariaChecked, dataAttrNames: [...custom.dataAttrNames], classHints: [...custom.classHints] },
