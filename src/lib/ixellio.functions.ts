@@ -121,3 +121,12 @@ export const lookupIxellioPartsDiag = createServerFn({ method: "POST" })
     const { lookupIxellioPartsByReference } = await import("./ixellio-parts.server");
     return lookupIxellioPartsByReference(data.reference);
   });
+
+/** Diagnostic manager « temps barémés » : analyse du menu IXELLIO seulement, lecture seule. */
+export const inspectIxellioLaborDiag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertManager(context as never);
+    const { inspectIxellioLaborAccess } = await import("./ixellio-labor.server");
+    return inspectIxellioLaborAccess();
+  });

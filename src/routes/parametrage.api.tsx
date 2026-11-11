@@ -8,6 +8,7 @@ import { AppShell } from "@/components/AppShell";
 import { IntegrationCard } from "@/components/IntegrationCard";
 import { IxellioSettings } from "@/components/IxellioSettings";
 import { IxellioPartsDiag } from "@/components/IxellioPartsDiag";
+import { IxellioLaborDiag } from "@/components/IxellioLaborDiag";
 import { DistricashSettings } from "@/components/DistricashSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -158,6 +159,7 @@ function ApiSettings() {
           <h2 className="text-sm font-extrabold uppercase">Connexion IXELLIO</h2>
           <IxellioSettings />
           <IxellioPartsDiag />
+          <IxellioLaborDiag />
         </section>
 
         <section className="card-surface space-y-3 p-4">

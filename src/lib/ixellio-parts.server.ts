@@ -7,15 +7,12 @@ import { inventoryEuroAmounts, type EuroInventory } from "./ixellio-parts-amount
 import { groupIxellioResults, groupingToParts, type IxellioGrouping } from "./ixellio-parts-results";
 import { loadIxellioCredentials } from "./ixellio-store.server";
 import { openIxellioSession } from "./ixellio.server";
+import { acquireIxellio, releaseIxellio } from "./ixellio-lock.server";
 import { inspectForms, inspectPageFormHints, inspectStructure, inspectTargeted, type PageFormHints, type TargetedDiag, parseIxellioParts, type FormShape, type IxellioPartsResult, type StructureShape } from "./ixellio-parts-parse";
 
 const BASE = "https://www.ixellio.fr";
 const PAGE_URL = `${BASE}/PieceRecherche.html`;
 const SEARCH_URL = `${BASE}/PieceRecherche.html?method=searchReference`;
-const MIN_INTERVAL_MS = 15_000;
-
-let busy = false;
-let lastRun = 0;
 
 const HEADERS: Record<string, string> = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -115,14 +112,13 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     status, message, reference, trace, diagnostic, result, durationMs: Date.now() - started,
   });
 
-  if (busy) return out("busy", "Une consultation IXELLIO est déjà en cours (licence mono-session).");
-  if (Date.now() - lastRun < MIN_INTERVAL_MS)
-    return out("rate_limited", "Patientez quelques secondes entre deux consultations IXELLIO.");
   const creds = await loadIxellioCredentials();
   if (!creds) return out("not_configured", "IXELLIO n'est pas configuré dans Paramètres API.");
-
-  busy = true;
-  lastRun = Date.now();
+  const lock = acquireIxellio();
+  if (!lock.ok)
+    return lock.reason === "busy"
+      ? out("busy", "Une consultation IXELLIO est déjà en cours (licence mono-session).")
+      : out("rate_limited", "Patientez quelques secondes entre deux consultations IXELLIO.");
   try {
     // Un seul login, pas de seconde tentative ici (évite de déloger le garage).
     const session = await openIxellioSession(creds, trace);
@@ -183,6 +179,6 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
   } catch (e) {
     return out("network_error", `Erreur réseau : ${e instanceof Error ? e.message : "inconnue"}`);
   } finally {
-    busy = false;
+    releaseIxellio();
   }
 }
