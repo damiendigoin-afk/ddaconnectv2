@@ -280,7 +280,8 @@ function splitTables(html: string): { html: string; nested: boolean }[] {
 }
 
 export function inspectStructure(html: string, searched: string): StructureShape {
-  const clean = html.replace(/<script\b[\s\S]*?<\/script>/gi, (s) => s.replace(/<[^>]*>/g, " "));
+  // Contenu des scripts retiré entièrement : jamais exposé dans les libellés.
+  const clean = stripScripts(html);
   const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
   const headings = [...html.matchAll(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi)].slice(0, 5).map((h) => safeLabel(h[1]!, searched)).filter(Boolean);
   const messages = [...html.matchAll(/<(div|span|p|li)\b[^>]*class=["'][^"']*(error|erreur|alert|message|warning|info)[^"']*["'][^>]*>([\s\S]*?)<\/\1>/gi)]
@@ -321,4 +322,147 @@ export function inspectStructure(html: string, searched: string): StructureShape
     referencePresent: occ > 0,
     referenceOccurrences: occ,
   };
+}
+
+/** Retire scripts/styles/commentaires (contenu compris). */
+export function stripScripts(html: string): string {
+  return html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ");
+}
+
+export type PageFormHints = {
+  formOpen: number;
+  formClose: number;
+  /** Champs hors <form> : nom/type seulement. */
+  looseFields: { name: string; type: string }[];
+  /** Soumissions repérées dans les scripts/attributs : chemin + method seulement. */
+  submitTargets: string[];
+};
+
+/** Indices du vrai formulaire quand aucun <form> complet n'est repéré (page GET). */
+export function inspectPageFormHints(html: string): PageFormHints {
+  const noForms = html.replace(/<form\b[\s\S]*?<\/form>/gi, " ");
+  const loose: PageFormHints["looseFields"] = [];
+  for (const f of stripScripts(noForms).matchAll(/<(input|select|textarea)\b([^>]*)>/gi)) {
+    const name = attr(f[2] ?? "", "name");
+    if (!name || loose.length >= 30) continue;
+    loose.push({
+      name: /^[A-Za-z0-9_.\-[\]]{1,60}$/.test(name) ? name : "[nom non standard]",
+      type: f[1]!.toLowerCase() === "input" ? (attr(f[2] ?? "", "type") ?? "text").toLowerCase() : f[1]!.toLowerCase(),
+    });
+  }
+  const targets = new Set<string>();
+  const sources = [
+    ...[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1] ?? ""),
+    ...[...html.matchAll(/\son(?:click|submit|change)\s*=\s*["']([^"']*)["']/gi)].map((m) => m[1] ?? ""),
+  ];
+  for (const src of sources)
+    for (const u of src.matchAll(/["'`]([^"'`\s]*?\.html(?:\?[^"'`\s]*)?)["'`]/gi)) {
+      const p = safeActionPath(u[1]);
+      if (p && p !== "[hôte externe]") targets.add(p);
+    }
+  return {
+    formOpen: (html.match(/<form\b/gi) ?? []).length,
+    formClose: (html.match(/<\/form>/gi) ?? []).length,
+    looseFields: loose,
+    submitTargets: [...targets].slice(0, 20),
+  };
+}
+
+export type PrixToolShape = { argCount: number; argKinds: string[]; objectKeys: string[] };
+export type ReferenceAnchor = { depth: number; rows: number; cols: number; rowLabels: string[]; prixToolCalls: number };
+export type PriceCandidate = { label: string; amount: number | null; basis: PriceBasis; status: "explicite" | "inconnu" };
+export type TargetedDiag = {
+  referenceAnchors: ReferenceAnchor[];
+  prixTool: { count: number; samples: PrixToolShape[] };
+  priceCandidates: PriceCandidate[];
+};
+
+function argKind(a: string): string {
+  const t = a.trim();
+  if (!t) return "vide";
+  if (/^-?\d+(?:[.,]\d+)?$/.test(t)) return "nombre";
+  if (/^["'`]/.test(t)) return "texte";
+  if (/^(true|false)$/.test(t)) return "booléen";
+  if (/^null|undefined$/.test(t)) return "null";
+  if (t.startsWith("{")) return "objet";
+  if (t.startsWith("[")) return "tableau";
+  return "expression";
+}
+
+/** Découpe les arguments au premier niveau (sans valeurs exposées). */
+function splitArgs(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0, q: string | null = null, cur = "";
+  for (const c of s) {
+    if (q) { cur += c; if (c === q) q = null; continue; }
+    if (c === "'" || c === '"' || c === "`") { q = c; cur += c; continue; }
+    if ("([{".includes(c)) depth++;
+    if (")]}".includes(c)) { if (depth === 0) break; depth--; }
+    if (c === "," && depth === 0) { out.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  if (cur.trim() || out.length) out.push(cur);
+  return out;
+}
+
+/** Diagnostic ciblé « Référence : » / createPrixStatusTool / « Prix » — formes, jamais de contenu de script. */
+export function inspectTargeted(html: string, searched: string): TargetedDiag {
+  const tables = splitTablesWithDepth(html);
+  const referenceAnchors: ReferenceAnchor[] = [];
+  for (const t of tables) {
+    if (referenceAnchors.length >= 3) break;
+    const own = ownContent(t.html);
+    if (!/r[ée]f[ée]rence\s*:/i.test(stripTags(stripScripts(own)))) continue;
+    const rows = own.match(/<tr\b[\s\S]*?<\/tr>/gi) ?? [];
+    const cellsOf = (r: string) => [...r.matchAll(/<(t[hd])\b[^>]*>([\s\S]*?)<\/\1>/gi)].map((c) => c[2] ?? "");
+    referenceAnchors.push({
+      depth: t.depth,
+      rows: rows.length,
+      cols: Math.max(0, ...rows.map((r) => cellsOf(r).length)),
+      rowLabels: rows.slice(0, 10).map((r) => safeLabel(stripScripts(cellsOf(r)[0] ?? ""), searched, 30)),
+      prixToolCalls: (own.match(/createPrixStatusTool\s*\(/g) ?? []).length,
+    });
+  }
+  const calls = [...html.matchAll(/createPrixStatusTool\s*\(([\s\S]{0,600})/g)];
+  const samples = calls.slice(0, 3).map((m) => {
+    const args = splitArgs(m[1] ?? "");
+    const keys = new Set<string>();
+    for (const a of args.filter((x) => x.trim().startsWith("{")))
+      for (const k of a.matchAll(/["']?([A-Za-z_][A-Za-z0-9_]{0,30})["']?\s*:/g)) keys.add(k[1]!);
+    return { argCount: args.length, argKinds: args.map(argKind), objectKeys: [...keys].slice(0, 20) };
+  });
+  const text = decodeEntities(stripTags(stripScripts(html))).replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+  const priceCandidates: PriceCandidate[] = [];
+  for (const m of text.matchAll(/\b(prix[^:;|\d€]{0,30})\s*:?\s*(-?\d{1,3}(?:[ .]\d{3})*,\d{2}|-?\d+[.,]\d{2})?\s*(€|eur\b)?/gi)) {
+    if (priceCandidates.length >= 10) break;
+    const label = safeLabel(m[1]!, searched, 40);
+    const a = m[2] ? parseAmount(`${m[2]} ${m[3] ?? ""}`) : null;
+    priceCandidates.push({ label, amount: a?.amount ?? null, basis: priceBasisFromHeader(label), status: a ? "explicite" : "inconnu" });
+  }
+  return { referenceAnchors, prixTool: { count: calls.length, samples }, priceCandidates };
+}
+
+function splitTablesWithDepth(html: string): { html: string; depth: number }[] {
+  const res: { html: string; depth: number }[] = [];
+  const stack: number[] = [];
+  for (const m of html.matchAll(/<\/?table\b[^>]*>/gi)) {
+    if (m[0][1] !== "/") stack.push(m.index!);
+    else if (stack.length) {
+      const start = stack.pop()!;
+      res.push({ html: html.slice(start, m.index! + m[0].length), depth: stack.length });
+    }
+  }
+  // Les plus internes d'abord (ordre de fermeture) : les ancres ciblent la table la plus proche.
+  return res;
+}
+
+/** Contenu propre d'une table, sans les tables imbriquées. */
+function ownContent(table: string): string {
+  let inner = table.replace(/^<table\b[^>]*>/i, "").replace(/<\/table>$/i, "");
+  let prev = "";
+  while (prev !== inner) { prev = inner; inner = inner.replace(/<table\b(?:(?!<table\b)[\s\S])*?<\/table>/gi, " "); }
+  return inner;
 }

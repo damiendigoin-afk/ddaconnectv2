@@ -94,6 +94,38 @@ export function IxellioPartsDiag() {
               ))}
             </div>
           ) : null}
+          {res.diagnostic.pageHints ? (
+            <div className="rounded-lg border border-border px-3 py-2 text-[11px]">
+              <div className="font-bold">A. Indices du formulaire (page de recherche)</div>
+              <div>Balises form : {res.diagnostic.pageHints.formOpen} ouvertes / {res.diagnostic.pageHints.formClose} fermées</div>
+              <div>Champs hors formulaire : {res.diagnostic.pageHints.looseFields.map((f) => `${f.name}:${f.type}`).join(", ") || "—"}</div>
+              <div>Cibles de soumission : {res.diagnostic.pageHints.submitTargets.join(", ") || "—"}</div>
+            </div>
+          ) : null}
+          {res.diagnostic.targeted ? (
+            <div className="rounded-lg border border-border px-3 py-2 text-[11px]">
+              <div className="font-bold">B. Ancres « Référence : »</div>
+              {res.diagnostic.targeted.referenceAnchors.map((a, i) => (
+                <div key={i}>
+                  #{i + 1} profondeur {a.depth} · {a.rows}×{a.cols} · prix JS {a.prixToolCalls} — lignes : {a.rowLabels.join(" | ") || "—"}
+                </div>
+              ))}
+              {!res.diagnostic.targeted.referenceAnchors.length ? <div>—</div> : null}
+              <div className="mt-1 font-bold">C. createPrixStatusTool ({res.diagnostic.targeted.prixTool.count} appel(s))</div>
+              {res.diagnostic.targeted.prixTool.samples.map((s, i) => (
+                <div key={i}>
+                  #{i + 1} {s.argCount} argument(s) : {s.argKinds.join(", ")}{s.objectKeys.length ? ` · clés : ${s.objectKeys.join(", ")}` : ""}
+                </div>
+              ))}
+              <div className="mt-1 font-bold">D. Mentions « Prix » visibles</div>
+              {res.diagnostic.targeted.priceCandidates.map((p, i) => (
+                <div key={i}>
+                  « {p.label} » : {p.amount != null ? p.amount.toFixed(2) : "montant inconnu"} [{p.basis === "unknown" ? "HT/TTC inconnu" : p.basis}]
+                </div>
+              ))}
+              {!res.diagnostic.targeted.priceCandidates.length ? <div>—</div> : null}
+            </div>
+          ) : null}
           {res.result?.parts.map((p, i) => (
             <div key={i} className="rounded-lg border border-border px-3 py-2">
               <div className="font-bold">

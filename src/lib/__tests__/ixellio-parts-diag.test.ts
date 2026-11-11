@@ -48,3 +48,35 @@ describe("diagnostic IXELLIO non sensible", () => {
     expect(partsOutcome(2, false)[0]).toBe("ok");
   });
 });
+
+import { inspectPageFormHints, inspectTargeted } from "../ixellio-parts-parse";
+
+describe("diagnostic ciblé IXELLIO", () => {
+  const POST = `<table><tr><td><table><tr><td>Référence : 214992066R</td></tr><tr><td>CLIO IV</td></tr>
+<tr><td>GUIDAGE AIR <script>var msg = createPrixStatusTool('SECRETX', 119.25, {prix: 1, statut: 'a'});</script></td></tr></table></td></tr></table>
+<p>Prix HT : 119,25 €</p><p>Prix public :</p>`;
+
+  it("n'expose jamais le contenu des scripts dans les en-têtes", () => {
+    const s = inspectStructure(POST, "214992066R");
+    expect(JSON.stringify(s)).not.toMatch(/createPrixStatusTool|SECRETX|var msg/);
+  });
+
+  it("décrit l'ancre Référence et la forme des appels prix sans valeurs", () => {
+    const t = inspectTargeted(POST, "214992066R");
+    expect(t.referenceAnchors[0]).toMatchObject({ depth: 1, rows: 3, prixToolCalls: 1 });
+    expect(t.referenceAnchors[0]!.rowLabels[0]).toBe("Référence : [réf]");
+    expect(t.prixTool.samples[0]).toEqual({ argCount: 3, argKinds: ["texte", "nombre", "objet"], objectKeys: ["prix", "statut"] });
+    const json = JSON.stringify(t);
+    expect(json).not.toMatch(/SECRETX|214992066R/);
+    expect(t.priceCandidates).toContainEqual({ label: "Prix HT", amount: 119.25, basis: "HT", status: "explicite" });
+    expect(t.priceCandidates.find((p) => p.label.startsWith("Prix public"))).toMatchObject({ amount: null, status: "inconnu", basis: "unknown" });
+  });
+
+  it("repère champs hors formulaire et cibles de soumission sans valeurs", () => {
+    const h = inspectPageFormHints(`<form name="x"><input name="ref" value="ZZ"><script>document.f.action='/PieceRecherche.html?method=searchReference&t=TOK'</script>`);
+    expect(h).toMatchObject({ formOpen: 1, formClose: 0 });
+    expect(h.looseFields).toEqual([{ name: "ref", type: "text" }]);
+    expect(h.submitTargets).toEqual(["/PieceRecherche.html?method=searchReference"]);
+    expect(JSON.stringify(h)).not.toMatch(/ZZ|TOK/);
+  });
+});

@@ -5,7 +5,7 @@
  */
 import { loadIxellioCredentials } from "./ixellio-store.server";
 import { openIxellioSession } from "./ixellio.server";
-import { inspectForms, inspectStructure, parseIxellioParts, type FormShape, type IxellioPartsResult, type StructureShape } from "./ixellio-parts-parse";
+import { inspectForms, inspectPageFormHints, inspectStructure, inspectTargeted, type PageFormHints, type TargetedDiag, parseIxellioParts, type FormShape, type IxellioPartsResult, type StructureShape } from "./ixellio-parts-parse";
 
 const BASE = "https://www.ixellio.fr";
 const PAGE_URL = `${BASE}/PieceRecherche.html`;
@@ -38,6 +38,8 @@ export type IxellioPartsLookup = {
     pageForms: FormShape[];
     /** Structure de la réponse POST (aucun HTML brut). */
     response: StructureShape | null;
+    pageHints: PageFormHints | null;
+    targeted: TargetedDiag | null;
   };
   result: Omit<IxellioPartsResult, "headers" | "tableCount"> | null;
   durationMs: number;
@@ -100,6 +102,8 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     headers: [],
     pageForms: [],
     response: null,
+    pageHints: null,
+    targeted: null,
   };
   const out = (status: IxellioPartsLookup["status"], message: string, result: IxellioPartsLookup["result"] = null): IxellioPartsLookup => ({
     status, message, reference, trace, diagnostic, result, durationMs: Date.now() - started,
@@ -130,6 +134,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     diagnostic.csrfFound = Boolean(csrf);
     diagnostic.formFieldNames = partsFormFieldNames(pageHtml);
     diagnostic.pageForms = inspectForms(pageHtml);
+    diagnostic.pageHints = inspectPageFormHints(pageHtml);
     trace.push(csrf ? "jeton _csrf détecté" : "jeton _csrf absent");
 
     const search = await fetch(SEARCH_URL, {
@@ -154,6 +159,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     if (search.status !== 200) return out("http_error", `IXELLIO a répondu HTTP ${search.status}.`);
 
     diagnostic.response = inspectStructure(html, reference);
+    diagnostic.targeted = inspectTargeted(html, reference);
     const parsed = parseIxellioParts(html, reference);
     diagnostic.tableCount = parsed.tableCount;
     diagnostic.headers = parsed.headers;
