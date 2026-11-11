@@ -4,7 +4,7 @@ import { FileCode } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { CopyDiagButton } from "@/components/IxellioLaborDiag";
-import type { JsFlow } from "@/lib/ixellio-js-flow";
+import { VERIFIED_ROLES, type JsFlow } from "@/lib/ixellio-js-flow";
 import { inspectIxellioPublicScriptsDiag, inspectIxellioScriptsDiag } from "@/lib/ixellio.functions";
 
 const ep = (e: { path: string; method: string | null }) => `${e.path}${e.method ? `?method=${e.method}` : ""}`;
@@ -14,10 +14,11 @@ export function FlowView({ flow }: { flow: JsFlow }) {
     <>
       {flow.functions.map((f) => (
         <div key={f.name} className="pl-2">
-          <span className="font-bold">{f.name}</span> · {f.exists ? `définie (${f.parse})` : "absente"}
-          {f.exists ? ` · paramètres : ${f.params.join(", ") || "—"} · appelle : ${f.calls.join(", ") || "—"} · réseau : ${f.ajax.map((a) => `${a.fn} ${a.method}`).join(", ") || "aucun"} · adresses : ${f.endpoints.map(ep).join(", ") || "—"} · DOM : ${f.domShapes.join(", ") || "—"} · cases à cocher : ${f.buildsCheckboxes ? "oui" : "non"} · interventions : ${f.interventionList ? "oui" : "non"} · « min » littéral : ${f.minuteUnitExplicit ? "oui" : "non"} · effet : ${f.outcomes.join(", ") || "—"}` : ""}
+          <span className="font-bold">{f.name}</span>{VERIFIED_ROLES[f.name] ? ` [${VERIFIED_ROLES[f.name]}]` : ""} · {f.exists ? `définie (${f.parse})` : "absente"}
+          {f.exists ? ` · paramètres : ${f.params.join(", ") || "—"} · appelle : ${f.calls.join(", ") || "—"} · réseau : ${f.ajax.map((a) => `${a.fn} ${a.method}`).join(", ") || "aucun"} · adresses : ${f.endpoints.map(ep).join(", ") || "—"} · DOM : ${f.domShapes.join(", ") || "—"} · cases à cocher : ${f.buildsCheckboxes ? "oui" : "non"} · interventions : ${f.interventionList ? "oui" : "non"} · « min » littéral : ${f.minuteUnitExplicit ? "oui" : "non"} · effet : ${f.outcomes.join(", ") || "—"} · champs formulaire : ${f.formFields?.join(", ") || "—"} · action envoyée : ${f.submitMethods?.join(", ") || "—"} · envoi : ${f.submits ? "OUI (écriture/navigation)" : "non"} · temps/durée cité : ${f.timeRefs ? "oui" : "non"}` : ""}
         </div>
       ))}
+      <div>Bouton OK → {flow.okHandlers.join(", ") || "non déterminé"} · globales : {flow.globals.join(", ") || "—"}</div>
       <div>Fonctions déclarées : {flow.declared} · OK → saveSelectionToChiffrage : {flow.okCallsSave} · saveSelectionToChiffrage modifie le chiffrage : {flow.saveIsMutating}</div>
       {flow.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
     </>

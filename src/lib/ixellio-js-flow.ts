@@ -6,7 +6,28 @@
  */
 import { nameShape, safeEndpoints, type SafeEndpoint } from "./ixellio-parts-replace";
 
-export const FLOW_TARGETS = ["selectPiece", "initInterventions", "selectElement", "createPopupToDisplayContent", "saveSelectionToChiffrage", "dialog"] as const;
+export const FLOW_TARGETS = [
+  "selectPiece", "menuInterventions", "afficheMenuIntervention", "selectCodeIntervention", "autoSelectIntervention",
+  "valideInterventions", "masqueMenuIntervention", "deSelectPiece", "buildSelectionPiece", "buildPiece",
+  "buildTempsRedressage", "saveSelection", "saveSelectionToChiffrage", "saveSelectionToNewChiffrage",
+  "initInterventions", "selectElement", "createPopupToDisplayContent", "dialog",
+] as const;
+
+/** Rôles établis par lecture du source PUBLIC /scripts/pieceRecherche.js + /scripts/intervention.js (11/2026). */
+export const VERIFIED_ROLES: Record<string, string> = {
+  selectPiece: "clic ligne → menuInterventions si code élément, sinon sélection simple",
+  menuInterventions: "choisit la liste d'interventions (mécanique/carrosserie) → afficheMenuIntervention",
+  afficheMenuIntervention: "construit la fenêtre (cases Remplacer…, OK → valideInterventions, Annuler → masqueMenuIntervention)",
+  selectCodeIntervention: "coche/décoche un code (variable mémoire), désactive les incompatibles",
+  autoSelectIntervention: "type 0 : Remplacer automatique puis valideInterventions",
+  valideInterventions: "bouton OK : affiche des blocs DÉJÀ présents dans la page (divTempsRemplacement_, réparation, peinture), aucun réseau",
+  masqueMenuIntervention: "ferme la fenêtre",
+  buildSelectionPiece: "prépare le champ formulaire selection avant envoi",
+  buildTempsRedressage: "lit les temps SAISIS redressage/réparation (carrosserie, saisie garage)",
+  saveSelection: "ENVOI formulaire → chiffrage (écriture)",
+  saveSelectionToChiffrage: "ENVOI formulaire addToChiffrage (écriture)",
+  saveSelectionToNewChiffrage: "ENVOI formulaire addToNewChiffrage (écriture)",
+};
 
 export type FnFlow = {
   name: string;
@@ -21,11 +42,22 @@ export type FnFlow = {
   interventionList: boolean;
   minuteUnitExplicit: boolean;
   outcomes: ("popup" | "navigation" | "réseau" | "écriture chiffrage probable")[];
+  /** Champs du formulaire nommés (document.xForm.champ) — noms seulement. */
+  formFields?: string[];
+  /** Valeurs littérales affectées à form.method.value (noms d'action, identifiants seulement). */
+  submitMethods?: string[];
+  submits?: boolean;
+  timeRefs?: boolean;
+  okHandlers?: string[];
 };
 export type JsFlow = {
   functions: FnFlow[];
   declared: number;
   okCallsSave: "probable" | "non déterminé";
+  /** Fonction(s) branchée(s) sur le bouton OK de la fenêtre générée. */
+  okHandlers: string[];
+  /** Variables globales (hors fonctions) liées aux interventions/temps — noms seulement. */
+  globals: string[];
   saveIsMutating: "probable" | "non déterminé" | "fonction absente";
   warnings: string[];
 };
@@ -95,12 +127,24 @@ function analyzeBody(name: string, params: string, body: string): Omit<FnFlow, "
     interventionList: /intervention/i.test(body),
     minuteUnitExplicit: lits.some((l) => /\b(min|mn|minutes?)\b/i.test(l)),
     outcomes,
+    formFields: [...new Set([...body.matchAll(/document\.[A-Za-z_$][\w$]{0,40}Form\.([A-Za-z_$][\w$]{0,40})/g)].map((m) => m[1]!))].filter((n) => n !== "submit").slice(0, 12),
+    submitMethods: [...new Set([...body.matchAll(/\.method\.value\s*=\s*["']([A-Za-z]{1,40})["']/g)].map((m) => m[1]!))].slice(0, 5),
+    submits: /\.submit\s*\(/.test(body),
+    timeRefs: /temps|duree|durée|minute/i.test(body),
+    okHandlers: okHandlersIn(body),
   };
+}
+
+function okHandlersIn(body: string): string[] {
+  const i = body.search(/TXT_OK\b|value=\\?["']\s*OK\s*\\?["']/);
+  if (i < 0) return [];
+  const m = /javascript:([A-Za-z_$][\w$]{0,40})\s*\(/.exec(body.slice(i, i + 400));
+  return m ? [m[1]!] : [];
 }
 
 export function analyzeJsFlow(js: string, targets: readonly string[] = FLOW_TARGETS): JsFlow {
   const decls = declarations(js);
-  const functions: FnFlow[] = targets.slice(0, 6).map((name) => {
+  const functions: FnFlow[] = targets.slice(0, 20).map((name) => {
     const d = decls.find((x) => x.name === name);
     const blank = { name, params: [], calls: [], ajax: [], endpoints: [], domShapes: [], buildsCheckboxes: false, interventionList: false, minuteUnitExplicit: false, outcomes: [] };
     if (!d) return { ...blank, exists: false, parse: "absente" };
@@ -116,14 +160,20 @@ export function analyzeJsFlow(js: string, targets: readonly string[] = FLOW_TARG
     const b = js.slice(d.open, end + 1);
     if (/saveSelectionToChiffrage\s*\(/.test(b) && (literals(b).some((l) => /^ok$/i.test(l.trim())) || /\bOK\s*:/.test(b))) { okCallsSave = "probable"; break; }
   }
+  const okHandlers = [...new Set(functions.flatMap((f) => f.okHandlers ?? []))];
+  if (okHandlers.length && !okHandlers.includes("saveSelectionToChiffrage") && okCallsSave === "probable") okCallsSave = "non déterminé";
+  let outside = js;
+  for (const d of [...decls].reverse()) { const e = matchBrace(js, d.open); if (e > 0) outside = outside.slice(0, d.open) + outside.slice(e + 1); }
+  const globals = [...new Set([...outside.matchAll(/\bvar\s+([A-Za-z_$][\w$]{0,40})/g)].map((m) => m[1]!))].filter((n) => /interv|temps|duree|minute|piece/i.test(n)).slice(0, 15);
   const save = functions.find((f) => f.name === "saveSelectionToChiffrage");
   const saveIsMutating: JsFlow["saveIsMutating"] = !save || !save.exists ? "fonction absente" : save.ajax.length || save.outcomes.includes("navigation") || WRITE.test(save.name) ? "probable" : "non déterminé";
   const warnings: string[] = [];
   const missing = functions.filter((f) => !f.exists).map((f) => f.name);
-  if (missing.length) warnings.push(`Non définie(s) ici : ${missing.join(", ")} — probablement dans un fichier JS externe.`);
+  if (okHandlers.length) warnings.push(`Bouton OK de la fenêtre → ${okHandlers.join(", ")}.`);
+  if (missing.length) warnings.push(`Non définie(s) dans ce script : ${missing.join(", ")}.`);
   if (functions.some((f) => f.parse === "non analysable")) warnings.push("Corps de fonction non analysable (accolades/chaînes déséquilibrées) : résultat incomplet.");
-  if (saveIsMutating !== "fonction absente") warnings.push("saveSelectionToChiffrage = écriture probable dans le chiffrage IXELLIO : ne jamais l'appeler ni simuler « OK » à distance.");
-  if (!functions.some((f) => f.minuteUnitExplicit)) warnings.push("Aucune unité « min » littérale dans ces fonctions : le temps en minutes est probablement fourni dynamiquement (réponse serveur), invisible en statique.");
+  if (saveIsMutating === "probable") warnings.push("saveSelectionToChiffrage = écriture probable dans le chiffrage IXELLIO : ne jamais l'appeler ni simuler « OK » à distance.");
+  if (!functions.some((f) => f.minuteUnitExplicit) && !functions.some((f) => f.ajax.length)) warnings.push("Aucun appel réseau ni unité « min » dans ces fonctions : un temps éventuel est déjà dans la page de résultats (bloc masqué), pas calculé à la demande.");
   warnings.push("Analyse statique : flux probable, non confirmé à l'exécution. Aucune durée extraite.");
-  return { functions, declared: decls.length, okCallsSave, saveIsMutating, warnings };
+  return { functions, declared: decls.length, okCallsSave, okHandlers, globals, saveIsMutating, warnings };
 }

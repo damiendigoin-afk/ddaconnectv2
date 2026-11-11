@@ -26,10 +26,11 @@ export function IxellioPartsDiag() {
   const sectionIRef = useRef<HTMLDivElement>(null);
   const sectionJRef = useRef<HTMLDivElement>(null);
   const sectionKRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState<"all" | "i" | "j" | "k" | null>(null);
+  const sectionLRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<"all" | "i" | "j" | "k" | "l" | null>(null);
 
-  async function copy(kind: "all" | "i" | "j" | "k") {
-    const body = blockText(kind === "all" ? reportRef.current : kind === "i" ? sectionIRef.current : kind === "j" ? sectionJRef.current : sectionKRef.current);
+  async function copy(kind: "all" | "i" | "j" | "k" | "l") {
+    const body = blockText(kind === "all" ? reportRef.current : kind === "i" ? sectionIRef.current : kind === "j" ? sectionJRef.current : kind === "k" ? sectionKRef.current : sectionLRef.current);
     const ok = body ? await copyText(`Référence recherchée : ${ref.trim().toUpperCase()}\nStatut : ${res?.status ?? "—"}\n${body}`) : false;
     if (ok) {
       setCopied(kind);
@@ -58,6 +59,7 @@ export function IxellioPartsDiag() {
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
           <div className="text-[11px] font-bold text-brand">IXELLIO v10 — Chaîne sélection → Remplacer → temps</div>
+          <div className="text-[11px] font-bold text-brand">IXELLIO v11 — L. Chaîne complète interventions / bloc temps</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -92,6 +94,11 @@ export function IxellioPartsDiag() {
           {res.diagnostic.selection?.flow ? (
             <button type="button" onClick={() => void copy("k")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
               {copied === "k" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier la section K
+            </button>
+          ) : null}
+          {res.diagnostic.tempsRemp ? (
+            <button type="button" onClick={() => void copy("l")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
+              {copied === "l" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier la section L
             </button>
           ) : null}
         </div>
@@ -293,6 +300,16 @@ export function IxellioPartsDiag() {
             <div ref={sectionKRef} className="rounded-lg border border-border px-3 py-2">
               <div className="font-bold">K. Chaîne de sélection → fenêtre Remplacer → temps (scripts inline)</div>
               <FlowView flow={res.diagnostic.selection.flow} />
+            </div>
+          ) : null}
+          {res.diagnostic.tempsRemp ? (
+            <div ref={sectionLRef} className="rounded-lg border border-border px-3 py-2">
+              <div className="font-bold">L. Bloc temps après OK (divTempsRemplacement) — {res.diagnostic.tempsRemp.verdict}</div>
+              <div>Lignes pièce identifiées : {res.diagnostic.tempsRemp.rowsWithPieceId} · données pièce en script : {res.diagnostic.tempsRemp.itemsPutCalls}</div>
+              {res.diagnostic.tempsRemp.blocks.map((b) => (
+                <div key={b.index} className="pl-2">#{b.index} {b.designation ?? "désignation non rattachée"} ({b.mapping}) · masqué au départ : {b.hiddenByDefault ? "oui" : "non"} · chiffre présent : {b.hasNumber ? "oui" : "non"} · unité : {b.unit ?? "aucune"} · champs : {b.inputs.map((x) => `${x.name ?? "?"}:${x.type}`).join(", ") || "—"} · mots : {b.labelWords.join(", ") || "—"}</div>
+              ))}
+              {res.diagnostic.tempsRemp.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
             </div>
           ) : null}
           {res.diagnostic.repair ? (() => {
