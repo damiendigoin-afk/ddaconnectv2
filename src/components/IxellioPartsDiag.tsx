@@ -126,6 +126,28 @@ export function IxellioPartsDiag() {
               {!res.diagnostic.targeted.priceCandidates.length ? <div>—</div> : null}
             </div>
           ) : null}
+          {res.diagnostic.euros ? (
+            <div className="rounded-lg border border-border px-3 py-2 text-[11px]">
+              <div className="font-bold">
+                E. Montants en € visibles : {res.diagnostic.euros.total} ({res.diagnostic.euros.distinctAmounts} distinct(s))
+              </div>
+              <div className="text-muted-foreground">
+                Base HT/TTC et prix public non établis ; deux occurrences ne font pas forcément deux tarifs.
+              </div>
+              {res.diagnostic.euros.items.map((e, i) => (
+                <div key={i}>
+                  {e.amount.toFixed(2)} € · « {e.cellText || "—"} »{e.rowLabel ? ` · ligne « ${e.rowLabel} »` : ""} · tableau{" "}
+                  {e.tableIndex ?? "—"} prof. {e.tableDepth} case {e.cellIndex ?? "—"} · Référence{" "}
+                  {e.referenceLevelsUp == null ? "aucune" : `${e.referenceLevelsUp} niveau(x) au-dessus`} · {e.association}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {res.diagnostic.pageHints && res.diagnostic.pageHints.formOpen === 0 ? (
+            <div className="text-[11px] text-muted-foreground">
+              Aucun formulaire dans la page de recherche : normal pour une page pilotée par JavaScript.
+            </div>
+          ) : null}
           {res.result?.parts.map((p, i) => (
             <div key={i} className="rounded-lg border border-border px-3 py-2">
               <div className="font-bold">
