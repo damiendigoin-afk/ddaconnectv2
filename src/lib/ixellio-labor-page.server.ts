@@ -10,6 +10,12 @@ import { loadIxellioCredentials } from "./ixellio-store.server";
 import { BROWSER_HEADERS, cookieHeader, looksLikeLoginPage, openIxellioSession } from "./ixellio.server";
 
 export const TEMPS_PAGE_URL = "https://www.ixellio.fr/Temps.html?method=search";
+/** Allowlist stricte : seules ces pages fixes peuvent être lues (un GET chacune, à la demande). */
+export const IXELLIO_FIXED_PAGES = {
+  temps: { url: TEMPS_PAGE_URL, path: "/Temps.html?method=search", name: "Temps" },
+  gamme: { url: "https://www.ixellio.fr/GammeUniverselle.html?method=search", path: "/GammeUniverselle.html?method=search", name: "Gamme IXELL" },
+} as const;
+export type IxellioFixedPage = keyof typeof IXELLIO_FIXED_PAGES;
 const REFERER = "https://www.ixellio.fr/mainMenu.html?method=index";
 
 export type TempsPageStatus =
@@ -29,7 +35,7 @@ export type IxellioTempsPageDiag = {
 };
 
 /** Classement PUR de la réponse du GET (testable sans réseau). */
-export function classifyTempsResponse(status: number, location: string | null, html: string):
+export function classifyTempsResponse(status: number, location: string | null, html: string, name = "Temps"):
   { status: TempsPageStatus; redirectKind: IxellioTempsPageDiag["redirectKind"]; page: TempsPageInspection | null; message: string } {
   if (status >= 300 && status < 400) {
     let kind: "connexion" | "externe" | "interne" = "interne";
@@ -38,18 +44,24 @@ export function classifyTempsResponse(status: number, location: string | null, h
       kind = !/(^|\.)ixellio\.fr$/i.test(u.hostname) ? "externe" : /login|index\.html|j_spring|denied|error/i.test(u.pathname) ? "connexion" : "interne";
     } catch { kind = "externe"; }
     return { status: kind === "connexion" ? "page_connexion" : "redirection", redirectKind: kind, page: null,
-      message: kind === "connexion" ? "Redirigé vers la connexion : page Temps non accessible avec cette session." : `Redirection ${kind} non suivie (lecture seule).` };
+      message: kind === "connexion" ? `Redirigé vers la connexion : page ${name} non accessible avec cette session.` : `Redirection ${kind} non suivie (lecture seule).` };
   }
-  if (status === 401 || status === 403) return { status: "acces_refuse", redirectKind: null, page: null, message: `IXELLIO refuse l'accès à la page Temps (HTTP ${status}) : module peut-être non souscrit.` };
+  if (status === 401 || status === 403) return { status: "acces_refuse", redirectKind: null, page: null, message: `IXELLIO refuse l'accès à la page ${name} (HTTP ${status}) : module peut-être non souscrit.` };
   if (status !== 200) return { status: "http_error", redirectKind: null, page: null, message: `IXELLIO a répondu HTTP ${status}.` };
   if (looksLikeLoginPage(html)) return { status: "page_connexion", redirectKind: null, page: null, message: "La réponse est la page de connexion : accès non établi." };
   const page = inspectTempsPage(html);
-  if (page.limitations.length) return { status: "acces_limite", redirectKind: null, page, message: "La page Temps signale un accès limité." };
+  if (page.limitations.length) return { status: "acces_limite", redirectKind: null, page, message: `La page ${name} signale un accès limité.` };
   return { status: "page_lue_tm_non_recuperes", redirectKind: null, page,
-    message: "Page Temps lue (GET réussi). Aucun temps barémé récupéré : la page n'a pas été interrogée pour un véhicule/une opération." };
+    message: `Page ${name} lue (GET réussi). Aucun temps barémé constructeur récupéré ni validé.` };
 }
 
 export async function inspectIxellioTempsPage(): Promise<IxellioTempsPageDiag> {
+  return inspectIxellioFixedPage("temps");
+}
+
+export async function inspectIxellioFixedPage(key: IxellioFixedPage): Promise<IxellioTempsPageDiag> {
+  const target = IXELLIO_FIXED_PAGES[key];
+  if (!target) throw new Error("Page IXELLIO non autorisée.");
   const started = Date.now();
   const trace: string[] = [];
   const out = (status: TempsPageStatus, message: string, extra: Partial<IxellioTempsPageDiag> = {}): IxellioTempsPageDiag => ({
@@ -64,10 +76,10 @@ export async function inspectIxellioTempsPage(): Promise<IxellioTempsPageDiag> {
   try {
     const session = await openIxellioSession(creds, trace);
     if (!session.ok) return out("auth_failed", session.message);
-    const res = await fetch(TEMPS_PAGE_URL, { redirect: "manual", headers: { ...BROWSER_HEADERS, referer: REFERER, cookie: cookieHeader(session.jar) } });
+    const res = await fetch(target.url, { redirect: "manual", headers: { ...BROWSER_HEADERS, referer: REFERER, cookie: cookieHeader(session.jar) } });
     const html = res.status === 200 ? await res.text() : (await res.text().catch(() => ""), "");
-    trace.push(`GET /Temps.html?method=search ${res.status} (${html.length} o) — requête unique, redirections non suivies`);
-    const c = classifyTempsResponse(res.status, res.headers.get("location"), html);
+    trace.push(`GET ${target.path} ${res.status} (${html.length} o) — requête unique, redirections non suivies`);
+    const c = classifyTempsResponse(res.status, res.headers.get("location"), html, target.name);
     return out(c.status, c.message, { getStatus: res.status, redirectKind: c.redirectKind, bytes: html.length, page: c.page });
   } catch (e) {
     return out("network_error", `Erreur réseau : ${e instanceof Error ? e.message : "inconnue"}`);

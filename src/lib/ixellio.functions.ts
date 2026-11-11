@@ -139,3 +139,12 @@ export const inspectIxellioTempsPageDiag = createServerFn({ method: "POST" })
     const { inspectIxellioTempsPage } = await import("./ixellio-labor-page.server");
     return inspectIxellioTempsPage();
   });
+
+/** Diagnostic manager TM v3 : un GET unique sur /GammeUniverselle.html?method=search (chemin fixe), lecture seule. */
+export const inspectIxellioGammeDiag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertManager(context as never);
+    const { inspectIxellioFixedPage } = await import("./ixellio-labor-page.server");
+    return inspectIxellioFixedPage("gamme");
+  });

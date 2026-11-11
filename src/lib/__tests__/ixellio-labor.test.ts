@@ -124,3 +124,44 @@ describe("TM v2 — menu réel et page Temps (fixtures synthétiques)", () => {
     expect(ok.page!.times).toEqual([]);
   });
 });
+
+import { classifySource } from "../ixellio-labor-parse";
+import { IXELLIO_FIXED_PAGES } from "../ixellio-labor-page.server";
+
+describe("TM v3 — Gamme IXELL et nature des sources (fixtures synthétiques)", () => {
+  it("allowlist fixe : deux pages exactes seulement", () => {
+    expect(Object.values(IXELLIO_FIXED_PAGES).map((p) => p.url)).toEqual([
+      "https://www.ixellio.fr/Temps.html?method=search", "https://www.ixellio.fr/GammeUniverselle.html?method=search"]);
+  });
+
+  it("page Temps réelle (elementGarageId + add/edit/remove) => éléments garage, exclue", () => {
+    const p = inspectTempsPage(`<title>Ixellio Temps</title><form action="/Temps.html?method=search" method="post"><select name="elementGarageId"><option>1</option></select></form>
+      <a href="/Temps.html?method=edit&tempsGarageId=12">Modifier</a><a href="/Temps.html?method=remove&tempsGarageId=12">Supprimer</a>
+      <script>u="/ajax/Temps.html?method=addElement";</script>`);
+    expect(p.sourceKind).toBe("elements_garage");
+    expect(p.times).toEqual([]);
+    expect(JSON.stringify(p)).not.toMatch(/"12"|tempsGarageId=12/);
+  });
+
+  it("Gamme générique avec durées sans véhicule => gamme garage possible, aucun TM", () => {
+    const p = inspectTempsPage(`<title>Gamme universelle</title><h2>Gamme IXELL — forfaits</h2>
+      <form action="/GammeUniverselle.html?method=search" method="get"><input name="libelle"><input name="_csrf" type="hidden" value="SEC"></form>
+      <table><tr><th>Opération</th><th>Temps (h)</th></tr><tr><td>Vidange</td><td>0,5</td></tr></table>`);
+    expect(p.sourceKind).toBe("gamme_garage_possible");
+    expect(p.explicitTimeRows).toBe(1);
+    expect(p.times).toEqual([]);
+    expect(JSON.stringify(p)).not.toContain("SEC");
+  });
+
+  it("indices constructeur + champ véhicule => seulement « à confirmer », jamais validé", () => {
+    const c = classifySource({ title: "Temps constructeur", headings: ["Barème constructeur"], links: [], forms: [], searchFields: [{ name: "vin", type: "text", hint: "vehicule" }] });
+    expect(c.kind).toBe("constructeur_possible");
+    expect(classifySource({ title: "Accueil", headings: [], links: [], forms: [], searchFields: [] }).kind).toBe("indetermine");
+  });
+
+  it("réponses Gamme : 200 lue, 302 connexion, 403 refus", () => {
+    expect(classifyTempsResponse(200, null, `<title>Gamme</title>`, "Gamme IXELL").message).toMatch(/Gamme IXELL lue.*ni validé/);
+    expect(classifyTempsResponse(302, "/login.html", "", "Gamme IXELL")).toMatchObject({ status: "page_connexion" });
+    expect(classifyTempsResponse(403, null, "", "Gamme IXELL").message).toMatch(/Gamme IXELL/);
+  });
+});

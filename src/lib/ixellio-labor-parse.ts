@@ -256,7 +256,42 @@ export type TempsPageInspection = {
   timeHeaderWithoutUnit: boolean;
   /** TM affichables : uniquement si liaison véhicule/opération explicite — jamais à cette étape. */
   times: IxellioLaborTime[];
+  /** Nature probable de la source, sur indices de champs/actions/intitulés ; jamais « TM constructeur validé ». */
+  sourceKind: SourceKind;
+  sourceEvidence: string[];
+  keywords: string[];
 };
+
+export type SourceKind = "elements_garage" | "gamme_garage_possible" | "constructeur_possible" | "indetermine";
+export const SOURCE_KIND_LABEL: Record<SourceKind, string> = {
+  elements_garage: "Éléments garage configurables — pas de TM constructeur (exclu)",
+  gamme_garage_possible: "Gamme/forfaits garage possibles (durées éventuellement arbitraires) — pas un TM constructeur validé",
+  constructeur_possible: "Indices constructeur + véhicule — à confirmer, TM constructeur NON validé",
+  indetermine: "Nature indéterminée — TM constructeur non validé",
+};
+const KW = ["gamme", "main d'oeuvre", "forfait", "barème", "temps", "constructeur", "universel", "véhicule", "opération"];
+
+/** Classement prudent de la source sur preuves de structure (noms de champs, chemins, intitulés). */
+export function classifySource(p: Pick<TempsPageInspection, "forms" | "links" | "headings" | "searchFields" | "title">): { kind: SourceKind; evidence: string[]; keywords: string[] } {
+  const names = [...p.forms.flatMap((f) => f.fields.map((x) => x.name)), ...p.links.flatMap((l) => l.paramNames)];
+  const paths = [...p.forms.map((f) => f.path), ...p.links.map((l) => l.path)];
+  const textAll = `${p.title} ${p.headings.join(" ")} ${p.links.map((l) => l.label).join(" ")}`.toLowerCase().replace(/œ/g, "oe").replace(/’/g, "'");
+  const keywords = KW.filter((k) => textAll.includes(k) || textAll.includes(k.normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+  const ev: string[] = [];
+  const garage = names.filter((n) => /garage/i.test(n));
+  if (garage.length) ev.push(`champs/paramètres garage : ${[...new Set(garage)].join(", ")}`);
+  const edits = paths.filter((x) => /method=(add|edit|update|remove|delete)/i.test(x));
+  if (edits.length) ev.push(`actions d'édition présentes (${edits.length}) : contenu configurable`);
+  const veh = p.searchFields.filter((f) => f.hint === "vehicule").map((f) => f.name);
+  if (veh.length) ev.push(`champs véhicule : ${veh.join(", ")}`);
+  if (garage.length && !veh.length) return { kind: "elements_garage", evidence: ev, keywords };
+  if (veh.length && /constructeur|bar[eè]me/.test(textAll)) return { kind: "constructeur_possible", evidence: ev, keywords };
+  if (/gamme|forfait|universel/.test(textAll) || paths.some((x) => /gamme|forfait/i.test(x))) {
+    ev.push("intitulés/chemins gamme ou forfait");
+    return { kind: "gamme_garage_possible", evidence: ev, keywords };
+  }
+  return { kind: "indetermine", evidence: ev, keywords };
+}
 
 /** Inspection PURE de la page /Temps.html?method=search (aucune valeur de champ, libellés masqués). */
 export function inspectTempsPage(html: string): TempsPageInspection {
@@ -275,12 +310,14 @@ export function inspectTempsPage(html: string): TempsPageInspection {
     /immat|vin|vehic|version|motor|marque|modele|model|type/i.test(name) ? "vehicule" : /oper|interv|presta|code|libelle|temps/i.test(name) ? "operation" : "autre";
   const searchFields = m.forms.flatMap((f) => f.fields.filter((x) => !/hidden|submit|button|image|reset/.test(x.type)).map((x) => ({ ...x, hint: hint(x.name) })));
   const parsed = parseLaborTimes(html);
-  return {
+  const base = {
     title: m.title, isLoginPage: m.isLoginPage, limitations: m.limitations, headings, links: m.entries.filter((e) => e.via !== "formulaire"), forms: m.forms,
     searchFields,
     needsVehicle: searchFields.some((f) => f.hint === "vehicule") || m.entries.some((e) => e.via === "formulaire" && e.needsVehicle),
     needsOperation: searchFields.some((f) => f.hint === "operation"),
     tableCount, explicitTimeRows: parsed.times.length, timeHeaderWithoutUnit: parsed.status === "structure_unknown",
-    times: [], // liaison véhicule/opération non établie à cette étape : aucun TM affiché
+    times: [] as IxellioLaborTime[], // liaison véhicule/opération non établie à cette étape : aucun TM affiché
   };
+  const c = classifySource(base);
+  return { ...base, sourceKind: c.kind, sourceEvidence: c.evidence, keywords: c.keywords };
 }

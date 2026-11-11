@@ -1,8 +1,8 @@
 import { useServerFn } from "@tanstack/react-start";
 import { Clock } from "lucide-react";
 import { useState } from "react";
-import { inspectIxellioLaborDiag, inspectIxellioTempsPageDiag } from "@/lib/ixellio.functions";
-import type { MenuCategory } from "@/lib/ixellio-labor-parse";
+import { inspectIxellioGammeDiag, inspectIxellioLaborDiag, inspectIxellioTempsPageDiag } from "@/lib/ixellio.functions";
+import { SOURCE_KIND_LABEL, type MenuCategory } from "@/lib/ixellio-labor-parse";
 
 type Res = Awaited<ReturnType<typeof inspectIxellioLaborDiag>>;
 const CAT: Record<MenuCategory, string> = {
@@ -12,8 +12,11 @@ const ORDER: MenuCategory[] = ["temps_bareme", "forfaits", "chiffrage", "vehicul
 
 type PageRes = Awaited<ReturnType<typeof inspectIxellioTempsPageDiag>>;
 
-function TempsPageDiag() {
-  const run = useServerFn(inspectIxellioTempsPageDiag);
+function TempsPageDiag({ kind }: { kind: "temps" | "gamme" }) {
+  const runTemps = useServerFn(inspectIxellioTempsPageDiag);
+  const runGamme = useServerFn(inspectIxellioGammeDiag);
+  const run = kind === "gamme" ? runGamme : runTemps;
+  const g = kind === "gamme";
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<PageRes | null>(null);
   const [error, setError] = useState("");
@@ -24,11 +27,12 @@ function TempsPageDiag() {
   const p = res?.page;
   return (
     <div className="mt-3 rounded-lg border border-border px-3 py-3">
-      <div className="text-[11px] font-bold text-brand">Diagnostic TM v2 — inspection page Temps</div>
-      <div className="text-xs text-muted-foreground">Une connexion puis une seule lecture de la page « Temps » d'IXELLIO. Aucun formulaire envoyé, aucune recherche lancée.</div>
+      <div className="text-[11px] font-bold text-brand">{g ? "Diagnostic TM v3 — Gamme IXELL" : "Diagnostic TM v2 — inspection page Temps"}</div>
+      <div className="text-xs text-muted-foreground">Une connexion puis une seule lecture de la page « {g ? "Gamme IXELL" : "Temps"} » d'IXELLIO. Aucun formulaire envoyé, aucune recherche lancée, aucun lien suivi.</div>
+      {!g ? <div className="text-xs font-bold text-muted-foreground">Relevé réel : page Temps = éléments garage configurables (elementGarageId), pas de TM constructeur identifié.</div> : null}
       <button onClick={() => void submit()} disabled={loading}
         className="mt-2 rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60">
-        {loading ? "Inspection…" : "Inspecter page Temps"}
+        {loading ? "Inspection…" : g ? "Inspecter Gamme IXELL" : "Inspecter page Temps"}
       </button>
       {error ? <p className="mt-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
       {res ? (
@@ -40,8 +44,13 @@ function TempsPageDiag() {
           {p ? (
             <>
               <div>Titre « {p.title || "—"} » · {p.tableCount} tableau(x) · nécessite un véhicule : {p.needsVehicle ? "oui (indice champ)" : "non établi"} · nécessite une opération : {p.needsOperation ? "oui (indice champ)" : "non établi"}</div>
+              <div className="rounded bg-muted px-2 py-1 font-bold">
+                Nature de la source : {SOURCE_KIND_LABEL[p.sourceKind]}
+                {p.sourceEvidence.length ? <div className="font-normal">Indices : {p.sourceEvidence.join(" · ")}</div> : null}
+                <div className="font-normal">Mots repérés : {p.keywords.join(", ") || "—"}</div>
+              </div>
               <div className="rounded bg-muted px-2 py-1">
-                Tableau de temps explicite (opération + unité) : {p.explicitTimeRows ? `${p.explicitTimeRows} ligne(s) détectée(s), non affichées (liaison véhicule/opération non établie)` : "aucun"}
+                Tableau de temps explicite (opération + unité) : {p.explicitTimeRows ? `${p.explicitTimeRows} ligne(s) détectée(s), non affichées (pas un TM constructeur validé sans liaison véhicule)` : "aucun"}
                 {p.timeHeaderWithoutUnit ? " · colonne temps sans unité déclarée" : ""}
               </div>
               {p.limitations.length ? <div className="text-destructive">Limites : {p.limitations.join(" · ")}</div> : null}
@@ -81,13 +90,14 @@ export function IxellioLaborDiag() {
         <Clock className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">IXELLIO — temps barémés · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic TM v2 — inspection page Temps</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic TM v3 — Gamme IXELL</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule : une connexion, analyse du menu principal uniquement, aucune page de temps consultée. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
         </div>
       </div>
-      <TempsPageDiag />
+      <TempsPageDiag kind="gamme" />
+      <TempsPageDiag kind="temps" />
       <div className="mt-3 text-[11px] text-muted-foreground">TM v1 — inspection du menu (secondaire) :</div>
       <button onClick={() => void submit()} disabled={loading}
         className="mt-1 rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60">
