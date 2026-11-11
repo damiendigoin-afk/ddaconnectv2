@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 
 import { CopyDiagButton } from "@/components/IxellioLaborDiag";
 import type { JsFlow } from "@/lib/ixellio-js-flow";
-import { inspectIxellioScriptsDiag } from "@/lib/ixellio.functions";
+import { inspectIxellioPublicScriptsDiag, inspectIxellioScriptsDiag } from "@/lib/ixellio.functions";
 
 const ep = (e: { path: string; method: string | null }) => `${e.path}${e.method ? `?method=${e.method}` : ""}`;
 
@@ -24,28 +24,42 @@ export function FlowView({ flow }: { flow: JsFlow }) {
   );
 }
 
+export const AUTH_FAILED_SCRIPTS_MSG =
+  "Échec de la connexion initiale IXELLIO : aucun fichier JS consulté. Ne pas relancer en boucle ; vérifier la session IXELLIO et les identifiants une seule fois plus tard.";
+
+type ScriptsRes = Awaited<ReturnType<typeof inspectIxellioScriptsDiag>> | (Awaited<ReturnType<typeof inspectIxellioPublicScriptsDiag>>);
+
 export function IxellioScriptsDiag() {
-  const run = useServerFn(inspectIxellioScriptsDiag);
-  const [loading, setLoading] = useState(false);
-  const [res, setRes] = useState<Awaited<ReturnType<typeof inspectIxellioScriptsDiag>> | null>(null);
+  const runAuth = useServerFn(inspectIxellioScriptsDiag);
+  const runPublic = useServerFn(inspectIxellioPublicScriptsDiag);
+  const [loading, setLoading] = useState<"auth" | "public" | null>(null);
+  const [mode, setMode] = useState<"auth" | "public">("public");
+  const [res, setRes] = useState<ScriptsRes | null>(null);
   const [error, setError] = useState("");
   const reportRef = useRef<HTMLDivElement>(null);
-  async function submit() {
-    setLoading(true); setError(""); setRes(null);
-    try { setRes(await run()); } catch (e) { setError(e instanceof Error ? e.message : "Erreur inconnue"); } finally { setLoading(false); }
+  async function submit(m: "auth" | "public") {
+    setLoading(m); setMode(m); setError(""); setRes(null);
+    try { setRes(m === "public" ? await runPublic() : await runAuth()); } catch (e) { setError(e instanceof Error ? e.message : "Erreur inconnue"); } finally { setLoading(null); }
   }
+  const label = mode === "public" ? "Scripts IXELLIO publics (sans connexion)" : "Scripts IXELLIO — chaîne Remplacer / temps (avec connexion)";
   return (
     <div className="mt-4 rounded-lg border border-border px-3 py-3">
       <div className="flex items-center gap-2 text-[11px] font-bold text-brand"><FileCode className="h-4 w-4" /> Scripts IXELLIO — chaîne Remplacer / temps</div>
       <div className="text-xs text-muted-foreground">Une connexion puis deux lectures fixes : /scripts/pieceRecherche.js et /scripts/intervention.js. Aucun clic, aucun envoi, rien enregistré.</div>
-      <button type="button" onClick={() => void submit()} disabled={loading} className="mt-2 rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60">
-        {loading ? "Inspection…" : "Inspecter scripts IXELLIO"}
-      </button>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button type="button" onClick={() => void submit("public")} disabled={loading !== null} className="rounded-lg bg-brand px-3 py-2 text-xs font-extrabold uppercase text-brand-foreground disabled:opacity-60">
+          {loading === "public" ? "Inspection…" : "Inspecter les scripts publics (sans connexion)"}
+        </button>
+        <button type="button" onClick={() => void submit("auth")} disabled={loading !== null} className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-extrabold uppercase disabled:opacity-60">
+          {loading === "auth" ? "Inspection…" : "Inspecter scripts IXELLIO"}
+        </button>
+      </div>
+      <div className="text-[11px] text-muted-foreground">Sans connexion : aucun identifiant ni cookie envoyé ; si IXELLIO refuse, rien d'autre n'est tenté.</div>
       {error ? <p className="mt-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
-      {res ? <CopyDiagButton target={reportRef} label="Scripts IXELLIO — chaîne Remplacer / temps" /> : null}
+      {res ? <CopyDiagButton target={reportRef} label={label} /> : null}
       {res ? (
         <div ref={reportRef} className="mt-2 space-y-2 text-xs">
-          <div className="rounded-lg bg-muted px-3 py-2 font-bold">{res.status} — {res.message} ({res.durationMs} ms)</div>
+          <div className="rounded-lg bg-muted px-3 py-2 font-bold">{res.status} — {res.status === "auth_failed" ? AUTH_FAILED_SCRIPTS_MSG : res.message} ({res.durationMs} ms){"loginUsed" in res ? " · aucune connexion utilisée" : ""}</div>
           {res.files.map((f) => (
             <div key={f.path} className="rounded-lg border border-border px-3 py-2">
               <div className="font-bold">{f.path} · HTTP {f.status ?? "—"} · {f.bytes} octets · {f.outcome} · source du temps visible : {f.timeSourceVisible ? "oui" : "non"}</div>

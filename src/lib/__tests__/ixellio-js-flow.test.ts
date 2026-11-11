@@ -67,3 +67,55 @@ describe("analyse statique chaîne sélection → popup", () => {
     expect(JSON.stringify(r)).not.toContain("SECRET9");
   });
 });
+
+import { vi, beforeEach } from "vitest";
+vi.mock("../ixellio-store.server", () => ({ loadIxellioCredentials: vi.fn(async () => { throw new Error("identifiants lus"); }) }));
+vi.mock("../ixellio.server", () => ({
+  BROWSER_HEADERS: { "user-agent": "UA" }, cookieHeader: () => "", openIxellioSession: vi.fn(async () => { throw new Error("connexion tentée"); }),
+}));
+import { inspectIxellioPublicScripts } from "../ixellio-scripts.server";
+import { __resetIxellioLock } from "../ixellio-lock.server";
+
+const resp = (status: number, body: string, headers: Record<string, string> = {}) => new Response(status === 200 ? body : null, { status, headers });
+
+describe("sonde publique sans connexion", () => {
+  beforeEach(() => __resetIxellioLock());
+
+  it("deux GET fixes, aucun cookie/authentification, pas de redirection suivie", async () => {
+    const fetchImpl = vi.fn(async () => resp(200, JS, { "content-type": "application/javascript" }));
+    const r = await inspectIxellioPublicScripts(fetchImpl as unknown as typeof fetch);
+    expect(r.status).toBe("fichiers_publics_accessibles");
+    expect(r.loginUsed).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const urls = fetchImpl.mock.calls.map((c) => (c as unknown as [string, RequestInit])[0]);
+    expect(urls).toEqual(["https://www.ixellio.fr/scripts/pieceRecherche.js", "https://www.ixellio.fr/scripts/intervention.js"]);
+    for (const c of fetchImpl.mock.calls) {
+      const init = (c as unknown as [string, RequestInit])[1];
+      expect(init.method).toBe("GET");
+      expect(init.redirect).toBe("manual");
+      const h = Object.keys(init.headers as Record<string, string>).map((k) => k.toLowerCase());
+      expect(h).not.toContain("cookie");
+      expect(h).not.toContain("authorization");
+    }
+    expect(JSON.stringify(r)).not.toContain("SECRET9");
+  });
+
+  it("302 vers connexion, 403 ou HTML => accès public refusé, rien d'autre tenté", async () => {
+    const seq = [resp(302, "", { location: "/index.html" }), resp(403, "")];
+    const f1 = vi.fn(async () => seq.shift()!);
+    const r = await inspectIxellioPublicScripts(f1 as unknown as typeof fetch);
+    expect(r.status).toBe("acces_public_refuse");
+    expect(f1).toHaveBeenCalledTimes(2);
+    expect(r.files.map((x) => x.outcome)).toEqual(["accès public refusé", "accès public refusé"]);
+    __resetIxellioLock();
+    const f2 = vi.fn(async () => resp(200, "<html>login</html>", { "content-type": "text/html" }));
+    expect((await inspectIxellioPublicScripts(f2 as unknown as typeof fetch)).files[0]!.outcome).toBe("accès public refusé");
+  });
+
+  it("délai/erreur réseau : pas de relance", async () => {
+    const f = vi.fn(async () => { throw Object.assign(new Error("t"), { name: "TimeoutError" }); });
+    const r = await inspectIxellioPublicScripts(f as unknown as typeof fetch);
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(r.trace[0]).toMatch(/délai dépassé/);
+  });
+});

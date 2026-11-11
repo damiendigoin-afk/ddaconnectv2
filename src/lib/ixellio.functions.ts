@@ -157,3 +157,12 @@ export const inspectIxellioScriptsDiag = createServerFn({ method: "POST" })
     const { inspectIxellioScripts } = await import("./ixellio-scripts.server");
     return inspectIxellioScripts();
   });
+
+/** Sonde manager PUBLIQUE : deux GET anonymes fixes, sans identifiants ni connexion IXELLIO. */
+export const inspectIxellioPublicScriptsDiag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertManager(context as never);
+    const { inspectIxellioPublicScripts } = await import("./ixellio-scripts.server");
+    return inspectIxellioPublicScripts();
+  });
