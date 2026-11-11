@@ -1,6 +1,7 @@
 /** Consultation catalogue IXELLIO par référence — diagnostic manager, lecture seule. */
 import { useServerFn } from "@tanstack/react-start";
 import { IXELLIO_TARIFF_LABEL } from "@/lib/ixellio-tariff";
+import { reconcileCandidates } from "@/lib/ixellio-parts-reconcile";
 import { Search } from "lucide-react";
 import { useState } from "react";
 
@@ -37,7 +38,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v6 — catégories - cellules utiles</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v6 — catégories - cellules utiles <span className="font-normal text-muted-foreground">(rév. E/F)</span></div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -136,30 +137,40 @@ export function IxellioPartsDiag() {
               <div className="text-muted-foreground">
                 Montants IXELLIO : {IXELLIO_TARIFF_LABEL} — déclaration du gérant ; deux occurrences ne font pas forcément deux pièces.
               </div>
-              {res.diagnostic.euros.candidates?.length ? (
+              {res.diagnostic.euros.candidates?.length ? (() => {
+                const cands = res.diagnostic.euros.candidates;
+                const rec = reconcileCandidates(res.status, res.result?.parts, res.diagnostic.grouping?.results, cands);
+                if (rec.allCovered) return (
+                  <div className="my-1 rounded bg-muted px-2 py-1">
+                    <div className="font-bold">Inventaire des montants (détails techniques) : {cands.length} ligne(s) catalogue, {res.diagnostic.euros.distinctAmounts} montant(s) distinct(s)</div>
+                    <div className="text-muted-foreground">Toutes correspondent (désignation et montant) aux résultats validés en section F. Ce relevé brut ne valide à lui seul aucun lien ; une ligne catalogue n'est pas forcément une pièce physique distincte.</div>
+                  </div>
+                );
+                return (
                 <div className="my-1 rounded bg-muted px-2 py-1">
                   <div className="font-bold">
-                    Lignes catalogue détectées — candidats non validés : {res.diagnostic.euros.candidates.length} ligne(s),{" "}
+                    Lignes catalogue détectées — candidats non validés : {cands.length} ligne(s),{" "}
                     {res.diagnostic.euros.distinctAmounts} montant(s) distinct(s)
                   </div>
                   <div className="text-muted-foreground">
                     Non rattachées à la référence cherchée · montants : {IXELLIO_TARIFF_LABEL} (déclaration du gérant).
                   </div>
-                  {res.diagnostic.euros.candidates.map((c, i) => (
+                  {cands.map((c, i) => (
                     <div key={i}>
-                      {c.label} — {c.amount.toFixed(2)} €{c.occurrences > 1 ? ` (×${c.occurrences})` : ""} · association non vérifiée
+                      {c.label} — {c.amount.toFixed(2)} €{c.occurrences > 1 ? ` (×${c.occurrences})` : ""} · {rec.covered[i] ? "correspond à un résultat validé (F)" : "association non vérifiée"}
                       {c.commonAncestor
                         ? ` · ancêtre commun tableau ${c.commonAncestor.tableIndex} (${c.commonAncestor.candidatesInside} candidat(s), ${c.commonAncestor.referenceAnchorsInside} ancre(s) Référence)`
                         : " · aucun ancêtre commun avec Référence"}
                     </div>
                   ))}
                 </div>
-              ) : null}
+                );
+              })() : null}
               {res.diagnostic.euros.items.map((e, i) => (
                 <div key={i}>
                   {e.amount.toFixed(2)} € · « {e.cellText || "—"} »{e.rowLabel ? ` · ligne « ${e.rowLabel} »` : ""} · tableau{" "}
                   {e.tableIndex ?? "—"} prof. {e.tableDepth} case {e.cellIndex ?? "—"} · Référence{" "}
-                  {e.referenceLevelsUp == null ? "aucune" : `${e.referenceLevelsUp} niveau(x) au-dessus`} · {e.association}
+                  {e.referenceLevelsUp == null ? "aucune" : `${e.referenceLevelsUp} niveau(x) au-dessus`} · {reconcileCandidates(res.status, res.result?.parts, res.diagnostic.grouping?.results, res.diagnostic.euros.candidates ?? []).allCovered ? "position brute (lien validé en F)" : e.association}
                 </div>
               ))}
             </div>
