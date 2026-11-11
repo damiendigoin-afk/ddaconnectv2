@@ -3,10 +3,12 @@
  * DOM parse5. Un résultat = une ligne « désignation | montant € » et UNE ancre « Référence : » dont
  * l'ancêtre commun le plus proche ne contient aucun autre montant ni aucune autre ancre (exclusivité
  * structurelle). Jamais de rapprochement par égalité de référence ni par proximité textuelle globale,
- * jamais de déduplication par numéro ou montant. Base HT/TTC et catégorie tarifaire toujours inconnues :
- * la conversion en devis reste bloquée.
+ * jamais de déduplication par numéro ou montant. Qualification tarifaire : IXELLIO_TARIFF (prix public constructeur HT,
+ * déclaration du gérant). La conversion en devis reste bloquée (groupement réel à valider).
  */
 import { parse } from "parse5";
+
+import { IXELLIO_TARIFF } from "./ixellio-tariff";
 
 type Node = { nodeName: string; tagName?: string; value?: string; childNodes?: Node[]; parentNode?: Node | null };
 
@@ -18,8 +20,11 @@ export type IxellioResult = {
   family: string | null;
   priceDisplayed: string;
   amount: number;
-  basis: "inconnu";
-  tariffCategory: "inconnu";
+  basis: "HT";
+  tariffCategory: "public_constructeur";
+  isPublic: true;
+  isPurchase: false;
+  qualificationSource: string;
   source: "IXELLIO";
   grouping: "structure exclusive";
 };
@@ -121,7 +126,7 @@ export function groupIxellioResults(html: string): IxellioGrouping {
     results.push({
       index: results.length + 1, category: cat ? ownText(cat) : null, designation: p.designation,
       reference: a.reference, family: a.family, priceDisplayed: p.priceDisplayed, amount: p.amount,
-      basis: "inconnu", tariffCategory: "inconnu", source: "IXELLIO", grouping: "structure exclusive",
+      ...IXELLIO_TARIFF, source: "IXELLIO", grouping: "structure exclusive",
     });
   }
 
@@ -136,6 +141,6 @@ export function groupIxellioResults(html: string): IxellioGrouping {
   return {
     announced, results, ungrouped, confidence, confidenceReason,
     quoteConversion: "bloquée",
-    quoteConversionReason: "Base HT/TTC et catégorie tarifaire (public/achat) non indiquées par la page.",
+    quoteConversionReason: "Groupement référence ↔ désignation ↔ prix à valider sur la vraie page ; décision de workflow en attente (un prix public constructeur n'est pas un prix d'achat et ne remplit jamais le PA).",
   };
 }

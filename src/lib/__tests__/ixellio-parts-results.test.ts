@@ -18,7 +18,9 @@ describe("groupement des résultats exacts IXELLIO", () => {
     expect(g.announced).toBe(2);
     expect(g.confidence).toBe("haute");
     expect(g.results).toHaveLength(2);
-    expect(g.results[0]).toMatchObject({ category: "ARMATURE AV", designation: "GUIDAGE AIR ARMATURE AV", reference: "214996296R", amount: 26.44, basis: "inconnu", tariffCategory: "inconnu", source: "IXELLIO" });
+    expect(g.results[0]).toMatchObject({ category: "ARMATURE AV", designation: "GUIDAGE AIR ARMATURE AV", reference: "214996296R", amount: 26.44, basis: "HT", tariffCategory: "public_constructeur", isPublic: true, isPurchase: false, source: "IXELLIO" });
+    expect(g.results[1]).toMatchObject({ amount: 26.44, priceDisplayed: "26.44 €" });
+    expect(g.results[0]!.qualificationSource).toMatch(/déclaration du gérant.*prix public constructeur HT/);
     expect(g.results[1]).toMatchObject({ category: "RÉFÉRENCE(S) MÉTIER(S)", designation: "CONVERGENT G", family: "Mécanique Carrosserie" });
     expect(g.quoteConversion).toBe("bloquée");
     expect(JSON.stringify(g)).not.toMatch(/99,99/);
@@ -40,5 +42,18 @@ describe("groupement des résultats exacts IXELLIO", () => {
   it("nombre groupé différent du nombre annoncé : confiance partielle", () => {
     const g = groupIxellioResults(page(result("A", "PIECE UN", "214996296R"), 2));
     expect(g.confidence).toBe("partielle");
+  });
+
+  it("prix public constructeur : jamais prix d'achat, conversion devis bloquée sans motif HT/TTC", () => {
+    const g = groupIxellioResults(page(result("A", "PIECE UN", "214996296R"), 1));
+    for (const r of g.results) {
+      expect(r.isPurchase).toBe(false);
+      expect(Object.keys(r)).not.toEqual(expect.arrayContaining(["purchasePrice"]));
+      expect(Object.keys(r).some((k) => /purchase_?price|unitCost|pa_?ht/i.test(k))).toBe(false);
+    }
+    expect(g.quoteConversion).toBe("bloquée");
+    expect(g.quoteConversionReason).toMatch(/groupement/i);
+    expect(g.quoteConversionReason).toMatch(/prix d'achat/);
+    expect(g.quoteConversionReason).not.toMatch(/HT\/TTC|inconnu/);
   });
 });

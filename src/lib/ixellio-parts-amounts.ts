@@ -7,6 +7,7 @@
 import { parse } from "parse5";
 
 import { safeLabel } from "./ixellio-parts-parse";
+import { IXELLIO_TARIFF } from "./ixellio-tariff";
 
 type Node = {
   nodeName: string;
@@ -35,9 +36,11 @@ export type CatalogueCandidate = {
   label: string;
   amount: number;
   occurrences: number;
-  basis: "inconnu";
-  isPublic: "inconnu";
-  isPurchase: "inconnu";
+  basis: "HT";
+  tariffCategory: "public_constructeur";
+  isPublic: true;
+  isPurchase: false;
+  qualificationSource: string;
   /** Ancêtre commun le plus proche avec une ancre « Référence : » (preuve diagnostic uniquement). */
   commonAncestor: { tableIndex: number; candidatesInside: number; referenceAnchorsInside: number } | null;
   association: "non vérifiée";
@@ -153,7 +156,7 @@ export function inventoryEuroAmounts(html: string, searched: string, max = 30): 
     else
       byKey.set(key, {
         label: c.label, amount: c.amount, occurrences: 1,
-        basis: "inconnu", isPublic: "inconnu", isPurchase: "inconnu",
+        ...IXELLIO_TARIFF,
         commonAncestor: common, association: "non vérifiée",
       });
   }

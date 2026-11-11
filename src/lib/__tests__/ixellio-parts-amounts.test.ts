@@ -43,11 +43,11 @@ describe("candidats catalogue Clio IV (synthétique)", () => {
   </td></tr></table>`;
   const inv = inventoryEuroAmounts(CLIO, "214996296R");
 
-  it("liste deux lignes candidates, un seul montant distinct, bases inconnues, jamais validées", () => {
+  it("liste deux lignes candidates, un seul montant distinct, qualifiés prix public constructeur HT, jamais validés", () => {
     expect(inv.candidates.map((c) => [c.label, c.amount])).toEqual([["GUIDAGE AIR ARMATURE AV", 26.44], ["CONVERGENT G", 26.44]]);
     expect(inv.distinctAmounts).toBe(1);
     for (const c of inv.candidates) {
-      expect(c).toMatchObject({ association: "non vérifiée", basis: "inconnu", isPublic: "inconnu", isPurchase: "inconnu" });
+      expect(c).toMatchObject({ association: "non vérifiée", basis: "HT", tariffCategory: "public_constructeur", isPublic: true, isPurchase: false });
     }
     expect(JSON.stringify(inv)).not.toContain("214996296R");
   });

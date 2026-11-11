@@ -1,5 +1,6 @@
 /** Consultation catalogue IXELLIO par référence — diagnostic manager, lecture seule. */
 import { useServerFn } from "@tanstack/react-start";
+import { IXELLIO_TARIFF_LABEL } from "@/lib/ixellio-tariff";
 import { Search } from "lucide-react";
 import { useState } from "react";
 
@@ -133,7 +134,7 @@ export function IxellioPartsDiag() {
                 E. Montants en € visibles : {res.diagnostic.euros.total} ({res.diagnostic.euros.distinctAmounts} distinct(s))
               </div>
               <div className="text-muted-foreground">
-                Base HT/TTC et prix public non établis ; deux occurrences ne font pas forcément deux tarifs.
+                Montants IXELLIO : {IXELLIO_TARIFF_LABEL} — déclaration du gérant ; deux occurrences ne font pas forcément deux pièces.
               </div>
               {res.diagnostic.euros.candidates?.length ? (
                 <div className="my-1 rounded bg-muted px-2 py-1">
@@ -142,7 +143,7 @@ export function IxellioPartsDiag() {
                     {res.diagnostic.euros.distinctAmounts} montant(s) distinct(s)
                   </div>
                   <div className="text-muted-foreground">
-                    Non rattachées à la référence cherchée · HT/TTC, prix public, prix d'achat : inconnus.
+                    Non rattachées à la référence cherchée · montants : {IXELLIO_TARIFF_LABEL} (déclaration du gérant).
                   </div>
                   {res.diagnostic.euros.candidates.map((c, i) => (
                     <div key={i}>
@@ -171,7 +172,7 @@ export function IxellioPartsDiag() {
               <div className="text-muted-foreground">{res.diagnostic.grouping.confidenceReason}</div>
               {res.diagnostic.grouping.results.map((r) => (
                 <div key={r.index}>
-                  #{r.index} {r.category ?? "catégorie —"} · {r.designation} · Réf. {r.reference}{r.family ? ` · ${r.family}` : ""} · {r.priceDisplayed} (HT/TTC inconnu, tarif inconnu)
+                  #{r.index} {r.category ?? "catégorie —"} · {r.designation} · Réf. {r.reference}{r.family ? ` · ${r.family}` : ""} · {r.priceDisplayed} ({IXELLIO_TARIFF_LABEL})
                 </div>
               ))}
               {res.diagnostic.grouping.ungrouped.map((u, i) => (
