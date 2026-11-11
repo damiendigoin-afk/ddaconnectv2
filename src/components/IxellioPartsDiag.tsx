@@ -170,7 +170,7 @@ export function IxellioPartsDiag() {
                 <div key={i}>
                   {e.amount.toFixed(2)} € · « {e.cellText || "—"} »{e.rowLabel ? ` · ligne « ${e.rowLabel} »` : ""} · tableau{" "}
                   {e.tableIndex ?? "—"} prof. {e.tableDepth} case {e.cellIndex ?? "—"} · Référence{" "}
-                  {e.referenceLevelsUp == null ? "aucune" : `${e.referenceLevelsUp} niveau(x) au-dessus`} · {reconcileCandidates(res.status, res.result?.parts, res.diagnostic.grouping?.results, res.diagnostic.euros.candidates ?? []).allCovered ? "position brute (lien validé en F)" : e.association}
+                  {e.referenceLevelsUp == null ? "aucune" : `${e.referenceLevelsUp} niveau(x) au-dessus`} · {reconcileCandidates(res.status, res.result?.parts, res.diagnostic.grouping?.results, res.diagnostic.euros?.candidates ?? []).allCovered ? "position brute (lien validé en F)" : e.association}
                 </div>
               ))}
             </div>
