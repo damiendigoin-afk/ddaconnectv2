@@ -187,3 +187,138 @@ export function parseIxellioParts(html: string, searched: string): IxellioPartsR
     !isLoginPage && parts.length === 0 && /(aucun(e)? (resultat|piece|reference)|no result)/.test(norm(html));
   return { isLoginPage, noResult, parts, headers, tableCount: tables.length };
 }
+
+/* ------------------------------------------------------------------ */
+/* Instrumentation diagnostic NON SENSIBLE (manager) : formes seulement. */
+/* Jamais : HTML brut, valeurs de champs, hidden, _csrf, cookies.        */
+/* ------------------------------------------------------------------ */
+
+export type FormShape = {
+  action: string | null;
+  httpMethod: string;
+  fields: { name: string; type: string; options?: number }[];
+};
+
+export type StructureShape = {
+  title: string | null;
+  headings: string[];
+  messages: string[];
+  tables: { rows: number; cols: number; nested: boolean; headerRows: string[][] }[];
+  repeatedBlocks: { cls: string; count: number }[];
+  scriptEndpoints: string[];
+  referencePresent: boolean;
+  referenceOccurrences: number;
+};
+
+/** Libellé court et nettoyé : masque emails, téléphones, jetons, la référence cherchée. */
+export function safeLabel(raw: string, searched = "", max = 40): string {
+  let t = decodeEntities(stripTags(raw)).replace(/\s+/g, " ").trim();
+  if (searched && searched.length >= 4) {
+    const re = new RegExp(searched.split("").map((c) => c.replace(/[^A-Za-z0-9]/g, "")).join("[^A-Za-z0-9]?"), "gi");
+    t = t.replace(re, "[réf]");
+  }
+  t = t
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
+    .replace(/(?:\+33|0)\s?[1-9](?:[\s.-]?\d{2}){4}/g, "[tél]")
+    .replace(/\b(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{6,}\b/g, "[code]");
+  return t.length > max ? `${t.slice(0, max)}…` : t;
+}
+
+/** Chemin + paramètre method seulement ; jamais d'autres paramètres ni d'hôte tiers. */
+export function safeActionPath(href: string | null | undefined, base = "https://www.ixellio.fr/PieceRecherche.html"): string | null {
+  if (href == null) return null;
+  try {
+    const u = new URL(decodeEntities(href.trim()) || base, base);
+    if (u.hostname !== "www.ixellio.fr") return "[hôte externe]";
+    const method = u.searchParams.get("method");
+    const safeMethod = method && /^[A-Za-z0-9_]{1,40}$/.test(method) ? method : null;
+    return `${u.pathname}${safeMethod ? `?method=${safeMethod}` : ""}`;
+  } catch {
+    return null;
+  }
+}
+
+const attr = (tag: string, name: string) =>
+  new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag)?.slice(1).find((x) => x != null) ?? null;
+
+export function inspectForms(html: string): FormShape[] {
+  const out: FormShape[] = [];
+  for (const m of html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)) {
+    const open = m[1] ?? "";
+    const body = m[2] ?? "";
+    const fields: FormShape["fields"] = [];
+    for (const f of body.matchAll(/<(input|textarea|button)\b([^>]*)>|<(select)\b([^>]*)>([\s\S]*?)<\/select>/gi)) {
+      const tagName = (f[1] ?? f[3]!).toLowerCase();
+      const open = f[2] ?? f[4] ?? "";
+      const name = attr(open, "name");
+      if (!name) continue;
+      const safeName = /^[A-Za-z0-9_.\-[\]]{1,60}$/.test(name) ? name : "[nom non standard]";
+      const type = tagName === "input" ? (attr(open, "type") ?? "text").toLowerCase() : tagName;
+      const field: FormShape["fields"][number] = { name: safeName, type };
+      if (tagName === "select") field.options = (f[5]?.match(/<option\b/gi) ?? []).length;
+      fields.push(field);
+    }
+    out.push({ action: safeActionPath(attr(open, "action") ?? ""), httpMethod: /^post$/i.test(attr(open, "method") ?? "") ? "POST" : "GET", fields });
+  }
+  return out;
+}
+
+/** Découpe les tableaux en gérant l'imbrication (profondeur). */
+function splitTables(html: string): { html: string; nested: boolean }[] {
+  const res: { html: string; nested: boolean }[] = [];
+  const stack: number[] = [];
+  const re = /<\/?table\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    if (m[0][1] !== "/") stack.push(m.index);
+    else if (stack.length) {
+      const start = stack.pop()!;
+      res.push({ html: html.slice(start, m.index + m[0].length), nested: stack.length > 0 });
+    }
+  }
+  return res;
+}
+
+export function inspectStructure(html: string, searched: string): StructureShape {
+  const clean = html.replace(/<script\b[\s\S]*?<\/script>/gi, (s) => s.replace(/<[^>]*>/g, " "));
+  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
+  const headings = [...html.matchAll(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi)].slice(0, 5).map((h) => safeLabel(h[1]!, searched)).filter(Boolean);
+  const messages = [...html.matchAll(/<(div|span|p|li)\b[^>]*class=["'][^"']*(error|erreur|alert|message|warning|info)[^"']*["'][^>]*>([\s\S]*?)<\/\1>/gi)]
+    .map((x) => safeLabel(x[3]!, searched, 120))
+    .filter(Boolean)
+    .slice(0, 3);
+  const tables = splitTables(clean).slice(0, 20).map(({ html: t, nested }) => {
+    const inner = t.replace(/^<table\b[^>]*>/i, "").replace(/<\/table>$/i, "").replace(/<table\b[\s\S]*<\/table>/gi, "");
+    const rows = inner.match(/<tr\b[\s\S]*?<\/tr>/gi) ?? [];
+    const cellsOf = (r: string) => [...r.matchAll(/<(t[hd])\b[^>]*>([\s\S]*?)<\/\1>/gi)].map((c) => c[2] ?? "");
+    const cols = Math.max(0, ...rows.map((r) => cellsOf(r).length));
+    const headerRows = rows.slice(0, 2).map((r) => cellsOf(r).slice(0, 12).map((c) => safeLabel(c, searched, 30)));
+    return { rows: rows.length, cols, nested, headerRows };
+  });
+  const counts = new Map<string, number>();
+  for (const c of html.matchAll(/<(?:div|li|tr)\b[^>]*class=["']([^"']+)["']/gi))
+    for (const cls of c[1]!.split(/\s+/))
+      if (/(result|piece|ligne|row|article|produit|item)/i.test(cls) && /^[A-Za-z0-9_-]{1,40}$/.test(cls)) counts.set(cls, (counts.get(cls) ?? 0) + 1);
+  const repeatedBlocks = [...counts].filter(([, n]) => n >= 2).map(([cls, count]) => ({ cls, count })).slice(0, 10);
+  const endpoints = new Set<string>();
+  for (const s of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
+    for (const u of s[1]!.matchAll(/["'`]([^"'`\s]*?\.(?:html|do|json)(?:\?[^"'`\s]*)?)["'`]/gi)) {
+      const p = safeActionPath(u[1]);
+      if (p && p !== "[hôte externe]") endpoints.add(p);
+    }
+    for (const u of s[1]!.matchAll(/method=([A-Za-z0-9_]{1,40})/g)) endpoints.add(`method=${u[1]}`);
+  }
+  const target = normRef(searched);
+  const flat = normRef(stripTags(clean));
+  const occ = target.length >= 4 ? flat.split(target).length - 1 : 0;
+  return {
+    title: title ? safeLabel(title, searched, 80) : null,
+    headings,
+    messages,
+    tables,
+    repeatedBlocks,
+    scriptEndpoints: [...endpoints].slice(0, 20),
+    referencePresent: occ > 0,
+    referenceOccurrences: occ,
+  };
+}

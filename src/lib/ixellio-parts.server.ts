@@ -5,7 +5,7 @@
  */
 import { loadIxellioCredentials } from "./ixellio-store.server";
 import { openIxellioSession } from "./ixellio.server";
-import { parseIxellioParts, type IxellioPartsResult } from "./ixellio-parts-parse";
+import { inspectForms, inspectStructure, parseIxellioParts, type FormShape, type IxellioPartsResult, type StructureShape } from "./ixellio-parts-parse";
 
 const BASE = "https://www.ixellio.fr";
 const PAGE_URL = `${BASE}/PieceRecherche.html`;
@@ -23,7 +23,7 @@ const HEADERS: Record<string, string> = {
 };
 
 export type IxellioPartsLookup = {
-  status: "ok" | "not_configured" | "auth_failed" | "session_lost" | "busy" | "rate_limited" | "http_error" | "network_error";
+  status: "ok" | "no_result" | "structure_non_reconnue" | "not_configured" | "auth_failed" | "session_lost" | "busy" | "rate_limited" | "http_error" | "network_error";
   message: string;
   reference: string;
   trace: string[];
@@ -34,6 +34,10 @@ export type IxellioPartsLookup = {
     bytes: number;
     tableCount: number;
     headers: string[][];
+    /** Formes des formulaires de la page de recherche (aucune valeur). */
+    pageForms: FormShape[];
+    /** Structure de la réponse POST (aucun HTML brut). */
+    response: StructureShape | null;
   };
   result: Omit<IxellioPartsResult, "headers" | "tableCount"> | null;
   durationMs: number;
@@ -77,6 +81,13 @@ export function buildPartsSearchBody(reference: string, csrf: string | null): st
   return body.toString();
 }
 
+/** HTTP 200 sans ligne ni mention explicite d'absence n'est jamais un « ok ». */
+export function partsOutcome(count: number, noResult: boolean): [IxellioPartsLookup["status"], string] {
+  if (count > 0) return ["ok", `${count} ligne(s) lue(s).`];
+  if (noResult) return ["no_result", "IXELLIO indique explicitement aucun résultat."];
+  return ["structure_non_reconnue", "Réponse HTTP 200 sans ligne reconnue ni mention d'absence : recherche NON validée, structure à relever."];
+}
+
 export async function lookupIxellioPartsByReference(reference: string): Promise<IxellioPartsLookup> {
   const started = Date.now();
   const trace: string[] = [];
@@ -87,6 +98,8 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     bytes: 0,
     tableCount: 0,
     headers: [],
+    pageForms: [],
+    response: null,
   };
   const out = (status: IxellioPartsLookup["status"], message: string, result: IxellioPartsLookup["result"] = null): IxellioPartsLookup => ({
     status, message, reference, trace, diagnostic, result, durationMs: Date.now() - started,
@@ -116,6 +129,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     const csrf = extractPartsCsrf(pageHtml) ?? extractPartsCsrf(session.html);
     diagnostic.csrfFound = Boolean(csrf);
     diagnostic.formFieldNames = partsFormFieldNames(pageHtml);
+    diagnostic.pageForms = inspectForms(pageHtml);
     trace.push(csrf ? "jeton _csrf détecté" : "jeton _csrf absent");
 
     const search = await fetch(SEARCH_URL, {
@@ -139,20 +153,13 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
       return out("session_lost", "IXELLIO a redirigé la recherche (session non conservée ou méthode refusée).");
     if (search.status !== 200) return out("http_error", `IXELLIO a répondu HTTP ${search.status}.`);
 
+    diagnostic.response = inspectStructure(html, reference);
     const parsed = parseIxellioParts(html, reference);
     diagnostic.tableCount = parsed.tableCount;
     diagnostic.headers = parsed.headers;
     if (parsed.isLoginPage) return out("session_lost", "Retour à la page de connexion IXELLIO.");
     const { headers: _h, tableCount: _t, ...result } = parsed;
-    return out(
-      "ok",
-      parsed.parts.length
-        ? `${parsed.parts.length} ligne(s) lue(s).`
-        : parsed.noResult
-          ? "IXELLIO indique aucun résultat."
-          : "Réponse reçue mais aucune ligne reconnue : structure à relever.",
-      result,
-    );
+    return out(...partsOutcome(parsed.parts.length, parsed.noResult), result);
   } catch (e) {
     return out("network_error", `Erreur réseau : ${e instanceof Error ? e.message : "inconnue"}`);
   } finally {

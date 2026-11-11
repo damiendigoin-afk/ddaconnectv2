@@ -207,3 +207,4 @@ Reste à faire :
 - [x] Tests de régression (50690, BK-859-HQ/HG, RENAULT CEED, modèle + e-mail, client absent)
 - Limite : aucun essai avec une vraie photo/téléphone dans cette session
 - [x] Diagnostic réel Ixellio GY-640-HM (lecture seule, réponse brute vs écran)
+- [x] IXELLIO catalogue: instrumentation diagnostic sécurisée + statut structure_non_reconnue

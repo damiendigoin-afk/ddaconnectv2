@@ -62,6 +62,38 @@ export function IxellioPartsDiag() {
             {res.diagnostic.csrfFound ? "oui" : "non"} · champs : {res.diagnostic.formFieldNames.join(", ") || "—"}
             {res.diagnostic.headers.length ? ` · en-têtes : ${res.diagnostic.headers.map((h) => h.join(" | ")).join(" / ")}` : ""}
           </div>
+          {res.status === "structure_non_reconnue" ? (
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 font-bold text-destructive">
+              Recherche non validée : IXELLIO a répondu, mais aucune ligne n'a pu être lue.
+            </p>
+          ) : null}
+          {res.diagnostic.pageForms?.length ? (
+            <div className="rounded-lg border border-border px-3 py-2 text-[11px]">
+              <div className="font-bold">Formulaires de la page de recherche</div>
+              {res.diagnostic.pageForms.map((f, i) => (
+                <div key={i} className="mt-1">
+                  #{i + 1} {f.httpMethod} {f.action ?? "(sans action)"} — {f.fields.map((x) => `${x.name}:${x.type}${x.options != null ? `(${x.options} opt.)` : ""}`).join(", ") || "aucun champ"}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {res.diagnostic.response ? (
+            <div className="rounded-lg border border-border px-3 py-2 text-[11px]">
+              <div className="font-bold">Structure de la réponse</div>
+              <div>Titre : {fmt(res.diagnostic.response.title)} · Titres : {res.diagnostic.response.headings.join(" / ") || "—"}</div>
+              <div>Messages : {res.diagnostic.response.messages.join(" / ") || "—"}</div>
+              <div>
+                Référence présente : {res.diagnostic.response.referencePresent ? `oui (${res.diagnostic.response.referenceOccurrences})` : "non"}
+              </div>
+              <div>Blocs répétés : {res.diagnostic.response.repeatedBlocks.map((b) => `${b.cls}×${b.count}`).join(", ") || "—"}</div>
+              <div>Indices script : {res.diagnostic.response.scriptEndpoints.join(", ") || "—"}</div>
+              {res.diagnostic.response.tables.map((t, i) => (
+                <div key={i} className="mt-1">
+                  Tableau {i + 1}{t.nested ? " (imbriqué)" : ""} : {t.rows}×{t.cols} — {t.headerRows.map((r) => r.join(" | ")).join(" // ") || "—"}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {res.result?.parts.map((p, i) => (
             <div key={i} className="rounded-lg border border-border px-3 py-2">
               <div className="font-bold">
