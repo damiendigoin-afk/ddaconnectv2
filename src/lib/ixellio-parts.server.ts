@@ -4,6 +4,7 @@
  * Jamais renvoyé : identifiants, cookies, jetons, HTML brut.
  */
 import { inventoryEuroAmounts, type EuroInventory } from "./ixellio-parts-amounts";
+import { inspectReplaceControls, type ReplaceDiag } from "./ixellio-parts-replace";
 import { groupIxellioResults, groupingToParts, type IxellioGrouping } from "./ixellio-parts-results";
 import { loadIxellioCredentials } from "./ixellio-store.server";
 import { openIxellioSession } from "./ixellio.server";
@@ -41,6 +42,7 @@ export type IxellioPartsLookup = {
     targeted: TargetedDiag | null;
     euros: EuroInventory | null;
     grouping: IxellioGrouping | null;
+    replace: ReplaceDiag | null;
   };
   result: Omit<IxellioPartsResult, "headers" | "tableCount"> | null;
   durationMs: number;
@@ -107,6 +109,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     targeted: null,
     euros: null,
     grouping: null,
+    replace: null,
   };
   const out = (status: IxellioPartsLookup["status"], message: string, result: IxellioPartsLookup["result"] = null): IxellioPartsLookup => ({
     status, message, reference, trace, diagnostic, result, durationMs: Date.now() - started,
@@ -164,6 +167,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     diagnostic.targeted = inspectTargeted(html, reference);
     diagnostic.euros = inventoryEuroAmounts(html, reference);
     diagnostic.grouping = groupIxellioResults(html, reference);
+    diagnostic.replace = inspectReplaceControls(html, reference);
     const parsed = parseIxellioParts(html, reference);
     diagnostic.tableCount = parsed.tableCount;
     diagnostic.headers = parsed.headers;

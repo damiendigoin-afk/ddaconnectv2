@@ -38,7 +38,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v6 — catégories - cellules utiles <span className="font-normal text-muted-foreground">(rév. E/F)</span></div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v7 — option Remplacer / temps</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -208,6 +208,27 @@ export function IxellioPartsDiag() {
               <div className="font-bold">Conversion en devis : bloquée — {res.diagnostic.grouping.quoteConversionReason}</div>
             </div>
           ) : null}
+          {res.diagnostic.replace ? (() => {
+            const h = res.diagnostic.replace;
+            const ep = (e: { path: string; method: string | null }) => `${e.path}${e.method ? `?method=${e.method}` : ""}`;
+            return (
+              <div className="rounded-lg border border-border px-3 py-2">
+                <div className="font-bold">H. Option « Remplacer » / temps — {h.controls.length} contrôle(s), {h.otherCheckboxes} autre(s) case(s), texte « remplac » ×{h.remplacerTextOccurrences}</div>
+                {h.controls.map((c) => (
+                  <div key={c.index} className="pl-2">
+                    #{c.index} {c.designation ?? "carte ?"} ({c.designationSource}) · {c.tag}{c.type ? `/${c.type}` : ""} « {c.label || "—"} » · coché par défaut : {c.checkedDefault == null ? "n/a" : c.checkedDefault ? "oui" : "non"}{c.disabled ? " · désactivé" : ""} · nom : {c.nameShape ?? "—"} · attributs : {c.attrNames.join(", ") || "—"} · formulaire : {c.form ? `${c.form.method} ${c.form.action ? ep(c.form.action) : "—"}` : "aucun"} · gestionnaires : {c.handlers.map((x) => `${x.event} → ${x.functions.join("/") || "?"}${x.endpoints.length ? ` [${x.endpoints.map(ep).join(", ")}]` : ""}`).join(" ; ") || "aucun"}
+                  </div>
+                ))}
+                <div>Scripts : {h.scripts.count} · mention « remplac » : {h.scripts.mentionsRemplac ? "oui" : "non"} · fonctions : {h.scripts.functions.join(", ") || "—"} · adresses : {h.scripts.endpoints.map(ep).join(", ") || "—"}</div>
+                <div>Lignes de temps :</div>
+                {h.timeRows.map((t, i) => (
+                  <div key={i} className="pl-2">{t.label} · cellules {t.cells} / renseignées {t.filledCells} · nombre présent : {t.numericPresent ? "oui" : "non"} · unité : {t.unit}{t.inputs.length ? ` · champs : ${t.inputs.map((x) => `${x.type}${x.nameShape ? ` ${x.nameShape}` : ""}`).join(", ")}` : ""}</div>
+                ))}
+                {!h.timeRows.length ? <div className="pl-2">—</div> : null}
+                {h.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
+              </div>
+            );
+          })() : null}
           {res.diagnostic.pageHints && res.diagnostic.pageHints.formOpen === 0 ? (
             <div className="text-[11px] text-muted-foreground">
               Aucun formulaire dans la page de recherche : normal pour une page pilotée par JavaScript.
