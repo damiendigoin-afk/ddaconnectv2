@@ -31,7 +31,25 @@ export type EuroAmount = {
   association: "même tableau que Référence" | "non vérifiée";
 };
 
-export type EuroInventory = { total: number; distinctAmounts: number; items: EuroAmount[] };
+export type CatalogueCandidate = {
+  label: string;
+  amount: number;
+  occurrences: number;
+  basis: "inconnu";
+  isPublic: "inconnu";
+  isPurchase: "inconnu";
+  /** Ancêtre commun le plus proche avec une ancre « Référence : » (preuve diagnostic uniquement). */
+  commonAncestor: { tableIndex: number; candidatesInside: number; referenceAnchorsInside: number } | null;
+  association: "non vérifiée";
+};
+
+export type EuroInventory = {
+  total: number;
+  distinctAmounts: number;
+  items: EuroAmount[];
+  /** Lignes libellé + montant de la même ligne : CANDIDATS NON VALIDÉS, jamais rattachés à la référence. */
+  candidates: CatalogueCandidate[];
+};
 
 const SKIP = new Set(["script", "style", "template", "noscript", "#comment"]);
 const AMOUNT = /(-?\d{1,3}(?:[ .\u00a0\u202f]\d{3})*[.,]\d{2}|-?\d+[.,]\d{2})\s*(?:€|EUR\b)|(?:€|EUR)\s*(-?\d+(?:[.,]\d{2}))/gi;
@@ -75,6 +93,7 @@ export function inventoryEuroAmounts(html: string, searched: string, max = 30): 
   const refTables = new Set(tables.filter((t) => /r[ée]f[ée]rence\s*:/i.test(ownText(t))));
 
   const items: EuroAmount[] = [];
+  const rawCand: { label: string; amount: number; table: Node | null }[] = [];
   let total = 0;
   const distinct = new Set<number>();
   for (const tn of texts) {
@@ -95,6 +114,7 @@ export function inventoryEuroAmounts(html: string, searched: string, max = 30): 
       const cells = row ? (row.childNodes ?? []).filter((c) => c.tagName === "td" || c.tagName === "th") : [];
       const cellText = safeLabel((cell ? text(cell) : v).replace(AMOUNT, " "), searched, 40);
       const first = cells[0] && cells[0] !== cell ? safeLabel(text(cells[0]), searched, 40) : null;
+      if (first) rawCand.push({ label: first, amount, table });
       items.push({
         amount,
         cellText,
@@ -107,5 +127,35 @@ export function inventoryEuroAmounts(html: string, searched: string, max = 30): 
       });
     }
   }
-  return { total, distinctAmounts: distinct.size, items };
+  // Ancêtre commun : plus proche table englobant le montant ET une table « Référence : ».
+  const contains = (outer: Node, inner: Node) => {
+    for (let p: Node | null | undefined = inner; p; p = p.parentNode) if (p === outer) return true;
+    return false;
+  };
+  const candTables = rawCand.map((c) => c.table);
+  const byKey = new Map<string, CatalogueCandidate>();
+  for (const c of rawCand) {
+    let common: CatalogueCandidate["commonAncestor"] = null;
+    for (let t = c.table; t; t = up(t, "table")) {
+      const anchors = [...refTables].filter((r) => contains(t!, r)).length;
+      if (anchors) {
+        common = {
+          tableIndex: tables.indexOf(t) + 1,
+          candidatesInside: candTables.filter((x) => x && contains(t!, x)).length,
+          referenceAnchorsInside: anchors,
+        };
+        break;
+      }
+    }
+    const key = `${c.label}|${c.amount}`;
+    const prev = byKey.get(key);
+    if (prev) prev.occurrences++;
+    else
+      byKey.set(key, {
+        label: c.label, amount: c.amount, occurrences: 1,
+        basis: "inconnu", isPublic: "inconnu", isPurchase: "inconnu",
+        commonAncestor: common, association: "non vérifiée",
+      });
+  }
+  return { total, distinctAmounts: distinct.size, items, candidates: [...byKey.values()].slice(0, 20) };
 }

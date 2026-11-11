@@ -135,6 +135,25 @@ export function IxellioPartsDiag() {
               <div className="text-muted-foreground">
                 Base HT/TTC et prix public non établis ; deux occurrences ne font pas forcément deux tarifs.
               </div>
+              {res.diagnostic.euros.candidates?.length ? (
+                <div className="my-1 rounded bg-muted px-2 py-1">
+                  <div className="font-bold">
+                    Lignes catalogue détectées — candidats non validés : {res.diagnostic.euros.candidates.length} ligne(s),{" "}
+                    {res.diagnostic.euros.distinctAmounts} montant(s) distinct(s)
+                  </div>
+                  <div className="text-muted-foreground">
+                    Non rattachées à la référence cherchée · HT/TTC, prix public, prix d'achat : inconnus.
+                  </div>
+                  {res.diagnostic.euros.candidates.map((c, i) => (
+                    <div key={i}>
+                      {c.label} — {c.amount.toFixed(2)} €{c.occurrences > 1 ? ` (×${c.occurrences})` : ""} · association non vérifiée
+                      {c.commonAncestor
+                        ? ` · ancêtre commun tableau ${c.commonAncestor.tableIndex} (${c.commonAncestor.candidatesInside} candidat(s), ${c.commonAncestor.referenceAnchorsInside} ancre(s) Référence)`
+                        : " · aucun ancêtre commun avec Référence"}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {res.diagnostic.euros.items.map((e, i) => (
                 <div key={i}>
                   {e.amount.toFixed(2)} € · « {e.cellText || "—"} »{e.rowLabel ? ` · ligne « ${e.rowLabel} »` : ""} · tableau{" "}

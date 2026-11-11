@@ -30,3 +30,42 @@ describe("inventaire des montants € IXELLIO", () => {
     expect(inv.items[2]!.rowLabel).toBe("Référence : [réf]");
   });
 });
+
+import { partsOutcome } from "../ixellio-parts.server";
+import { parseIxellioParts } from "../ixellio-parts-parse";
+
+describe("candidats catalogue Clio IV (synthétique)", () => {
+  const CLIO = `<table><tr><td>
+  <table><tr><td><table><tr><td>Référence : 214996296R</td><td>CLIO IV</td></tr></table></td></tr></table>
+  <table><tr><td><table><tr><td><table><tr><td>GUIDAGE AIR ARMATURE AV</td><td>26.44 €</td></tr></table></td></tr></table></td></tr></table>
+  <table><tr><td><table><tr><td>Référence : 214996296R</td><td>RENAULT</td></tr></table></td></tr></table>
+  <table><tr><td><table><tr><td><table><tr><td>CONVERGENT G</td><td>26.44 €</td></tr></table></td></tr></table></td></tr></table>
+  </td></tr></table>`;
+  const inv = inventoryEuroAmounts(CLIO, "214996296R");
+
+  it("liste deux lignes candidates, un seul montant distinct, bases inconnues, jamais validées", () => {
+    expect(inv.candidates.map((c) => [c.label, c.amount])).toEqual([["GUIDAGE AIR ARMATURE AV", 26.44], ["CONVERGENT G", 26.44]]);
+    expect(inv.distinctAmounts).toBe(1);
+    for (const c of inv.candidates) {
+      expect(c).toMatchObject({ association: "non vérifiée", basis: "inconnu", isPublic: "inconnu", isPurchase: "inconnu" });
+    }
+    expect(JSON.stringify(inv)).not.toContain("214996296R");
+  });
+
+  it("l'ancêtre commun englobe plusieurs candidats et ancres : aucune correspondance déduite", () => {
+    for (const c of inv.candidates) {
+      expect(c.commonAncestor).toMatchObject({ candidatesInside: 2, referenceAnchorsInside: 2 });
+    }
+  });
+
+  it("le statut reste non validé : aucune pièce, structure_non_reconnue", () => {
+    const parsed = parseIxellioParts(CLIO, "214996296R");
+    expect(parsed.parts).toHaveLength(0);
+    expect(partsOutcome(parsed.parts.length, parsed.noResult)[0]).toBe("structure_non_reconnue");
+  });
+
+  it("une même ligne répétée est regroupée, pas comptée comme deux tarifs", () => {
+    const dup = inventoryEuroAmounts(`<table><tr><td>CONVERGENT G</td><td>26.44 €</td></tr><tr><td>CONVERGENT G</td><td>26.44 €</td></tr></table>`, "X1234");
+    expect(dup.candidates).toEqual([expect.objectContaining({ label: "CONVERGENT G", occurrences: 2 })]);
+  });
+});
