@@ -23,15 +23,16 @@ export function IxellioPartsDiag() {
   const [error, setError] = useState("");
   const reportRef = useRef<HTMLDivElement>(null);
   const sectionIRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState<"all" | "i" | null>(null);
+  const sectionJRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<"all" | "i" | "j" | null>(null);
 
-  async function copy(kind: "all" | "i") {
-    const body = blockText(kind === "all" ? reportRef.current : sectionIRef.current);
-    const ok = body ? await copyText(`Référence recherchée : ${ref.trim().toUpperCase()}\n${body}`) : false;
+  async function copy(kind: "all" | "i" | "j") {
+    const body = blockText(kind === "all" ? reportRef.current : kind === "i" ? sectionIRef.current : sectionJRef.current);
+    const ok = body ? await copyText(`Référence recherchée : ${ref.trim().toUpperCase()}\nStatut : ${res?.status ?? "—"}\n${body}`) : false;
     if (ok) {
       setCopied(kind);
       setTimeout(() => setCopied(null), 2000);
-      toast.success(kind === "all" ? "Diagnostic copié" : "Section I copiée");
+      toast.success(kind === "all" ? "Diagnostic copié" : kind === "i" ? "Section I copiée" : "Section J copiée");
     } else toast.error("Copie impossible — sélectionnez le texte manuellement.");
   }
 
@@ -54,7 +55,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v8.1 — Réparation / champs et options · copie</div>
+          <div className="text-[11px] font-bold text-brand">IXELLIO v9 — Sélection pièce → popup interventions</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -79,6 +80,11 @@ export function IxellioPartsDiag() {
           {res.diagnostic.repair ? (
             <button type="button" onClick={() => void copy("i")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
               {copied === "i" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier la section I
+            </button>
+          ) : null}
+          {res.diagnostic.selection ? (
+            <button type="button" onClick={() => void copy("j")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
+              {copied === "j" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier la section J
             </button>
           ) : null}
         </div>
@@ -254,6 +260,25 @@ export function IxellioPartsDiag() {
                 ))}
                 {!h.timeRows.length ? <div className="pl-2">—</div> : null}
                 {h.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
+              </div>
+            );
+          })() : null}
+          {res.diagnostic.selection ? (() => {
+            const j = res.diagnostic.selection;
+            const ep = (e: { path: string; method: string | null }) => `${e.path}${e.method ? `?method=${e.method}` : ""}`;
+            return (
+              <div ref={sectionJRef} className="rounded-lg border border-border px-3 py-2">
+                <div className="font-bold">J. Sélection pièce → popup interventions — {j.verdict}</div>
+                {j.rows.map((r) => (
+                  <div key={r.resultIndex} className="pl-2">
+                    #{r.resultIndex} {r.category ?? "catégorie ?"} · {r.designation} · rattachement {r.mapping} ({r.mappingReason}) · clic : {r.bindings.map((b) => `${b.level} ${b.event} → ${b.functions.join("/") || "?"}${b.endpoints.length ? ` [${b.endpoints.map(ep).join(", ")}]` : ""}`).join(" ; ") || "aucun inline"} · role : {r.roles.join(", ") || "—"} · classes : {r.classHints.join(", ") || "—"} · curseur main : {r.pointerCursor ? "oui" : "non"} · cases : {r.checkboxesInRow}
+                  </div>
+                ))}
+                <div>Scripts inline : {j.scripts.inline} · mots-clés : {j.scripts.keywords.filter((k) => k.count).map((k) => `${k.word} ×${k.count}`).join(", ") || "aucun"}</div>
+                <div>Fonctions (sélection/popup/chiffrage) : {j.scripts.functions.join(", ") || "—"}</div>
+                <div>Adresses internes : {j.scripts.endpoints.map(ep).join(", ") || "—"} · liaisons de clic par script : {j.scripts.delegatedClickBindings}</div>
+                <div>Fichiers JS externes : {j.scripts.external.join(", ") || "aucun"}</div>
+                {j.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
               </div>
             );
           })() : null}
