@@ -36,6 +36,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v3 — relevé des montants €</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>

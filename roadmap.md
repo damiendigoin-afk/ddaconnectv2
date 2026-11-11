@@ -208,3 +208,4 @@ Reste à faire :
 - Limite : aucun essai avec une vraie photo/téléphone dans cette session
 - [x] Diagnostic réel Ixellio GY-640-HM (lecture seule, réponse brute vs écran)
 - [x] IXELLIO catalogue: instrumentation diagnostic sécurisée + statut structure_non_reconnue
+- [x] IXELLIO diag: marqueur statique v3
