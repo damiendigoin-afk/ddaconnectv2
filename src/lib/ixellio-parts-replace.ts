@@ -86,7 +86,7 @@ export function safeEndpoints(js: string): SafeEndpoint[] {
   return [...out.values()];
 }
 
-function safeFunctions(js: string): string[] {
+export function safeFunctions(js: string): string[] {
   const out = new Set<string>();
   for (const m of js.matchAll(/([A-Za-z_$][\w$]{1,40})\s*\(/g)) {
     if (!KW.has(m[1]!)) out.add(m[1]!);

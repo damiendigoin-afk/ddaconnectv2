@@ -5,6 +5,7 @@
  */
 import { inventoryEuroAmounts, type EuroInventory } from "./ixellio-parts-amounts";
 import { inspectReplaceControls, type ReplaceDiag } from "./ixellio-parts-replace";
+import { inspectRepairRows, type RepairDiag } from "./ixellio-parts-repair";
 import { groupIxellioResults, groupingToParts, type IxellioGrouping } from "./ixellio-parts-results";
 import { loadIxellioCredentials } from "./ixellio-store.server";
 import { openIxellioSession } from "./ixellio.server";
@@ -43,6 +44,7 @@ export type IxellioPartsLookup = {
     euros: EuroInventory | null;
     grouping: IxellioGrouping | null;
     replace: ReplaceDiag | null;
+    repair: RepairDiag | null;
   };
   result: Omit<IxellioPartsResult, "headers" | "tableCount"> | null;
   durationMs: number;
@@ -110,6 +112,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     euros: null,
     grouping: null,
     replace: null,
+    repair: null,
   };
   const out = (status: IxellioPartsLookup["status"], message: string, result: IxellioPartsLookup["result"] = null): IxellioPartsLookup => ({
     status, message, reference, trace, diagnostic, result, durationMs: Date.now() - started,
@@ -168,6 +171,7 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     diagnostic.euros = inventoryEuroAmounts(html, reference);
     diagnostic.grouping = groupIxellioResults(html, reference);
     diagnostic.replace = inspectReplaceControls(html, reference);
+    diagnostic.repair = inspectRepairRows(html, reference, diagnostic.grouping.results, diagnostic.grouping.groupingConfidence === "haute");
     const parsed = parseIxellioParts(html, reference);
     diagnostic.tableCount = parsed.tableCount;
     diagnostic.headers = parsed.headers;

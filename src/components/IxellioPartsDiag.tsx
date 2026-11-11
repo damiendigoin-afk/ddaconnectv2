@@ -38,7 +38,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v7 — option Remplacer / temps</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v8 — Réparation / champs et options</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -226,6 +226,34 @@ export function IxellioPartsDiag() {
                 ))}
                 {!h.timeRows.length ? <div className="pl-2">—</div> : null}
                 {h.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
+              </div>
+            );
+          })() : null}
+          {res.diagnostic.repair ? (() => {
+            const r = res.diagnostic.repair;
+            const ep = (e: { path: string; method: string | null }) => `${e.path}${e.method ? `?method=${e.method}` : ""}`;
+            const yn = (b: boolean) => (b ? "oui" : "non");
+            return (
+              <div className="rounded-lg border border-border px-3 py-2">
+                <div className="font-bold">I. Lignes « Réparation » — {r.rows.length} ligne(s) · valeurs jamais affichées</div>
+                {r.rows.map((row) => (
+                  <div key={row.index} className="mt-1 pl-2">
+                    <div>#{row.index} · rattachement {row.mapping.status}{row.mapping.status === "vérifiée" ? ` → résultat ${row.mapping.resultIndex} ${row.mapping.category ?? "catégorie ?"} · ${row.mapping.designation}` : ""} ({row.mapping.reason})</div>
+                    <div>cellules {row.cells} / renseignées {row.filledCells} · nombre dans le texte : {yn(row.numericInText)} · unité : {row.unit} · lignes voisines : {row.adjacentRows.join(" / ") || "—"}</div>
+                    {row.controls.map((c, j) => (
+                      <div key={j} className="pl-2">
+                        {c.tag}/{c.type} · nom : {c.nameShape ?? "—"} · indice : {c.hintCategory} · valeur présente : {yn(c.valuePresent)}{c.valuePresent ? ` (numérique : ${yn(c.valueNumeric)})` : ""}
+                        {c.options ? ` · options ${c.options.count}${c.options.truncated ? "+" : ""} : ${c.options.labels.join(" | ") || "—"} · sélection : ${c.options.selectedLabel ?? "—"}` : ""}
+                        {c.handlers.length ? ` · gestionnaires : ${c.handlers.map((x) => `${x.event} → ${x.functions.join("/") || "?"}${x.endpoints.length ? ` [${x.endpoints.map(ep).join(", ")}]` : ""}`).join(" ; ")}` : ""}
+                        {` · attributs : ${c.attrNames.join(", ") || "—"}`}
+                      </div>
+                    ))}
+                    <div className="pl-2">Options : Remplacer {yn(row.optionFlags.remplacer)} · Remplacement {yn(row.optionFlags.remplacement)} · T1/T2/T3 {yn(row.optionFlags.t1t2t3)} · Réparation {yn(row.optionFlags.reparation)} · Temps {yn(row.optionFlags.temps)}</div>
+                    <div className="pl-2">Cases personnalisées (ligne + voisines) : role=checkbox {row.customCheckbox.roleCheckbox} · aria-checked {row.customCheckbox.ariaChecked} · data-* {row.customCheckbox.dataAttrNames.join(", ") || "—"} · classes {row.customCheckbox.classHints.join(", ") || "—"}</div>
+                  </div>
+                ))}
+                <div className="mt-1">Hors lignes Réparation : texte « remplac » ×{r.outside.remplacTextOccurrences} · attributs ×{r.outside.remplacInAttributes} · options ×{r.outside.remplacInOptions} · cases {r.outside.checkboxInputs} · role=checkbox {r.outside.roleCheckbox} · aria-checked {r.outside.ariaChecked} · classes {r.outside.classHints.join(", ") || "—"}</div>
+                {r.warnings.map((w, i) => <div key={i} className="text-muted-foreground">⚠ {w}</div>)}
               </div>
             );
           })() : null}
