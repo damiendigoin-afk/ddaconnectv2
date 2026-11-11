@@ -1,6 +1,8 @@
 import { useServerFn } from "@tanstack/react-start";
-import { Clock } from "lucide-react";
-import { useState } from "react";
+import { Check, Clock, Copy } from "lucide-react";
+import { useRef, useState, type RefObject } from "react";
+import { toast } from "sonner";
+import { blockText, copyText } from "@/lib/copy-text.browser";
 import { inspectIxellioGammeDiag, inspectIxellioLaborDiag, inspectIxellioTempsPageDiag } from "@/lib/ixellio.functions";
 import { SOURCE_KIND_LABEL, type MenuCategory } from "@/lib/ixellio-labor-parse";
 
@@ -11,6 +13,22 @@ const CAT: Record<MenuCategory, string> = {
 const ORDER: MenuCategory[] = ["temps_bareme", "forfaits", "chiffrage", "vehicule", "documentation", "pieces", "autre"];
 
 type PageRes = Awaited<ReturnType<typeof inspectIxellioTempsPageDiag>>;
+
+/** Copie le rapport affiché (sanitisé) d'UN diagnostic ; bouton hors du bloc copié. */
+export function CopyDiagButton({ target, label }: { target: RefObject<HTMLDivElement | null>; label: string }) {
+  const [done, setDone] = useState(false);
+  async function onCopy() {
+    const body = blockText(target.current);
+    const ok = body ? await copyText(`${label}\n${body}`) : false;
+    if (ok) { setDone(true); setTimeout(() => setDone(false), 2000); toast.success("Diagnostic copié"); }
+    else toast.error("Copie impossible — sélectionnez le texte manuellement.");
+  }
+  return (
+    <button type="button" onClick={() => void onCopy()} className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
+      {done ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier le diagnostic
+    </button>
+  );
+}
 
 function TempsPageDiag({ kind }: { kind: "temps" | "gamme" }) {
   const runTemps = useServerFn(inspectIxellioTempsPageDiag);
@@ -25,6 +43,7 @@ function TempsPageDiag({ kind }: { kind: "temps" | "gamme" }) {
     try { setRes(await run()); } catch (e) { setError(e instanceof Error ? e.message : "Erreur inconnue"); } finally { setLoading(false); }
   }
   const p = res?.page;
+  const reportRef = useRef<HTMLDivElement>(null);
   return (
     <div className="mt-3 rounded-lg border border-border px-3 py-3">
       <div className="text-[11px] font-bold text-brand">{g ? "Diagnostic TM v3 — Gamme IXELL" : "Diagnostic TM v2 — inspection page Temps"}</div>
@@ -35,8 +54,9 @@ function TempsPageDiag({ kind }: { kind: "temps" | "gamme" }) {
         {loading ? "Inspection…" : g ? "Inspecter Gamme IXELL" : "Inspecter page Temps"}
       </button>
       {error ? <p className="mt-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
+      {res ? <CopyDiagButton target={reportRef} label={g ? "Diagnostic TM v3 — Gamme IXELL" : "Diagnostic TM v2 — page Temps"} /> : null}
       {res ? (
-        <div className="mt-2 space-y-2 text-xs">
+        <div ref={reportRef} className="mt-2 space-y-2 text-xs">
           <div className="rounded-lg bg-muted px-3 py-2 font-bold">{res.status} — {res.message} ({res.durationMs} ms)</div>
           <div className="text-[11px] text-muted-foreground">
             GET {res.getStatus ?? "—"}{res.redirectKind ? ` · redirection ${res.redirectKind}` : ""} · {res.bytes} octets · TM extraits : non
@@ -80,6 +100,7 @@ export function IxellioLaborDiag() {
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<Res | null>(null);
   const [error, setError] = useState("");
+  const reportRef = useRef<HTMLDivElement>(null);
   async function submit() {
     setLoading(true); setError(""); setRes(null);
     try { setRes(await run()); } catch (e) { setError(e instanceof Error ? e.message : "Erreur inconnue"); } finally { setLoading(false); }
@@ -104,8 +125,9 @@ export function IxellioLaborDiag() {
         {loading ? "Inspection…" : "Inspecter accès aux TM"}
       </button>
       {error ? <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p> : null}
+      {res ? <CopyDiagButton target={reportRef} label="Diagnostic TM v1 — menu IXELLIO" /> : null}
       {res ? (
-        <div className="mt-3 space-y-2 text-xs">
+        <div ref={reportRef} className="mt-3 space-y-2 text-xs">
           <div className="rounded-lg bg-muted px-3 py-2 font-bold">{res.status} — {res.message} ({res.durationMs} ms)</div>
           <div className="text-[11px] text-muted-foreground">
             Menu atteint : {res.reachedMain ? "oui" : "non"} · {res.bytes} octets · statut TM : {res.laborStatus} · temps récupérés : 0
