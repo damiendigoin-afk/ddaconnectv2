@@ -37,7 +37,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v3 — relevé des montants €</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v4 — catégories vérifiées</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -167,12 +167,12 @@ export function IxellioPartsDiag() {
           {res.diagnostic.grouping ? (
             <div className="rounded-lg border border-border px-3 py-2 text-[11px]">
               <div className="font-bold">
-                F. Résultats groupés : {res.diagnostic.grouping.results.length} / annoncés {res.diagnostic.grouping.announced ?? "?"} · confiance {res.diagnostic.grouping.confidence}
+                F. Résultats groupés : {res.diagnostic.grouping.results.length} / annoncés {res.diagnostic.grouping.announced ?? "?"} · confiance {res.diagnostic.grouping.confidence} (groupement {res.diagnostic.grouping.groupingConfidence}, catégories {res.diagnostic.grouping.categoriesVerified}/{res.diagnostic.grouping.results.length})
               </div>
               <div className="text-muted-foreground">{res.diagnostic.grouping.confidenceReason}</div>
               {res.diagnostic.grouping.results.map((r) => (
                 <div key={r.index}>
-                  #{r.index} {r.category ?? "catégorie —"} · {r.designation} · Réf. {r.reference}{r.family ? ` · ${r.family}` : ""} · {r.priceDisplayed} ({IXELLIO_TARIFF_LABEL})
+                  #{r.index} {r.categoryConfidence === "vérifiée" ? r.category : "⚠ catégorie non vérifiée"} · {r.designation} · Réf. {r.reference}{r.family ? ` · ${r.family}` : ""} · {r.priceDisplayed} ({IXELLIO_TARIFF_LABEL})
                 </div>
               ))}
               {res.diagnostic.grouping.ungrouped.map((u, i) => (

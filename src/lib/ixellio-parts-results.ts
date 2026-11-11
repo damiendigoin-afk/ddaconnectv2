@@ -15,6 +15,8 @@ type Node = { nodeName: string; tagName?: string; value?: string; childNodes?: N
 export type IxellioResult = {
   index: number;
   category: string | null;
+  /** « vérifiée » seulement si en-tête mono-cellule immédiatement avant la table prix. */
+  categoryConfidence: "vérifiée" | "non vérifiée";
   designation: string;
   reference: string;
   family: string | null;
@@ -35,6 +37,10 @@ export type IxellioGrouping = {
   results: IxellioResult[];
   /** Lignes montant non groupables : candidats non validés. */
   ungrouped: { designation: string; priceDisplayed: string; reason: string }[];
+  /** Groupement référence + prix (structure exclusive + nombre annoncé). */
+  groupingConfidence: "haute" | "partielle" | "refusée";
+  categoriesVerified: number;
+  /** Global : « haute » seulement si groupement haute ET toutes les catégories vérifiées. */
   confidence: "haute" | "partielle" | "refusée";
   confidenceReason: string;
   quoteConversion: "bloquée";
@@ -106,6 +112,21 @@ export function groupIxellioResults(html: string): IxellioGrouping {
       return [{ table: t, reference: clean(r[1]!).toUpperCase(), family: fam ? clean(fam[1]!) : null }];
     });
 
+  // Catégorie stricte et locale : la table feuille IMMÉDIATEMENT précédente (ordre du document)
+  // doit être un en-tête mono-cellule (1 ligne, 1 case), sans montant ni « Référence : ». Sinon null.
+  const leafTables = tables.filter((t) => !tables.some((o) => o !== t && contains(t, o)));
+  const categoryFor = (tr: Node): { category: string | null; confidence: "vérifiée" | "non vérifiée" } => {
+    const priceTable = ancestors(tr).find((x) => x.tagName === "table");
+    const idx = priceTable ? leafTables.indexOf(priceTable) : -1;
+    const prev = idx > 0 ? leafTables[idx - 1]! : null;
+    if (!prev) return { category: null, confidence: "non vérifiée" };
+    const trs: Node[] = [];
+    (function w(n: Node) { if (n.tagName === "tr") trs.push(n); for (const c of n.childNodes ?? []) w(c); })(prev);
+    const t = ownText(prev);
+    const ok = trs.length === 1 && cellsOf(trs[0]!).length === 1 && t && t.length <= 60 && !AMOUNT.test(t) && !/r[ée]f[ée]rence\s*:/i.test(t);
+    return ok ? { category: t, confidence: "vérifiée" } : { category: null, confidence: "non vérifiée" };
+  };
+
   const results: IxellioResult[] = [];
   const ungrouped: IxellioGrouping["ungrouped"] = [];
   const usedAnchors = new Set<number>();
@@ -119,27 +140,28 @@ export function groupIxellioResults(html: string): IxellioGrouping {
     }
     const { a, i, root } = fits[0]!;
     usedAnchors.add(i);
-    // Catégorie : texte propre d'une autre table du groupe, ni prix ni Référence, court.
-    const priceTable = ancestors(p.tr).find((x) => x.tagName === "table");
-    const cat = tables.find((t) => contains(root!, t) && t !== a.table && t !== priceTable && !contains(t, p.tr) && !contains(t, a.table)
-      && ownText(t) && ownText(t).length <= 60 && !AMOUNT.test(ownText(t)));
+    const cat = categoryFor(p.tr);
     results.push({
-      index: results.length + 1, category: cat ? ownText(cat) : null, designation: p.designation,
+      index: results.length + 1, category: cat.category, categoryConfidence: cat.confidence, designation: p.designation,
       reference: a.reference, family: a.family, priceDisplayed: p.priceDisplayed, amount: p.amount,
       ...IXELLIO_TARIFF, source: "IXELLIO", grouping: "structure exclusive",
     });
   }
 
-  let confidence: IxellioGrouping["confidence"];
+  let groupingConfidence: IxellioGrouping["groupingConfidence"];
   let confidenceReason: string;
-  if (!results.length) { confidence = "refusée"; confidenceReason = "Aucun groupe montant + Référence exclusif : candidats non validés."; }
+  if (!results.length) { groupingConfidence = "refusée"; confidenceReason = "Aucun groupe montant + Référence exclusif : candidats non validés."; }
   else if (ungrouped.length || announced == null || announced !== results.length) {
-    confidence = "partielle";
+    groupingConfidence = "partielle";
     confidenceReason = `${results.length} groupé(s), ${ungrouped.length} non groupé(s), page annonce ${announced ?? "?"} résultat(s).`;
-  } else { confidence = "haute"; confidenceReason = `Nombre groupé = nombre annoncé par la page (${announced}).`; }
+  } else { groupingConfidence = "haute"; confidenceReason = `Nombre groupé = nombre annoncé par la page (${announced}).`; }
+  const categoriesVerified = results.filter((r) => r.categoryConfidence === "vérifiée").length;
+  const confidence: IxellioGrouping["confidence"] =
+    groupingConfidence === "haute" && categoriesVerified < results.length ? "partielle" : groupingConfidence;
+  if (categoriesVerified < results.length) confidenceReason += ` Catégorie non vérifiée pour ${results.length - categoriesVerified} résultat(s).`;
 
   return {
-    announced, results, ungrouped, confidence, confidenceReason,
+    announced, results, ungrouped, groupingConfidence, categoriesVerified, confidence, confidenceReason,
     quoteConversion: "bloquée",
     quoteConversionReason: "Groupement référence ↔ désignation ↔ prix à valider sur la vraie page ; décision de workflow en attente (un prix public constructeur n'est pas un prix d'achat et ne remplit jamais le PA).",
   };

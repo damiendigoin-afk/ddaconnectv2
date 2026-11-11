@@ -56,4 +56,35 @@ describe("groupement des résultats exacts IXELLIO", () => {
     expect(g.quoteConversionReason).toMatch(/prix d'achat/);
     expect(g.quoteConversionReason).not.toMatch(/HT\/TTC|inconnu/);
   });
+
+  // Bruit atelier (multi-cases) AVANT la vraie catégorie, puis prix, puis Référence.
+  const noisy = (cat: string, des: string, ref: string, noiseAfterCat = false) =>
+    `<tr><td><table><tr><td>Redressage</td><td>Temps</td><td></td><td>AU SOL SUR MARBRE</td></tr></table>
+     <table><tr><td>Réparation</td><td>Temps</td></tr></table><table><tr><td>Peinture</td><td>Type</td></tr></table>
+     <table><tr><td>${cat}</td></tr></table>
+     ${noiseAfterCat ? '<table><tr><td>Redressage</td><td>AU SOL SUR MARBRE</td></tr></table>' : ""}
+     <table><tr><td>${des}</td><td>26.44 €</td></tr></table>
+     <table><tr><td>Référence : ${ref}</td></tr></table></td></tr>`;
+
+  it("bruit Redressage/Réparation/Peinture : jamais pris comme catégorie, vraie catégorie retenue", () => {
+    const g = groupIxellioResults(page(noisy("ARMATURE AV", "GUIDAGE AIR ARMATURE AV", "214996296R") + noisy("RÉFÉRENCE(S) MÉTIER(S)", "CONVERGENT G", "214996296R"), 2));
+    expect(g.results.map((r) => [r.category, r.categoryConfidence, r.designation])).toEqual([
+      ["ARMATURE AV", "vérifiée", "GUIDAGE AIR ARMATURE AV"], ["RÉFÉRENCE(S) MÉTIER(S)", "vérifiée", "CONVERGENT G"]]);
+    expect(JSON.stringify(g.results)).not.toMatch(/Redressage|MARBRE/);
+    expect(g.confidence).toBe("haute");
+  });
+
+  it("catégorie ambiguë (bruit juste avant le prix) : null, non vérifiée, confiance globale non haute", () => {
+    const g = groupIxellioResults(page(noisy("ARMATURE AV", "GUIDAGE AIR", "214996296R", true) + noisy("X", "CONVERGENT G", "214996296R"), 2));
+    expect(g.results).toHaveLength(2);
+    expect(g.results[0]).toMatchObject({ category: null, categoryConfidence: "non vérifiée" });
+    expect(g.groupingConfidence).toBe("haute");
+    expect(g.confidence).toBe("partielle");
+    expect(JSON.stringify(g)).not.toMatch(/Redressage/);
+  });
+
+  it("deux références différentes avec bruit : pas de croisement, pas de dédup", () => {
+    const g = groupIxellioResults(page(noisy("A", "P1", "111111111A") + noisy("A", "P1", "222222222B"), 2));
+    expect(g.results.map((r) => r.reference)).toEqual(["111111111A", "222222222B"]);
+  });
 });
