@@ -16,7 +16,7 @@ type Node = { nodeName: string; tagName?: string; value?: string; childNodes?: N
 export type IxellioResult = {
   index: number;
   category: string | null;
-  /** « vérifiée » seulement si en-tête mono-cellule immédiatement avant la table prix. */
+  /** « vérifiée » seulement si la table immédiatement avant la table prix porte une seule cellule utile. */
   categoryConfidence: "vérifiée" | "non vérifiée";
   designation: string;
   reference: string;
@@ -33,7 +33,12 @@ export type IxellioResult = {
 };
 
 export type CategoryProbe = {
-  tableIndex: number; label: string; rows: number; cells: number; depth: number; inExclusiveBlock: boolean; verdict: string;
+  tableIndex: number; label: string; rows: number; cells: number;
+  /** Cellules portant un libellé textuel significatif (hors tables imbriquées, scripts, espaces, images). */
+  filledCells: number;
+  /** Lignes propres contenant au moins une cellule renseignée. */
+  filledRows: number;
+  depth: number; inExclusiveBlock: boolean; verdict: string;
 };
 
 export type IxellioGrouping = {
@@ -120,10 +125,23 @@ export function groupIxellioResults(html: string, searched = ""): IxellioGroupin
     });
 
   // Catégorie : ordre réel des tables (ouverture, comme inspectStructure). On remonte depuis la table
-  // du montant en ignorant ses ancêtres et les tables vides ; la PREMIÈRE table rencontrée doit être
-  // un en-tête mono-cellule (lignes/cases PROPRES, tables imbriquées exclues), sans montant ni Référence.
-  // Sinon null. Ne traverse jamais une table de montant ou de Référence (frontière d'un autre résultat).
+  // du montant en ignorant ses ancêtres et les tables vides ; la PREMIÈRE table rencontrée décide :
+  // elle doit porter exactement UNE cellule renseignée (libellé significatif, tables imbriquées,
+  // scripts, espaces/NBSP, images/icônes exclus) sur une seule ligne propre, sans montant ni Référence.
+  // « Hors bloc » est attendu (en-tête frère du bloc exclusif) et n'est pas un motif de rejet.
+  // Sinon null. Ne traverse jamais une table de montant ou de Référence (frontière d'un autre résultat),
+  // ni une table concurrente intercalée (elle décide et est rejetée).
   const ownRows = (t: Node): Node[] => rows.filter((r) => ancestors(r).find((x) => x !== r && x.tagName === "table") === t);
+  const cellText = (c: Node): string => {
+    const rec = (n: Node): string =>
+      n.tagName === "table" || SKIP.has(n.nodeName) ? "" : n.nodeName === "#text" ? n.value ?? "" : (n.childNodes ?? []).map(rec).join(" ");
+    return clean(rec(c));
+  };
+  const meaningful = (s: string) => /[\p{L}\p{N}]/u.test(s);
+  const norm = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  // Libellé portant la référence cherchée ou un code de type référence (≥ 7 car. dont ≥ 4 chiffres) : jamais une catégorie.
+  const refLike = (l: string) => (!!searched && norm(searched).length >= 5 && norm(l).includes(norm(searched)))
+    || /\b(?=[A-Z0-9]*\d[A-Z0-9]*\d[A-Z0-9]*\d[A-Z0-9]*\d)[A-Z0-9]{7,}\b/i.test(l);
   const refSet = new Set(anchors.map((x) => x.table));
   const priceTables = new Set(priceRows.map((q) => ancestors(q.tr).find((x) => x !== q.tr && x.tagName === "table")!));
   const categoryFor = (tr: Node, root: Node | null) => {
@@ -137,21 +155,28 @@ export function groupIxellioResults(html: string, searched = ""): IxellioGroupin
       if (contains(t, priceTable)) continue; // ancêtre du montant
       const own = ownRows(t);
       const cells = own.reduce((n, r) => n + cellsOf(r).length, 0);
+      const filled = own.map((r) => cellsOf(r).map(cellText).filter(meaningful)).filter((l) => l.length);
+      const filledCells = filled.reduce((n, l) => n + l.length, 0);
       const txt = ownText(t);
       const probe: CategoryProbe = {
-        tableIndex: i + 1, label: safeLabel(txt, searched, 40), rows: own.length, cells,
+        tableIndex: i + 1, label: safeLabel(txt, searched, 40), rows: own.length, cells, filledCells, filledRows: filled.length,
         depth: ancestors(t).filter((x) => x !== t && x.tagName === "table").length + 1,
         inExclusiveBlock: !!root && contains(root, t), verdict: "",
       };
       seen.push(probe);
       if (decided) { probe.verdict = "non examinée (décision prise)"; continue; }
-      if (!txt) { probe.verdict = "ignorée : vide"; continue; }
+      if (!filledCells && !meaningful(txt)) { probe.verdict = "ignorée : aucune cellule renseignée"; continue; }
       decided = true;
+      const label = filled[0]?.[0] ?? "";
       if (refSet.has(t) || priceTables.has(t)) probe.verdict = "rejet : frontière (Référence/montant)";
       else if (AMOUNT.test(txt)) probe.verdict = "rejet : contient un montant";
-      else if (own.length !== 1 || cells !== 1) probe.verdict = `rejet : ${own.length}×${cells} (pas mono-cellule)`;
-      else if (txt.length > 60) probe.verdict = "rejet : trop long";
-      else { probe.verdict = "retenue"; chosen = txt; }
+      else if (/r[ée]f[ée]rence\s*:/i.test(txt)) probe.verdict = "rejet : contient « Référence : »";
+      else if (refLike(label)) probe.verdict = "rejet : contient une référence (en-tête de page ou autre résultat)";
+      else if (filledCells === 0) probe.verdict = "rejet : texte hors cellule (structure inattendue)";
+      else if (filled.length > 1) probe.verdict = `rejet : ${filled.length} lignes renseignées (prudence)`;
+      else if (filledCells > 1) probe.verdict = `rejet : ${filledCells} cellules renseignées (libellés concurrents)`;
+      else if (label.length > 60) probe.verdict = "rejet : trop long";
+      else { probe.verdict = "retenue (1 cellule utile)"; chosen = label; }
     }
     return { category: chosen, confidence: (chosen ? "vérifiée" : "non vérifiée") as "vérifiée" | "non vérifiée", probes: seen };
   };

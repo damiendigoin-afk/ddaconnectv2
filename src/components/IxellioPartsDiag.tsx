@@ -37,7 +37,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v5 — contrôle groupement et catégories</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v6 — catégories - cellules utiles</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -186,7 +186,7 @@ export function IxellioPartsDiag() {
                       <div>{g.designation} :</div>
                       {g.probes.map((p, j) => (
                         <div key={j} className="pl-2">
-                          tableau {p.tableIndex} · « {p.label || "—"} » · {p.rows}×{p.cells} · prof. {p.depth} · {p.inExclusiveBlock ? "même bloc" : "hors bloc"} · {p.verdict}
+                          tableau {p.tableIndex} · « {p.label || "—"} » · {p.rows}×{p.cells} · cellules {p.cells} / renseignées {p.filledCells ?? "?"} · prof. {p.depth} · {p.inExclusiveBlock ? "même bloc" : "hors bloc"} · {p.verdict}
                         </div>
                       ))}
                       {!g.probes.length ? <div className="pl-2">aucune table précédente</div> : null}
