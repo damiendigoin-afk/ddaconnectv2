@@ -37,7 +37,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v4 — contrôle des catégories</div>
+          <div className="text-[11px] font-bold text-brand">Diagnostic IXELLIO v5 — contrôle groupement et catégories</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -178,6 +178,22 @@ export function IxellioPartsDiag() {
               {res.diagnostic.grouping.ungrouped.map((u, i) => (
                 <div key={`u${i}`}>Non validé : {u.designation} · {u.priceDisplayed} — {u.reason}</div>
               ))}
+              {res.diagnostic.grouping.categoryProbes?.length ? (
+                <div className="my-1 rounded bg-muted px-2 py-1">
+                  <div className="font-bold">G. Tables précédant chaque montant (catégorie)</div>
+                  {res.diagnostic.grouping.categoryProbes.map((g, i) => (
+                    <div key={i}>
+                      <div>{g.designation} :</div>
+                      {g.probes.map((p, j) => (
+                        <div key={j} className="pl-2">
+                          tableau {p.tableIndex} · « {p.label || "—"} » · {p.rows}×{p.cells} · prof. {p.depth} · {p.inExclusiveBlock ? "même bloc" : "hors bloc"} · {p.verdict}
+                        </div>
+                      ))}
+                      {!g.probes.length ? <div className="pl-2">aucune table précédente</div> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div className="font-bold">Conversion en devis : bloquée — {res.diagnostic.grouping.quoteConversionReason}</div>
             </div>
           ) : null}

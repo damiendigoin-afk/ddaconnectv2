@@ -1,6 +1,6 @@
 // Fixtures SYNTHÉTIQUES reproduisant le contenu lisible fourni (pas le HTML réel IXELLIO).
 import { describe, expect, it } from "vitest";
-import { groupIxellioResults } from "../ixellio-parts-results";
+import { groupIxellioResults, groupingToParts } from "../ixellio-parts-results";
 
 const result = (cat: string, des: string, ref: string, extra = "") =>
   `<tr><td><table><tr><td>${cat}</td></tr></table>
@@ -80,11 +80,46 @@ describe("groupement des résultats exacts IXELLIO", () => {
     expect(g.results[0]).toMatchObject({ category: null, categoryConfidence: "non vérifiée" });
     expect(g.groupingConfidence).toBe("haute");
     expect(g.confidence).toBe("partielle");
-    expect(JSON.stringify(g)).not.toMatch(/Redressage/);
+    expect(JSON.stringify(g.results)).not.toMatch(/Redressage/);
   });
 
   it("deux références différentes avec bruit : pas de croisement, pas de dédup", () => {
     const g = groupIxellioResults(page(noisy("A", "P1", "111111111A") + noisy("A", "P1", "222222222B"), 2));
     expect(g.results.map((r) => r.reference)).toEqual(["111111111A", "222222222B"]);
+  });
+
+  // Table montant NON feuille (icône imbriquée dans une autre ligne) + catégorie contenant un faux tableau vide.
+  const nested = (cat: string, des: string, ref: string) =>
+    `<tr><td><table><tr><td>${cat}<table><tr><td></td></tr></table></td></tr></table>
+     <table><tr><td>${des}</td><td>26.44 €</td></tr><tr><td colspan="2"><table><tr><td><img alt=""></td></tr></table></td></tr></table>
+     <table><tr><td>Redressage</td><td>Temps</td><td>AU SOL SUR MARBRE</td></tr></table>
+     <table><tr><td>Référence : ${ref}</td></tr></table></td></tr>`;
+
+  it("v5 : table montant non feuille et faux tableaux internes, catégories retrouvées, diagnostic G", () => {
+    const g = groupIxellioResults(page(nested("ARMATURE AV", "GUIDAGE AIR ARMATURE AV", "214996296R") + nested("RÉFÉRENCE(S) MÉTIER(S)", "CONVERGENT G", "214996296R"), 2), "214996296R");
+    expect(g.results.map((r) => r.category)).toEqual(["ARMATURE AV", "RÉFÉRENCE(S) MÉTIER(S)"]);
+    expect(g.categoriesVerified).toBe(2);
+    expect(JSON.stringify(g.results)).not.toMatch(/Redressage|MARBRE/);
+    expect(g.categoryProbes).toHaveLength(2);
+    expect(g.categoryProbes[0]!.probes.some((p) => p.verdict === "retenue")).toBe(true);
+    expect(JSON.stringify(g.categoryProbes)).not.toMatch(/<|214996296R/);
+  });
+
+  it("v5 : deux en-têtes mono-cellule ambigus séparés par du bruit -> on ne traverse pas, null", () => {
+    const g = groupIxellioResults(page(noisy("ARMATURE AV", "P1", "214996296R", true), 1), "214996296R");
+    expect(g.results[0]!.category).toBeNull();
+    expect(g.categoryProbes[0]!.probes[0]!.verdict).toMatch(/pas mono-cellule/);
+  });
+
+  it("statut : parts issues du groupement seulement si complet et réf = cherchée; catégorie absente tolérée", () => {
+    const html = page(noisy("ARMATURE AV", "GUIDAGE AIR", "214996296R", true) + noisy("X", "CONVERGENT G", "214996296R"), 2);
+    const parts = groupingToParts(groupIxellioResults(html, "214996296R"), "214996296R")!;
+    expect(parts).toHaveLength(2);
+    expect(parts[0]!.prices[0]).toMatchObject({ amount: 26.44, basis: "HT", isPublic: true });
+    expect(parts[0]!.extra["Catégorie"]).toBe("non vérifiée");
+    expect(groupingToParts(groupIxellioResults(html, "214996296R"), "999999999Z")).toBeNull();
+    const mixed = page(noisy("A", "P1", "214996296R") + noisy("B", "P2", "222222222B"), 2);
+    expect(groupingToParts(groupIxellioResults(mixed, "214996296R"), "214996296R")).toBeNull();
+    expect(groupingToParts(groupIxellioResults(page(noisy("A", "P1", "214996296R"), 2)), "214996296R")).toBeNull();
   });
 });

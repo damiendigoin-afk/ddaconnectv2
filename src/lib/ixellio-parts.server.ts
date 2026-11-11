@@ -4,7 +4,7 @@
  * Jamais renvoyé : identifiants, cookies, jetons, HTML brut.
  */
 import { inventoryEuroAmounts, type EuroInventory } from "./ixellio-parts-amounts";
-import { groupIxellioResults, type IxellioGrouping } from "./ixellio-parts-results";
+import { groupIxellioResults, groupingToParts, type IxellioGrouping } from "./ixellio-parts-results";
 import { loadIxellioCredentials } from "./ixellio-store.server";
 import { openIxellioSession } from "./ixellio.server";
 import { inspectForms, inspectPageFormHints, inspectStructure, inspectTargeted, type PageFormHints, type TargetedDiag, parseIxellioParts, type FormShape, type IxellioPartsResult, type StructureShape } from "./ixellio-parts-parse";
@@ -167,12 +167,18 @@ export async function lookupIxellioPartsByReference(reference: string): Promise<
     diagnostic.response = inspectStructure(html, reference);
     diagnostic.targeted = inspectTargeted(html, reference);
     diagnostic.euros = inventoryEuroAmounts(html, reference);
-    diagnostic.grouping = groupIxellioResults(html);
+    diagnostic.grouping = groupIxellioResults(html, reference);
     const parsed = parseIxellioParts(html, reference);
     diagnostic.tableCount = parsed.tableCount;
     diagnostic.headers = parsed.headers;
     if (parsed.isLoginPage) return out("session_lost", "Retour à la page de connexion IXELLIO.");
     const { headers: _h, tableCount: _t, ...result } = parsed;
+    // Repli : groupement structurel exclusif et complet (conditions dans groupingToParts).
+    const grouped = !parsed.parts.length ? groupingToParts(diagnostic.grouping, reference) : null;
+    if (grouped) {
+      const unverified = diagnostic.grouping.results.length - diagnostic.grouping.categoriesVerified;
+      return out("ok", `${grouped.length} résultat(s) exact(s) groupé(s) · prix public constructeur HT (pas un prix d'achat)${unverified ? ` · ${unverified} catégorie(s) non vérifiée(s)` : ""} · conversion devis bloquée.`, { ...result, parts: grouped });
+    }
     return out(...partsOutcome(parsed.parts.length, parsed.noResult), result);
   } catch (e) {
     return out("network_error", `Erreur réseau : ${e instanceof Error ? e.message : "inconnue"}`);

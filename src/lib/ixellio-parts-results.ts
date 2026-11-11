@@ -8,6 +8,7 @@
  */
 import { parse } from "parse5";
 
+import { safeLabel, type IxellioPart } from "./ixellio-parts-parse";
 import { IXELLIO_TARIFF } from "./ixellio-tariff";
 
 type Node = { nodeName: string; tagName?: string; value?: string; childNodes?: Node[]; parentNode?: Node | null };
@@ -31,7 +32,13 @@ export type IxellioResult = {
   grouping: "structure exclusive";
 };
 
+export type CategoryProbe = {
+  tableIndex: number; label: string; rows: number; cells: number; depth: number; inExclusiveBlock: boolean; verdict: string;
+};
+
 export type IxellioGrouping = {
+  /** G. Diagnostic catégorie : 3 tables précédant chaque montant (libellés masqués). */
+  categoryProbes: { designation: string; probes: CategoryProbe[] }[];
   /** Nombre annoncé par la page (« parmi les N résultat(s) exact(s) »), null si absent. */
   announced: number | null;
   results: IxellioResult[];
@@ -72,7 +79,7 @@ function toAmount(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function groupIxellioResults(html: string): IxellioGrouping {
+export function groupIxellioResults(html: string, searched = ""): IxellioGrouping {
   const doc = parse(html) as unknown as Node;
   const rows: Node[] = [];
   const tables: Node[] = [];
@@ -112,20 +119,43 @@ export function groupIxellioResults(html: string): IxellioGrouping {
       return [{ table: t, reference: clean(r[1]!).toUpperCase(), family: fam ? clean(fam[1]!) : null }];
     });
 
-  // Catégorie stricte et locale : la table feuille IMMÉDIATEMENT précédente (ordre du document)
-  // doit être un en-tête mono-cellule (1 ligne, 1 case), sans montant ni « Référence : ». Sinon null.
-  const leafTables = tables.filter((t) => !tables.some((o) => o !== t && contains(t, o)));
-  const categoryFor = (tr: Node): { category: string | null; confidence: "vérifiée" | "non vérifiée" } => {
-    const priceTable = ancestors(tr).find((x) => x.tagName === "table");
-    const idx = priceTable ? leafTables.indexOf(priceTable) : -1;
-    const prev = idx > 0 ? leafTables[idx - 1]! : null;
-    if (!prev) return { category: null, confidence: "non vérifiée" };
-    const trs: Node[] = [];
-    (function w(n: Node) { if (n.tagName === "tr") trs.push(n); for (const c of n.childNodes ?? []) w(c); })(prev);
-    const t = ownText(prev);
-    const ok = trs.length === 1 && cellsOf(trs[0]!).length === 1 && t && t.length <= 60 && !AMOUNT.test(t) && !/r[ée]f[ée]rence\s*:/i.test(t);
-    return ok ? { category: t, confidence: "vérifiée" } : { category: null, confidence: "non vérifiée" };
+  // Catégorie : ordre réel des tables (ouverture, comme inspectStructure). On remonte depuis la table
+  // du montant en ignorant ses ancêtres et les tables vides ; la PREMIÈRE table rencontrée doit être
+  // un en-tête mono-cellule (lignes/cases PROPRES, tables imbriquées exclues), sans montant ni Référence.
+  // Sinon null. Ne traverse jamais une table de montant ou de Référence (frontière d'un autre résultat).
+  const ownRows = (t: Node): Node[] => rows.filter((r) => ancestors(r).find((x) => x !== r && x.tagName === "table") === t);
+  const refSet = new Set(anchors.map((x) => x.table));
+  const priceTables = new Set(priceRows.map((q) => ancestors(q.tr).find((x) => x !== q.tr && x.tagName === "table")!));
+  const categoryFor = (tr: Node, root: Node | null) => {
+    const priceTable = ancestors(tr).find((x) => x !== tr && x.tagName === "table")!;
+    const idx = tables.indexOf(priceTable);
+    const seen: CategoryProbe[] = [];
+    let chosen: string | null = null;
+    let decided = false;
+    for (let i = idx - 1; i >= 0 && seen.length < 3; i--) {
+      const t = tables[i]!;
+      if (contains(t, priceTable)) continue; // ancêtre du montant
+      const own = ownRows(t);
+      const cells = own.reduce((n, r) => n + cellsOf(r).length, 0);
+      const txt = ownText(t);
+      const probe: CategoryProbe = {
+        tableIndex: i + 1, label: safeLabel(txt, searched, 40), rows: own.length, cells,
+        depth: ancestors(t).filter((x) => x !== t && x.tagName === "table").length + 1,
+        inExclusiveBlock: !!root && contains(root, t), verdict: "",
+      };
+      seen.push(probe);
+      if (decided) { probe.verdict = "non examinée (décision prise)"; continue; }
+      if (!txt) { probe.verdict = "ignorée : vide"; continue; }
+      decided = true;
+      if (refSet.has(t) || priceTables.has(t)) probe.verdict = "rejet : frontière (Référence/montant)";
+      else if (AMOUNT.test(txt)) probe.verdict = "rejet : contient un montant";
+      else if (own.length !== 1 || cells !== 1) probe.verdict = `rejet : ${own.length}×${cells} (pas mono-cellule)`;
+      else if (txt.length > 60) probe.verdict = "rejet : trop long";
+      else { probe.verdict = "retenue"; chosen = txt; }
+    }
+    return { category: chosen, confidence: (chosen ? "vérifiée" : "non vérifiée") as "vérifiée" | "non vérifiée", probes: seen };
   };
+  const probes: IxellioGrouping["categoryProbes"] = [];
 
   const results: IxellioResult[] = [];
   const ungrouped: IxellioGrouping["ungrouped"] = [];
@@ -140,7 +170,8 @@ export function groupIxellioResults(html: string): IxellioGrouping {
     }
     const { a, i, root } = fits[0]!;
     usedAnchors.add(i);
-    const cat = categoryFor(p.tr);
+    const cat = categoryFor(p.tr, root);
+    probes.push({ designation: safeLabel(p.designation, searched, 40), probes: cat.probes });
     results.push({
       index: results.length + 1, category: cat.category, categoryConfidence: cat.confidence, designation: p.designation,
       reference: a.reference, family: a.family, priceDisplayed: p.priceDisplayed, amount: p.amount,
@@ -161,8 +192,29 @@ export function groupIxellioResults(html: string): IxellioGrouping {
   if (categoriesVerified < results.length) confidenceReason += ` Catégorie non vérifiée pour ${results.length - categoriesVerified} résultat(s).`;
 
   return {
-    announced, results, ungrouped, groupingConfidence, categoriesVerified, confidence, confidenceReason,
+    announced, results, ungrouped, categoryProbes: probes, groupingConfidence, categoriesVerified, confidence, confidenceReason,
     quoteConversion: "bloquée",
     quoteConversionReason: "Groupement référence ↔ désignation ↔ prix à valider sur la vraie page ; décision de workflow en attente (un prix public constructeur n'est pas un prix d'achat et ne remplit jamais le PA).",
   };
+}
+
+/**
+ * Lignes « parts » issues du groupement, UNIQUEMENT si : groupement haute, chaque référence = référence
+ * cherchée, nombre = annoncé, aucune ligne non groupée. Catégorie absente n'annule pas un prix/réf validé.
+ * Prix = public constructeur HT (déclaration gérant), jamais prix d'achat. Sinon null.
+ */
+export function groupingToParts(g: IxellioGrouping, searched: string): IxellioPart[] | null {
+  const n = (x: string) => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (g.groupingConfidence !== "haute" || g.ungrouped.length || g.announced !== g.results.length || !g.results.length) return null;
+  if (!searched || g.results.some((r) => n(r.reference) !== n(searched))) return null;
+  return g.results.map((r) => ({
+    reference: { value: r.reference, source: "Référence : (bloc résultat)", confidence: "structure" },
+    exactMatch: true,
+    designations: [{ value: r.designation, source: "ligne montant" }],
+    family: r.family ? { value: r.family, source: "Famille :", confidence: "structure" } : null,
+    brand: null,
+    prices: [{ amount: r.amount, currency: "€", basis: "HT", isPublic: true, source: IXELLIO_TARIFF.qualificationSource }],
+    detailLinks: [],
+    extra: { Catégorie: r.categoryConfidence === "vérifiée" && r.category ? r.category : "non vérifiée" },
+  }));
 }

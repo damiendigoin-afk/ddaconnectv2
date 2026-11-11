@@ -10,7 +10,7 @@
  */
 import { decodeEntities, stripTags } from "./ixellio-parse";
 
-export type Confidence = "header" | "none";
+export type Confidence = "header" | "structure" | "none";
 export type Sourced<T> = { value: T; source: string; confidence: Confidence } | null;
 export type PriceBasis = "HT" | "TTC" | "unknown";
 
