@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { blockText, copyText } from "@/lib/copy-text.browser";
+import { FlowView, IxellioScriptsDiag } from "@/components/IxellioScriptsDiag";
 
 import { Field } from "@/components/bits";
 import { lookupIxellioPartsDiag } from "@/lib/ixellio.functions";
@@ -24,15 +25,16 @@ export function IxellioPartsDiag() {
   const reportRef = useRef<HTMLDivElement>(null);
   const sectionIRef = useRef<HTMLDivElement>(null);
   const sectionJRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState<"all" | "i" | "j" | null>(null);
+  const sectionKRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<"all" | "i" | "j" | "k" | null>(null);
 
-  async function copy(kind: "all" | "i" | "j") {
-    const body = blockText(kind === "all" ? reportRef.current : kind === "i" ? sectionIRef.current : sectionJRef.current);
+  async function copy(kind: "all" | "i" | "j" | "k") {
+    const body = blockText(kind === "all" ? reportRef.current : kind === "i" ? sectionIRef.current : kind === "j" ? sectionJRef.current : sectionKRef.current);
     const ok = body ? await copyText(`Référence recherchée : ${ref.trim().toUpperCase()}\nStatut : ${res?.status ?? "—"}\n${body}`) : false;
     if (ok) {
       setCopied(kind);
       setTimeout(() => setCopied(null), 2000);
-      toast.success(kind === "all" ? "Diagnostic copié" : kind === "i" ? "Section I copiée" : "Section J copiée");
+      toast.success(kind === "all" ? "Diagnostic copié" : kind === "i" ? "Section I copiée" : kind === "j" ? "Section J copiée" : "Section K copiée");
     } else toast.error("Copie impossible — sélectionnez le texte manuellement.");
   }
 
@@ -55,7 +57,7 @@ export function IxellioPartsDiag() {
         <Search className="h-6 w-6 shrink-0 text-brand" />
         <div>
           <div className="text-base font-extrabold uppercase tracking-wide">Catalogue IXELLIO · diagnostic</div>
-          <div className="text-[11px] font-bold text-brand">IXELLIO v9 — Sélection pièce → popup interventions</div>
+          <div className="text-[11px] font-bold text-brand">IXELLIO v10 — Chaîne sélection → Remplacer → temps</div>
           <div className="text-xs text-muted-foreground">
             Lecture seule, une consultation à la fois. Peut déconnecter une session IXELLIO ouverte ailleurs.
           </div>
@@ -85,6 +87,11 @@ export function IxellioPartsDiag() {
           {res.diagnostic.selection ? (
             <button type="button" onClick={() => void copy("j")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
               {copied === "j" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier la section J
+            </button>
+          ) : null}
+          {res.diagnostic.selection?.flow ? (
+            <button type="button" onClick={() => void copy("k")} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold">
+              {copied === "k" ? <Check className="h-4 w-4 text-brand" /> : <Copy className="h-4 w-4" />} Copier la section K
             </button>
           ) : null}
         </div>
@@ -282,6 +289,12 @@ export function IxellioPartsDiag() {
               </div>
             );
           })() : null}
+          {res.diagnostic.selection?.flow ? (
+            <div ref={sectionKRef} className="rounded-lg border border-border px-3 py-2">
+              <div className="font-bold">K. Chaîne de sélection → fenêtre Remplacer → temps (scripts inline)</div>
+              <FlowView flow={res.diagnostic.selection.flow} />
+            </div>
+          ) : null}
           {res.diagnostic.repair ? (() => {
             const r = res.diagnostic.repair;
             const ep = (e: { path: string; method: string | null }) => `${e.path}${e.method ? `?method=${e.method}` : ""}`;
@@ -351,6 +364,7 @@ export function IxellioPartsDiag() {
           </ol>
         </div>
       ) : null}
+      <IxellioScriptsDiag />
     </div>
   );
 }

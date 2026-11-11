@@ -7,6 +7,7 @@
  */
 import { parse } from "parse5";
 
+import { analyzeJsFlow, type JsFlow } from "./ixellio-js-flow";
 import { nameShape, safeEndpoints, safeFunctions, type SafeEndpoint } from "./ixellio-parts-replace";
 
 type Attr = { name: string; value: string };
@@ -36,6 +37,8 @@ export type SelectDiag = {
     delegatedClickBindings: number;
     external: string[];
   };
+  /** K. Chaîne sélection → fenêtre Remplacer → temps (scripts inline seulement). */
+  flow: JsFlow;
   verdict: "liaison de clic détectée" | "aucune liaison de clic inline";
   warnings: string[];
 };
@@ -143,5 +146,5 @@ export function inspectSelectionPopup(html: string, grouped: Grouped[] = [], gro
   if (scripts.delegatedClickBindings) warnings.push(`${scripts.delegatedClickBindings} liaison(s) de clic par script détectée(s) — cible exacte non déterminable en statique.`);
   if (scripts.external.length) warnings.push("Prochaine cible lecture seule possible : un des fichiers JS externes listés (aucun téléchargé ici).");
   warnings.push("Popup d'interventions absente du HTML statique : attendu si construite dynamiquement. Aucun clic, aucun OK, aucune durée.");
-  return { rows, scripts, verdict: any ? "liaison de clic détectée" : "aucune liaison de clic inline", warnings };
+  return { rows, scripts, flow: analyzeJsFlow(js), verdict: any ? "liaison de clic détectée" : "aucune liaison de clic inline", warnings };
 }

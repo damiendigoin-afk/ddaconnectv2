@@ -148,3 +148,12 @@ export const inspectIxellioGammeDiag = createServerFn({ method: "POST" })
     const { inspectIxellioFixedPage } = await import("./ixellio-labor-page.server");
     return inspectIxellioFixedPage("gamme");
   });
+
+/** Diagnostic manager : deux GET fixes (/scripts/pieceRecherche.js, /scripts/intervention.js), analyse assainie, sur clic seulement. */
+export const inspectIxellioScriptsDiag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertManager(context as never);
+    const { inspectIxellioScripts } = await import("./ixellio-scripts.server");
+    return inspectIxellioScripts();
+  });
