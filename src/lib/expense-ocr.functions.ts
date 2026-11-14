@@ -3,26 +3,35 @@ import { z } from "zod";
 
 import { readDocument } from "./doc-pipeline.server";
 import { reconcileExpenseVat } from "./doc-rules";
+import { normalizeExpenseExtract } from "./expense-validate";
 
 /**
  * Lecture d'un justificatif de note de frais (ticket, facture, reçu).
- * Réutilise le service d'analyse visuelle déjà en place (cache + budget).
- * Jamais bloquant : en cas d'échec, la saisie manuelle reste disponible.
+ * Photos et PDF scannés : une vision essentielle d'abord via le pipeline commun (cache + budget).
+ * PDF avec vraie couche texte : règles natives d'abord. La saisie manuelle reste toujours disponible.
  */
 export const ocrExpenseReceipt = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     z.object({ dataUrl: z.string().min(10), filename: z.string().optional(), text: z.string().max(40000).optional() }).parse(data),
   )
   .handler(async ({ data }) => {
-    const prompt = `Tu lis un justificatif de dépense français (ticket de caisse, reçu, facture, note d'hôtel,
-ticket de péage ou de carburant). Réponds STRICTEMENT en JSON :
-{"merchant":null,"date":null,"amount_ttc":null,"vat_amount":null,"vat_rate":null,"category":null,"raw_text":null}
-merchant = enseigne/fournisseur. date au format ISO YYYY-MM-DD. amount_ttc = total payé TTC (nombre, point décimal).
-vat_amount = montant de TVA si lisible, vat_rate = taux en % si lisible.
-category parmi : restaurant, carburant, peage, parking, hotel, fournitures, achat_divers, autre.
-raw_text = les quelques lignes d'en-tête du ticket. Mets null pour tout ce qui n'est pas lisible. N'invente rien.`;
+    const prompt = `Tu lis un ticket ou justificatif de dépense français. Réponds STRICTEMENT en JSON :
+{"merchant":null,"merchant_header":null,"date":null,"transaction_time":null,"amount_ttc":null,"amount_ht":null,"vat_amount":null,"vat_amount_source":null,"vat_rate":null,"vat_lines":[],"quantity_litres":null,"unit_price_litre":null,"category":null,"raw_text":null}
+RÈGLES DE LECTURE IMPÉRATIVES :
+- merchant = nom d'enseigne de l'en-tête ; merchant_header = identité commerciale lisible dans l'en-tête. Ne mets jamais un téléphone, SIRET ou une adresse dans merchant.
+- date = date de transaction au format YYYY-MM-DD ; transaction_time = heure de transaction HH:MM. N'utilise jamais une date d'expiration, de validité ou une date sans lien avec la transaction.
+- amount_ttc = TOTAL TTC / MONTANT À PAYER réellement payé. amount_ht = total HT seulement s'il est imprimé et certain.
+- vat_amount = montant de TVA EN EUR, jamais le taux. vat_rate = taux EN % seulement s'il est réellement unique sur le ticket.
+- vat_amount_source = "ticket" uniquement si le montant TVA ou son total est explicitement lisible/déterminable à partir des lignes TVA ; sinon null. Ne calcule pas toi-même une TVA théorique.
+- vat_lines = lignes TVA explicitement lues sous la forme [{"rate":20,"amount":4.79}]. Pour un ticket multi-taux, vat_rate = null ; vat_amount = total TVA seulement s'il est explicitement déterminable, sinon null.
+- quantity_litres = quantité de carburant en litres avec unité L explicite ; unit_price_litre = prix au litre seulement si l'unité est explicite. Ne confonds jamais quantité, prix, taux, SIRET, téléphone ou numéro de ticket.
+- category parmi : restaurant, carburant, peage, parking, hotel, fournitures, achat_divers, autre.
+- raw_text = quelques lignes d'en-tête utiles à l'identification du commerçant.
+Mets null pour toute valeur douteuse ou non lisible. N'invente et ne déduis jamais une date, une TVA, un taux, une quantité ou un montant.`;
     const r = await readDocument({ feature: "expense_receipt", kind: "expense", prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename });
-    const parsed = reconcileExpenseVat(r.fields as Record<string, unknown>, data.text);
-    if (!Object.values(parsed).some((v) => v != null && v !== "")) return { ok: false as const, error: "Justificatif illisible : saisissez les informations.", json: "" };
+    const reconciled = reconcileExpenseVat(r.fields as Record<string, unknown>, data.text);
+    const parsed = normalizeExpenseExtract(reconciled);
+    if (r.visionFailed) return { ok: false as const, error: "Lecture automatique indisponible : saisissez les informations à la main.", json: "" };
+    if (r.missing.length) return { ok: false as const, error: `Lecture incomplète (${r.missing.join(", ")}) : complétez les informations à la main.`, json: "" };
     return { ok: true as const, error: "", json: JSON.stringify(parsed) };
   });

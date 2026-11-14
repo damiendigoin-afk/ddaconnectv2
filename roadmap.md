@@ -209,3 +209,11 @@ Reste à faire :
 - [x] Diagnostic réel Ixellio GY-640-HM (lecture seule, réponse brute vs écran)
 - [x] IXELLIO catalogue: instrumentation diagnostic sécurisée + statut structure_non_reconnue
 - [x] IXELLIO diag: marqueur statique v3
+
+## Notes de frais — lecture et validation renforcées (14/11)
+- [x] Photos et PDF scannés en vision d'abord ; PDF texte en règles d'abord, sans toucher aux autres documents
+- [x] Prompt ticket français spécialisé et validateur déterministe post-fusion
+- [x] Alertes par champ, correction et confirmation avant soumission ; garde-fou manager sans mutation historique
+- [x] Régressions Carrefour / McDonald's / multi-taux / dates historiques : 1 526 tests unitaires + 19 tests serveur, types et compilation automatique OK
+- [x] Diff relue, sans appel aux notes réelles, écriture en base, email ni publication
+- Limite : aucune vraie photo/PDF ni parcours navigateur authentifié utilisés ; recette réelle à faire après revue, sans publication automatique.

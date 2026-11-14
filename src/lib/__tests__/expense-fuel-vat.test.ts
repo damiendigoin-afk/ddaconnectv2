@@ -35,6 +35,13 @@ describe("TVA ticket : taux ≠ montant", () => {
     const f = reconcileExpenseVat({ amount_ttc: 28.75, vat_amount: 20, vat_rate: 20 }, "TVA 20.00% = 4.79 EUR");
     expect(f["vat_amount"]).toBe(4.79);
   });
+  it("restaurant multi-taux : somme des montants explicitement imprimés, jamais la dernière ligne seule", () => {
+    const f = expenseRules("RESTAURANT\n04/11/2026\nTOTAL TTC 55,00\nTVA 5,50% = 0,50\nTVA 10,00% = 1,75\nTVA 20,00% = 3,00");
+    expect(f["amount_ttc"]).toBe(55);
+    expect(f["vat_rate"]).toBeNull();
+    expect(f["vat_amount"]).toBe(5.25);
+    expect(f["vat_amount_source"]).toBe("ticket");
+  });
   it("seulement TTC + taux : TVA incluse calculée", () => {
     expect(reconcileExpenseVat({ amount_ttc: 28.75, vat_amount: null, vat_rate: 20 }).vat_amount).toBe(4.79);
     expect(reconcileExpenseVat({ amount_ttc: 28.75, vat_amount: 20, vat_rate: 20 }).vat_amount).toBe(4.79);

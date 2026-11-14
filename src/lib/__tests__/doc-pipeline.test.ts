@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { runDocPipeline, type PipelineDeps } from "../doc-pipeline";
+import { runDocPipeline, visionFirstForKind, type PipelineDeps } from "../doc-pipeline";
 import { expenseRules, orOrPlateRules, purchaseRules } from "../doc-rules";
 
 function deps(over: Partial<PipelineDeps> = {}) {
@@ -68,6 +68,47 @@ describe("pipeline documentaire — OCR/règles avant IA", () => {
     const r = await runDocPipeline({ kind: "or_or_plate", text: "rien", hasImage: true, media: "pdf_text" }, d);
     expect(r.route).toBe("manual");
     expect(d.aiText).not.toHaveBeenCalled();
+    expect(d.aiVision).not.toHaveBeenCalled();
+  });
+});
+
+describe("notes de frais image — vision essentielle unique", () => {
+  it("seuls achats et frais sont vision-first ; les autres documents conservent leur voie", () => {
+    expect(visionFirstForKind("expense")).toBe(true);
+    expect(visionFirstForKind("purchase")).toBe(true);
+    expect(visionFirstForKind("repair_order")).toBe(false);
+    expect(visionFirstForKind("or_or_plate")).toBe(false);
+  });
+
+  it("une photo corrige un OCR plausible mais faux avec une seule vision, sans IA texte", async () => {
+    const d = deps({
+      aiVision: vi.fn(async () => ({ merchant: "CARREFOUR", date: "2026-11-07", amount_ttc: 93.28, vat_amount: 15.55, vat_rate: 20, vat_amount_source: "ticket" })),
+    });
+    const r = await runDocPipeline({
+      kind: "expense",
+      text: "CARREFOUR\n07/11/2020\nTOTAL 93,28\nTVA 20% 20,00",
+      hasImage: true,
+      media: "photo",
+      visionFirst: true,
+    }, d);
+    expect(r.fields).toMatchObject({ date: "2026-11-07", amount_ttc: 93.28, vat_amount: 15.55, vat_rate: 20 });
+    expect(r.aiCalls).toBe(1);
+    expect(d.aiVision).toHaveBeenCalledTimes(1);
+    expect(d.aiText).not.toHaveBeenCalled();
+    expect(r.fields["expense_issues"]).toEqual([]);
+  });
+
+  it("un PDF avec vraie couche texte garde les règles d'abord et n'appelle pas la vision si complet", async () => {
+    const d = deps();
+    const r = await runDocPipeline({
+      kind: "expense",
+      text: "CARREFOUR\n29/09/2026\nTOTAL 28,75 EUR\nTVA 20.00% = 4.79 EUR",
+      hasImage: true,
+      media: "pdf_text",
+      visionFirst: true,
+    }, d);
+    expect(r.route).toBe("ocr_rules");
+    expect(r.aiCalls).toBe(0);
     expect(d.aiVision).not.toHaveBeenCalled();
   });
 });

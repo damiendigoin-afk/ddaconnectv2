@@ -125,6 +125,9 @@ export function mergeVisionFirst(vision: Record<string, unknown>, rules: Record<
   const norm = (v: unknown) => String(v ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
   for (const [k, v] of Object.entries(rules)) {
     if (k.startsWith("_") || blank(v)) continue;
+    // Les alertes de l'OCR ne doivent pas survivre à une valeur corrigée par la vision ;
+    // les alertes des valeurs effectivement retirées de la lecture vision restent dans `vision`.
+    if (["expense_issues", "review_fields", "verification_required"].includes(k)) continue;
     if (rulesSuspect.includes(k)) continue;
     // Les règles ne fournissent jamais le fournisseur d'une photo (en-tête lu par la vision) ni un n° en forme de date.
     if (k === "supplier" || k === "supplier_info") { if (!blank(out[k]) && typeof v !== "object" && norm(v) !== norm(out[k])) conflicts.push(k); continue; }

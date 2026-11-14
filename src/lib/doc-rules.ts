@@ -7,6 +7,7 @@ import { brandModelConflict, checkPlate, isPollutedModel } from "./or-scan-valid
 import { findFrenchPlate, formatPlate, strictPlate } from "./plate";
 import { normSupplierName } from "./supplier-identify";
 import { cutGarageTail, dedupeFirstNameInLastName, isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
+import { EXPENSE_ORDINARY_VAT_RATES, expenseVatRates, hasMultipleExpenseVatRates, sanitizeExpenseFields } from "./expense-validate";
 
 export type Fields = Record<string, unknown>;
 export type DocKind =
@@ -929,17 +930,56 @@ export function reconcileExpenseVat<T extends Record<string, unknown>>(f: T, tex
   const ttc = n(f["amount_ttc"]);
   let rate = n(f["vat_rate"]);
   let vat = n(f["vat_amount"]);
-  const m = text ? /t\.?v\.?a[^\n%]{0,12}?(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s*(?:=|:)?\s*(\d+[.,]\d{2})/i.exec(text) : null;
-  if (m) {
-    rate ??= money(m[1]!);
-    const explicit = money(m[2]!);
-    if (explicit != null && (vat == null || (rate != null && Math.abs(vat - rate) < 0.005))) vat = explicit;
+  let source = typeof f["vat_amount_source"] === "string" ? f["vat_amount_source"] : null;
+  const printed = text
+    ? [...text.matchAll(/t\.?v\.?a[^\n%]{0,12}?(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s*(?:=|:)?\s*(\d+[.,]\d{2})/gi)]
+        .map((m) => ({ rate: money(m[1]!), amount: money(m[2]!) }))
+        .filter((line): line is { rate: number; amount: number } => line.rate != null && line.amount != null)
+    : [];
+  const existingLines = Array.isArray(f["vat_lines"]) ? f["vat_lines"] : [];
+  const vatLines = existingLines.length ? existingLines : printed;
+  const multiRate = hasMultipleExpenseVatRates({ ...f, vat_lines: vatLines });
+  if (printed.length) {
+    const printedRates = [...new Set(printed.map((line) => line.rate))];
+    if (printedRates.length === 1) rate ??= printedRates[0]!;
+    if (printedRates.length > 1) rate = null;
+    const explicit = printedRates.length > 1
+      ? Math.round(printed.reduce((sum, line) => sum + line.amount, 0) * 100) / 100
+      : printed.at(-1)!.amount;
+    // Le montant explicitement imprimé prime ; une valeur égale au taux est une confusion OCR connue.
+    if (vat == null || source === "calculated" || (printedRates.length > 1 && source !== "ticket") || (printedRates.length === 1 && rate != null && Math.abs(vat - rate) < 0.005)) {
+      vat = explicit;
+      source = "ticket";
+    }
   }
-  if (rate != null && (rate <= 0 || rate > 30)) rate = null;
-  if (vat != null && rate != null && Math.abs(vat - rate) < 0.005) vat = null;
-  if (vat != null && ttc != null && vat >= ttc) vat = null;
-  if (vat == null && ttc != null && rate != null) vat = Math.round(((ttc * rate) / (100 + rate)) * 100) / 100;
-  return { ...f, vat_amount: vat, vat_rate: rate };
+  if (multiRate) {
+    rate = null;
+    if (source === "calculated") vat = null;
+  }
+  if (rate != null && (rate < 0 || (rate !== 0 && !(EXPENSE_ORDINARY_VAT_RATES as readonly number[]).includes(rate)))) rate = null;
+  if (vat != null && rate != null && Math.abs(vat - rate) < 0.005) {
+    vat = null;
+    source = null;
+  }
+  if (vat != null && ttc != null && vat >= ttc) {
+    vat = null;
+    source = null;
+  }
+  // Calcul théorique possible à taux unique seulement ; il est marqué pour confirmation, jamais présenté comme TVA lue.
+  if (vat == null && ttc != null && rate != null && rate > 0 && (EXPENSE_ORDINARY_VAT_RATES as readonly number[]).includes(rate) && !multiRate) {
+    vat = Math.round(((ttc * rate) / (100 + rate)) * 100) / 100;
+    source = "calculated";
+  }
+  if (vat != null && source == null) source = "ticket";
+  const rates = expenseVatRates({ ...f, vat_lines: vatLines });
+  return {
+    ...f,
+    vat_amount: vat,
+    vat_rate: rate,
+    vat_amount_source: vat == null ? null : source,
+    ...(vatLines.length ? { vat_lines: vatLines } : {}),
+    ...(rates.length ? { vat_rates: rates } : {}),
+  };
 }
 
 /* --------------------------- Atelier / véhicule ---------------------------- */
@@ -1539,7 +1579,7 @@ export type DocSpec = {
 
 export const DOC_SPECS: Record<DocKind, DocSpec> = {
   purchase: { rules: purchaseRules, required: ["supplier", "lines", ["order_date", "document_date"]] },
-  expense: { rules: expenseRules, required: ["merchant", "date", "amount_ttc"] },
+  expense: { rules: expenseRules, sanitize: sanitizeExpenseFields, required: ["merchant", "date", "amount_ttc"] },
   or_or_plate: { rules: orOrPlateRules, required: [["or_number", "plate"]] },
   plate: { rules: orOrPlateRules, required: ["plate"] },
   odometer: { rules: odometerRules, required: ["mileage"] },

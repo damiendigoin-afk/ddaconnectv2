@@ -4,10 +4,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { accountingEmailFor, accountLabel, categoryLabel, isAccountPayment, isPersonalPayment, paymentLabel, type ExpenseNote } from "./expenses";
 import { expenseDeliveryKey, expenseRevisionTargets } from "./expense-revision-rules";
 import { buildExpenseNotePdf } from "./expense-pdf";
+import { expenseSubmissionGuard } from "./expense-validate";
 
 export const sendExpenseRevision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((v: unknown) => z.object({ expenseId: z.string().uuid(), revision: z.number().int().positive(), pdfBase64: z.string().min(100).max(20000000) }).parse(v))
+  .inputValidator((v: unknown) => z.object({ expenseId: z.string().uuid(), revision: z.number().int().positive(), pdfBase64: z.string().min(100).max(20000000), validationConfirmed: z.boolean().optional() }).parse(v))
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
     const { data: raw, error } = await sb.from("expense_notes").select("*").eq("id", data.expenseId).single();
@@ -15,6 +16,16 @@ export const sendExpenseRevision = createServerFn({ method: "POST" })
     const note = raw as unknown as ExpenseNote;
     const { data: allowed } = await sb.rpc("can_manage_expense", { _user_id: context.userId, _site_id: note.site_id ?? "", _action: "validate" });
     if (!allowed || note.revision !== data.revision || !["soumis", "valide", "annulee"].includes(note.status)) throw new Error("Validation non autorisée ou version obsolète");
+    if (!note.cancelled_at) {
+      const guard = expenseSubmissionGuard(
+        { date: note.spent_on, amount_ttc: note.amount_ttc, vat_amount: note.vat_amount, vat_rate: note.vat_rate },
+        { mode: "manager", confirmed: data.validationConfirmed === true, zeroVatJustification: note.notes },
+      );
+      if (!guard.allowed) {
+        const detail = guard.issues.slice(0, 4).map((issue) => issue.message).join(" ");
+        throw new Error(`${guard.error} ${detail}`.trim());
+      }
+    }
     const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
     const [{ data: site }, { data: versions }, { data: previous }] = await Promise.all([
       admin.from("sites").select("code,name").eq("id", note.site_id ?? "").single(),

@@ -29,6 +29,9 @@ const stripMeta = (f: Fields): Fields => { const o = { ...f }; delete o["_suspec
 
 export type DocRoute = "ocr_rules" | "ai_text_fallback" | "ai_vision_fallback" | "manual";
 
+/** Seuls les achats et justificatifs de frais image utilisent la vision en première passe métier. */
+export const visionFirstForKind = (kind: DocKind): boolean => kind === "purchase" || kind === "expense";
+
 /**
  * Nature du média lu :
  *  - photo : vraie photo (compteur, OR, BL…) — l'OCR local est souvent partiel ;

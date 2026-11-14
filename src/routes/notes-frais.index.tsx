@@ -13,6 +13,7 @@ import { usePermissions } from "@/lib/module-access";
 import { toastError } from "@/lib/errors";
 import { fetchSites, type Site } from "@/lib/sites";
 import { ocrExpenseReceipt } from "@/lib/expense-ocr.functions";
+import { expenseNumber, expenseSubmissionGuard, validateExpenseExtract, type ExpenseIssue } from "@/lib/expense-validate";
 import { sendExpenseRevision } from "@/lib/expense-revision-send.functions";
 import { ExpenseCorrection } from "@/components/ExpenseCorrection";
 import { useServerFn } from "@tanstack/react-start";
@@ -107,6 +108,47 @@ function ExpenseHub() {
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(site?.id ?? ""));
   const [receipt, setReceipt] = useState<{ file: Blob; name: string; preview: string } | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const [scanValues, setScanValues] = useState<Record<string, unknown>>({});
+  const [scanIssues, setScanIssues] = useState<ExpenseIssue[]>([]);
+  const [showValidation, setShowValidation] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
+
+  function patchDraft(patch: Partial<Draft>) {
+    setDraft((current) => ({ ...current, ...patch }));
+    setReviewConfirmed(false);
+    const keys = Object.keys(patch);
+    if (keys.includes("spent_on")) setScanIssues((current) => current.filter((issue) => issue.field !== "date"));
+    if (keys.includes("merchant")) setScanIssues((current) => current.filter((issue) => issue.field !== "merchant"));
+    if (keys.some((key) => ["amount_ttc", "vat_amount", "vat_rate", "notes"].includes(key))) {
+      const financialFields = ["amount_ttc", "vat_amount", "vat_rate", "amount_ht", "quantity_litres", "unit_price_litre"];
+      setScanIssues((current) => current.filter((issue) => !financialFields.includes(issue.field)));
+    }
+  }
+
+  function currentExpenseValues(): Record<string, unknown> {
+    return {
+      ...scanValues,
+      date: draft.spent_on,
+      merchant: draft.merchant,
+      amount_ttc: draft.amount_ttc,
+      vat_amount: draft.vat_amount,
+      vat_rate: draft.vat_rate,
+    };
+  }
+
+  const liveValidation = validateExpenseExtract(currentExpenseValues(), { today, zeroVatJustification: draft.notes });
+  const mergedIssues = [...scanIssues];
+  for (const issue of liveValidation.issues) {
+    if (!mergedIssues.some((current) => current.field === issue.field && current.code === issue.code)) mergedIssues.push(issue);
+  }
+  const draftValidation = {
+    ...liveValidation,
+    issues: mergedIssues,
+    requiresCorrection: mergedIssues.some((issue) => issue.severity === "correction"),
+    requiresConfirmation: mergedIssues.length > 0,
+  };
+  const visibleIssues = showValidation ? draftValidation.issues : [];
 
   const sites = useQuery({ queryKey: ["sites"], queryFn: fetchSites });
   const rows = useQuery({
@@ -127,6 +169,10 @@ function ExpenseHub() {
   /* --------------------------- Scan du justificatif ------------------------ */
   async function onPick(file: File) {
     setOpen(true);
+    setScanValues({});
+    setScanIssues([]);
+    setShowValidation(false);
+    setReviewConfirmed(false);
     const preview = file.type === "application/pdf" ? "" : URL.createObjectURL(file);
     setReceipt({ file, name: file.name, preview });
     setScanning(true);
@@ -138,19 +184,27 @@ function ExpenseHub() {
         return;
       }
       const j = JSON.parse(res.json) as Record<string, unknown>;
+      const reviewFields = Array.isArray(j["review_fields"]) ? j["review_fields"] : [];
       const guessed =
         (typeof j["category"] === "string" ? (j["category"] as string) : null) ??
         guessCategory([j["merchant"], j["raw_text"]].filter(Boolean).join(" "));
+      setScanValues(j);
+      setScanIssues(Array.isArray(j["expense_issues"]) ? (j["expense_issues"] as ExpenseIssue[]) : []);
+      setShowValidation(j["verification_required"] === true);
       setDraft((d) => ({
         ...d,
         merchant: typeof j["merchant"] === "string" ? (j["merchant"] as string) : d.merchant,
-        spent_on: typeof j["date"] === "string" ? (j["date"] as string).slice(0, 10) : d.spent_on,
+        spent_on: typeof j["date"] === "string" ? (j["date"] as string).slice(0, 10) : reviewFields.includes("date") ? "" : d.spent_on,
         amount_ttc: j["amount_ttc"] != null ? String(j["amount_ttc"]) : d.amount_ttc,
-        vat_amount: j["vat_amount"] != null ? String(j["vat_amount"]) : d.vat_amount,
-        vat_rate: j["vat_rate"] != null ? String(j["vat_rate"]) : d.vat_rate,
+        vat_amount: j["vat_amount"] != null ? String(j["vat_amount"]) : reviewFields.includes("vat_amount") ? "" : d.vat_amount,
+        vat_rate: j["vat_rate"] != null ? String(j["vat_rate"]) : reviewFields.includes("vat_rate") ? "" : d.vat_rate,
         category: EXPENSE_CATEGORIES.some((c) => c.key === guessed) ? (guessed as string) : d.category,
       }));
-      toast.success("Justificatif lu — vérifiez les informations");
+      if (j["verification_required"] === true) {
+        toast.message("Vérification requise", { description: "Corrigez ou confirmez les champs signalés avant l’envoi." });
+      } else {
+        toast.success("Justificatif lu — vérifiez les informations");
+      }
     } catch (e) {
       toastError(e, "Lecture du justificatif impossible — saisie manuelle");
     } finally {
@@ -158,8 +212,26 @@ function ExpenseHub() {
     }
   }
 
+  function submitDraft() {
+    setShowValidation(true);
+    if (draftValidation.requiresCorrection) {
+      toast.message("Vérification requise", { description: "Corrigez les champs signalés avant l’envoi." });
+      return;
+    }
+    const guard = expenseSubmissionGuard(currentExpenseValues(), { today, confirmed: reviewConfirmed, zeroVatJustification: draft.notes });
+    if (!guard.allowed) {
+      toast.message("Vérification requise", { description: guard.error });
+      return;
+    }
+    create.mutate();
+  }
+
   const create = useMutation({
     mutationFn: async () => {
+      if (draftValidation.requiresCorrection) throw new Error("Vérification requise : corrigez les champs signalés avant l’envoi.");
+      if (!draft.spent_on) throw new Error("Indiquez la date réelle de la dépense.");
+      const guard = expenseSubmissionGuard(currentExpenseValues(), { today, confirmed: reviewConfirmed, zeroVatJustification: draft.notes });
+      if (!guard.allowed) throw new Error(guard.error);
       if (isAccountPayment(draft.payment_method)) {
         if (!draft.account_ref) throw new Error("Indiquez la carte ou le compte utilisé.");
         if (draft.account_ref === "autre" && !draft.account_other.trim()) {
@@ -182,9 +254,9 @@ function ExpenseHub() {
         category: draft.category,
         purpose: draft.purpose || categoryLabel(draft.category),
         merchant: draft.merchant || null,
-        amount_ttc: Number(draft.amount_ttc || 0),
-        vat_amount: draft.vat_amount ? Number(draft.vat_amount) : null,
-        vat_rate: draft.vat_rate ? Number(draft.vat_rate) : null,
+        amount_ttc: expenseNumber(draft.amount_ttc) ?? 0,
+        vat_amount: expenseNumber(draft.vat_amount),
+        vat_rate: expenseNumber(draft.vat_rate),
         payment_method: draft.payment_method,
         account_ref: isAccountPayment(draft.payment_method) ? draft.account_ref : null,
         account_other:
@@ -202,6 +274,9 @@ function ExpenseHub() {
       setOpen(false);
       setReceipt(null);
       setDraft(emptyDraft(site?.id ?? ""));
+      setScanValues({});
+      setShowValidation(false);
+      setReviewConfirmed(false);
       void qc.invalidateQueries({ queryKey: ["expenses"] });
     },
     onError: (e) => toastError(e, "Enregistrement de la note impossible"),
@@ -209,7 +284,7 @@ function ExpenseHub() {
 
   /* ------------------------ Validation + envoi compta ---------------------- */
   const validate = useMutation({
-    mutationFn: async (note: ExpenseNote) => {
+    mutationFn: async ({ note, confirmed }: { note: ExpenseNote; confirmed: boolean }) => {
       const url = await receiptUrl(note.receipt_path);
       const bytes = await buildExpenseNotePdf({
         note: { ...note, validated_at: new Date().toISOString(), validated_by_name: displayName },
@@ -217,7 +292,7 @@ function ExpenseHub() {
         receiptUrl: url,
       });
       const res = await validateAndSendExpense({
-        data: { expenseId: note.id, revision: note.revision, pdfBase64: pdfToBase64(bytes) },
+        data: { expenseId: note.id, revision: note.revision, pdfBase64: pdfToBase64(bytes), validationConfirmed: confirmed },
       });
       if (!res.ok) throw new Error(res.error);
     },
@@ -230,6 +305,22 @@ function ExpenseHub() {
       toastError(e, "Envoi à la comptabilité impossible");
     },
   });
+
+  function requestManagerValidation(note: ExpenseNote) {
+    const result = validateExpenseExtract(
+      { date: note.spent_on, amount_ttc: note.amount_ttc, vat_amount: note.vat_amount, vat_rate: note.vat_rate },
+      { today, mode: "manager", zeroVatJustification: note.notes },
+    );
+    if (result.requiresCorrection) {
+      toast.error("Vérification requise avant validation", { description: result.issues.filter((issue) => issue.severity === "correction").map((issue) => issue.message).join(" ") });
+      return;
+    }
+    if (result.requiresConfirmation) {
+      const confirmed = window.confirm(`Vérification requise :\n\n${result.issues.map((issue) => issue.message).join("\n")}\n\nConfirmez-vous avoir contrôlé le justificatif ?`);
+      if (!confirmed) return;
+    }
+    validate.mutate({ note, confirmed: result.requiresConfirmation });
+  }
 
   const change = useMutation({
     mutationFn: ({
@@ -359,10 +450,32 @@ function ExpenseHub() {
               </button>
             )}
 
-            <Field label="Date" type="date" value={draft.spent_on} onChange={(v) => setDraft({ ...draft, spent_on: v })} />
-            <Field label="Fournisseur / enseigne" value={draft.merchant} onChange={(v) => setDraft({ ...draft, merchant: v })} />
-            <Field label="Montant TTC (€)" type="number" value={draft.amount_ttc} onChange={(v) => setDraft({ ...draft, amount_ttc: v })} />
-            <Field label="Dont TVA (€)" type="number" value={draft.vat_amount} onChange={(v) => setDraft({ ...draft, vat_amount: v })} />
+            {visibleIssues.length ? (
+              <div role="alert" className="space-y-2 rounded-lg border-2 border-status-watch bg-status-watch-soft p-3 text-status-watch">
+                <p className="flex items-center gap-2 text-xs font-extrabold uppercase"><AlertTriangle className="h-4 w-4" /> Vérification requise</p>
+                <ul className="list-disc space-y-1 pl-5 text-xs">
+                  {visibleIssues.map((issue) => <li key={`${issue.field}:${issue.code}`}>{issue.message}</li>)}
+                </ul>
+                {draftValidation.requiresCorrection ? (
+                  <p className="text-xs font-bold">Corrigez les champs signalés : la confirmation seule ne suffit pas.</p>
+                ) : (
+                  <label className="flex items-start gap-2 text-xs font-bold">
+                    <input type="checkbox" className="mt-0.5" checked={reviewConfirmed} onChange={(e) => setReviewConfirmed(e.target.checked)} />
+                    Je confirme avoir contrôlé le justificatif et les champs signalés.
+                  </label>
+                )}
+              </div>
+            ) : null}
+            <Field label="Date" type="date" value={draft.spent_on} onChange={(v) => patchDraft({ spent_on: v })} />
+            <FieldIssues field="date" issues={visibleIssues} />
+            <Field label="Fournisseur / enseigne" value={draft.merchant} onChange={(v) => patchDraft({ merchant: v })} />
+            <FieldIssues field="merchant" issues={visibleIssues} />
+            <Field label="Montant TTC (€)" type="number" value={draft.amount_ttc} onChange={(v) => patchDraft({ amount_ttc: v })} />
+            <FieldIssues field="amount_ttc" issues={visibleIssues} />
+            <Field label="Dont TVA (€)" type="number" value={draft.vat_amount} onChange={(v) => patchDraft({ vat_amount: v })} />
+            <FieldIssues field="vat_amount" issues={visibleIssues} />
+            <Field label="Taux de TVA (%)" type="number" value={draft.vat_rate} onChange={(v) => patchDraft({ vat_rate: v })} />
+            <FieldIssues field="vat_rate" issues={visibleIssues} />
             <Select
               label="Motif *"
               value={draft.category}
@@ -402,7 +515,7 @@ function ExpenseHub() {
               options={(sites.data ?? []).map((s: Site) => ({ key: s.id, label: s.name }))}
               allowEmpty
             />
-            <Area label="Commentaire (facultatif)" value={draft.notes} onChange={(v) => setDraft({ ...draft, notes: v })} />
+            <Area label="Commentaire (facultatif ; justification si TVA 0 %)" value={draft.notes} onChange={(v) => patchDraft({ notes: v })} />
             <p className="text-[11px] text-muted-foreground">
               {isPersonalPayment(draft.payment_method)
                 ? "Paiement personnel : un remboursement vous sera dû après validation."
@@ -411,10 +524,12 @@ function ExpenseHub() {
                   : "Paiement entreprise : justificatif comptable uniquement, aucun remboursement."}
             </p>
             <button
-              onClick={() => create.mutate()}
+              onClick={submitDraft}
               disabled={
                 create.isPending ||
+                (showValidation && draftValidation.requiresCorrection) ||
                 !draft.amount_ttc ||
+                !draft.spent_on ||
                 !draft.site_id ||
                 !draft.payment_method ||
                 !draft.category ||
@@ -441,6 +556,10 @@ function ExpenseHub() {
             const personal = isPersonalPayment(e.payment_method);
             const onAccount = isAccountPayment(e.payment_method);
             const failed = e.send_status === "failed";
+            const managerValidation = validateExpenseExtract(
+              { date: e.spent_on, amount_ttc: e.amount_ttc, vat_amount: e.vat_amount, vat_rate: e.vat_rate },
+              { today, mode: "manager", zeroVatJustification: e.notes },
+            );
             return (
               <div key={e.id} className="rounded-xl border-2 border-border bg-card p-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -491,6 +610,13 @@ function ExpenseHub() {
                   </p>
                 ) : null}
 
+                {perms.canValidateExpenses && e.status === "soumis" && managerValidation.issues.length ? (
+                  <div role="alert" className="mt-2 rounded-lg bg-status-watch-soft px-2 py-2 text-[11px] font-bold text-status-watch">
+                    <p className="flex items-center gap-2 uppercase"><AlertTriangle className="h-3 w-3" /> Vérification requise avant validation</p>
+                    <p className="mt-1">{managerValidation.issues.map((issue) => issue.message).join(" ")}</p>
+                  </div>
+                ) : null}
+
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Act label="Document A4" onClick={() => void openPdf(e)} />
                   {e.status === "brouillon" || e.status === "refuse" ? (
@@ -504,7 +630,7 @@ function ExpenseHub() {
                       <Act
                         label={validate.isPending ? "Envoi…" : failed ? "Renvoyer" : "Valider et transmettre"}
                         primary
-                        onClick={() => validate.mutate(e)}
+                        onClick={() => requestManagerValidation(e)}
                       />
                       {e.status === "soumis" ? (
                         <Act
@@ -578,6 +704,12 @@ function ExpenseHub() {
       ) : null}
     </AppShell>
   );
+}
+
+function FieldIssues({ field, issues }: { field: string; issues: ExpenseIssue[] }) {
+  const matching = issues.filter((issue) => issue.field === field);
+  if (!matching.length) return null;
+  return <p className="-mt-2 text-[11px] font-bold text-status-watch">Vérification requise : {matching.map((issue) => issue.message).join(" ")}</p>;
 }
 
 function Act({ label, onClick, primary }: { label: string; onClick: () => void; primary?: boolean }) {
