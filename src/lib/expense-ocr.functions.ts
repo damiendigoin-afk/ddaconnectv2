@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { readDocument } from "./doc-pipeline.server";
 import { reconcileExpenseVat } from "./doc-rules";
+import { CARREFOUR_CLIPRO_PAYMENT_SOURCE, detectCarrefourCliproPayment } from "./expense-payment";
 import { normalizeExpenseExtract } from "./expense-validate";
 
 /**
@@ -16,7 +17,7 @@ export const ocrExpenseReceipt = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const prompt = `Tu lis un ticket ou justificatif de dépense français. Réponds STRICTEMENT en JSON :
-{"merchant":null,"merchant_header":null,"date":null,"transaction_time":null,"amount_ttc":null,"amount_ht":null,"vat_amount":null,"vat_amount_source":null,"vat_rate":null,"vat_lines":[],"quantity_litres":null,"unit_price_litre":null,"category":null,"raw_text":null}
+{"merchant":null,"merchant_header":null,"date":null,"transaction_time":null,"amount_ttc":null,"amount_ht":null,"vat_amount":null,"vat_amount_source":null,"vat_rate":null,"vat_lines":[],"quantity_litres":null,"unit_price_litre":null,"category":null,"raw_text":null,"payment_text":null}
 RÈGLES DE LECTURE IMPÉRATIVES :
 - merchant = nom d'enseigne de l'en-tête ; merchant_header = identité commerciale lisible dans l'en-tête. Ne mets jamais un téléphone, SIRET ou une adresse dans merchant.
 - date = date de transaction au format YYYY-MM-DD ; transaction_time = heure de transaction HH:MM. N'utilise jamais une date d'expiration, de validité ou une date sans lien avec la transaction.
@@ -27,11 +28,16 @@ RÈGLES DE LECTURE IMPÉRATIVES :
 - quantity_litres = quantité de carburant en litres avec unité L explicite ; unit_price_litre = prix au litre seulement si l'unité est explicite. Ne confonds jamais quantité, prix, taux, SIRET, téléphone ou numéro de ticket.
 - category parmi : restaurant, carburant, peage, parking, hotel, fournitures, achat_divers, autre.
 - raw_text = quelques lignes d'en-tête utiles à l'identification du commerçant.
+- payment_text = lignes brutes du bloc de règlement. Chez Carrefour, « PAIEMENT CLIPRO », « CLIP PRO » ou « CLI PRO » identifie notre compte professionnel : conserve cette mention et son contexte PAIEMENT pour la règle déterministe serveur qui préremplira En compte. Ne l'applique pas hors Carrefour. Ne déduis jamais un sous-compte Direction / VO / Atelier à partir de CLIPRO : le compte reste un choix manuel obligatoire.
 Mets null pour toute valeur douteuse ou non lisible. N'invente et ne déduis jamais une date, une TVA, un taux, une quantité ou un montant.`;
     const r = await readDocument({ feature: "expense_receipt", kind: "expense", prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename });
     const reconciled = reconcileExpenseVat(r.fields as Record<string, unknown>, data.text);
     const parsed = normalizeExpenseExtract(reconciled);
+    const detectedPayment = detectCarrefourCliproPayment(reconciled, data.text);
+    const output = detectedPayment
+      ? { ...parsed, payment_method: detectedPayment, payment_method_source: CARREFOUR_CLIPRO_PAYMENT_SOURCE }
+      : parsed;
     if (r.visionFailed) return { ok: false as const, error: "Lecture automatique indisponible : saisissez les informations à la main.", json: "" };
     if (r.missing.length) return { ok: false as const, error: `Lecture incomplète (${r.missing.join(", ")}) : complétez les informations à la main.`, json: "" };
-    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+    return { ok: true as const, error: "", json: JSON.stringify(output) };
   });

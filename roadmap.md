@@ -217,3 +217,5 @@ Reste à faire :
 - [x] Régressions Carrefour / McDonald's / multi-taux / dates historiques : 1 526 tests unitaires + 19 tests serveur, types et compilation automatique OK
 - [x] Diff relue, sans appel aux notes réelles, écriture en base, email ni publication
 - Limite : aucune vraie photo/PDF ni parcours navigateur authentifié utilisés ; recette réelle à faire après revue, sans publication automatique.
+- [x] Carrefour Saint-Cyprien : CLIPRO en contexte paiement => En compte, sans présumer Direction / VO / Atelier ; correction utilisateur prioritaire ; 1 537 tests unitaires + 22 tests serveur, types et compilation OK, sans publication.
+- Limite : règles éprouvées sur textes synthétiques seulement ; aucun vrai justificatif ni parcours navigateur authentifié, aucune note/base/email utilisés.

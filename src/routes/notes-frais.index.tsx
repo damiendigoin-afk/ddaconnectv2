@@ -13,6 +13,7 @@ import { usePermissions } from "@/lib/module-access";
 import { toastError } from "@/lib/errors";
 import { fetchSites, type Site } from "@/lib/sites";
 import { ocrExpenseReceipt } from "@/lib/expense-ocr.functions";
+import { paymentMethodAfterScan } from "@/lib/expense-payment";
 import { expenseNumber, expenseSubmissionGuard, validateExpenseExtract, type ExpenseIssue } from "@/lib/expense-validate";
 import { sendExpenseRevision } from "@/lib/expense-revision-send.functions";
 import { ExpenseCorrection } from "@/components/ExpenseCorrection";
@@ -102,6 +103,7 @@ function ExpenseHub() {
   const { site } = useSite();
   const perms = usePermissions();
   const fileRef = useRef<HTMLInputElement>(null);
+  const paymentEditedRef = useRef(false);
 
   const [scope, setScope] = useState<ExpenseScope>("mine");
   const [open, setOpen] = useState(false);
@@ -168,6 +170,7 @@ function ExpenseHub() {
 
   /* --------------------------- Scan du justificatif ------------------------ */
   async function onPick(file: File) {
+    paymentEditedRef.current = false;
     setOpen(true);
     setScanValues({});
     setScanIssues([]);
@@ -199,6 +202,11 @@ function ExpenseHub() {
         vat_amount: j["vat_amount"] != null ? String(j["vat_amount"]) : reviewFields.includes("vat_amount") ? "" : d.vat_amount,
         vat_rate: j["vat_rate"] != null ? String(j["vat_rate"]) : reviewFields.includes("vat_rate") ? "" : d.vat_rate,
         category: EXPENSE_CATEGORIES.some((c) => c.key === guessed) ? (guessed as string) : d.category,
+        payment_method: paymentMethodAfterScan(
+          d.payment_method,
+          typeof j["payment_method"] === "string" ? (j["payment_method"] as string) : null,
+          paymentEditedRef.current,
+        ),
       }));
       if (j["verification_required"] === true) {
         toast.message("Vérification requise", { description: "Corrigez ou confirmez les champs signalés avant l’envoi." });
@@ -271,6 +279,7 @@ function ExpenseHub() {
     },
     onSuccess: () => {
       toast.success("Note envoyée à la validation");
+      paymentEditedRef.current = false;
       setOpen(false);
       setReceipt(null);
       setDraft(emptyDraft(site?.id ?? ""));
@@ -486,7 +495,10 @@ function ExpenseHub() {
             <Select
               label="Moyen de règlement *"
               value={draft.payment_method}
-              onChange={(v) => setDraft({ ...draft, payment_method: v })}
+              onChange={(v) => {
+                paymentEditedRef.current = true;
+                setDraft({ ...draft, payment_method: v });
+              }}
               options={PAYMENT_METHODS.map((p) => ({ key: p.key, label: p.label }))}
               allowEmpty={false}
             />
