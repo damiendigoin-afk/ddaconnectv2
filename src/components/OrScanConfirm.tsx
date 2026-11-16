@@ -2,21 +2,14 @@ import { useCallback, useState, type ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { assessOrScan, checkPlate, type OrScanData, type OrScanDoubt } from "@/lib/or-scan-validate";
-import { formatPlate } from "@/lib/plate";
+import type { OrScanData, OrScanDoubt } from "@/lib/or-scan-validate";
+import { isGenericDoubt, OR_CONFIRM_FIELDS, resolveOrConfirm } from "@/lib/or-scan-confirm";
 import { applyVehicleSource, frDay, isoDay, type IxellioCross, type VehicleSourceChoice } from "@/lib/vehicle-dates";
 import { normalizeVin, vinIssueMessage } from "@/lib/vin";
 
 type Pending = { data: OrScanData; doubts: OrScanDoubt[]; orNumber: string | null; ix: IxellioCross | null; resolve: (d: OrScanData | null) => void };
 
-const FIELDS: Array<{ key: string; group: "vehicle" | "client"; label: string; doubt: OrScanDoubt["field"] | null; numeric?: boolean }> = [
-  { key: "plate", group: "vehicle", label: "Immatriculation", doubt: "plate" },
-  { key: "brand", group: "vehicle", label: "Marque", doubt: "brand" },
-  { key: "model", group: "vehicle", label: "Modèle", doubt: "model" },
-  { key: "mileage", group: "vehicle", label: "Kilométrage", doubt: null, numeric: true },
-  { key: "last_name", group: "client", label: "Nom client", doubt: "client" },
-  { key: "first_name", group: "client", label: "Prénom", doubt: "client" },
-];
+const FIELDS = OR_CONFIRM_FIELDS;
 
 /**
  * Confirmation des champs critiques d'un OR lu, affichée UNIQUEMENT en cas de doute.
@@ -50,7 +43,7 @@ function OrScanConfirmDialog({ pending, onDone }: { pending: Pending; onDone: (d
   const [vin, setVin] = useState<string>(() => readVinNorm.vin ?? readVinNorm.candidate ?? (ixFillsVin ? ix!.ixVin! : ""));
   const [vinSource, setVinSource] = useState<string>(() => ixFillsVin ? "ixellio" : "ocr_or");
   const [vinEdited, setVinEdited] = useState(false);
-  const needsCheckInit = pending.doubts.some((d) => (d.blocking || d.code === "plate_two_readings") && d.field !== "vin" && d.code !== "ixellio_mec_conflict");
+  const needsCheckInit = pending.doubts.some(isGenericDoubt);
   const [showCheck, setShowCheck] = useState(needsCheckInit);
   function chooseSource(k: VehicleSourceChoice) {
     if (!ix) return;
@@ -68,47 +61,9 @@ function OrScanConfirmDialog({ pending, onDone }: { pending: Pending; onDone: (d
   const flagged = new Set(pending.doubts.map((d) => d.field));
 
   function submit() {
-    const vehicle: Record<string, unknown> = { ...pending.data.vehicle };
-    const client: Record<string, unknown> = { ...pending.data.client };
-    for (const f of FIELDS) {
-      const v = vals[`${f.group}.${f.key}`]!.trim();
-      const target = f.group === "vehicle" ? vehicle : client;
-      if (v) target[f.key] = f.numeric ? v.replace(/\D/g, "") : f.key === "plate" ? formatPlate(v) : v; else delete target[f.key];
-    }
-    const plateEdited = String(vehicle["plate"] ?? "") !== String(pending.data.vehicle["plate"] ?? "");
-    const next: OrScanData = { ...pending.data, vehicle, client };
-    if (checkPlate(vehicle["plate"], { orNumber: pending.orNumber, account: client["account_number"] }) === "or_number") {
-      setErr("Ce numéro est le n° d'OR, pas une immatriculation."); return;
-    }
-    const again = assessOrScan({ data: next, orNumber: pending.orNumber, });
-    const blocking = again.doubts.filter((d) => d.blocking);
-    // Doutes de plaque initiaux (deux lectures différentes) : levés seulement par vérification explicite ou correction.
-    const plateDoubtLeft = !plateEdited && pending.doubts.some((d) => d.code === "plate_two_readings");
-    if ((blocking.length || plateDoubtLeft) && !checked) { setShowCheck(true); setErr("Corrigez les valeurs signalées ou cochez « J'ai vérifié ces valeurs »."); return; }
-    // Dates : MEC distincte de la livraison, conflit Ixellio arbitré, VIN divergent validé.
-    if (plateEdited && mecSource === "ixellio") { setErr("Immatriculation modifiée : la MEC Ixellio concerne l'ancienne plaque. Saisissez la MEC ou videz-la."); return; }
-    if (ix?.vinMismatch && !source) { setErr("VIN différent entre le scan et Ixellio : choisissez la source à utiliser."); return; }
-    const vinN = normalizeVin(vin);
-    if (vinEdited && vinN.candidate && !vinN.vin) { setErr(vinIssueMessage(vinN) ?? "VIN invalide."); return; }
-    if (vinN.candidate) {
-      vehicle["vin"] = vinN.vin ?? vinN.candidate;
-      vehicle["vin_source"] = vinEdited ? "manuel" : vinSource;
-      const raw = String(pending.data.vehicle["vin_ocr_raw"] ?? pending.data.vehicle["vin"] ?? "").trim();
-      if (raw && raw !== vehicle["vin"]) vehicle["vin_ocr_raw"] = raw;
-    } else if (vinEdited) delete vehicle["vin"];
-    if (ix?.mec === "conflict" && !ix.vinMismatch && !mecChoice) { setErr("Choisissez la MEC à retenir (OR, Ixellio ou aucune)."); return; }
-    if (mec && delivery && mec === delivery) { setErr("La 1re MEC ne peut pas être la date de livraison : corrigez ou videz la MEC."); return; }
-    if (mec && !isoDay(mec)) { setErr("Date de 1re MEC invalide."); return; }
-    if (mec && mec > new Date().toISOString().slice(0, 10)) { setErr("La 1re MEC ne peut pas être future."); return; }
-    if (mec) { vehicle["first_registration"] = mec; vehicle["first_registration_source"] = mecSource; } else { vehicle["first_registration"] = null; delete vehicle["first_registration_source"]; }
-    if (delivery) vehicle["delivery_date"] = delivery; else delete vehicle["delivery_date"];
-    if (checked && checkPlate(vehicle["plate"]) === "atypical") vehicle["plate_confirmed"] = true;
-    const dates = { first_registration: vehicle["first_registration"] ?? null, ...(vehicle["first_registration_source"] ? { first_registration_source: vehicle["first_registration_source"] } : {}), ...(vehicle["delivery_date"] ? { delivery_date: vehicle["delivery_date"] } : {}) };
-    const vinOut = vehicle["vin"] !== undefined ? { vin: vehicle["vin"], ...(vehicle["vin_source"] ? { vin_source: vehicle["vin_source"] } : {}), ...(vehicle["vin_ocr_raw"] ? { vin_ocr_raw: vehicle["vin_ocr_raw"] } : {}) } : {};
-    const outVehicle: Record<string, unknown> = { ...again.data.vehicle, ...vinOut, ...dates, ...(vehicle["plate_confirmed"] ? { plate_confirmed: true } : {}) };
-    if (!vehicle["delivery_date"]) delete outVehicle["delivery_date"];
-    if (vehicle["vin"] === undefined) delete outVehicle["vin"];
-    onDone({ ...again.data, vehicle: outVehicle });
+    const r = resolveOrConfirm(pending, { vals, checked, vin, vinSource, vinEdited, source, mec, mecSource, mecChoice, delivery });
+    if (!r.ok) { if (r.needsCheck) setShowCheck(true); setErr(r.error); return; }
+    onDone(r.data);
   }
 
   return (
@@ -119,7 +74,7 @@ function OrScanConfirmDialog({ pending, onDone }: { pending: Pending; onDone: (d
           <DialogDescription>Vérifiez les points signalés et les dates. Rien n'est créé avant votre validation.</DialogDescription>
         </DialogHeader>
         <ul className="space-y-1">
-          {pending.doubts.filter((d) => d.code !== "ixellio_vin_mismatch").map((d) => (
+          {pending.doubts.filter((d) => d.code !== "ixellio_vin_mismatch" && d.code !== "ixellio_mec_conflict").map((d) => (
             <li key={d.code} className="flex gap-2 rounded-md border border-border bg-muted p-2 text-xs">
               <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden />
               <span>{d.message}</span>
@@ -174,9 +129,17 @@ function OrScanConfirmDialog({ pending, onDone }: { pending: Pending; onDone: (d
         <fieldset className="space-y-2 rounded-md border border-border p-2">
           <legend className="px-1 text-xs font-bold uppercase">Dates du véhicule</legend>
           {ix ? (
-            <p className={`text-xs ${ix.status === "ok" && !ix.vinMismatch ? "text-muted-foreground" : "text-destructive"}`}>
-              Ixellio : {ix.message}{ix.status === "ok" && ix.ixVin ? ` · VIN ${ix.ixVin}` : ""}
-            </p>
+            (() => {
+              const label = (k: string) => (k === "ixellio" ? "Ixellio" : k === "or" || k === "ocr_or" ? "scan OR" : k === "none" ? "aucune MEC" : "saisie manuelle");
+              const resolved = ix.vinMismatch ? (source ? `Source retenue : ${label(source)}.` : null)
+                : ix.mec === "conflict" ? (mecChoice ? `MEC retenue : ${label(mecChoice)}.` : mecSource === "manuel" && mec ? "MEC retenue : saisie manuelle." : null) : null;
+              const pendingIssue = (ix.vinMismatch || ix.mec === "conflict") && !resolved;
+              return (
+                <p className={`text-xs ${pendingIssue || ix.status !== "ok" ? "text-destructive" : "text-muted-foreground"}`}>
+                  {resolved ?? `Ixellio : ${ix.message}${ix.status === "ok" && ix.ixVin && !ix.vinMismatch ? ` · VIN ${ix.ixVin}` : ""}`}
+                </p>
+              );
+            })()
           ) : null}
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs font-bold">
@@ -194,7 +157,7 @@ function OrScanConfirmDialog({ pending, onDone }: { pending: Pending; onDone: (d
           </div>
           {ix?.mec === "conflict" && !ix.vinMismatch ? (
             <div className="space-y-1 text-sm" role="radiogroup" aria-label="MEC à retenir">
-              {([["or", `MEC de l'OR (${frDay(readMec)})`], ["ixellio", `MEC Ixellio (${frDay(ix.ixMec)})`], ["none", "Aucune (à vérifier)"]] as const).map(([k, label]) => (
+              {([["ixellio", `Utiliser la MEC Ixellio (${frDay(ix.ixMec)})`], ["or", `Conserver la MEC du scan OR (${frDay(readMec)})`], ["none", "Aucune (à vérifier)"]] as const).map(([k, label]) => (
                 <label key={k} className="flex items-center gap-2">
                   <input type="radio" name="mec-choice" checked={mecChoice === k} onChange={() => {
                     setMecChoice(k);

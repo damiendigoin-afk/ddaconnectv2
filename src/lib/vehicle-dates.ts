@@ -154,7 +154,7 @@ export type IxellioCross = {
 };
 
 /** Croisement lecture OR × réponse Ixellio. Un VIN divergent stoppe tout enrichissement. */
-export function crossIxellio(read: { vin?: unknown; first_registration?: unknown; brand?: unknown; model?: unknown }, ix: { outcome: string; vehicle?: Record<string, string | undefined> } | null): IxellioCross {
+export function crossIxellio(read: { vin?: unknown; vin_ocr_raw?: unknown; first_registration?: unknown; brand?: unknown; model?: unknown }, ix: { outcome: string; vehicle?: Record<string, string | undefined> } | null): IxellioCross {
   const none = { vinMismatch: false, mec: "none" as const, ixMec: null, ixVin: null, brandMismatch: false };
   if (!ix) return { status: "skipped", ...none, message: "Ixellio non interrogé (immatriculation non confirmée)." };
   if (ix.outcome === "auth_ok_no_vehicle") return { status: "not_found", ...none, message: "Ixellio : aucun véhicule pour cette immatriculation." };
@@ -175,7 +175,7 @@ export function crossIxellio(read: { vin?: unknown; first_registration?: unknown
     : mec === "fill" ? `MEC Ixellio : ${frDay(ixMec)}.`
     : mec === "conflict" ? `MEC lue ${frDay(rMec)} ≠ MEC Ixellio ${frDay(ixMec)} : choisissez.`
     : mec === "same" ? "MEC confirmée par Ixellio." : "Ixellio : véhicule trouvé, sans MEC.";
-  const extra = { readVin: rVin || null, readVinRaw: rN.corrected ? rN.raw : null, ixBrand: String(v["marque"] ?? "").trim() || null, ixModel: String(v["modele"] ?? "").trim() || null };
+  const extra = { readVin: rVin || null, readVinRaw: (String(read.vin_ocr_raw ?? "").trim() || null) ?? (rN.corrected ? rN.raw : null), ixBrand: String(v["marque"] ?? "").trim() || null, ixModel: String(v["modele"] ?? "").trim() || null };
   return { status: "ok", vinMismatch, mec, ixMec, ixVin, brandMismatch, message, ...extra };
 }
 
