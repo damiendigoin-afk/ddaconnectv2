@@ -1,3 +1,4 @@
+import { normalizeVin } from "./vin";
 /**
  * Dates véhicule (1re mise en circulation, livraison, contrôle technique) — règles pures.
  * - La date de livraison / restitution d'un OR n'est JAMAIS une MEC.
@@ -134,7 +135,6 @@ export function guardFirstRegistration(v: {
   return { first_registration: mec, rejected: null };
 }
 
-const vinKey = (v: unknown) => String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 const txt = (v: unknown) => String(v ?? "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
 
 export type IxellioCross = {
@@ -144,6 +144,11 @@ export type IxellioCross = {
   mec: "fill" | "conflict" | "same" | "none";
   ixMec: string | null;
   ixVin: string | null;
+  /** VIN lu sur l'OR après normalisation (O->0), et valeur brute si corrigée. */
+  readVin?: string | null;
+  readVinRaw?: string | null;
+  ixBrand?: string | null;
+  ixModel?: string | null;
   brandMismatch: boolean;
   message: string;
 };
@@ -155,9 +160,11 @@ export function crossIxellio(read: { vin?: unknown; first_registration?: unknown
   if (ix.outcome === "auth_ok_no_vehicle") return { status: "not_found", ...none, message: "Ixellio : aucun véhicule pour cette immatriculation." };
   if (ix.outcome !== "auth_ok_vehicle_found") return { status: "unavailable", ...none, message: "Ixellio indisponible : le scan continue, MEC à saisir manuellement si besoin." };
   const v = ix.vehicle ?? {};
-  const ixVin = vinKey(v["vin"]) || null;
+  const rN = normalizeVin(read.vin);
+  const ixVin = normalizeVin(v["vin"]).candidate;
   const ixMec = isoDay(v["dateMec"]);
-  const rVin = vinKey(read.vin);
+  const rVin = rN.candidate ?? "";
+  // Comparaison après normalisation (majuscules, sans séparateurs, O->0) : UU1DBGOO… = UU1DBG00….
   const vinMismatch = Boolean(rVin && ixVin && rVin.length >= 11 && rVin !== ixVin);
   const rb = txt(read.brand), ib = txt(v["marque"]);
   const brandMismatch = Boolean(rb && ib && !rb.startsWith(ib) && !ib.startsWith(rb));
@@ -168,7 +175,31 @@ export function crossIxellio(read: { vin?: unknown; first_registration?: unknown
     : mec === "fill" ? `MEC Ixellio : ${frDay(ixMec)}.`
     : mec === "conflict" ? `MEC lue ${frDay(rMec)} ≠ MEC Ixellio ${frDay(ixMec)} : choisissez.`
     : mec === "same" ? "MEC confirmée par Ixellio." : "Ixellio : véhicule trouvé, sans MEC.";
-  return { status: "ok", vinMismatch, mec, ixMec, ixVin, brandMismatch, message };
+  const extra = { readVin: rVin || null, readVinRaw: rN.corrected ? rN.raw : null, ixBrand: String(v["marque"] ?? "").trim() || null, ixModel: String(v["modele"] ?? "").trim() || null };
+  return { status: "ok", vinMismatch, mec, ixMec, ixVin, brandMismatch, message, ...extra };
+}
+
+export type VehicleSourceChoice = "ixellio" | "or";
+
+/**
+ * Applique le choix explicite de source en cas de VIN divergent. Seuls VIN, MEC, marque et modèle
+ * peuvent venir d'Ixellio, et seulement si Ixellio les fournit (jamais d'écrasement par du vide).
+ * Les autres champs du scan (kilométrage, livraison, client, OR…) ne sont jamais touchés.
+ */
+export function applyVehicleSource(vehicle: Record<string, unknown>, cross: IxellioCross, choice: VehicleSourceChoice): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...vehicle };
+  const n = normalizeVin(vehicle["vin"]);
+  if (n.vin && n.vin !== vehicle["vin"]) { out["vin"] = n.vin; out["vin_ocr_raw"] = vehicle["vin_ocr_raw"] ?? n.raw; }
+  if (choice === "or") {
+    out["vin_source"] = "ocr_or";
+    if (isoDay(vehicle["first_registration"])) out["first_registration_source"] = vehicle["first_registration_source"] ?? "ocr_or";
+    return out;
+  }
+  if (cross.ixVin) { out["vin"] = cross.ixVin; out["vin_source"] = "ixellio"; if (n.raw && n.raw !== cross.ixVin) out["vin_ocr_raw"] = vehicle["vin_ocr_raw"] ?? n.raw; }
+  if (cross.ixMec) { out["first_registration"] = cross.ixMec; out["first_registration_source"] = "ixellio"; }
+  if (cross.ixBrand) out["brand"] = cross.ixBrand;
+  if (cross.ixModel) out["model"] = cross.ixModel;
+  return out;
 }
 
 /** Validation d'une saisie manuelle de dates (dialogue de correction). */

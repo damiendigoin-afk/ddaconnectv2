@@ -1,4 +1,5 @@
 import { sanitizeRepairOrder } from "./doc-rules";
+import { normalizeVin } from "./vin";
 
 /**
  * Décision après OCR/saisie d'un OR WinMotor depuis l'Atelier (pure, testable).
@@ -55,6 +56,11 @@ export function parseRepairOrderScan(json: string | null | undefined): { or_numb
   // Dernier filet : aucune valeur parasite (en-tête garage, conseiller…) ne part vers la fiche.
   p = obj(sanitizeRepairOrder(p).fields);
   const data = { client: clean(obj(p["client"])), vehicle: clean(obj(p["vehicle"])), order: clean(obj(p["order"])) };
+  // VIN : O OCR -> 0 seulement si le résultat est un VIN conforme ; valeur brute conservée pour traçabilité.
+  if (data.vehicle["vin"] != null) {
+    const n = normalizeVin(data.vehicle["vin"]);
+    if (n.vin && n.vin !== data.vehicle["vin"]) data.vehicle = { ...data.vehicle, vin: n.vin, vin_ocr_raw: data.vehicle["vin_ocr_raw"] ?? n.raw };
+  }
   const num = String(data.order["or_number"] ?? "").replace(/\D/g, "");
   return { or_number: isWinmotorOrNumber(num) ? num : null, plate: (data.vehicle["plate"] as string | undefined) ?? null, data };
 }

@@ -6,6 +6,7 @@
 import { brandModelConflict, checkPlate, isPollutedModel } from "./or-scan-validate";
 import { findFrenchPlate, formatPlate, strictPlate } from "./plate";
 import { normSupplierName } from "./supplier-identify";
+import { normalizeVin } from "./vin";
 import { cutGarageTail, dedupeFirstNameInLastName, isGarageAddress, isGarageEmail, isGarageName, isGaragePhone } from "./garage-identity";
 import { EXPENSE_ORDINARY_VAT_RATES, expenseVatRates, hasMultipleExpenseVatRates, sanitizeExpenseFields } from "./expense-validate";
 
@@ -82,10 +83,13 @@ function lastMoneyOnLines(text: string, label: RegExp): number | null {
   return found;
 }
 
-const VIN_RE = /\b([A-HJ-NPR-Z0-9]{17})\b/;
+/** Jeton de 17 caractères (O OCR toléré puis corrigé en 0, cf. src/lib/vin.ts). */
 function findVin(t: string): string | null {
-  const m = VIN_RE.exec(t.toUpperCase().replace(/[\s]/g, (c) => c));
-  return m && /\d/.test(m[1]!) && /[A-Z]/.test(m[1]!) ? m[1]! : null;
+  for (const m of t.toUpperCase().matchAll(/\b([A-Z0-9]{17})\b/g)) {
+    const v = normalizeVin(m[1]).vin;
+    if (v && /\d/.test(v) && /[A-Z]/.test(v)) return v;
+  }
+  return null;
 }
 
 const OR_LABEL = /(?:\bO\.?R\.?\b|ordre de r[ée]paration|dossier|rep[eè]re(?: commande)?|votre r[ée]f(?:[ée]rence)?|r[ée]f\.? client|mes r[ée]f[ée]rences)\s*(?:n[°o]\.?|num[ée]ro)?\s*[:#.]?\s*\**\s*(\d{4,7})\b/i;
@@ -1518,7 +1522,8 @@ export function repairOrderRules(raw: string): Fields {
     const vb = brandIn(L["vehicle"]);
     model = (vb ? L["vehicle"].replace(new RegExp(`^.*?\\b${vb}\\b`, "i"), "") : L["vehicle"]).trim() || null;
   }
-  const lvin = L["vin"] ? VIN_RE.exec(L["vin"].toUpperCase().replace(/\s+/g, ""))?.[1] ?? null : null;
+  const lvin = L["vin"] ? (/\b([A-Z0-9]{17})\b/.exec(L["vin"].toUpperCase().replace(/\s+/g, "")) ?? [])[1] ?? null : null;
+  const lvinOk = lvin ? normalizeVin(lvin).vin : null;
   const accM = L["account"] ? /\b(\d{3,12})\b/.exec(L["account"]) : null;
   const labeledAccount: string | null = accM && accM[1] ? accM[1] : null;
   const account_number = labeledAccount
@@ -1533,7 +1538,8 @@ export function repairOrderRules(raw: string): Fields {
     vehicle: {
       // Immat : lecture au format strict ; une valeur labellisée « presque » SIV n'est corrigée que si non ambiguë.
       plate: (L["plate"] ? findFrenchPlate(L["plate"]) ?? strictPlate(L["plate"].split(/\s{2,}/)[0], findFrenchPlate(text)) : null) ?? findFrenchPlate(text),
-      vin: lvin ?? findVin(text),
+      vin: lvinOk ?? findVin(text),
+      ...(lvin && lvinOk && lvin !== lvinOk ? { vin_ocr_raw: lvin } : {}),
       brand: brand === "VW" ? "VOLKSWAGEN" : brand,
       model,
       // Kilométrage OR souvent manuscrit : seulement la valeur du libellé, jamais un nombre deviné ailleurs.
