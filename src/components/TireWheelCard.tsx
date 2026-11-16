@@ -126,6 +126,8 @@ type Stored = {
   ocr?: { photo2: TireOcrRead | null; photo3: TireOcrRead | null; wheel: WheelOcr | null; depth?: DepthEstimate | null; depthRaw?: string | null } | null;
   /** Marquages confirmés par le compagnon. */
   flags?: { xl: boolean; runflat: boolean; ms: boolean; pmsf: boolean } | null;
+  /** Confirmation facultative propre à cette roue, préservée lors des lectures ultérieures. */
+  pressure_checked?: boolean;
 };
 
 function readStored(value: unknown): Stored {
@@ -142,6 +144,7 @@ function readStored(value: unknown): Stored {
     confirmedRef: v.confirmedRef ?? null,
     ocr: v.ocr ?? null,
     flags: v.flags ?? null,
+    pressure_checked: v.pressure_checked === true,
   };
 }
 
@@ -402,6 +405,7 @@ export function TireWheelCard({
       const depth = depthForJudgement(prev?.depth_kind === "mesure" ? finiteOrNull(prev.depth_mm) : null, depthEst);
       const judged = depth != null ? judgeTire({ ...ai, depth_mm: depth }, grid, severity) : null;
       const next: Stored = {
+        ...stored,
         ai,
         final: null,
         grade: judged?.grade ?? null,

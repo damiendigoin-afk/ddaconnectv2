@@ -110,6 +110,18 @@ describe("Correction de l’analyse des 4 pneus (tour clôturé)", () => {
     expect((u.patch.tire_analysis["corrections"] as unknown[]).length).toBe(1);
   });
 
+  it("correction post-clôture : la confirmation de pression de la roue est conservée", () => {
+    const withPressure = points.map((p) => p.point_key === "pneu_avd"
+      ? { ...p, tire_analysis: { ...p.tire_analysis, pressure_checked: true } }
+      : p);
+    const edits = preloadTireEdit(withPressure);
+    edits.pneu_avd = { ...edits.pneu_avd!, status: "defect", reason: "Hernie confirmée" };
+    const r = buildTireCorrections({ points: withPressure, edits, actor: { id: "u", name: "Damien" }, afterClosure: true });
+    if (!r.ok) throw new Error("refusé");
+    expect(r.updates[0]!.patch.tire_analysis["pressure_checked"]).toBe(true);
+    expect(r.updates[0]!.patch.status).toBe("defect");
+  });
+
   it("aucune modification : rien n’est écrit", () => {
     const r = buildTireCorrections({ points, edits: initial(), actor: { id: "u", name: null }, afterClosure: true });
     expect(r).toEqual({ ok: true, updates: [] });

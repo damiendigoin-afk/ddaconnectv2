@@ -8,6 +8,7 @@ import { useLightbox } from "@/components/PhotoLightbox";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
 import { ctStatusLine, formatCtDate, POLLUTION_PREFIX, reportCtDates, reportCtStatus } from "@/lib/ct";
 import { formatPlate } from "@/lib/plate";
+import { tourTirePressureRows } from "@/lib/tour-tire-pressure";
 import type { ReportData, ReportMedia } from "@/lib/report";
 
 export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean }) {
@@ -91,6 +92,25 @@ export function Summary({ d, clientView }: { d: ReportData; clientView?: boolean
           Tour libre : seuls les éléments signalés ci-dessous ont fait l'objet d'une observation.
         </p>
       ) : null}
+      {d.inspection.inspection_type === "guide" ? <TirePressureSummary points={d.points} /> : null}
+    </section>
+  );
+}
+
+export function TirePressureSummary({ points }: { points: ReportData["points"] }) {
+  const rows = tourTirePressureRows(points);
+  if (!rows.length) return null;
+  return (
+    <section className="mt-3 border-t border-border pt-3" aria-label="Pression des pneus">
+      <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Pression des pneus</h2>
+      <div className="grid gap-1 sm:grid-cols-2">
+        {rows.map((row) => (
+          <div key={row.id} className="text-xs">
+            <span className="font-semibold">{row.label} — </span>
+            <span>{row.status}</span>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

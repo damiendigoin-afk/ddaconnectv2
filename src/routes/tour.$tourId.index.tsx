@@ -21,6 +21,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { analyzeTourTires } from "@/lib/tour-tire-analysis.functions";
 import { legacyTireAnalysis, TOUR_TIRE_KEYS, type TourTireKey } from "@/lib/tour-tire-analysis";
 import { buildTireCorrections, preloadTireEdit, type TireEditState, type TirePointLike } from "@/lib/tour-tire-correction";
+import { mergeTourTireAnalysis } from "@/lib/tour-tire-pressure";
+import { updateTourTireAnalysis } from "@/lib/tour-tire-persistence";
 import type { TireStepResult } from "@/lib/tire-step";
 import type { TireLabelAi } from "@/lib/tire-types";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
@@ -488,9 +490,15 @@ function Guided(props: SharedProps) {
       const point = (points.data ?? []).find((p) => p.point_key === key);
       if (!point) throw new Error("Point pneu manquant. Revenez au tour puis réessayez ; les photos sont conservées.");
       const legacy = legacyTireAnalysis(results[key]);
-      const { error } = await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, globalModel: r.model, globalMetrics: r.metrics } as never, measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm), measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
-      if (error) {
-        console.error("tour_tires_save", { inspectionId: props.tourId, wheel: key, code: error.code });
+      try {
+        await updateTourTireAnalysis(point.id, (current) => ({
+          tire_analysis: mergeTourTireAnalysis(current, { ...legacy, globalModel: r.model, globalMetrics: r.metrics }),
+          measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm),
+          measure_unit: "mm",
+          status: legacy.grade === "correct" ? "ok" : "defect",
+        }));
+      } catch (error) {
+        console.error("tour_tires_save", { inspectionId: props.tourId, wheel: key, error });
         throw new Error("L’analyse n’a pas été entièrement enregistrée. Réessayez sans reprendre les photos.");
       }
     }
@@ -503,7 +511,12 @@ function Guided(props: SharedProps) {
       const result = tireResults[key]; const point = (points.data ?? []).find((p) => p.point_key === key);
       if (!result || !point) continue;
       const legacy = legacyTireAnalysis(result);
-      await supabase.from("inspection_points").update({ tire_analysis: { ...legacy, correctedAt: new Date().toISOString() } as never, measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm), measure_unit: "mm", status: legacy.grade === "correct" ? "ok" : "defect" }).eq("id", point.id);
+      await updateTourTireAnalysis(point.id, (current) => ({
+        tire_analysis: mergeTourTireAnalysis(current, { ...legacy, correctedAt: new Date().toISOString() }),
+        measure_value: legacy.ai.depth_mm === null ? null : String(legacy.ai.depth_mm),
+        measure_unit: "mm",
+        status: legacy.grade === "correct" ? "ok" : "defect",
+      }));
     }
     await finish();
   }
@@ -554,8 +567,10 @@ function Guided(props: SharedProps) {
     if (!built.ok) return { missingReason: built.missingReason };
     if (!built.updates.length) { toast.info("Aucune modification"); closeTiresEdit(); return undefined; }
     for (const u of built.updates) {
-      const { error } = await supabase.from("inspection_points").update(u.patch as never).eq("id", u.pointId);
-      if (error) throw new Error(error.message);
+      await updateTourTireAnalysis(u.pointId, (current) => ({
+        ...u.patch,
+        tire_analysis: mergeTourTireAnalysis(current, u.patch.tire_analysis),
+      }));
     }
     // Clôture d'origine conservée, aucun envoi client déclenché : seule la trace de modification change.
     await markTourModified(props.tourId, { userId: user.id, userName: displayName || null });

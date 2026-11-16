@@ -10,6 +10,7 @@ import { formatPlate } from "@/lib/plate";
 import { useSite } from "@/lib/site-context";
 import { GROUP_LABEL, siteHeader } from "@/lib/sites";
 import { mediaUrl } from "@/lib/photo";
+import { tourTirePressureRows } from "@/lib/tour-tire-pressure";
 import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
 
 export const Route = createFileRoute("/tour/$tourId/pdf")({
@@ -180,6 +181,7 @@ function PdfPage() {
     if (last && last.label === label) last.points.push(p);
     else zones.push({ label, points: [p] });
   }
+  const pressureRows = tourTirePressureRows(d.points);
   const counts = { ok: 0, watch: 0, defect: 0, unset: 0 };
   for (const p of donePoints) {
     const key = (p.status === "ok" || p.status === "watch" || p.status === "defect"
@@ -279,6 +281,24 @@ function PdfPage() {
           </div>
         ))}
       </section>
+
+      {pressureRows.length ? (
+        <section className="mt-4 break-inside-avoid">
+          <h2 className="mb-1 border-l-4 pl-2 text-sm font-extrabold uppercase" style={{ borderColor: DDA_YELLOW }}>
+            Pression des pneus
+          </h2>
+          <table className="w-full border-collapse text-[9.5pt]">
+            <tbody>
+              {pressureRows.map((row) => (
+                <tr key={row.id}>
+                  <td className={`${cell} w-[42%]`}>{row.label}</td>
+                  <td className={cell}>{row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
 
       {zones.map((z) => (
         <section key={z.label} className="mt-4 break-inside-avoid">

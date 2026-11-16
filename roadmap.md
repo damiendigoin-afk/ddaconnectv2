@@ -1,5 +1,11 @@
 # Suivi d'activité mensuel (01/09)
 
+## TDV guidé — confirmation de pression par roue (16/11)
+- [x] Ajouter une coche facultative indépendante dans chacune des quatre étapes pneus
+- [x] Persister `pressure_checked` sans écraser les analyses concurrentes ni copier entre roues
+- [x] Afficher Oui / Non confirmée dans le rapport et les deux PDF existants
+- [x] Tests des quatre roues, rechargement, ancien JSON, correction post-clôture et PDF ; 1 560 tests + 22 serveur, compilation OK, sans publication
+
 ## Incident envoi Tour GY-640-HM — 10/11
 - [x] Confirmer tour terminé, 74 contrôles et lecture anonyme vide
 - [x] Sécuriser envoi client et circuits analogues, distinguer erreurs et journaliser dès le chargement

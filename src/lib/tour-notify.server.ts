@@ -151,7 +151,7 @@ export async function notifyTourCompleted(args: {
   const [{ data: points }, { data: obs }, { data: media }] = await Promise.all([
     sb
       .from("inspection_points")
-      .select("id, zone_label, point_label, status, measure_value, measure_unit, comment")
+      .select("id, point_key, zone_label, point_label, status, measure_value, measure_unit, comment, tire_analysis")
       .eq("inspection_id", args.inspectionId)
       .order("zone_index"),
     sb

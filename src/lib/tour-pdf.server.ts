@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import ddaRenaultLogo from "@/assets/dda-renault-logo.jpeg.asset.json";
 
 import { assertUsablePdf } from "./tour-notify-core";
+import { tourTirePressureRows } from "./tour-tire-pressure";
 
 /**
  * Génération du PDF complet d'un Tour Véhicule.
@@ -116,6 +117,13 @@ export async function buildTourPdf(args: {
   const dur = args.insp["duration_seconds"];
   if (typeof dur === "number") line(`Duree : ${Math.floor(dur / 60)} min ${dur % 60} s`);
   y -= 8;
+
+  const pressureRows = tourTirePressureRows(args.points as unknown as Parameters<typeof tourTirePressureRows>[0]);
+  if (pressureRows.length) {
+    line("PRESSION DES PNEUS", 12, true);
+    for (const row of pressureRows) line(`${row.label} : ${row.status}`, 9);
+    y -= 8;
+  }
 
   if (args.points.length) {
     line("POINTS CONTROLES", 12, true);
