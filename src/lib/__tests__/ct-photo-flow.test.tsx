@@ -90,14 +90,16 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
   it("photo rattachée une seule fois → OCR → confirmation → échéance dans le vrai écran PDF, statut OK conservé", async () => {
     const { container } = show();
     choosePhoto(container);
-    await screen.findByLabelText("Échéance CT lue");
+    await screen.findByTestId("ct-proposal");
     expect(mocks.upload).toHaveBeenCalledTimes(1);
     expect(mocks.upload).toHaveBeenCalledWith(expect.any(File), "tours/test-tour/controle-technique", { inspection_id: "test-tour", inspection_point_id: "test-point", label: "Contrôle technique" });
     expect(mocks.ocr).toHaveBeenCalledTimes(1);
     expect(mocks.point["ct_due_date"]).toBeNull(); // Pas de remplacement avant confirmation.
-    fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance CT" }));
+    fireEvent.click(screen.getByRole("button", { name: /Confirmer le 29\/10\/2028/ }));
     await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-10-29"));
-    await waitFor(() => expect(screen.queryByLabelText("Échéance CT lue")).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId("ct-proposal")).toBeNull());
+    expect(mocks.point["ct_source"]).toBe("ocr_confirme");
+    expect(mocks.point["ct_ocr_date"]).toBe("2028-10-29");
     expect(mocks.vehicle["ct_due_date"]).toBe("2028-10-29");
     expect(mocks.point["status"]).toBe("ok");
     expect(mocks.updates.some(({ patch }) => "status" in patch)).toBe(false);
@@ -121,13 +123,15 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
     if (kind === "exception") mocks.ocr.mockRejectedValue(new Error("Lecture indisponible"));
     const { container } = show("2027-04-15");
     choosePhoto(container, true);
-    await waitFor(() => expect((screen.getByLabelText("Prochaine échéance CT") as HTMLInputElement).disabled).toBe(false));
+    await waitFor(() => expect((screen.getByLabelText(/Prochaine échéance CT/) as HTMLInputElement).disabled).toBe(false));
     await screen.findByRole("status");
     expect(mocks.media).toHaveLength(1);
     expect(mocks.point["ct_due_date"]).toBe("2027-04-15");
     expect(mocks.vehicle["ct_due_date"]).toBe("2027-04-15");
     expect(mocks.point["status"]).toBe("ok");
-    fireEvent.change(screen.getByLabelText("Prochaine échéance CT"), { target: { value: "2028-05-20" } });
+    fireEvent.change(screen.getByLabelText(/Prochaine échéance CT/), { target: { value: "2028-05-20" } });
+    expect(mocks.point["ct_due_date"]).toBe("2027-04-15"); // le calendrier seul n'enregistre rien
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer cette date" }));
     await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-05-20"));
     expect(mocks.vehicle["ct_due_date"]).toBe("2028-05-20");
     expect(mocks.upload).toHaveBeenCalledTimes(1);
@@ -135,20 +139,38 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
 
   it("saisie manuelle sans nouvelle photo : point et véhicule enregistrés, aucun OCR", async () => {
     show();
-    fireEvent.change(screen.getByLabelText("Prochaine échéance CT"), { target: { value: "2027-12-10" } });
+    fireEvent.change(screen.getByLabelText(/Prochaine échéance CT/), { target: { value: "2027-12-10" } });
+    expect(mocks.updates).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer cette date" }));
     await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2027-12-10"));
+    expect(mocks.point["ct_source"]).toBe("date_corrigee");
     expect(mocks.vehicle["ct_due_date"]).toBe("2027-12-10");
     expect(mocks.ocr).not.toHaveBeenCalled(); expect(mocks.upload).not.toHaveBeenCalled();
   });
 
-  it("correction de la date proposée avant confirmation : provenance manuelle", async () => {
+  it("EB-226-WK : 08/06/2028 proposé, 16/11/2026 saisi le jour du TDV → double avertissement, rien sans confirmation", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-11-16T14:56:00Z"));
+    mocks.ocr.mockResolvedValue({ ok: true, json: JSON.stringify({ ct_due_date: "2028-06-08", pollution_due_date: null, vehicle_kind: "vp", confidence: 0.8 }), provenance: { path: "vision_photo", route: "ai_vision_fallback", vision_first: true, ai_calls: 1, has_ct_date: true, confidence: 0.8 } });
     const { container } = show(); choosePhoto(container);
-    const proposal = await screen.findByLabelText("Échéance CT lue");
-    fireEvent.change(proposal, { target: { value: "2028-11-15" } });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmer l’échéance CT" }));
-    await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2028-11-15"));
-    expect(mocks.point["ct_source"]).toBe("manuel");
-    expect(mocks.point["ct_manually_corrected"]).toBe(true);
+    const prop = await screen.findByTestId("ct-proposal");
+    expect(prop.textContent).toContain("08/06/2028");
+    expect(prop.textContent).toContain("lecture visuelle de la photo");
+    expect(prop.textContent).toContain("pas une preuve");
+    fireEvent.click(screen.getByRole("button", { name: /La date est fausse/ }));
+    fireEvent.change(screen.getByLabelText(/Prochaine échéance CT/), { target: { value: "2026-11-16" } });
+    expect(mocks.point["ct_due_date"]).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer cette date" }));
+    const ask = await screen.findByRole("alertdialog", { name: "Confirmer la date CT" });
+    expect(ask.textContent).toContain("diffère de la date lue sur la photo (08/06/2028)");
+    expect(ask.textContent).toContain("ceux d’aujourd’hui");
+    expect(mocks.point["ct_due_date"]).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Oui, enregistrer le 16\/11\/2026/ }));
+    await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2026-11-16"));
+    expect(mocks.point["ct_source"]).toBe("date_corrigee");
+    expect(mocks.point["ct_ocr_date"]).toBe("2028-06-08");
+    expect(mocks.point["ct_ocr_meta"]).toMatchObject({ path: "vision_photo", final_differs: true });
+    expect(JSON.stringify(mocks.point["ct_ocr_meta"])).not.toMatch(/TEST-CT|Opérateur/);
+    vi.useRealTimers();
   });
 
   it("règle de confirmation : photo + statut OK ou date reprise de la fiche ne suffisent pas", () => {
@@ -161,8 +183,9 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
 
   it("OCR lu non confirmé : aucune confirmation enregistrée", async () => {
     const { container } = show(); choosePhoto(container);
-    await screen.findByLabelText("Échéance CT lue");
+    await screen.findByTestId("ct-proposal");
     expect(isCtConfirmed(mocks.point)).toBe(false);
+    expect(mocks.updates.filter(({ table }) => table === "inspection_points")).toHaveLength(0);
   });
 
   function showGate(initialCt: string | null) {
@@ -174,6 +197,7 @@ describe("Photo CT unifiée (données fictives, aucun appel distant)", () => {
     expect(screen.getByRole("alert").textContent).toContain("Échéance CT à confirmer");
     fireEvent.click(screen.getByRole("button", { name: /Confirmer l’échéance CT du 30\/06\/2027/ }));
     await waitFor(() => expect(mocks.point["ct_due_date"]).toBe("2027-06-30"));
+    expect(mocks.point["ct_source"]).toBe("preexistante_confirmee");
     expect(isCtConfirmed(mocks.point)).toBe(true);
   });
 

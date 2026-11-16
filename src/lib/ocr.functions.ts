@@ -8,6 +8,7 @@ import { learnSupplierProfile, readDocument } from "./doc-pipeline.server";
 import { needsLinesRecheck, pickRecheck, reviewReasons } from "./purchase-validate";
 import { plausibleMileage, repairOrderRules, sanitizeRepairOrder, type DocKind } from "./doc-rules";
 import { findFrenchPlate } from "./plate";
+import { ctProvenance, isPhotoDataUrl } from "./ct-ocr";
 import { mergeIdentifierPass, needsIdentifierPass, normalizePurchaseExtract, parseIdentifierPass } from "./purchase-extract";
 
 const fileInput = z.object({
@@ -28,8 +29,9 @@ async function viaPipeline(
   feature: string,
   visionExtra?: Record<string, unknown>,
   model?: string,
+  forceVisionFirst?: boolean,
 ) {
-  const r = await readDocument({ feature, kind, prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename, visionExtra, model });
+  const r = await readDocument({ feature, kind, prompt, text: data.text, dataUrl: data.dataUrl, filename: data.filename, visionExtra, model, ...(forceVisionFirst !== undefined ? { forceVisionFirst } : {}) });
   const any = Object.values(r.fields).some((v) => v != null && v !== "" && !(Array.isArray(v) && !v.length) && !(typeof v === "object" && !Array.isArray(v) && !Object.keys(v as object).length));
   // Photo dont la vision a échoué : on continue quand même (relecture ciblée puis « Lecture à vérifier »).
   if (!any && !r.visionFailed) {
@@ -62,12 +64,14 @@ export const ocrRepairOrder = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => fileInput.parse(data))
   .handler(async ({ data }) => {
     const prompt = OR_SCAN_PROMPT;
-    const result = await viaPipeline("repair_order", prompt, data, "ocr_or", undefined, OR_SCAN_MODEL);
+    // Photo d'OR : la vision lit la mise en page réelle (zones client/véhicule/OR/travaux) en premier ;
+    // un PDF à couche texte garde les règles WinMotor d'abord.
+    const result = await viaPipeline("repair_order", prompt, data, "ocr_or", undefined, OR_SCAN_MODEL, isPhotoDataUrl(data.dataUrl));
     // Trace du parcours (journal privé OR) : texte local, règles seules, voie finale, appels IA. Aucun texte brut renvoyé.
     const localText = data.text ?? "";
     const rules = localText.trim() ? sanitizeRepairOrder(repairOrderRules(localText)).fields : {};
     delete (rules as Record<string, unknown>)["_suspect"];
-    const trace = { local_text_len: localText.length, local_plate: findFrenchPlate(localText), rules_json: JSON.stringify(rules), route: result.route, missing: result.missing ?? [], ai_calls: result.ok ? result.aiCalls : null };
+    const trace = { local_text_len: localText.length, local_plate: findFrenchPlate(localText), rules_json: JSON.stringify(rules), route: result.route, missing: result.missing ?? [], ai_calls: result.ok ? result.aiCalls : null, vision_first: result.ok ? result.visionFirst : false };
     if (!result.ok) return { ok: false as const, error: result.error, json: "", trace };
     const parsed = parseJsonBlock(result.content);
     if (!parsed) return { ok: false as const, error: "Document illisible.", json: "", trace };
@@ -112,11 +116,15 @@ ct_due_date = prochaine échéance du contrôle technique au format YYYY-MM-DD.
 pollution_due_date = prochaine échéance du contrôle complémentaire pollution, uniquement si elle est réellement indiquée.
 vehicle_kind = "vu" pour un véhicule utilitaire soumis au contrôle complémentaire pollution, sinon "vp".
 Ne confonds pas date du contrôle réalisé et date limite du prochain contrôle. Mets null si illisible. N'invente rien.`;
-    const result = await viaPipeline("technical_control", prompt, data, "ocr_ct");
-    if (!result.ok) return { ok: false as const, error: result.error, json: "" };
-    const parsed = parseJsonBlock(result.content);
-    if (!parsed) return { ok: false as const, error: "Dates du contrôle technique illisibles.", json: "" };
-    return { ok: true as const, error: "", json: JSON.stringify(parsed) };
+    // Photo : la vision lit l'image originale en premier ; le PDF à texte réel reste règles d'abord.
+    const result = await viaPipeline("technical_control", prompt, data, "ocr_ct", undefined, undefined, isPhotoDataUrl(data.dataUrl));
+    const parsed = result.ok ? parseJsonBlock(result.content) : null;
+    const provenance = ctProvenance({ ok: result.ok, route: result.route, visionFirst: result.ok ? result.visionFirst : false, visionFailed: result.ok ? result.visionFailed : false, aiCalls: result.ok ? result.aiCalls : 0, parsed });
+    // Journal technique sans donnée personnelle : voie, appels, présence d'une date.
+    console.info("ocr_ct", provenance);
+    if (!result.ok) return { ok: false as const, error: result.error, json: "", provenance };
+    if (!parsed) return { ok: false as const, error: "Dates du contrôle technique illisibles.", json: "", provenance };
+    return { ok: true as const, error: "", json: JSON.stringify(parsed), provenance };
   });
 /** Lecture d'une carte grise française (certificat d'immatriculation). */
 export const ocrRegistrationCard = createServerFn({ method: "POST" })

@@ -1,3 +1,9 @@
+## TDV — pression, CT, scan OR (16/11 soir)
+- [x] Pression : deux choix par roue, confirmation avant de quitter l'étape, file hors réseau, rapport/PDF à trois états
+- [x] CT : vision d'abord sur photo, date proposée + photo, « Enregistrer cette date », alertes écart / jour du TDV, provenance
+- [x] Scan OR : vision d'abord sur photo, doutes modèle/nom/CP/VIN/WMI avant création
+- [ ] Vérifier la vraie photo CT d'EB-226-WK (attend l'œil de l'atelier)
+
 # Suivi d'activité mensuel (01/09)
 
 ## TDV guidé — confirmation de pression par roue (16/11)
@@ -45,10 +51,10 @@ Phase 2 (non développée) : planning de présence / congés, neutralisation des
 - [x] PDF tour : uniquement les contrôles réellement effectués
 
 Reste à faire :
-- [ ] BL / factures fournisseur : capture photo/PDF, OCR tolérant, écran de validation, états et liaison OR
-- [ ] Pneus : seuils de profondeur paramétrables
-- [ ] Amortisseurs : un seul contrôle global au lieu de quatre
-- [ ] Écran carte clientèle (données déjà préparées)
+- [x] BL / factures fournisseur : capture photo/PDF, OCR tolérant, écran de validation, états et liaison OR
+- [x] Pneus : seuils de profondeur paramétrables
+- [x] Amortisseurs : un seul contrôle global au lieu de quatre
+- [x] Écran carte clientèle (données déjà préparées)
 
 - [x] 03/09 : module BL / Factures fournisseur (dépôt photo/PDF, OCR tolérant, validation manuelle, états, rattachement OR) — écran /factures-fournisseur, table inbox_documents réutilisée.
 

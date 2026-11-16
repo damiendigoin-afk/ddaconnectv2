@@ -1,12 +1,12 @@
-import { Camera, CheckCircle2, Loader2 } from "lucide-react";
+import { Camera, CheckCircle2, CloudOff, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { BurstCamera, type BurstShot } from "./BurstCamera";
 import { PhotoManager } from "./PhotoManager";
 import { uploadPhoto } from "@/lib/photo";
 import { supabase } from "@/integrations/supabase/client";
-import { isTirePressureChecked, TIRE_PRESSURE_LABEL } from "@/lib/tour-tire-pressure";
-import { saveTourTirePressureChecked } from "@/lib/tour-tire-persistence";
+import { tirePressureState, TIRE_PRESSURE_LABEL, type TirePressureState } from "@/lib/tour-tire-pressure";
+import { flushPendingTirePressure, pendingTirePressure, queueTirePressure, saveTourTirePressureChecked } from "@/lib/tour-tire-persistence";
 import type { PointRow } from "./PointCard";
 
 const STEPS = [
@@ -17,18 +17,36 @@ const STEPS = [
 
 type TireCapturePoint = PointRow & { tire_analysis?: unknown };
 
+function stateFor(point: TireCapturePoint): TirePressureState {
+  const pending = pendingTirePressure(point.id);
+  if (pending !== undefined) return pending ? "checked" : "unchecked";
+  return tirePressureState(point.tire_analysis);
+}
+
 export function TourTireCapture({ point, inspectionId, onCaptured }: { point: TireCapturePoint; inspectionId: string; onCaptured?: () => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [key, setKey] = useState(0);
-  const [pressureChecked, setPressureChecked] = useState(() => isTirePressureChecked(point.tire_analysis));
+  const [pressure, setPressure] = useState<TirePressureState>(() => tirePressureState(point.tire_analysis));
+  const [queued, setQueued] = useState(false);
   const [pressureSaving, setPressureSaving] = useState(false);
   const [pressureError, setPressureError] = useState("");
 
   useEffect(() => {
-    setPressureChecked(isTirePressureChecked(point.tire_analysis));
-  }, [point.tire_analysis]);
+    setPressure(stateFor(point));
+    setQueued(pendingTirePressure(point.id) !== undefined);
+  }, [point.tire_analysis, point.id]);
+
+  useEffect(() => {
+    const flush = () => void flushPendingTirePressure().then((n) => {
+      if (n > 0) { setQueued(pendingTirePressure(point.id) !== undefined); onCaptured?.(); }
+    });
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [point.id]);
 
   async function save(shots: BurstShot[]) {
     setOpen(false);
@@ -47,17 +65,39 @@ export function TourTireCapture({ point, inspectionId, onCaptured }: { point: Ti
     setPressureError("");
     try {
       await saveTourTirePressureChecked(point.id, checked);
-      setPressureChecked(checked);
+      setPressure(checked ? "checked" : "unchecked");
+      setQueued(false);
       onCaptured?.();
-      toast.success(checked ? "Pression confirmée pour cette roue" : "Pression marquée comme non confirmée");
+      toast.success(checked ? "Pression contrôlée — enregistré pour cette roue" : "Pression non contrôlée — enregistré pour cette roue");
     } catch (e) {
       console.error(e);
-      setPressureError("La confirmation de pression n’a pas été enregistrée. Réessayez.");
-      toast.error("Pression non enregistrée. Réessayez.");
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      if (offline) {
+        // Hors réseau : réponse gardée sur l'appareil pour CETTE roue, envoyée au retour du réseau.
+        queueTirePressure(point.id, checked);
+        setPressure(checked ? "checked" : "unchecked");
+        setQueued(true);
+        onCaptured?.();
+      } else {
+        setPressureError("La réponse sur la pression n’a pas été enregistrée. Réessayez.");
+        toast.error("Pression non enregistrée. Réessayez.");
+      }
     } finally {
       setPressureSaving(false);
     }
   }
+
+  const choice = (checked: boolean, label: string) => {
+    const active = pressure === (checked ? "checked" : "unchecked");
+    return <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      disabled={pressureSaving}
+      onClick={() => void savePressure(checked)}
+      className={`min-h-14 rounded-xl border-2 px-3 py-3 text-base font-extrabold disabled:opacity-60 ${active ? (checked ? "border-success bg-success/15 text-foreground ring-2 ring-success" : "border-foreground bg-foreground text-background") : "border-border bg-background text-foreground"}`}
+    >{label}</button>;
+  };
 
   return <div className="card-surface space-y-3 p-4" data-testid={`tire-capture-${point.point_key}`}>
     <div className="flex items-center justify-between"><h3 className="font-bold">{point.point_label}</h3>{done ? <span className="flex items-center gap-1 text-xs font-bold text-success"><CheckCircle2 className="h-4 w-4"/> Prêt</span> : null}</div>
@@ -65,20 +105,18 @@ export function TourTireCapture({ point, inspectionId, onCaptured }: { point: Ti
     <button type="button" disabled={busy} onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-4 text-sm font-extrabold uppercase text-brand-foreground disabled:opacity-50">
       {busy ? <Loader2 className="h-5 w-5 animate-spin"/> : <Camera className="h-5 w-5"/>}{done ? "Reprendre les 3 photos" : "Photographier le pneu (3 photos)"}
     </button>
-    <div className="rounded-xl border-2 border-border bg-card px-3 py-2">
-      <label className="flex cursor-pointer items-start gap-3 text-sm font-semibold">
-        <input
-          type="checkbox"
-          checked={pressureChecked}
-          disabled={pressureSaving}
-          aria-label={`${TIRE_PRESSURE_LABEL} — ${point.point_label}`}
-          onChange={(e) => void savePressure(e.target.checked)}
-          className="mt-0.5 h-5 w-5 shrink-0"
-        />
-        <span>{TIRE_PRESSURE_LABEL}</span>
-      </label>
-      <p className="mt-1 pl-8 text-xs text-muted-foreground">Facultatif — décoché signifie « non confirmé ».</p>
-    </div>
+    <fieldset className={`space-y-2 rounded-xl border-4 p-3 ${pressure === "unset" ? "border-status-watch bg-status-watch-soft" : "border-border bg-card"}`} data-testid={`tire-pressure-${point.point_key}`}>
+      <legend className="px-1 text-base font-extrabold">Pression des pneus — {point.point_label}</legend>
+      <p className="text-sm font-semibold">{TIRE_PRESSURE_LABEL} ?</p>
+      <div role="radiogroup" aria-label={`Pression — ${point.point_label}`} className="grid grid-cols-2 gap-2">
+        {choice(true, "Pression contrôlée")}
+        {choice(false, "Non contrôlée")}
+      </div>
+      <p className="text-xs text-muted-foreground" role="status">
+        {pressureSaving ? "Enregistrement…" : pressure === "unset" ? "Non renseignée — choisissez une réponse (« Non contrôlée » est accepté)." : pressure === "checked" ? "Réponse enregistrée : pression contrôlée (déclaration, aucune valeur mesurée)." : "Réponse enregistrée : pression non contrôlée."}
+      </p>
+      {queued ? <p className="flex items-center gap-1 text-xs font-bold text-status-watch"><CloudOff className="h-4 w-4"/> Hors réseau : réponse gardée sur l’appareil, envoyée dès le retour du réseau.</p> : null}
+    </fieldset>
     {pressureError ? <p role="alert" className="text-xs font-bold text-destructive">{pressureError}</p> : null}
     <PhotoManager key={key} compact folder={`inspections/${inspectionId}`} links={{ inspection_id: inspectionId, inspection_point_id: point.id }}/>
     {open ? <BurstCamera title={point.point_label} steps={STEPS} allowFree={false} autoFinish onFinish={(s) => void save(s)} onCancel={() => setOpen(false)}/> : null}

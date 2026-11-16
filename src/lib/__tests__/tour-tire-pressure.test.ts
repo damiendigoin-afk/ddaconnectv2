@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isTirePressureChecked,
+  tirePressureState,
   mergeTourTireAnalysis,
   tirePressureReportLabel,
   tourTirePressureRows,
@@ -11,8 +12,10 @@ describe("TDV — confirmation de pression par roue", () => {
   it("un ancien JSON sans clé reste décoché et non confirmé, jamais un défaut", () => {
     expect(isTirePressureChecked(null)).toBe(false);
     expect(isTirePressureChecked({ ai: { depth_mm: 4 }, confirmedRef: "205/55 R16 91V" })).toBe(false);
-    expect(tirePressureReportLabel({})).toBe("Pression vérifiée : Non confirmée");
-    expect(tirePressureReportLabel({ pressure_checked: "true" })).toBe("Pression vérifiée : Non confirmée");
+    expect(tirePressureReportLabel({})).toBe("Pression vérifiée : Non renseignée");
+    expect(tirePressureReportLabel({ pressure_checked: "true" })).toBe("Pression vérifiée : Non renseignée");
+    expect(tirePressureReportLabel({ pressure_checked: false })).toBe("Pression vérifiée : Non contrôlée");
+    expect(tirePressureState({})).toBe("unset");
   });
 
   it("coche et décoche une seule roue sans toucher à son analyse ni aux trois autres", () => {
@@ -28,10 +31,10 @@ describe("TDV — confirmation de pression par roue", () => {
       tire_analysis: key === "pneu_avd" ? checked : original,
     }));
     expect(tourTirePressureRows(points).map((row) => row.status)).toEqual([
-      "Pression vérifiée : Non confirmée",
+      "Pression vérifiée : Non renseignée",
       "Pression vérifiée : Oui",
-      "Pression vérifiée : Non confirmée",
-      "Pression vérifiée : Non confirmée",
+      "Pression vérifiée : Non renseignée",
+      "Pression vérifiée : Non renseignée",
     ]);
   });
 

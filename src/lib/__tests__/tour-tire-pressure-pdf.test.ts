@@ -12,7 +12,7 @@ async function firstPageText(base64: string): Promise<string> {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("PDF TDV — pression des quatre roues", () => {
-  it("imprime une confirmation Oui et trois Non confirmée, sans valeur de pression", async () => {
+  it("imprime Oui, Non contrôlée et Non renseignée par roue, sans valeur de pression", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 404 })));
     const keys = ["pneu_avg", "pneu_avd", "pneu_arg", "pneu_ard"];
     const res = await buildTourPdf({
@@ -24,7 +24,7 @@ describe("PDF TDV — pression des quatre roues", () => {
         zone_label: "Pneus",
         point_label: key.replace("pneu_", "Pneu ").toUpperCase(),
         status: "ok",
-        tire_analysis: { pressure_checked: key === "pneu_avd" },
+        tire_analysis: key === "pneu_avd" ? { pressure_checked: true } : key === "pneu_avg" ? { pressure_checked: false } : { ai: { depth_mm: 4 } },
       })),
       observations: [],
       media: [],
@@ -36,7 +36,8 @@ describe("PDF TDV — pression des quatre roues", () => {
     const text = await firstPageText(res.base64);
     expect(text).toContain("PRESSION DES PNEUS");
     expect(text).toContain("PNEU AVD : Pression verifiee : Oui");
-    expect(text.match(/Pression verifiee : Non confirmee/g)).toHaveLength(3);
+    expect(text).toContain("PNEU AVG : Pression verifiee : Non controlee");
+    expect(text.match(/Pression verifiee : Non renseignee/g)).toHaveLength(2);
     expect(text).not.toMatch(/Pression.*[0-9](?:[,.][0-9])?\s*bar/i);
   });
 });

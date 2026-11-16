@@ -5,6 +5,7 @@
  */
 import { formatPlate, normalizePlate, wellFormedPlate } from "./plate";
 import { guardFirstRegistration } from "./vehicle-dates";
+import { normalizeVin, vinIssueMessage } from "./vin";
 
 /** Modèles distinctifs -> constructeur attendu (liste volontairement courte, sans ambiguïté). */
 const MODEL_BRAND: Array<[RegExp, string]> = [
@@ -71,9 +72,71 @@ export function plateNearMiss(a: unknown, b: unknown): boolean {
   return d === 1;
 }
 
+/** WMI (3 premiers caractères du VIN) -> constructeur. Liste courte, sans ambiguïté. */
+const WMI_BRAND: Record<string, string> = {
+  VF1: "RENAULT", VF6: "RENAULT", VF8: "RENAULT", UU1: "DACIA", VF3: "PEUGEOT", VR3: "PEUGEOT", VF7: "CITROEN", VR7: "CITROEN", VR1: "DS",
+  WF0: "FORD", WF1: "FORD", WVW: "VOLKSWAGEN", WV1: "VOLKSWAGEN", WV2: "VOLKSWAGEN", ZFA: "FIAT", W0L: "OPEL", W0V: "OPEL", VXK: "OPEL",
+  TMB: "SKODA", VSS: "SEAT", KNA: "KIA", KNE: "KIA", U5Y: "KIA", KMH: "HYUNDAI", TMA: "HYUNDAI", SJN: "NISSAN", VSK: "NISSAN", JN1: "NISSAN",
+  JTD: "TOYOTA", SB1: "TOYOTA", VNK: "TOYOTA", WBA: "BMW", WDD: "MERCEDES", WDB: "MERCEDES", W1K: "MERCEDES", WAU: "AUDI",
+};
+const BRAND_ALIASES: Record<string, string> = { VW: "VOLKSWAGEN", "MERCEDES-BENZ": "MERCEDES", CITROËN: "CITROEN" };
+
+/** Constructeur attendu d'après le WMI d'un VIN, sinon null. */
+export function vinBrand(vin: unknown): string | null {
+  const n = normalizeVin(vin);
+  const v = n.vin ?? n.candidate;
+  return v && v.length >= 3 ? WMI_BRAND[v.slice(0, 3)] ?? null : null;
+}
+
+/** Marque lue incompatible avec le WMI du VIN (ex. RENAULT + WF0…) : renvoie la marque attendue. */
+export function vinBrandConflict(brand: unknown, vin: unknown): string | null {
+  const raw = up(brand);
+  const b = BRAND_ALIASES[raw] ?? raw;
+  const e = vinBrand(vin);
+  if (!b || !e) return null;
+  return b === e || b.startsWith(`${e} `) || (e === "DACIA" && b === "RENAULT") ? null : e;
+}
+
+const lev = (a: string, b: string) => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[]);
+  for (let j = 1; j <= b.length; j += 1) d[0]![j] = j;
+  for (let i = 1; i <= a.length; i += 1) for (let j = 1; j <= b.length; j += 1)
+    d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length]![b.length]!;
+};
+
+/** Modèle générique ou libellé de colonne lu à la place du modèle (« vétioule », « véhicule », « modèle »). */
+export function isGenericModel(model: unknown): boolean {
+  const m = up(model).replace(/[^A-Z]/g, "");
+  if (!m) return false;
+  return ["VEHICULE", "VOITURE", "MODELE", "MARQUE", "TYPE"].some((w) => m === w || (w.length >= 6 && m.length >= 5 && lev(m, w) <= 2));
+}
+
+/** Mots d'étiquette/article lus comme nom : jamais un vrai nom court (LY, NG, LE ROUX restent acceptés). */
+const NAME_STOP = new Set(["LA", "LE", "LES", "DE", "DU", "DES", "MR", "M", "MME", "MLLE", "NOM", "PRENOM", "CLIENT", "SOCIETE", "ADRESSE", "TEL", "PATE"]);
+
+/** Nom/prénom douteux : mot-étiquette, ou prénom tout en minuscules (WinMotor imprime en capitales). */
+export function suspiciousName(lastName: unknown, firstName: unknown): string | null {
+  const l = up(lastName), f = up(firstName);
+  if (l && NAME_STOP.has(l)) return `Nom client « ${String(lastName).trim()} » ressemble à un mot de l'OR, pas à un nom.`;
+  if (f && NAME_STOP.has(f)) return `Prénom « ${String(firstName).trim()} » ressemble à un mot de l'OR, pas à un prénom.`;
+  const fr = String(firstName ?? "").trim();
+  if (fr && /^[a-zà-ÿ]+$/.test(fr)) return `Prénom « ${fr} » lu en minuscules : lecture probablement erronée.`;
+  return null;
+}
+
+/** Code postal / ville incohérents (CP non 5 chiffres, ville avec chiffres). */
+export function addressIssue(client: Record<string, unknown>): string | null {
+  const cp = String(client["postal_code"] ?? client["zip"] ?? "").replace(/\s/g, "");
+  const city = String(client["city"] ?? "").trim();
+  if (cp && !/^\d{5}$/.test(cp)) return `Code postal « ${cp} » invalide.`;
+  if (city && /\d/.test(city)) return `Ville « ${city} » contient des chiffres.`;
+  return null;
+}
+
 export type OrScanDoubt = {
   field: "plate" | "brand" | "model" | "client" | "first_registration" | "vin";
-  code: "plate_or_number" | "plate_atypical" | "plate_two_readings" | "model_polluted" | "brand_model" | "client_missing" | "mec_is_delivery" | "mec_invalid" | "ixellio_vin_mismatch" | "ixellio_mec_conflict" | "ixellio_unavailable";
+  code: "plate_or_number" | "plate_atypical" | "plate_two_readings" | "model_polluted" | "model_generic" | "brand_model" | "vin_invalid" | "vin_brand" | "client_suspicious" | "address_incoherent" | "client_missing" | "mec_is_delivery" | "mec_invalid" | "ixellio_vin_mismatch" | "ixellio_mec_conflict" | "ixellio_unavailable";
   message: string;
   /** Confirmation explicite requise avant création (sinon simple avertissement modifiable). */
   blocking: boolean;
@@ -102,6 +165,16 @@ export function assessOrScan(input: { data: OrScanData; orNumber: string | null;
     doubts.push({ field: "model", code: "model_polluted", message: `Modèle illisible retiré (« ${String(vehicle["model"]).slice(0, 40)} »).`, blocking: false });
     delete vehicle["model"];
   }
+  if (isGenericModel(vehicle["model"])) {
+    doubts.push({ field: "model", code: "model_generic", message: `Modèle « ${String(vehicle["model"]).slice(0, 30)} » non reconnu (mot générique ou illisible) : retiré, à saisir.`, blocking: true });
+    delete vehicle["model"];
+  }
+  const vinN = normalizeVin(vehicle["vin"]);
+  if (vinN.candidate && !vinN.vin) {
+    doubts.push({ field: "vin", code: "vin_invalid", message: `VIN « ${vinN.candidate} » : ${vinIssueMessage(vinN) ?? "format invalide"}. Vérifiez-le sur la carte grise.`, blocking: true });
+  }
+  const wmi = vinBrandConflict(vehicle["brand"], vehicle["vin"]);
+  if (wmi) doubts.push({ field: "brand", code: "vin_brand", message: `Le VIN commence par un code ${wmi}, mais la marque lue est ${String(vehicle["brand"])}. Vérifiez VIN et marque.`, blocking: true });
   const exp = brandModelConflict(vehicle["brand"], vehicle["model"]);
   if (exp) doubts.push({ field: "brand", code: "brand_model", message: `${String(vehicle["model"])} est un modèle ${exp}, la marque lue est ${String(vehicle["brand"])}.`, blocking: true });
   // MEC : jamais la date de livraison / restitution / entrée lue sur l'OR.
@@ -117,6 +190,10 @@ export function assessOrScan(input: { data: OrScanData; orNumber: string | null;
     });
     vehicle["first_registration"] = null;
   } else if (g.first_registration) vehicle["first_registration"] = g.first_registration;
+  const nameIssue = suspiciousName(client["last_name"], client["first_name"]);
+  if (nameIssue) doubts.push({ field: "client", code: "client_suspicious", message: nameIssue, blocking: true });
+  const addr = addressIssue(client);
+  if (addr) doubts.push({ field: "client", code: "address_incoherent", message: `${addr} Vérifiez l'adresse.`, blocking: false });
   if (!String(client["last_name"] ?? "").trim()) {
     doubts.push({ field: "client", code: "client_missing", message: "Aucun client identifié : les coordonnées lues seront mises en attente de validation.", blocking: false });
   }

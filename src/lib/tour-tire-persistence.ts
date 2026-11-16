@@ -41,3 +41,44 @@ export async function saveTourTirePressureChecked(pointId: string, checked: bool
     tire_analysis: withTirePressureChecked(current, checked),
   }));
 }
+
+/**
+ * File locale (appareil) des réponses pression non envoyées faute de réseau.
+ * Clé = id de la roue : jamais copiée vers une autre roue ; la dernière réponse gagne.
+ */
+const PENDING_KEY = "dda.tourTirePressurePending.v1";
+
+function readPending(): Record<string, boolean> {
+  try {
+    const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(PENDING_KEY);
+    const v = raw ? JSON.parse(raw) : {};
+    return v && typeof v === "object" ? (v as Record<string, boolean>) : {};
+  } catch { return {}; }
+}
+function writePending(v: Record<string, boolean>) {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify(v)); } catch { /* stockage indisponible */ }
+}
+
+export function pendingTirePressure(pointId: string): boolean | undefined {
+  const v = readPending()[pointId];
+  return typeof v === "boolean" ? v : undefined;
+}
+
+export function queueTirePressure(pointId: string, checked: boolean) {
+  writePending({ ...readPending(), [pointId]: checked });
+}
+
+/** Renvoie les réponses en attente ; celles qui échouent restent dans la file. */
+export async function flushPendingTirePressure(save = saveTourTirePressureChecked): Promise<number> {
+  const pending = readPending();
+  let sent = 0;
+  for (const [id, checked] of Object.entries(pending)) {
+    try {
+      await save(id, checked);
+      const now = readPending();
+      if (now[id] === checked) { delete now[id]; writePending(now); }
+      sent += 1;
+    } catch { /* reste en file */ }
+  }
+  return sent;
+}

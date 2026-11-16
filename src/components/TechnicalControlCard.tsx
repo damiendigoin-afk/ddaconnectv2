@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CT_UNAVAILABLE_SOURCE, ctPersistValues, ctUnavailableNote, firstValidCtDate, mergeCtComment } from "@/lib/ct";
 import { ocrTechnicalControl } from "@/lib/ocr.functions";
+import { checkCtSave, ctSaveSource, CT_SOURCE_CORRECTED, type CtProvenance } from "@/lib/ct-ocr";
 import { blobToDataUrl, compressImage, uploadPhoto } from "@/lib/photo";
 
 
@@ -17,6 +18,14 @@ type CtRead = {
   ct_due_date?: string | null;
   pollution_due_date?: string | null;
   vehicle_kind?: "vp" | "vu";
+};
+
+const fr = (d: string) => (d ? d.split("-").reverse().join("/") : "—");
+const PATH_LABEL: Record<CtProvenance["path"], string> = {
+  vision_photo: "lecture visuelle de la photo",
+  regles_texte: "texte du document",
+  ia_texte: "texte reconnu (sans la photo)",
+  echec: "lecture impossible",
 };
 
 export function TechnicalControlCard({
@@ -50,25 +59,30 @@ export function TechnicalControlCard({
   const gallery = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const readCtDocument = useServerFn(ocrTechnicalControl);
+  // Date enregistrée (connue) et brouillon saisi : le brouillon n'est JAMAIS enregistré sans clic explicite.
+  const [savedCt, setSavedCt] = useState(firstValidCtDate(initialCt) ?? "");
   const [ctDate, setCtDate] = useState(firstValidCtDate(initialCt) ?? "");
   const [pollutionDate, setPollutionDate] = useState(firstValidCtDate(initialPollution) ?? "");
   const [isUtility, setIsUtility] = useState(Boolean(initialPollution));
   const [busy, setBusy] = useState(false);
   const [photoKey, setPhotoKey] = useState(0);
-  const [proposal, setProposal] = useState<{ ct: string; pollution: string; originalCt: string; originalPollution: string } | null>(null);
+  const [proposal, setProposal] = useState<{ ct: string; pollution: string; provenance: CtProvenance | null } | null>(null);
+  const [lastOcr, setLastOcr] = useState<{ ct: string; provenance: CtProvenance | null } | null>(null);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [confirmAsk, setConfirmAsk] = useState<{ ct: string; pollution: string; warnings: string[] } | null>(null);
   const [readMessage, setReadMessage] = useState("");
   const reading = useRef(false);
   const saving = useRef(false);
-  const saved = useRef({ ct: firstValidCtDate(initialCt) ?? "", pollution: firstValidCtDate(initialPollution) ?? "" });
 
   useEffect(() => {
     if (reading.current || saving.current) return;
     const ct = firstValidCtDate(initialCt) ?? "";
-    const pollution = firstValidCtDate(initialPollution) ?? "";
+    setSavedCt(ct);
     setCtDate(ct);
-    setPollutionDate(pollution);
-    saved.current = { ct, pollution };
+    setPollutionDate(firstValidCtDate(initialPollution) ?? "");
   }, [initialCt, initialPollution]);
+
+  useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
 
   async function refresh() {
     await Promise.all([
@@ -83,7 +97,9 @@ export function TechnicalControlCard({
     reading.current = true;
     setBusy(true);
     setProposal(null);
+    setConfirmAsk(null);
     setReadMessage("");
+    try { setPhotoUrl(URL.createObjectURL(file)); } catch { /* aperçu facultatif */ }
     let photoSaved = false;
     try {
       const media = await uploadPhoto(file, `tours/${tourId}/controle-technique`, {
@@ -97,21 +113,22 @@ export function TechnicalControlCard({
       if (linkError) throw linkError;
       const scan = await compressImage(file, 1600, 0.82);
       const dataUrl = await blobToDataUrl(scan);
+      // Photo : la vision lit l'image ; le texte local n'est qu'une aide secondaire.
       const text = await localDocText(dataUrl).catch(() => "");
       const result = await readCtDocument({ data: { text, dataUrl, filename: file.name } });
+      const provenance = (result as { provenance?: CtProvenance }).provenance ?? null;
       if (!result.ok) {
-        setReadMessage("Photo enregistrée. Échéance non lue : saisissez ou corrigez la date manuellement.");
+        setLastOcr({ ct: "", provenance });
+        setReadMessage("Photo enregistrée. Échéance non lue : saisissez la date du CT puis « Enregistrer cette date ».");
         return;
       }
       const parsed = JSON.parse(result.json) as CtRead;
-      const readCt = firstValidCtDate(parsed.ct_due_date);
-      const readPollution = firstValidCtDate(parsed.pollution_due_date);
-      // Lecture vide : on conserve la date déjà connue (point ou fiche véhicule).
-      const nextCt = readCt ?? ctDate;
-      const nextPollution = readPollution ?? pollutionDate;
-      setIsUtility(parsed.vehicle_kind === "vu" || Boolean(nextPollution));
-      if (readCt || readPollution) setProposal({ ct: nextCt, pollution: nextPollution, originalCt: nextCt, originalPollution: nextPollution });
-      setReadMessage(readCt ? "Échéance lue — à confirmer." : "Photo enregistrée. Échéance CT non lue : date existante conservée, saisie manuelle possible.");
+      const readCt = firstValidCtDate(parsed.ct_due_date) ?? "";
+      const readPollution = firstValidCtDate(parsed.pollution_due_date) ?? "";
+      setLastOcr({ ct: readCt, provenance });
+      if (parsed.vehicle_kind === "vu" || readPollution) setIsUtility(true);
+      if (readCt || readPollution) setProposal({ ct: readCt, pollution: readPollution, provenance });
+      setReadMessage(readCt ? "Date proposée par la lecture automatique — comparez avec la photo avant de confirmer." : "Photo enregistrée. Échéance CT non lue : date existante conservée, saisie manuelle possible.");
     } catch (error) {
       console.error(error);
       const message = photoSaved
@@ -126,40 +143,28 @@ export function TechnicalControlCard({
     }
   }
 
-  async function persist(
-    ct: string,
-    pollution: string,
-    mediaId?: string,
-    manual = true,
-    commentCt = ct,
-    commentPollution = pollution,
-  ) {
-    const values = ctPersistValues(ct, pollution, manual);
+  async function persist(ct: string, pollution: string, source: string) {
+    const values = ctPersistValues(ct, pollution, false);
     const now = new Date().toISOString();
-    // Le commentaire du point reprend la date structurée : partie automatique
-    // régénérée sans doublon, commentaire manuel conservé.
+    const corrected = source === CT_SOURCE_CORRECTED;
     const { data: current, error: commentError } = await supabase
       .from("inspection_points")
       .select("comment")
       .eq("id", pointId)
       .maybeSingle();
     if (commentError) throw commentError;
+    const ocrMeta = lastOcr ? { ...(lastOcr.provenance ?? {}), proposed: Boolean(lastOcr.ct), final_differs: Boolean(lastOcr.ct) && lastOcr.ct !== ct } : null;
     const pointPatch = {
       ...values,
       ct_read_at: now,
-      ct_source: manual ? "manuel" : "ocr",
-      ct_manually_corrected: manual,
-      comment: mergeCtComment(current?.comment ?? "", commentCt, commentPollution),
+      ct_source: source,
+      ct_manually_corrected: corrected,
+      ...(lastOcr ? { ct_ocr_date: lastOcr.ct || null, ct_ocr_meta: ocrMeta } : {}),
+      comment: mergeCtComment(current?.comment ?? "", ct, pollution),
     };
-    const vehiclePatch = {
-      ...values,
-      ...(mediaId ? { ct_photo_media_id: mediaId } : {}),
-      ct_read_at: now,
-      ct_source: manual ? "manuel" : "ocr",
-      ct_manually_corrected: manual,
-    };
+    const vehiclePatch = { ...values, ct_read_at: now, ct_source: source, ct_manually_corrected: corrected };
     const [{ error: pointError }, { error: vehicleError }] = await Promise.all([
-      supabase.from("inspection_points").update(pointPatch).eq("id", pointId),
+      supabase.from("inspection_points").update(pointPatch as never).eq("id", pointId),
       supabase.from("vehicles").update(vehiclePatch).eq("id", vehicleId),
     ]);
     if (pointError) throw pointError;
@@ -167,39 +172,31 @@ export function TechnicalControlCard({
     await refresh();
   }
 
-  // Saisie manuelle : enregistrée dès qu'une date complète est choisie (le
-  // sélecteur Android ne déclenche pas toujours la perte de focus), puis au blur.
-  async function saveManual(ct: string, pollution: string) {
+  async function commit(ct: string, pollution: string) {
     if (saving.current || reading.current) return;
-    if (saved.current.ct === ct && saved.current.pollution === pollution) return;
-    saving.current = true;
-    try {
-      setBusy(true);
-      await persist(ct, pollution);
-      saved.current = { ct, pollution };
-    } catch (error) {
-      console.error(error);
-      toast.error("Échéance CT non enregistrée. Vérifiez la connexion puis ressaisissez la date.");
-    } finally {
-      setBusy(false);
-      saving.current = false;
-    }
-  }
-
-  async function confirmExplicit(ct: string) {
-    if (saving.current || reading.current || !firstValidCtDate(ct)) return;
     saving.current = true;
     setBusy(true);
     try {
-      await persist(ct, pollutionDate);
-      saved.current = { ct, pollution: pollutionDate };
+      const source = ctSaveSource({ finalCt: ct, ocrCt: lastOcr?.ct ?? null, existingCt: savedCt });
+      await persist(ct, pollution, source);
+      setSavedCt(ct);
       setCtDate(ct);
+      setPollutionDate(pollution);
       setProposal(null);
-      setReadMessage("Échéance confirmée et enregistrée.");
+      setConfirmAsk(null);
+      setReadMessage(`Échéance du ${fr(ct)} enregistrée.`);
     } catch (error) {
       console.error(error);
-      toast.error("Échéance CT non enregistrée. Réessayez la confirmation.");
+      toast.error("Échéance CT non enregistrée. Vérifiez la connexion puis réessayez.");
     } finally { setBusy(false); saving.current = false; }
+  }
+
+  /** « Enregistrer cette date » : seul déclencheur d'enregistrement d'une saisie manuelle. */
+  function requestSave(ct: string, pollution: string) {
+    const check = checkCtSave({ finalCt: ct, ocrCt: lastOcr?.ct ?? null });
+    if (!check.ok) { setReadMessage(check.error); return; }
+    if (check.warnings.length) { setConfirmAsk({ ct, pollution, warnings: check.warnings }); return; }
+    void commit(ct, pollution);
   }
 
   async function declareUnavailable() {
@@ -236,13 +233,13 @@ export function TechnicalControlCard({
           <p className="text-sm font-extrabold uppercase text-status-defect">Échéance CT à confirmer avant de continuer</p>
           <p className="text-xs text-status-defect">La photo ou le statut OK ne suffisent pas : confirmez la date, saisissez-la ou déclarez-la illisible.</p>
           {proposal ? (
-            <p className="text-sm font-semibold">Date lue : {proposal.ct ? proposal.ct.split("-").reverse().join("/") : "—"} — utilisez « Confirmer l’échéance CT » ci-dessous.</p>
+            <p className="text-sm font-semibold">Date proposée : {fr(proposal.ct)} — comparez avec la photo puis confirmez ci-dessous.</p>
           ) : firstValidCtDate(ctDate) ? (
-            <Button type="button" disabled={busy} className="h-auto w-full whitespace-normal py-3 font-bold" onClick={() => void confirmExplicit(ctDate)}>
-              <Check /> Confirmer l’échéance CT du {ctDate.split("-").reverse().join("/")}
+            <Button type="button" disabled={busy} className="h-auto w-full whitespace-normal py-3 font-bold" onClick={() => requestSave(ctDate, pollutionDate)}>
+              <Check /> Confirmer l’échéance CT du {fr(ctDate)}
             </Button>
           ) : (
-            <p className="text-sm font-semibold">Aucune date lue : saisissez la date dans « Prochaine échéance CT » ci-dessous.</p>
+            <p className="text-sm font-semibold">Aucune date lue : saisissez la date ci-dessous puis « Enregistrer cette date ».</p>
           )}
           {unavailableAsk ? (
             <div className="space-y-2 rounded-lg border-2 border-status-watch bg-card p-2">
@@ -292,71 +289,56 @@ export function TechnicalControlCard({
       }} />
       <p className="text-xs text-muted-foreground">Vignette ou photo du procès-verbal de contrôle technique</p>
       {readMessage ? <p role="status" className="text-sm font-semibold">{readMessage}</p> : null}
-      {proposal ? <div className="space-y-2 border-l-2 border-primary pl-3">
-        <label className="block text-sm font-semibold">Échéance CT lue
-          <input type="date" disabled={busy} value={proposal.ct} onChange={(event) => setProposal({ ...proposal, ct: event.target.value })} className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground" />
-        </label>
-        {isUtility ? <label className="block text-sm font-semibold">Échéance pollution lue
-          <input type="date" disabled={busy} value={proposal.pollution} onChange={(event) => setProposal({ ...proposal, pollution: event.target.value })} className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground" />
-        </label> : null}
-        <Button type="button" disabled={busy} onClick={() => {
-          if (saving.current) return;
-          saving.current = true;
-          void (async () => {
-            setBusy(true);
-            try {
-              const corrected = proposal.ct !== proposal.originalCt || proposal.pollution !== proposal.originalPollution;
-              await persist(proposal.ct, proposal.pollution, undefined, corrected, proposal.ct || ctDate, proposal.pollution || pollutionDate);
-              const ct = corrected ? proposal.ct : proposal.ct || ctDate;
-              const pollution = corrected ? proposal.pollution : proposal.pollution || pollutionDate;
-              setCtDate(ct);
-              setPollutionDate(pollution);
-              saved.current = { ct, pollution };
-              setProposal(null);
-              setReadMessage("Échéance confirmée et enregistrée.");
-            } catch {
-              toast.error("Échéance CT non enregistrée. Réessayez la confirmation.");
-            } finally { setBusy(false); saving.current = false; }
-          })();
-        }}><Check /> Confirmer l’échéance CT</Button>
-        <Button type="button" variant="ghost" disabled={busy} onClick={() => setProposal(null)}>Ignorer la lecture</Button>
+      {confirmAsk ? (
+        <div role="alertdialog" aria-label="Confirmer la date CT" className="space-y-2 rounded-xl border-2 border-status-watch bg-status-watch-soft p-3">
+          {confirmAsk.warnings.map((w) => <p key={w} className="text-sm font-semibold">{w}</p>)}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button type="button" disabled={busy} className="h-auto whitespace-normal py-3 font-bold" onClick={() => void commit(confirmAsk.ct, confirmAsk.pollution)}>Oui, enregistrer le {fr(confirmAsk.ct)}</Button>
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirmAsk(null)}>Annuler</Button>
+          </div>
+        </div>
+      ) : null}
+      {proposal ? <div className="space-y-2 rounded-xl border-2 border-primary p-3" data-testid="ct-proposal">
+        <div className="flex gap-3">
+          {photoUrl ? <img src={photoUrl} alt="Photo du contrôle technique" className="h-28 w-28 shrink-0 rounded-lg border object-contain" /> : null}
+          <div className="space-y-1">
+            <p className="text-xs font-bold uppercase text-muted-foreground">Date proposée (à vérifier sur la photo)</p>
+            <p className="text-2xl font-extrabold">{fr(proposal.ct)}</p>
+            {isUtility && proposal.pollution ? <p className="text-sm">Pollution : {fr(proposal.pollution)}</p> : null}
+            {proposal.provenance ? <p className="text-xs text-muted-foreground">Source : {PATH_LABEL[proposal.provenance.path]}{proposal.provenance.confidence != null ? ` · confiance annoncée ${Math.round(proposal.provenance.confidence * 100)} %` : ""} — proposition, pas une preuve.</p> : null}
+          </div>
+        </div>
+        {proposal.ct ? <Button type="button" disabled={busy} className="h-auto w-full whitespace-normal py-3 font-bold" onClick={() => requestSave(proposal.ct, proposal.pollution || pollutionDate)}>
+          <Check /> Confirmer le {fr(proposal.ct)} (lu sur la photo)
+        </Button> : null}
+        <Button type="button" variant="ghost" disabled={busy} onClick={() => setProposal(null)}>La date est fausse : je la corrige ci-dessous</Button>
       </div> : null}
-      <label className="block text-xs font-bold uppercase text-muted-foreground">
-        Prochaine échéance CT
-        <input
-          type="date"
-          disabled={busy}
-          value={ctDate}
-          onChange={(event) => {
-            const v = event.target.value;
-            setCtDate(v);
-            if (!v || firstValidCtDate(v)) void saveManual(v, pollutionDate);
-          }}
-          onBlur={() => void saveManual(ctDate, pollutionDate)}
-          className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground"
-        />
-      </label>
-      <label className="flex items-center gap-2 text-sm font-semibold">
-        <input type="checkbox" disabled={busy} checked={isUtility} onChange={(event) => setIsUtility(event.target.checked)} />
-        Véhicule utilitaire — contrôle pollution
-      </label>
-      {isUtility ? (
+      <div className="space-y-2 rounded-xl border-2 border-border p-3">
         <label className="block text-xs font-bold uppercase text-muted-foreground">
-          Prochaine échéance pollution
+          Prochaine échéance CT {savedCt ? `(enregistrée : ${fr(savedCt)})` : "(aucune enregistrée)"}
           <input
             type="date"
             disabled={busy}
-            value={pollutionDate}
-            onChange={(event) => {
-              const v = event.target.value;
-              setPollutionDate(v);
-              if (!v || firstValidCtDate(v)) void saveManual(ctDate, v);
-            }}
-            onBlur={() => void saveManual(ctDate, pollutionDate)}
+            value={ctDate}
+            onChange={(event) => setCtDate(event.target.value)}
             className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground"
           />
         </label>
-      ) : null}
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" disabled={busy} checked={isUtility} onChange={(event) => setIsUtility(event.target.checked)} />
+          Véhicule utilitaire — contrôle pollution
+        </label>
+        {isUtility ? (
+          <label className="block text-xs font-bold uppercase text-muted-foreground">
+            Prochaine échéance pollution
+            <input type="date" disabled={busy} value={pollutionDate} onChange={(event) => setPollutionDate(event.target.value)} className="mt-1 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-foreground" />
+          </label>
+        ) : null}
+        <Button type="button" variant="outline" disabled={busy || !ctDate} className="h-auto w-full whitespace-normal py-3 font-bold" onClick={() => requestSave(ctDate, isUtility ? pollutionDate : "")}>
+          Enregistrer cette date
+        </Button>
+        <p className="text-xs text-muted-foreground">Le calendrier seul n’enregistre rien : vérifiez la date puis appuyez sur « Enregistrer cette date ».</p>
+      </div>
       <PhotoManager key={photoKey} compact captureEnabled={false} folder={`tours/${tourId}/controle-technique`} links={{ inspection_id: tourId, inspection_point_id: pointId }} />
     </div>
   );

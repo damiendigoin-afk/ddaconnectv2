@@ -38,8 +38,20 @@ export function mergeTourTireAnalysis(current: unknown, next: unknown): Record<s
   return merged;
 }
 
-export function tirePressureReportLabel(value: unknown): "Pression vérifiée : Oui" | "Pression vérifiée : Non confirmée" {
-  return isTirePressureChecked(value) ? "Pression vérifiée : Oui" : "Pression vérifiée : Non confirmée";
+export type TirePressureState = "checked" | "unchecked" | "unset";
+
+/** Réponse explicite par roue : true = contrôlée, false = non contrôlée, absente = non renseignée (jamais « contrôlée »). */
+export function tirePressureState(value: unknown): TirePressureState {
+  const v = analysisRecord(value)["pressure_checked"];
+  return v === true ? "checked" : v === false ? "unchecked" : "unset";
+}
+
+export type TirePressureLabel = "Pression vérifiée : Oui" | "Pression vérifiée : Non contrôlée" | "Pression vérifiée : Non renseignée";
+
+/** Libellé rapport/PDF : n'affirme jamais une mesure, seulement la déclaration de l'opérateur. */
+export function tirePressureReportLabel(value: unknown): TirePressureLabel {
+  const s = tirePressureState(value);
+  return s === "checked" ? "Pression vérifiée : Oui" : s === "unchecked" ? "Pression vérifiée : Non contrôlée" : "Pression vérifiée : Non renseignée";
 }
 
 /** Toujours dans l'ordre AVG, AVD, ARG, ARD ; aucune ligne n'est créée pour un autre contrôle. */

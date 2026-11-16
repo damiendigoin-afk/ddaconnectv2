@@ -34,7 +34,7 @@ export type OrConfirmState = {
 export type OrConfirmInput = { data: OrScanData; doubts: OrScanDoubt[]; orNumber: string | null; ix: IxellioCross | null };
 
 /** Doutes qui relèvent de la case « J'ai vérifié » (jamais VIN ni dates). */
-export const isGenericDoubt = (d: OrScanDoubt) => (d.blocking || d.code === "plate_two_readings") && d.field !== "vin" && d.field !== "first_registration";
+export const isGenericDoubt = (d: OrScanDoubt) => (d.blocking || d.code === "plate_two_readings") && (d.code === "vin_invalid" || (d.field !== "vin" && d.field !== "first_registration"));
 
 export function resolveOrConfirm(p: OrConfirmInput, s: OrConfirmState, today = new Date().toISOString().slice(0, 10)):
   { ok: true; data: OrScanData } | { ok: false; error: string; needsCheck?: boolean } {

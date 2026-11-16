@@ -3673,6 +3673,8 @@ export type Database = {
           created_at: string
           ct_due_date: string | null
           ct_manually_corrected: boolean
+          ct_ocr_date: string | null
+          ct_ocr_meta: Json | null
           ct_read_at: string | null
           ct_source: string | null
           id: string
@@ -3701,6 +3703,8 @@ export type Database = {
           created_at?: string
           ct_due_date?: string | null
           ct_manually_corrected?: boolean
+          ct_ocr_date?: string | null
+          ct_ocr_meta?: Json | null
           ct_read_at?: string | null
           ct_source?: string | null
           id?: string
@@ -3729,6 +3733,8 @@ export type Database = {
           created_at?: string
           ct_due_date?: string | null
           ct_manually_corrected?: boolean
+          ct_ocr_date?: string | null
+          ct_ocr_meta?: Json | null
           ct_read_at?: string | null
           ct_source?: string | null
           id?: string

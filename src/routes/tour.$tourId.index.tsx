@@ -21,8 +21,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { analyzeTourTires } from "@/lib/tour-tire-analysis.functions";
 import { legacyTireAnalysis, TOUR_TIRE_KEYS, type TourTireKey } from "@/lib/tour-tire-analysis";
 import { buildTireCorrections, preloadTireEdit, type TireEditState, type TirePointLike } from "@/lib/tour-tire-correction";
-import { mergeTourTireAnalysis } from "@/lib/tour-tire-pressure";
-import { updateTourTireAnalysis } from "@/lib/tour-tire-persistence";
+import { mergeTourTireAnalysis, tirePressureState } from "@/lib/tour-tire-pressure";
+import { pendingTirePressure, queueTirePressure, saveTourTirePressureChecked, updateTourTireAnalysis } from "@/lib/tour-tire-persistence";
 import type { TireStepResult } from "@/lib/tire-step";
 import type { TireLabelAi } from "@/lib/tire-types";
 import { StatusBadge, StatusPicker, type PointStatus } from "@/components/StatusPicker";
@@ -360,7 +360,31 @@ function Guided(props: SharedProps) {
   const ctConfirmed = !ctPoint || isCtConfirmed(ctPoint as unknown as Parameters<typeof isCtConfirmed>[0]);
   const [ctGate, setCtGate] = useState(0);
   const [pendingNav, setPendingNav] = useState<null | { kind: "goto"; position: number } | { kind: "finish" }>(null);
+  // Pneus : la question « pression » doit avoir une réponse explicite avant de quitter
+  // l'étape ; « Non contrôlée » est une réponse acceptée, jamais bloquante.
+  const unansweredTires = zonePoints.filter((p) => {
+    if (zoneDef.points.find((d) => d.key === p.point_key)?.special !== "tire") return false;
+    const pending = pendingTirePressure(p.id);
+    if (pending !== undefined) return false;
+    return tirePressureState((p as unknown as { tire_analysis?: unknown }).tire_analysis) === "unset";
+  });
+  const [pressureAsk, setPressureAsk] = useState<null | { kind: "goto"; position: number } | { kind: "finish" }>(null);
+  async function markUncheckedAndContinue() {
+    const next = pressureAsk;
+    for (const p of unansweredTires) {
+      try { await saveTourTirePressureChecked(p.id, false); }
+      catch (error) {
+        if (typeof navigator !== "undefined" && navigator.onLine === false) queueTirePressure(p.id, false);
+        else { console.error("tour_pressure_save", { wheel: p.point_key, error }); toast.error("Réponse pression non enregistrée. Réessayez."); return; }
+      }
+    }
+    setPressureAsk(null);
+    await points.refetch();
+    if (next?.kind === "goto") void goto(next.position, true);
+    else if (next) runGlobalTireAnalysis(true);
+  }
   function guardLeave(next: { kind: "goto"; position: number } | { kind: "finish" }): boolean {
+    if (ctConfirmed && unansweredTires.length) { setPressureAsk(next); return false; }
     if (ctConfirmed) return true;
     setPendingNav(next);
     setCtGate((n) => n + 1);
@@ -383,6 +407,7 @@ function Guided(props: SharedProps) {
     if (!skipGuard && nextPosition > position && !guardLeave({ kind: "goto", position: nextPosition })) return;
     setCtGate(0);
     setPendingNav(null);
+    setPressureAsk(null);
     setZone(target.index);
     window.scrollTo({ top: 0 });
     await supabase
@@ -788,6 +813,16 @@ function Guided(props: SharedProps) {
       <p className="mb-3 text-sm text-muted-foreground">{zoneDef.hint}</p>
 
       <div className="space-y-3">
+        {pressureAsk && unansweredTires.length ? (
+          <div role="alertdialog" aria-label="Pression non renseignée" className="space-y-2 rounded-xl border-4 border-status-watch bg-status-watch-soft p-4">
+            <p className="text-base font-extrabold">Pression non renseignée : {unansweredTires.map((p) => p.point_label).join(", ")}</p>
+            <p className="text-sm">Choisissez « Pression contrôlée » ou « Non contrôlée » ci-dessous, ou continuez en déclarant la pression non contrôlée.</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => void markUncheckedAndContinue()} className="min-h-12 rounded-xl border-2 border-foreground bg-foreground px-3 py-3 font-extrabold text-background">Non contrôlée — continuer</button>
+              <button type="button" onClick={() => setPressureAsk(null)} className="min-h-12 rounded-xl border-2 border-border bg-card px-3 py-3 font-bold">Revenir à la question</button>
+            </div>
+          </div>
+        ) : null}
         {zonePoints.map((p) => {
           const def = zoneDef.points.find((d) => d.key === p.point_key);
           if (def?.special === "mileage") {
